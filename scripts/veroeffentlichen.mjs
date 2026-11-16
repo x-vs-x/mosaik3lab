@@ -61,9 +61,13 @@ const lauf = runs.find((r) => r.status === 'completed');
 if (!lauf) fail(`Für ${tag} ist der Installer-Test noch nicht fertig (oder lief nicht). Bitte warten und erneut versuchen.`);
 if (lauf.conclusion !== 'success') fail(`Der Installer-Test für ${tag} ist nicht bestanden (${lauf.conclusion}). So wird nichts veröffentlicht.`);
 const jobs = ghJson('run', 'view', String(lauf.databaseId), '--repo', PRIVAT, '--json', 'jobs').jobs;
-for (const name of ['windows', 'linux (x64)', 'linux (arm64)']) {
+// Je System gibt es einen Release-Job, der nur läuft, wenn ALLE Testrunden dieses Systems bestanden haben
+// (Runden laufen parallel: „windows (neu)“, „linux-x64 / test (altformat)“ …) – genau diese drei müssen grün sein.
+for (const name of ['windows-release', 'linux-x64 / release', 'linux-arm64 / release']) {
   if (jobs.find((j) => j.name === name)?.conclusion !== 'success') fail(`Im Installer-Test für ${tag} ist „${name}“ nicht bestanden – es wird nichts veröffentlicht.`);
 }
+const kaputt = jobs.filter((j) => !['success', 'skipped'].includes(j.conclusion)).map((j) => j.name);
+if (kaputt.length) fail(`Im Installer-Test für ${tag} sind nicht alle Läufe grün (${kaputt.join(', ')}) – es wird nichts veröffentlicht.`);
 
 // 3. Privates Release: freigegeben, alle drei Pakete mit genau dieser Version
 step(`Release ${tag} mit allen drei Paketen`);
