@@ -1,0 +1,60 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mosaik3lab",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:Path = 'C:\\Program Files\\nodejs;' + $env:Path; $env:WEB_PORT = '80'; $env:BASE_PATH = '/mosaik3lab'; $env:HMR = 'off'; npm.cmd run dev:lan"
+      ],
+      "port": 80,
+      "autoPort": false
+    },
+    {
+      "name": "server-manager",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:Path = 'C:\\Program Files\\nodejs;' + $env:Path; node manager/server.mjs"
+      ],
+      "port": 5190,
+      "autoPort": false
+    },
+    {
+      "name": "session-1",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:Path = 'C:\\Program Files\\nodejs;' + $env:Path; $env:WEB_PORT = '5181'; $env:API_PORT = '3011'; $env:STORAGE_DIR = 'C:\\Entwicklung\\_testdaten\\session-1'; npm.cmd run dev"
+      ],
+      "port": 5181,
+      "autoPort": false
+    },
+    {
+      "name": "session-2",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:Path = 'C:\\Program Files\\nodejs;' + $env:Path; $env:WEB_PORT = '5182'; $env:API_PORT = '3012'; $env:STORAGE_DIR = 'C:\\Entwicklung\\_testdaten\\session-2'; npm.cmd run dev"
+      ],
+      "port": 5182,
+      "autoPort": false
+    },
+    {
+      "name": "session-3",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-Command",
+        "$env:Path = 'C:\\Program Files\\nodejs;' + $env:Path; $env:WEB_PORT = '5183'; $env:API_PORT = '3013'; $env:STORAGE_DIR = 'C:\\Entwicklung\\_testdaten\\session-3'; npm.cmd run dev"
+      ],
+      "port": 5183,
+      "autoPort": false
+    }
+  ]
+}

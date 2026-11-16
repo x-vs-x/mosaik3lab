@@ -1,0 +1,13 @@
+{
+  "name": "@mosaik3lab/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gemeinsame Typen und Validierung (zod) für Server und Client – ohne Build, direkt als TypeScript eingebunden",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

@@ -1,0 +1,94 @@
+import type { ReactNode } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useAuth } from './auth/AuthContext';
+import { SessionPending } from './auth/SessionPending';
+import { Layout } from './components/Layout';
+import { ForbiddenPage, NotFoundPage } from './components/StatusPages';
+import { Spinner } from './components/ui';
+import { MasterDataPage } from './features/einstellungen/stammdaten/MasterDataPage';
+import { SettingsPage } from './features/einstellungen/SettingsPage';
+import { CatalogPage } from './features/katalog/CatalogPage';
+import { ItemDetailPage } from './features/katalog/ItemDetailPage';
+import { MyOrdersPage } from './features/katalog/MyOrdersPage';
+import { MyProposalsPage } from './features/vorschlaege/MyProposalsPage';
+import { ProposalFormPage } from './features/vorschlaege/ProposalFormPage';
+import { ProposalsAdminPage } from './features/verwaltung/ProposalsAdminPage';
+import { AccountPage } from './features/konto/AccountPage';
+import { LoginPage } from './features/konto/LoginPage';
+import { DashboardPage } from './features/verwaltung/DashboardPage';
+import { FilamentsPage } from './features/verwaltung/FilamentsPage';
+import { ItemEditPage } from './features/verwaltung/druckteil-bearbeiten/ItemEditPage';
+import { ItemsAdminPage } from './features/verwaltung/ItemsAdminPage';
+import { OrdersAdminPage } from './features/verwaltung/OrdersAdminPage';
+import { RequestersPage } from './features/verwaltung/RequestersPage';
+import { PersonenPage } from './features/verwaltung/PersonenPage';
+import { PasswortPage } from './features/konto/PasswortPage';
+import { useConfig } from './lib/config';
+import type { Permission } from './lib/types';
+
+/**
+ * Nur für Bereiche des Druck-Teams und der Administration.
+ * Katalog und Bestellen sind ohne Anmeldung nutzbar.
+ * (Komfort im Frontend – die eigentliche Prüfung erfolgt im Backend.)
+ */
+function Protected({ permission, children }: { permission?: Permission; children: ReactNode }) {
+  const { user, loading, checkError, loggedOut, can } = useAuth();
+  const location = useLocation();
+  // Server nicht erreichbar ≠ abgemeldet: dann nicht zur Anmeldung umleiten, sondern Hinweis + „Erneut versuchen“.
+  if (loading || (checkError && !user)) return <SessionPending />;
+  if (!user) {
+    const state = loggedOut ? undefined : { from: location.pathname + location.search };
+    return <Navigate to="/login" replace state={state} />;
+  }
+  if (permission && !can(permission)) return <ForbiddenPage />;
+  return children;
+}
+
+/** „Meine Anfragen“ für angemeldete Lehrkräfte oder wenn die Statusanzeige (per Code) eingeschaltet ist. */
+function MyOrdersAccess({ children }: { children: ReactNode }) {
+  const { config, error } = useConfig();
+  const { user, loading, checkError, can } = useAuth();
+  if (loading || (checkError && !user)) return <SessionPending />;
+  if (!config) return error ? null : <Spinner />; // Fehler zeigt das Layout (mit „Erneut versuchen“)
+  return can('orders:own') || config.features.requesterTracking ? children : <Navigate to="/katalog" replace />;
+}
+
+/** Startadresse: ohne Anmeldung zur Anmeldeseite, angemeldet in den Katalog. */
+function Start() {
+  const { user, loading, checkError } = useAuth();
+  if (loading || (checkError && !user)) return <SessionPending />;
+  return <Navigate to={user ? '/katalog' : '/login'} replace />;
+}
+
+export function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/passwort" element={<PasswortPage />} />
+      <Route element={<Layout />}>
+        <Route index element={<Start />} />
+        <Route path="katalog" element={<CatalogPage />} />
+        <Route path="katalog/:id" element={<ItemDetailPage />} />
+        <Route path="anfragen" element={<MyOrdersAccess><MyOrdersPage /></MyOrdersAccess>} />
+        <Route path="vorschlag/neu" element={<Protected permission="vorschlaege:eigene"><ProposalFormPage /></Protected>} />
+        <Route path="vorschlaege" element={<Protected permission="vorschlaege:eigene"><MyProposalsPage /></Protected>} />
+        <Route path="konto" element={<Protected><AccountPage /></Protected>} />
+
+        <Route path="verwaltung" element={<Protected permission="dashboard:view"><DashboardPage /></Protected>} />
+        <Route path="verwaltung/bestellungen" element={<Protected permission="orders:view"><OrdersAdminPage /></Protected>} />
+        <Route path="verwaltung/vorschlaege" element={<Protected permission="vorschlaege:sehen"><ProposalsAdminPage /></Protected>} />
+        <Route path="verwaltung/lehrkraefte" element={<Protected permission="orders:view"><RequestersPage /></Protected>} />
+        <Route path="verwaltung/filamente" element={<Protected permission="filaments:manage"><FilamentsPage /></Protected>} />
+        <Route path="verwaltung/hilfsmittel" element={<Protected permission="catalog:view"><ItemsAdminPage /></Protected>} />
+        <Route path="verwaltung/hilfsmittel/neu" element={<Protected permission="catalog:manage"><ItemEditPage /></Protected>} />
+        <Route path="verwaltung/hilfsmittel/:id" element={<Protected permission="catalog:manage"><ItemEditPage /></Protected>} />
+        <Route path="verwaltung/personen" element={<Protected permission="users:manage"><PersonenPage /></Protected>} />
+        <Route path="verwaltung/benutzer" element={<Navigate to="/verwaltung/personen" replace />} />
+        <Route path="verwaltung/stammdaten" element={<Protected permission="masterdata:manage"><MasterDataPage /></Protected>} />
+        <Route path="verwaltung/einstellungen" element={<Protected permission="settings:manage"><SettingsPage /></Protected>} />
+
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
+  );
+}

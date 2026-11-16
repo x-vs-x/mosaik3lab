@@ -1,0 +1,299 @@
+# Installer-Test auf frischen Rechnern (Windows, Linux x64, Linux arm64 = Raspberry Pi OS 64 Bit): Paket bauen, echt
+# installieren, aktualisieren, deinstallieren. Die Linux-Pakete gibt es danach als Artifact zum Herunterladen.
+# Läuft nur von Hand (gh workflow run installer-test.yml) oder bei Push auf installer-test/** – nicht bei jedem Push
+# auf main (Windows-Minuten zählen im privaten Repo doppelt). Beschreibung: docs/INSTALLATION.md
+name: Installer-Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['installer-test/**']
+
+jobs:
+  windows:
+    # „[nur-linux]“ in der Commit-Nachricht spart beim Arbeiten an den Linux-Jobs die (doppelt zählenden) Windows-Minuten
+    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PAKETE: ${{ github.workspace }}\..\pakete
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Paket bauen
+        run: npm run paket -- "$env:PAKETE"
+
+      - name: Paket entpacken
+        run: |
+          $zip = Get-ChildItem "$env:PAKETE\Mosaik3LAB-Installer-*.zip" | Select-Object -First 1
+          New-Item -ItemType Directory "$env:PAKETE\v1" | Out-Null
+          & "$env:SystemRoot\System32\tar.exe" -xf $zip.FullName -C "$env:PAKETE\v1"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          # zweite Kopie mit anderem Commit in paket.json = „neue Version“ für den Update-Test
+          Copy-Item "$env:PAKETE\v1" "$env:PAKETE\v2" -Recurse
+          $p = Get-Content "$env:PAKETE\v2\paket.json" -Raw | ConvertFrom-Json
+          $p.commit = "$($p.commit)u"
+          $p | ConvertTo-Json | Set-Content "$env:PAKETE\v2\paket.json" -Encoding utf8
+          # v3 = absichtlich kaputtes Update: spielt eine neue Migration ein und beendet sich dann (nur diese Testkopie ist
+          # verändert – im Programm gibt es dafür keinen Schalter). v0 = älteres Paket: kennt die neueste Migration nicht.
+          $mig = 'server\src\storage\sqlite\migrations'
+          $letzte = Get-ChildItem "$env:PAKETE\v1\$mig" -Filter '*.sql' | Sort-Object Name | Select-Object -Last 1
+          foreach ($v in 'v3', 'v0') {
+            Copy-Item "$env:PAKETE\v1" "$env:PAKETE\$v" -Recurse
+            $p = Get-Content "$env:PAKETE\$v\paket.json" -Raw | ConvertFrom-Json
+            $p.commit = "$($p.commit)$(if ($v -eq 'v3') { 'kaputt' } else { 'alt' })"
+            $p | ConvertTo-Json | Set-Content "$env:PAKETE\$v\paket.json" -Encoding utf8
+          }
+          Set-Content "$env:PAKETE\v3\$mig\$('{0:d3}' -f ([int]$letzte.Name.Substring(0, 3) + 1))_ci_kaputt.sql" 'CREATE TABLE ci_kaputt (x INTEGER);' -Encoding utf8
+          $index = "$env:PAKETE\v3\server\src\index.ts"
+          $alt = 'const { app, close } = await createApp(config);'
+          $text = Get-Content $index -Raw
+          if (-not $text.Contains($alt)) { throw "Ankerzeile fehlt in $index" }
+          Set-Content $index $text.Replace($alt, "$alt`nconsole.error('CI-Test: absichtlich kaputtes Paket');`nprocess.exit(3);") -Encoding utf8
+          Remove-Item "$env:PAKETE\v0\$mig\$($letzte.Name)"
+
+      # Das Runner-Abbild hat einen Webserver (IIS/http.sys) auf Port 80 – auf dem Schulrechner gibt es den nicht
+      - name: Port 80 freimachen (nur Runner)
+        run: |
+          Get-NetTCPConnection -LocalPort 80 -State Listen -ErrorAction SilentlyContinue | Format-Table LocalAddress, OwningProcess
+          foreach ($s in 'W3SVC', 'WAS', 'IISADMIN') { if (Get-Service $s -ErrorAction SilentlyContinue) { Stop-Service $s -Force; Write-Host "gestoppt: $s" } }
+          netsh http show servicestate view=requestq
+          Get-NetTCPConnection -LocalPort 80 -State Listen -ErrorAction SilentlyContinue | Format-Table LocalAddress, OwningProcess
+
+      - name: Installieren (Installieren.cmd /still)
+        shell: cmd
+        run: call "%PAKETE%\v1\Installieren.cmd" /still
+
+      - name: Prüfen nach der Installation
+        run: .github/installer-test/pruefen.ps1 installiert
+
+      - name: Testdaten anlegen
+        run: .github/installer-test/pruefen.ps1 marker
+
+      - name: Aktualisieren (Installieren.cmd /still, neue Version)
+        shell: cmd
+        run: call "%PAKETE%\v2\Installieren.cmd" /still
+
+      - name: Prüfen nach dem Update
+        run: |
+          foreach ($p in 'installiert', 'erhalten') { .github/installer-test/pruefen.ps1 $p; if ($LASTEXITCODE) { exit 1 } }
+          # aktive Version merken: nach Rückfall und abgelehntem Downgrade muss genau sie wieder laufen
+          "ERWARTET=$((Get-Content "$env:ProgramFiles\Mosaik3LAB\current\.release.json" -Raw | ConvertFrom-Json).id)" >> $env:GITHUB_ENV
+
+      # Rückfall: das kaputte Update muss mit Fehler enden und automatisch auf die vorige Version zurückschalten
+      - name: Rückfall-Test (kaputtes Update installieren)
+        shell: cmd
+        run: |
+          call "%PAKETE%\v3\Installieren.cmd" /still > "%RUNNER_TEMP%\v3.txt" 2>&1
+          set RC=%ERRORLEVEL%
+          type "%RUNNER_TEMP%\v3.txt"
+          if "%RC%"=="0" (echo FEHLER: das kaputte Update endete mit Exit 0& exit /b 1)
+          findstr /c:"automatisch auf" "%RUNNER_TEMP%\v3.txt" >nul || (echo FEHLER: keine Meldung zum Rueckfall& exit /b 1)
+          echo OK   kaputtes Update endete mit Exit %RC% und hat zurueckgeschaltet
+
+      - name: Prüfen nach dem Rückfall
+        run: foreach ($p in 'installiert', 'erhalten', 'zurueck') { .github/installer-test/pruefen.ps1 $p; if ($LASTEXITCODE) { exit 1 } }
+
+      # Downgrade: ein älteres Paket (kennt die neueste Migration nicht) muss vor jeder Änderung abgelehnt werden
+      - name: Downgrade-Test (älteres Paket installieren)
+        shell: cmd
+        run: |
+          call "%PAKETE%\v0\Installieren.cmd" /still > "%RUNNER_TEMP%\v0.txt" 2>&1
+          set RC=%ERRORLEVEL%
+          type "%RUNNER_TEMP%\v0.txt"
+          if "%RC%"=="0" (echo FEHLER: das aeltere Paket wurde installiert& exit /b 1)
+          findstr /c:"Downgrade verweigert" "%RUNNER_TEMP%\v0.txt" >nul || (echo FEHLER: keine Meldung Downgrade verweigert& exit /b 1)
+          echo OK   aelteres Paket abgelehnt, Exit %RC%
+
+      - name: Prüfen nach dem abgelehnten Downgrade
+        run: foreach ($p in 'installiert', 'zurueck') { .github/installer-test/pruefen.ps1 $p; if ($LASTEXITCODE) { exit 1 } }
+
+      - name: Deinstallieren (Daten behalten)
+        working-directory: ${{ runner.temp }}
+        run: |
+          $p = Join-Path $env:ProgramFiles 'Mosaik3LAB\current'
+          & "$p\node\node.exe" "$p\manager\cli.mjs" uninstall --yes
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Prüfen nach der Deinstallation
+        run: .github/installer-test/pruefen.ps1 deinstalliert
+
+      # Erst nach der Deinstallation: die Tests stoppen sonst u. a. den Backup-Dienst der Installation
+      - name: npm run manager:test
+        timeout-minutes: 5 # dauert unter Windows sonst etwa 2 Minuten
+        run: npm run manager:test
+
+      - name: Logs sammeln
+        if: failure()
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\logs" | Out-Null
+          Get-ChildItem C:\Mosaik3LAB\logs -Recurse -File -ErrorAction SilentlyContinue | Copy-Item -Destination "$env:RUNNER_TEMP\logs"
+          # Dienstdateien, install.json, Manifest (ohne releases\…\node_modules)
+          Get-ChildItem (Join-Path $env:ProgramFiles 'Mosaik3LAB') -Recurse -Depth 1 -Include *.log, *.xml, *.json -ErrorAction SilentlyContinue | Copy-Item -Destination "$env:RUNNER_TEMP\logs" -ErrorAction SilentlyContinue
+          Get-CimInstance Win32_Service -Filter "Name LIKE 'mosaik3lab-%'" | Format-Table Name, State, StartMode, PathName -AutoSize | Out-String -Width 300 | Set-Content "$env:RUNNER_TEMP\logs\dienste.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: installer-logs
+          path: ${{ runner.temp }}/logs
+          if-no-files-found: ignore
+
+  # Linux x64 und Raspberry Pi (arm64, wie Raspberry Pi OS 64 Bit): Paket auf dem Zielsystem bauen (native node_modules
+  # wie esbuild passen dann), als Artifact zum Herunterladen hochladen, echt installieren, aktualisieren, deinstallieren.
+  linux:
+    name: linux (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            os: ubuntu-latest
+          - arch: arm64
+            os: ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: echo "PAKETE=$RUNNER_TEMP/pakete" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Paket bauen
+        run: npm run paket -- "$PAKETE"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mosaik3LAB-Installer-linux-${{ matrix.arch }}
+          path: ${{ runner.temp }}/pakete/Mosaik3LAB-Installer-*.tar.gz
+          compression-level: 0
+          retention-days: 30
+
+      - name: Paket entpacken
+        run: |
+          paket=$(ls "$PAKETE"/Mosaik3LAB-Installer-*-linux-${{ matrix.arch }}.tar.gz | head -1)
+          mkdir "$PAKETE/v1"
+          tar xzf "$paket" -C "$PAKETE/v1"
+          name=$(basename "$paket" .tar.gz)
+          file "$PAKETE/v1/$name/node/node"
+          "$PAKETE/v1/$name/node/node" --version
+          # zweite Kopie mit anderem Commit in paket.json = „neue Version“ für den Update-Test
+          cp -a "$PAKETE/v1" "$PAKETE/v2"
+          node -e "const f=process.argv[1],fs=require('fs'),p=JSON.parse(fs.readFileSync(f));p.commit+='u';fs.writeFileSync(f,JSON.stringify(p,null,2))" "$PAKETE/v2/$name/paket.json"
+          # v3 = absichtlich kaputtes Update: spielt eine neue Migration ein und beendet sich dann (nur diese Testkopie ist
+          # verändert – im Programm gibt es dafür keinen Schalter). v0 = älteres Paket: kennt die neueste Migration nicht.
+          mig=server/src/storage/sqlite/migrations
+          letzte=$(ls "$PAKETE/v1/$name/$mig" | grep -E '^[0-9]{3}_.*\.sql$' | sort | tail -1)
+          for v in v3 v0; do
+            cp -a "$PAKETE/v1" "$PAKETE/$v"
+            node -e "const f=process.argv[1],fs=require('fs'),p=JSON.parse(fs.readFileSync(f));p.commit+=process.argv[2];fs.writeFileSync(f,JSON.stringify(p,null,2))" "$PAKETE/$v/$name/paket.json" "$([ $v = v3 ] && echo kaputt || echo alt)"
+          done
+          echo 'CREATE TABLE ci_kaputt (x INTEGER);' > "$PAKETE/v3/$name/$mig/$(printf '%03d' $((10#${letzte:0:3} + 1)))_ci_kaputt.sql"
+          index="$PAKETE/v3/$name/server/src/index.ts"
+          grep -q 'const { app, close } = await createApp(config);' "$index"
+          sed -i "s/^const { app, close } = await createApp(config);$/&\nconsole.error('CI-Test: absichtlich kaputtes Paket');\nprocess.exit(3);/" "$index"
+          grep -q 'process.exit(3);' "$index"
+          rm "$PAKETE/v0/$name/$mig/$letzte"
+          echo "V1=$PAKETE/v1/$name" >> "$GITHUB_ENV"
+          echo "V2=$PAKETE/v2/$name" >> "$GITHUB_ENV"
+          echo "V3=$PAKETE/v3/$name" >> "$GITHUB_ENV"
+          echo "V0=$PAKETE/v0/$name" >> "$GITHUB_ENV"
+
+      - name: Installieren (sudo ./installieren.sh --still)
+        run: sudo "$V1/installieren.sh" --still
+
+      - name: Prüfen nach der Installation
+        run: .github/installer-test/pruefen.sh installiert
+
+      - name: Testdaten anlegen
+        run: .github/installer-test/pruefen.sh marker
+
+      - name: Aktualisieren (sudo ./installieren.sh --still, neue Version)
+        run: sudo "$V2/installieren.sh" --still
+
+      - name: Prüfen nach dem Update
+        run: |
+          .github/installer-test/pruefen.sh installiert
+          .github/installer-test/pruefen.sh erhalten
+          # aktive Version merken: nach Rückfall und abgelehntem Downgrade muss genau sie wieder laufen
+          echo "ERWARTET=$(node -p "require('/opt/mosaik3lab/current/.release.json').id")" >> "$GITHUB_ENV"
+
+      # Rückfall: das kaputte Update muss mit Fehler enden und automatisch auf die vorige Version zurückschalten
+      - name: Rückfall-Test (kaputtes Update installieren)
+        run: |
+          set +e
+          sudo "$V3/installieren.sh" --still 2>&1 | tee "$RUNNER_TEMP/v3.txt"
+          rc=${PIPESTATUS[0]}
+          set -e
+          [ "$rc" != 0 ] || { echo "FEHLER: das kaputte Update endete mit Exit 0"; exit 1; }
+          grep -q 'automatisch auf' "$RUNNER_TEMP/v3.txt" || { echo "FEHLER: keine Meldung zum Rückfall"; exit 1; }
+          echo "OK   kaputtes Update endete mit Exit $rc und hat zurückgeschaltet"
+
+      - name: Prüfen nach dem Rückfall
+        run: |
+          .github/installer-test/pruefen.sh installiert
+          .github/installer-test/pruefen.sh erhalten
+          .github/installer-test/pruefen.sh zurueck
+
+      # Downgrade: ein älteres Paket (kennt die neueste Migration nicht) muss vor jeder Änderung abgelehnt werden
+      - name: Downgrade-Test (älteres Paket installieren)
+        run: |
+          set +e
+          sudo "$V0/installieren.sh" --still 2>&1 | tee "$RUNNER_TEMP/v0.txt"
+          rc=${PIPESTATUS[0]}
+          set -e
+          [ "$rc" != 0 ] || { echo "FEHLER: das ältere Paket wurde installiert"; exit 1; }
+          grep -q 'Downgrade verweigert' "$RUNNER_TEMP/v0.txt" || { echo "FEHLER: keine Meldung „Downgrade verweigert“"; exit 1; }
+          echo "OK   älteres Paket abgelehnt (Exit $rc)"
+
+      - name: Prüfen nach dem abgelehnten Downgrade
+        run: |
+          .github/installer-test/pruefen.sh installiert
+          .github/installer-test/pruefen.sh zurueck
+
+      - name: Deinstallieren (Daten behalten)
+        working-directory: ${{ runner.temp }}
+        run: sudo /opt/mosaik3lab/current/node/node /opt/mosaik3lab/current/manager/cli.mjs uninstall --yes
+
+      - name: Prüfen nach der Deinstallation
+        run: .github/installer-test/pruefen.sh deinstalliert
+
+      # Erst nach der Deinstallation (wie unter Windows)
+      - name: npm run manager:test
+        timeout-minutes: 3 # dauert sonst unter einer Minute
+        run: npm run manager:test
+
+      - name: Logs sammeln
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs"
+          sudo cp -r /var/log/mosaik3lab "$RUNNER_TEMP/logs/" 2>/dev/null || true
+          sudo cp /opt/mosaik3lab/install.json /var/lib/mosaik3lab/manager/install-manifest.json "$RUNNER_TEMP/logs/" 2>/dev/null || true
+          sudo cp -r /var/lib/mosaik3lab/manager/dienste "$RUNNER_TEMP/logs/" 2>/dev/null || true
+          for d in webapp backup portal manager; do sudo journalctl -u mosaik3lab-$d --no-pager > "$RUNNER_TEMP/logs/journal-$d.txt" 2>&1 || true; done
+          systemctl list-units 'mosaik3lab-*' --all --no-pager > "$RUNNER_TEMP/logs/dienste.txt" 2>&1 || true
+          sudo ls -laR /var/lib/mosaik3lab /var/backups/mosaik3lab > "$RUNNER_TEMP/logs/ordner.txt" 2>&1 || true
+          sudo chown -R "$(id -u)" "$RUNNER_TEMP/logs"
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: installer-logs-linux-${{ matrix.arch }}
+          path: ${{ runner.temp }}/logs
+          if-no-files-found: ignore

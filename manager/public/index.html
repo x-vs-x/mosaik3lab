@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="csrf-token" content="__TOKEN__" />
+    <!-- direkt „/“, über die App-Adresse „/<pfad>/manager/“ – alle Adressen unten sind relativ -->
+    <base href="__BASE__" />
+    <link rel="icon" type="image/svg+xml" href="icon.svg" />
+    <link rel="stylesheet" href="app.css" />
+    <title>Mosaik³LAB Server-Manager</title>
+  </head>
+  <body>
+    <header class="bar">
+      <img src="icon.svg" alt="" width="30" height="30" />
+      <h1>Mosaik³LAB <span>Server-Manager</span></h1>
+      <nav class="bar-actions" aria-label="Werkzeuge" hidden id="tools">
+        <a id="back-app" class="btn" href="../" data-testid="back-app">← Zurück zu Mosaik³LAB</a>
+        <button type="button" id="btn-logout" data-testid="logout">Abmelden</button>
+      </nav>
+    </header>
+
+    <main id="main" hidden>
+      <!-- Gesamtstatus: ein Satz, ein Knopf -->
+      <section class="summary" id="summary" aria-live="polite" data-testid="summary">
+        <span id="overall" data-testid="overall-light"></span>
+        <p id="summary-text" data-testid="summary-text"></p>
+        <button type="button" class="primary" id="btn-fix" data-testid="summary-fix" hidden></button>
+        <ul id="notes" class="notes small" data-testid="notes"></ul>
+        <small id="checked" class="muted" data-testid="checked"></small>
+      </section>
+
+      <section class="card" aria-labelledby="h-address" data-testid="card-address">
+        <h2 id="h-address">Mosaik³LAB öffnen</h2>
+        <p class="address"><a id="app-link" target="_blank" rel="noopener" data-testid="app-link"></a></p>
+        <p id="address-more" class="muted small" data-testid="address-more"></p>
+      </section>
+
+      <section class="card" aria-labelledby="h-services" data-testid="card-services">
+        <h2 id="h-services">Dienste</h2>
+        <div id="services"></div>
+      </section>
+
+      <!-- Sicherung: der eine Ort für Sichern, Wiederherstellen und Umziehen -->
+      <section class="card" aria-labelledby="h-backup" data-testid="card-backup">
+        <h2 id="h-backup">Sicherung</h2>
+        <p class="muted small">Sichert das ganze System in eine Datei: Einstellungen, Konten, Anfragen und alle Druckteile mit Bildern und Druckdateien. Damit lässt sich alles zurückholen – auch auf einem anderen Rechner.</p>
+        <p id="backup-last" data-testid="backup-last"></p>
+        <p id="backup-next" class="muted small" data-testid="backup-next"></p>
+        <div class="row">
+          <button type="button" class="primary" id="btn-backup" data-testid="backup-run">Jetzt sichern</button>
+        </div>
+
+        <form id="form-backup" class="grid" novalidate data-testid="backup-settings">
+          <label class="switch full"><input type="checkbox" role="switch" name="backupEnabled" data-testid="set-backup-auto" /> <span>Jeden Tag automatisch sichern</span></label>
+          <label>Uhrzeit<input name="backupTime" type="time" required data-testid="set-time" /></label>
+          <label>So viele Sicherungen aufbewahren<input name="backupKeep" type="number" min="1" max="365" required data-testid="set-keep" /></label>
+          <label class="full">Speicherort<input name="backupDir" data-testid="set-backup" aria-describedby="d-backup" /></label>
+          <p class="muted small full" id="d-backup">Am besten ein anderes Laufwerk oder ein Netzlaufwerk – fällt dieser Rechner aus, sind die Sicherungen sonst mit weg. Ältere Sicherungen werden automatisch gelöscht.</p>
+          <p class="error full" id="backup-error" role="alert" hidden data-testid="backup-error"></p>
+          <div class="row end full"><button type="submit" data-testid="backup-save">Speichern</button></div>
+        </form>
+
+        <h3>Vorhandene Sicherungen</h3>
+        <div id="backups" data-testid="backups"></div>
+
+        <details id="backup-protect" data-testid="backup-protect">
+          <summary>Passwortschutz <span id="backup-crypto-state" class="muted small"></span></summary>
+          <p class="muted small">Sicherungen enthalten Passwörter und Daten der Schule. Deshalb sind sie mit einem Passwort verschlüsselt: Wer es nicht kennt, kann die Datei nicht öffnen. <strong>Ohne dieses Passwort lässt sich eine Sicherung nicht zurückspielen</strong> – bitte aufschreiben und sicher aufbewahren (z. B. bei der Schulleitung).</p>
+          <p id="backup-crypto" class="small" data-testid="backup-crypto"></p>
+          <div id="backup-secret" data-testid="backup-secret" aria-live="polite"></div>
+          <div class="row">
+            <button type="button" id="btn-bk-password" data-testid="backup-password" hidden>Passwort erzeugen</button>
+            <button type="button" id="btn-bk-new" data-testid="backup-password-new" hidden>Neues Passwort erzeugen</button>
+            <button type="button" id="btn-bk-off" data-testid="backup-encrypt-off" hidden>Passwortschutz ausschalten</button>
+          </div>
+        </details>
+
+        <details id="backup-move" data-testid="backup-move">
+          <summary>Auf einen anderen Rechner umziehen</summary>
+          <ol class="small">
+            <li>Hier „Jetzt sichern“ drücken.</li>
+            <li>Die neueste Datei (endet auf <code>.m3lbackup</code>) aus dem Speicherort <code id="backup-dir-show"></code> auf einen USB-Stick kopieren.</li>
+            <li>Auf dem neuen Rechner Mosaik³LAB installieren und beim Einrichten „Aus Sicherung einrichten“ wählen: Datei angeben, bei Passwortschutz auch das Passwort.</li>
+          </ol>
+          <p class="muted small">Läuft Mosaik³LAB dort schon: die Datei in dessen Speicherort für Sicherungen kopieren – sie erscheint dann in der Liste und lässt sich „wiederherstellen“.</p>
+        </details>
+      </section>
+
+      <section class="card" aria-labelledby="h-update" data-testid="card-update" id="card-update" hidden>
+        <h2 id="h-update">Update verfügbar</h2>
+        <div id="updates"></div>
+      </section>
+
+      <!-- Wenige Einstellungen; alles andere unter „Erweitert“ -->
+      <section class="card" aria-labelledby="h-settings" data-testid="settings">
+        <h2 id="h-settings">Einstellungen</h2>
+        <form id="form-settings" class="settings" novalidate>
+          <div class="opt">
+            <label class="switch"><input type="checkbox" role="switch" name="network" id="network-switch" data-testid="network-switch" aria-describedby="d-network" /> <span>Im Schulnetz erreichbar</span></label>
+            <p class="muted small" id="d-network">Damit Geräte im Schulnetz Mosaik³LAB öffnen können. Die Firewall-Regel wird automatisch gesetzt (Windows fragt einmal nach).</p>
+          </div>
+          <div class="opt">
+            <label for="set-path">Adresse (Pfad)</label>
+            <input id="set-path" name="portalPath" placeholder="/mosaik3lab" data-testid="portal-path" aria-describedby="d-path" />
+            <p class="muted small" id="d-path">Der Teil hinter dem Servernamen, z. B. <code>http://server/mosaik3lab</code>. Leer = direkt unter dem Servernamen.</p>
+          </div>
+          <div class="opt">
+            <label class="check"><input type="checkbox" name="mailEnabled" data-testid="mail-enabled" aria-describedby="d-mail" /> E-Mail bei neuen Anfragen</label>
+            <p class="muted small" id="d-mail">Benachrichtigt die Werkstatt, sobald jemand eine Anfrage stellt.</p>
+            <div id="mail-fields" class="grid" hidden>
+              <label class="full">Empfänger (mehrere mit Komma)<input name="mailRecipients" placeholder="werkstatt@schule.de" data-testid="mail-recipients" /></label>
+              <details class="full" id="mail-smtp"><summary>Mailserver (SMTP) <span id="mail-state" class="muted small" data-testid="mail-state"></span></summary>
+                <div class="grid">
+                  <label>SMTP-Server<input name="mailHost" placeholder="smtp.schule.de" data-testid="mail-host" /></label>
+                  <label>Port<input name="mailPort" type="number" min="1" max="65535" data-testid="mail-port" /></label>
+                  <label>Verschlüsselung<select name="mailSecure" data-testid="mail-secure"><option value="false">STARTTLS (meist Port 587)</option><option value="true">SSL/TLS (meist Port 465)</option></select></label>
+                  <label>Benutzer<input name="mailUser" autocomplete="off" data-testid="mail-user" /></label>
+                  <label>Passwort<input name="mailPassword" type="password" autocomplete="new-password" data-testid="mail-password" /></label>
+                  <label>Absender<input name="mailFrom" placeholder="mosaik3lab@schule.de" data-testid="mail-from" /></label>
+                  <label class="full">Adresse in den Mails (leer = automatisch)<input name="mailBaseUrl" data-testid="mail-baseurl" /></label>
+                </div>
+              </details>
+              <div class="row full">
+                <input name="mailTestTo" placeholder="Testmail an (leer = Empfänger)" aria-label="Testmail an" class="narrow" data-testid="mail-test-to" />
+                <button type="button" id="btn-mail-test" data-testid="mail-test">Testmail senden</button>
+              </div>
+              <p id="mail-result" class="small full" role="status" data-testid="mail-result"></p>
+            </div>
+          </div>
+          <details class="opt" id="https" data-testid="https">
+            <summary>HTTPS (optional)</summary>
+            <p class="muted small">Verschlüsselte Verbindung im Schulnetz. Braucht ein Zertifikat – „Erzeugen“ reicht für die Schule; Geräte tragen es einmal als vertrauenswürdig ein.</p>
+            <label class="check"><input type="checkbox" name="portalHttps" data-testid="portal-https" /> HTTPS verwenden</label>
+            <p id="portal-cert-state" class="small" data-testid="portal-cert-state" aria-live="polite"></p>
+            <div class="row">
+              <button type="button" id="btn-cert-generate" data-testid="cert-generate">Zertifikat erzeugen</button>
+              <button type="button" id="btn-cert-upload-toggle">Eigenes Zertifikat hinterlegen …</button>
+              <a id="link-cert-download" class="btn" href="api/portal/cert.cer" download="mosaik3lab.cer" hidden>Zertifikat für Geräte herunterladen</a>
+            </div>
+            <div id="cert-upload" class="grid" hidden>
+              <p class="muted small full">Entweder eine PFX-Datei mit Passwort – oder Zertifikat und Schlüssel als PEM-Dateien.</p>
+              <label class="full">PFX-Datei<input type="file" name="certPfx" accept=".pfx,.p12" /></label>
+              <label class="full">Passwort der PFX-Datei<input type="password" name="certPass" autocomplete="off" /></label>
+              <label class="full">oder Zertifikat (PEM)<input type="file" name="certPem" accept=".pem,.crt,.cer" /></label>
+              <label class="full">und Schlüssel (PEM)<input type="file" name="certKey" accept=".pem,.key" /></label>
+              <div class="row full"><button type="button" id="btn-cert-upload" data-testid="cert-upload">Hinterlegen und prüfen</button></div>
+            </div>
+          </details>
+          <p class="error" id="settings-error" role="alert" hidden data-testid="settings-error"></p>
+          <div class="row end"><button type="submit" class="primary" data-testid="settings-save">Speichern</button></div>
+        </form>
+      </section>
+
+      <!-- Erweitert: standardmäßig zu -->
+      <details class="card advanced" id="advanced" data-testid="advanced">
+        <summary><h2>Erweitert</h2> <span class="muted small">Ports, Ordner, Laufzeit, Protokoll, Einrichten</span></summary>
+
+        <section aria-labelledby="h-adv-settings">
+          <h3 id="h-adv-settings">Ports und Ordner</h3>
+          <form id="form-advanced" class="grid" novalidate>
+            <label>Port der Web-App (intern)<input name="appPort" type="number" min="1024" max="65535" required data-testid="set-port" /></label>
+            <label>Port im Schulnetz (Standard 80)<input name="portalHttpPort" type="number" min="1" max="65535" data-testid="portal-http-port" /></label>
+            <label>HTTPS-Port (Standard 443)<input name="portalHttpsPort" type="number" min="1" max="65535" data-testid="portal-https-port" /></label>
+            <label class="check full"><input type="checkbox" name="portalEnabled" data-testid="portal-enabled" /> Portal verwenden (Zugang ohne Portnummer). Nur ausschalten, wenn IIS/nginx davor sitzt – Beispiele in manager/README.md.</label>
+            <label class="full">Datenordner (Datenbank mit allen Einstellungen)<input name="dataDir" data-testid="set-data" /></label>
+            <label class="full">Ablageordner (Bilder, Druckdateien, Videos)<input name="ablageDir" data-testid="set-ablage" aria-describedby="ablage-hint" /></label>
+            <p class="full muted small" id="ablage-hint">Datenordner und Ablage nur bei gestoppter Web-App ändern. Die Datenbank zieht automatisch mit.</p>
+            <label class="check full"><input type="checkbox" name="moveAblage" data-testid="set-ablage-move" /> Beim Wechsel vorhandene Dateien in den neuen Ablageordner kopieren (der alte bleibt als Sicherung)</label>
+            <p class="error full" id="advanced-error" role="alert" hidden data-testid="advanced-error"></p>
+            <div class="row end full"><button type="submit" class="primary" data-testid="advanced-save">Speichern</button></div>
+          </form>
+        </section>
+
+        <section aria-labelledby="h-adv-reconcile">
+          <h3 id="h-adv-reconcile">Abgleichen</h3>
+          <p class="muted small">Läuft automatisch beim Start und nach jeder Änderung: stellt Firewall, Ordner und Dienste passend zu den Einstellungen ein.</p>
+          <div class="row"><button type="button" id="btn-reconcile" data-testid="reconcile">Jetzt abgleichen</button></div>
+          <div id="reconcile-info" data-testid="reconcile-info" aria-live="polite"></div>
+        </section>
+
+        <section aria-labelledby="h-adv-runtime">
+          <h3 id="h-adv-runtime">Version und Laufzeit</h3>
+          <p>Installiert: <strong id="version" data-testid="version"></strong> <span class="muted small" id="node"></span></p>
+          <p class="muted small" id="facts" data-testid="facts"></p>
+          <div class="row">
+            <button type="button" id="btn-check" data-testid="update-check">Nach Updates suchen</button>
+            <button type="button" id="btn-runtime-check" data-testid="runtime-check">Laufzeit prüfen</button>
+            <button type="button" id="btn-audit" data-testid="runtime-audit">Pakete auf Schwachstellen prüfen</button>
+          </div>
+          <div id="update-info" data-testid="update-info" aria-live="polite"></div>
+          <ul class="steps runtime" id="runtime-rows" data-testid="runtime-rows"></ul>
+          <p class="small" id="audit-info"></p>
+          <div id="runtime-info" data-testid="runtime-info" aria-live="polite"></div>
+        </section>
+
+        <section aria-labelledby="h-adv-log">
+          <div class="card-head">
+            <h3 id="h-adv-log">Protokoll</h3>
+            <select id="log-which" aria-label="Protokoll wählen" data-testid="log-which" class="narrow">
+              <option value="app">Web-App</option><option value="manager">Manager</option><option value="backup">Backup</option><option value="update">Update</option><option value="portal">Portal</option>
+            </select>
+          </div>
+          <pre id="log-text" class="log" tabindex="0" data-testid="log-text"></pre>
+        </section>
+
+        <section aria-labelledby="h-adv-setup" id="setup" data-testid="setup">
+          <h3 id="h-adv-setup">Einrichten – als Programm mit Diensten, Verknüpfungen und Updates</h3>
+          <p class="muted small" id="setup-intro"></p>
+          <form id="form-setup" class="grid" novalidate>
+            <label class="full">Programmordner<input name="programRoot" data-testid="setup-program" /></label>
+            <label class="full">Datenordner (Daten, Sicherungen, Protokolle, Einstellungen)<input name="dataRoot" data-testid="setup-data" /></label>
+            <details class="full" id="admin-account"><summary>Admin-Konto der Web-App anlegen</summary>
+              <p class="muted small">Damit sich jemand an der Web-App anmelden kann. Entfällt bei „Aus Sicherung einrichten“ und wenn schon ein Administrator existiert.</p>
+              <label class="full">E-Mail<input name="adminEmail" type="email" autocomplete="off" data-testid="setup-admin-email" /></label>
+              <label class="full">Name<input name="adminName" autocomplete="off" data-testid="setup-admin-name" /></label>
+              <label class="full">Passwort (mindestens 8 Zeichen)<input name="adminPassword" type="password" autocomplete="new-password" data-testid="setup-admin-password" /></label>
+            </details>
+            <details class="full" id="from-backup"><summary>Aus Sicherung einrichten (Umzug von einem anderen Rechner)</summary>
+              <p class="muted small">Alles kommt aus der Sicherung – Einstellungen, Konten, Druckteile, Bilder. Danach ist alles wie auf dem alten Rechner.</p>
+              <label class="full">Sicherungsdatei (…\.m3lbackup, vollständiger Pfad)<input name="fromBackupDir" data-testid="setup-from-backup" /></label>
+              <label class="full">Passwort der Sicherung (nur bei Passwortschutz)<input name="fromBackupPassword" type="password" autocomplete="off" data-testid="setup-from-backup-password" /></label>
+              <label class="full">Abweichende Ordner (eine Zeile je Ordner, z. B. ablageDir=D:\Mosaik3LAB\ablage – nur nach Rückfrage nötig)<textarea name="fromBackupPaths" rows="2"></textarea></label>
+            </details>
+            <label class="check full" id="wrapper-row"><input type="checkbox" name="downloadWrapper" data-testid="setup-wrapper" /> Dienst-Hilfsprogramm WinSW herunterladen (für Windows-Dienste nötig)</label>
+            <div class="row full">
+              <button type="button" id="btn-dry" data-testid="setup-dry-run">Probelauf</button>
+              <button type="button" class="primary" id="btn-setup" data-testid="setup-run">Einrichten</button>
+            </div>
+          </form>
+          <ol id="setup-steps" class="steps" data-testid="setup-steps"></ol>
+        </section>
+      </details>
+    </main>
+
+    <!-- Anmeldung -->
+    <dialog id="dlg-login" class="dlg-login" data-testid="login">
+      <form method="dialog" id="form-login">
+        <img src="icon.svg" alt="" width="44" height="44" />
+        <h2>Anmelden</h2>
+        <p class="muted small">Mit dem Administrator-Konto von Mosaik³LAB.</p>
+        <label for="login-email">E-Mail</label>
+        <input id="login-email" type="email" autocomplete="username" required data-testid="login-email" />
+        <label for="login-pw">Passwort</label>
+        <input id="login-pw" type="password" autocomplete="current-password" required data-testid="login-password" />
+        <p class="error" id="login-error" role="alert" hidden data-testid="login-error"></p>
+        <button type="submit" class="primary">Anmelden</button>
+        <p class="muted small" id="login-note" data-testid="login-note"></p>
+      </form>
+    </dialog>
+
+    <!-- Noch kein Administrator: den ersten direkt am Server anlegen (gilt für App und Manager) -->
+    <dialog id="dlg-first" class="dlg-login" data-testid="first">
+      <form method="dialog" id="form-first">
+        <img src="icon.svg" alt="" width="44" height="44" />
+        <h2>Willkommen</h2>
+        <p class="muted small">Es gibt noch kein Administrator-Konto. Damit meldest du dich künftig an Mosaik³LAB und hier an.</p>
+        <label for="first-email">E-Mail</label>
+        <input id="first-email" type="email" autocomplete="username" required data-testid="first-email" />
+        <label for="first-name">Name</label>
+        <input id="first-name" autocomplete="name" required data-testid="first-name" />
+        <label for="first-pw">Passwort (mindestens 8 Zeichen)</label>
+        <input id="first-pw" type="password" autocomplete="new-password" required data-testid="first-password" />
+        <p class="error" id="first-error" role="alert" hidden data-testid="first-error"></p>
+        <button type="submit" class="primary" data-testid="first-save">Anlegen und anmelden</button>
+      </form>
+    </dialog>
+
+    <dialog id="dlg-confirm" aria-labelledby="confirm-title">
+      <form method="dialog" class="dlg">
+        <h2 id="confirm-title"></h2>
+        <p id="confirm-text"></p>
+        <div class="row end">
+          <button value="no">Abbrechen</button>
+          <button value="yes" class="primary" id="confirm-yes" data-testid="confirm-yes"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

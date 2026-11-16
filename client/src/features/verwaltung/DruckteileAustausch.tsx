@@ -1,0 +1,350 @@
+import { ArrowUpFromLine, CircleCheck, FileUp } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Dialog } from '../../components/Dialog';
+import { ActionBar, Alert, Button, buttonClass, cx } from '../../components/ui';
+import { api, ApiError } from '../../lib/api';
+import { withBase } from '../../lib/basePath';
+import { formatBytes } from '../../lib/format';
+
+// Druckteile exportieren und einspielen – der eine Weg dafür (Verwaltung → Druckteile).
+// Export: angehakte Druckteile → GET /api/admin/daten/export?artikel=… (ohne Liste: alle) → eine Datei mit allen Dateien.
+// Einspielen: Datei wählen → Vorschau → „überspringen“ oder „ersetzen“ für vorhandene → Ergebnis.
+// Server: server/src/module/datenaustausch/. Rechte: daten:export, daten:import.
+
+/** Höchstzahl je Export mit Auswahl (die IDs stehen in der Adresse) – wie MAX_AUSWAHL im Server. Alle geht immer. */
+export const MAX_AUSWAHL = 200;
+
+/** Adresse des Exports: ohne IDs = alle Druckteile. */
+export const exportUrl = (ids?: string[]) => withBase(`/api/admin/daten/export${ids ? `?artikel=${ids.map(encodeURIComponent).join(',')}` : ''}`);
+
+type Modus = 'ueberspringen' | 'ersetzen';
+interface Zaehler {
+  neu: number;
+  ersetzt: number;
+  unveraendert: number;
+  uebersprungen: number;
+}
+interface Detail {
+  status: 'neu' | 'ersetzt' | 'uebersprungen' | 'hinweis';
+  bereich: string;
+  name: string;
+  text?: string;
+}
+interface Bericht {
+  modus: Modus;
+  artikel: number;
+  vorhanden: number;
+  abschnitte: Record<'artikel' | 'kategorien' | 'einsatzbereiche' | 'materialien' | 'filamente' | 'dateien', Zaehler>;
+  details: Detail[];
+  weitereDetails: number;
+}
+interface Vorschau {
+  importId: string;
+  dateigroesse: number;
+  kopf: { exportiertAm: string; mitDateien: boolean; hinweise: string[]; artikel: number; vorhanden: number; dateien: number };
+  berichte: Record<Modus, Bericht>;
+}
+
+const STATUS_TEXT: Record<Detail['status'], string> = { neu: 'neu', ersetzt: 'ersetzt', uebersprungen: 'übersprungen', hinweis: 'Hinweis' };
+const STAMMDATEN: [keyof Bericht['abschnitte'], string, string][] = [
+  ['kategorien', 'Kategorie', 'Kategorien'],
+  ['materialien', 'Material', 'Materialien'],
+  ['einsatzbereiche', 'Einsatzbereich', 'Einsatzbereiche'],
+  ['filamente', 'Farbe', 'Farben'],
+];
+const anzahl = (n: number, eins: string, mehr: string) => `${n} ${n === 1 ? eins : mehr}`;
+
+/** Upload mit Fortschrittsanzeige (fetch kann das nicht). */
+function uploadMitFortschritt<T>(url: string, file: File, onProgress: (anteil: number) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', withBase(url));
+    xhr.setRequestHeader('X-Requested-With', 'mosaik3lab');
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onerror = () => reject(new ApiError(0, 'Der Server ist nicht erreichbar. Bitte später erneut versuchen.'));
+    xhr.onload = () => {
+      let data: { error?: string } | undefined;
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        /* keine JSON-Antwort */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data as T);
+      else reject(new ApiError(xhr.status, data?.error ?? `Fehler ${xhr.status}`));
+    };
+    const fd = new FormData();
+    fd.append('datei', file, file.name);
+    xhr.send(fd);
+  });
+}
+
+/** Dialog „Druckteile einspielen“. onDone: nach erfolgreichem Einspielen (Liste neu laden). */
+export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+  const [datei, setDatei] = useState<File>();
+  const [anteil, setAnteil] = useState<number>();
+  const [vorschau, setVorschau] = useState<Vorschau>();
+  const [modus, setModus] = useState<Modus>('ueberspringen');
+  const [laeuft, setLaeuft] = useState(false);
+  const [ergebnis, setErgebnis] = useState<Bericht>();
+  const [fehler, setFehler] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  const meldung = useRef<HTMLDivElement>(null);
+  const modusName = useId();
+
+  const zuruecksetzen = () => {
+    if (vorschau && !ergebnis) void api(`/admin/daten/import/${vorschau.importId}`, { method: 'DELETE' }).catch(() => undefined);
+    setDatei(undefined);
+    setVorschau(undefined);
+    setErgebnis(undefined);
+    setFehler('');
+    setAnteil(undefined);
+    setModus('ueberspringen');
+    if (input.current) input.current.value = '';
+  };
+  const schliessen = () => {
+    if (laeuft) return;
+    const fertig = !!ergebnis;
+    zuruecksetzen();
+    onClose();
+    if (fertig) onDone();
+  };
+
+  const waehle = async (f: File | undefined) => {
+    zuruecksetzen();
+    if (!f) return;
+    setDatei(f);
+    setAnteil(0);
+    try {
+      setVorschau(await uploadMitFortschritt<Vorschau>('/api/admin/daten/import/vorschau', f, setAnteil));
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : 'Die Datei konnte nicht geprüft werden.');
+      setDatei(undefined);
+      if (input.current) input.current.value = '';
+    } finally {
+      setAnteil(undefined);
+    }
+  };
+
+  const starte = async () => {
+    if (!vorschau) return;
+    setLaeuft(true);
+    setFehler('');
+    try {
+      const r = await api<{ bericht: Bericht }>('/admin/daten/import/ausfuehren', {
+        method: 'POST',
+        body: { importId: vorschau.importId, modus },
+        timeoutMs: 0, // große Dateien dürfen dauern
+      });
+      setErgebnis(r.bericht);
+      setVorschau(undefined);
+    } catch (e) {
+      setFehler(`${e instanceof Error ? e.message : 'Das Einspielen ist fehlgeschlagen.'} Es wurde nichts verändert.`);
+    } finally {
+      setLaeuft(false);
+    }
+  };
+
+  useEffect(() => {
+    if ((vorschau || ergebnis || fehler) && meldung.current) meldung.current.focus();
+  }, [vorschau, ergebnis, fehler]);
+
+  const bericht = vorschau?.berichte[modus];
+
+  return (
+    <Dialog
+      open={open}
+      onClose={schliessen}
+      title="Druckteile einspielen"
+      description="Eine Datei, die beim Exportieren entstanden ist, hier hinzufügen – zum Beispiel von einer anderen Schule."
+      size="lg"
+    >
+      {!vorschau && !ergebnis && (
+        <>
+          <p className="text-stone-700">Nach dem Auswählen sehen Sie zuerst, was passieren würde. Erst mit „Jetzt einspielen“ wird etwas verändert.</p>
+          <label htmlFor="einspielen-datei" className={buttonClass('primary', 'md', 'mt-4 cursor-pointer')}>
+            <FileUp className="size-5" aria-hidden />
+            Datei auswählen …
+          </label>
+          <input
+            id="einspielen-datei"
+            ref={input}
+            type="file"
+            accept=".json,application/json"
+            className="sr-only"
+            data-testid="import-datei"
+            onChange={(e) => void waehle(e.target.files?.[0])}
+            disabled={anteil !== undefined}
+          />
+          {datei && anteil !== undefined && (
+            <div className="mt-4" role="status" aria-live="polite">
+              <p className="text-stone-700">
+                {anteil < 1 ? `Wird hochgeladen … ${Math.round(anteil * 100)} %` : 'Datei wird geprüft …'} ({datei.name}, {formatBytes(datei.size)})
+              </p>
+              <progress className="mt-2 h-3 w-full" max={1} value={anteil < 1 ? anteil : undefined} aria-label="Fortschritt" />
+            </div>
+          )}
+        </>
+      )}
+
+      <div ref={meldung} tabIndex={-1} className="focus:outline-none" aria-live="polite">
+        {fehler && (
+          <Alert kind="error" className="mt-4" title="Das hat nicht geklappt">
+            {fehler}
+          </Alert>
+        )}
+
+        {vorschau && bericht && (
+          <div data-testid="import-vorschau">
+            <p className="text-[1.05rem] text-stone-900">
+              In der Datei: <strong>{anzahl(vorschau.kopf.artikel, 'Druckteil', 'Druckteile')}</strong>
+              {vorschau.kopf.vorhanden > 0 ? (
+                <>
+                  , davon gibt es <strong>{vorschau.kopf.vorhanden}</strong> hier schon.
+                </>
+              ) : (
+                ', alle sind neu.'
+              )}
+            </p>
+            <p className="mt-1 text-[0.92rem] text-stone-600">
+              {datei?.name} · {formatBytes(vorschau.dateigroesse)}
+              {vorschau.kopf.exportiertAm && ` · exportiert am ${new Date(vorschau.kopf.exportiertAm).toLocaleDateString('de-DE')}`}
+              {!vorschau.kopf.mitDateien ? ' · ohne Bilder und Druckdateien (ältere Datei)' : vorschau.kopf.dateien > 0 ? ` · ${anzahl(vorschau.kopf.dateien, 'Bild/Datei', 'Bilder und Dateien')} geprüft` : ''}
+            </p>
+            {vorschau.kopf.hinweise.length > 0 && (
+              <Alert kind="warning" className="mt-3" title="Hinweis aus dem Export">
+                <ul className="list-disc pl-5">
+                  {vorschau.kopf.hinweise.slice(0, 5).map((h) => (
+                    <li key={h}>{h}</li>
+                  ))}
+                </ul>
+              </Alert>
+            )}
+
+            {vorschau.kopf.vorhanden > 0 && (
+              <fieldset className="mt-4">
+                <legend className="mb-2 font-bold text-stone-900">Was soll mit den vorhandenen Druckteilen passieren?</legend>
+                <div className="space-y-2">
+                  {(
+                    [
+                      ['ueberspringen', 'Überspringen (empfohlen)', 'Die vorhandenen bleiben genau so, wie sie sind. Nur Neues kommt dazu.'],
+                      ['ersetzen', 'Ersetzen', 'Die vorhandenen bekommen Texte, Bilder und Druckdateien aus der Datei. Nummer und Anfragen bleiben.'],
+                    ] as const
+                  ).map(([wert, titel, text]) => (
+                    <label key={wert} className={cx('flex cursor-pointer gap-3 rounded-xl border p-3', modus === wert ? 'border-brand-600 bg-brand-50' : 'border-stone-300 bg-white')}>
+                      <input type="radio" name={modusName} checked={modus === wert} onChange={() => setModus(wert)} className="mt-1 size-5 accent-brand-700" data-testid={`import-modus-${wert}`} />
+                      <span>
+                        <span className="block font-bold text-stone-900">{titel}</span>
+                        <span className="block text-[0.92rem] text-stone-600">{text}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+
+            <Zusammenfassung bericht={bericht} titel="Das passiert beim Einspielen" />
+
+            <ActionBar
+              className="mt-6"
+              secondary={
+                <Button variant="secondary" onClick={zuruecksetzen} disabled={laeuft}>
+                  Andere Datei
+                </Button>
+              }
+              primary={
+                <Button icon={ArrowUpFromLine} onClick={() => void starte()} loading={laeuft} data-testid="import-start">
+                  {laeuft ? 'Wird eingespielt …' : 'Jetzt einspielen'}
+                </Button>
+              }
+            />
+            <p className="mt-3 text-[0.9rem] text-stone-600">Vorher wird automatisch gesichert. Klappt etwas nicht, bleibt alles, wie es war.</p>
+          </div>
+        )}
+
+        {ergebnis && (
+          <div data-testid="import-ergebnis">
+            <Alert kind="info" title="Fertig eingespielt">
+              {ergebnisSatz(ergebnis)}
+            </Alert>
+            <Zusammenfassung bericht={ergebnis} titel="Ergebnis" fertig />
+            <ActionBar className="mt-6" primary={<Button icon={CircleCheck} onClick={schliessen}>Fertig</Button>} />
+          </div>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+function ergebnisSatz(b: Bericht) {
+  const a = b.abschnitte.artikel;
+  const teile = [a.neu && `${anzahl(a.neu, 'Druckteil', 'Druckteile')} neu`, a.ersetzt && `${a.ersetzt} ersetzt`, a.uebersprungen && `${a.uebersprungen} übersprungen`, a.unveraendert && `${a.unveraendert} waren schon gleich`].filter(Boolean);
+  return teile.length ? `${teile.join(', ')}.` : 'Es gab nichts zu ändern.';
+}
+
+/** Zahlen in Klartext + aufklappbare Einzelheiten. */
+function Zusammenfassung({ bericht, titel, fertig = false }: { bericht: Bericht; titel: string; fertig?: boolean }) {
+  const a = bericht.abschnitte.artikel;
+  const zeilen: [string, number, string?][] = [
+    ['Neu angelegt', a.neu],
+    ['Ersetzt', a.ersetzt],
+    ['Übersprungen', a.uebersprungen, 'text-amber-900'],
+    ['Schon gleich, keine Änderung', a.unveraendert],
+  ];
+  // Stammdaten, die neu angelegt werden, ausdrücklich mit Namen; Hinweise und Gründe fürs Überspringen sichtbar, nicht nur eingeklappt.
+  const neueBezuege = bericht.details.filter((d) => d.status === 'neu' && d.bereich !== 'Druckteil').map((d) => `${d.bereich} „${d.name}“`);
+  const weitereBezuege = STAMMDATEN.reduce((n, [k]) => n + bericht.abschnitte[k].neu, 0) - neueBezuege.length;
+  const wichtig = bericht.details.filter((d) => d.status === 'hinweis' || (d.status === 'uebersprungen' && d.text !== 'gibt es schon' && !d.text?.startsWith('ein Druckteil mit diesem Namen')));
+  return (
+    <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+      <h3 className="font-bold text-stone-900">{titel}</h3>
+      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+        {zeilen
+          .filter(([, n]) => n > 0)
+          .map(([label, n, farbe]) => (
+            <div key={label} className="contents">
+              <dt className={cx('text-stone-700', farbe)}>{label}</dt>
+              <dd className={cx('font-bold tabular-nums', farbe)}>{anzahl(n, 'Druckteil', 'Druckteile')}</dd>
+            </div>
+          ))}
+      </dl>
+      {neueBezuege.length > 0 && (
+        <p className="mt-2 text-stone-700" data-testid="neue-stammdaten">
+          {fertig ? 'Neu angelegt: ' : 'Wird neu angelegt: '}
+          {neueBezuege.join(', ')}
+          {weitereBezuege > 0 && ` und ${weitereBezuege} weitere`}.
+        </p>
+      )}
+      {wichtig.length > 0 && (
+        <Alert kind="warning" className="mt-3" title="Bitte beachten">
+          <ul className="list-disc pl-5" data-testid="import-hinweise">
+            {wichtig.slice(0, 8).map((d, i) => (
+              <li key={i}>
+                {d.status === 'uebersprungen' ? 'Übersprungen' : d.bereich}: {d.name}
+                {d.text && ` – ${d.text}`}
+              </li>
+            ))}
+            {wichtig.length > 8 && <li>… und {wichtig.length - 8} weitere (siehe Einzelheiten).</li>}
+          </ul>
+        </Alert>
+      )}
+      {bericht.details.length > 0 && (
+        <details className="mt-3">
+          <summary className="cursor-pointer font-bold text-brand-800">Einzelheiten anzeigen ({bericht.details.length + bericht.weitereDetails})</summary>
+          <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto pr-1 text-[0.92rem]">
+            {bericht.details.map((d, i) => (
+              <li key={i} className="flex flex-wrap gap-x-2">
+                <span className={cx('font-bold', d.status === 'uebersprungen' && 'text-amber-800', d.status === 'neu' && 'text-emerald-800')}>{STATUS_TEXT[d.status]}</span>
+                <span>
+                  {d.bereich}: {d.name}
+                </span>
+                {d.text && <span className="text-stone-600">– {d.text}</span>}
+              </li>
+            ))}
+            {bericht.weitereDetails > 0 && <li className="text-stone-600">… und {bericht.weitereDetails} weitere.</li>}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
