@@ -1,0 +1,41 @@
+{
+  "name": "mosaik3lab",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Mosaik³LAB – schulinterner 3D-Druck-Hilfsmittelkatalog (lokaler Prototyp)",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c cyan,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:lan": "concurrently -k -n server,client -c cyan,magenta \"npm run dev -w server\" \"npm run dev:lan -w client\"",
+    "build": "npm run build -w client",
+    "start": "npm run build && npm run start -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
+    "lint": "eslint client server shared",
+    "test": "npm run test -w server && npm run test -w client",
+    "seed:reset": "npm run seed:reset -w server --",
+    "backup": "npm run backup -w server",
+    "check": "node scripts/check.mjs",
+    "manager": "node manager/server.mjs",
+    "manager:cli": "node manager/cli.mjs",
+    "manager:test": "node --test \"manager/test/*.mjs\"",
+    "paket": "node scripts/paket.mjs",
+    "testpostfach": "node scripts/testpostfach.mjs",
+    "release": "node scripts/release.mjs",
+    "veroeffentlichen": "node scripts/veroeffentlichen.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "typescript-eslint": "^8.72.1"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

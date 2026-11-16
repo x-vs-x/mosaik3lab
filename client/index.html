@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Basis-Adresse: der Server setzt hier beim Ausliefern den Pfad ein (z. B. /mosaik3lab/), siehe server/src/basePath.ts -->
+    <base href="/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Home-Bildschirm (iPhone/Android): Icon ohne Transparenz, Manifest mit maskable-Icon -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-title" content="Mosaik³LAB" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- viewport-fit=cover: env(safe-area-inset-*) liefert Werte (Home-Balken am iPhone, auch im Home-Bildschirm-Modus) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#af2401" />
+    <title>Mosaik³LAB</title>
+    <meta name="description" content="3D-gedruckte Hilfs- und Lehrmittel für die Schule" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+node_modules/
+dist/
+*.log
+.env
+
+# Laufzeitdaten (JSON-Daten, Sessions, Uploads) – nicht ins Repository!
+/storage/
+/backups/
+
+# Server-Manager: lokale Einstellungen (mit Passwort-Hash) und Protokolle
+manager/manager.config.json*
+manager/logs/
+
+# Startdatei des Server-Managers (nur dataDir/managerPort) und Backup-Passwort – nie ins Repository
+/mosaik3lab.json*
+/backup.key
+
+# Lokale Claude-Rechte (nur dieser Rechner)
+.claude/settings.local.json

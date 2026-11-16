@@ -1,0 +1,88 @@
+# Prüfen: bei jedem Pull Request und jedem Stand auf main – typecheck, Lint, alle Tests (App, Client, Server-Manager).
+# Ein Pull Request wird erst gemergt, wenn das hier grün ist. Den echten Installationstest (Windows, Linux, Pi) macht
+# „Installer-Test“ – bei Pull Requests, die Installer/Manager/Workflows betreffen, und bei jeder freigegebenen Version.
+name: Prüfen
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: pruefen-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests (App und Client)
+        run: npm test
+
+      - name: Versionen einheitlich (eine Nummer für alles)
+        run: |
+          node -e "
+            const fs = require('fs');
+            const v = (f) => JSON.parse(fs.readFileSync(f, 'utf8')).version;
+            const root = v('package.json');
+            const bad = ['client', 'server', 'shared'].filter((w) => v(w + '/package.json') !== root);
+            if (bad.length) { console.error('Version abweichend in: ' + bad.join(', ') + ' (erwartet ' + root + ')'); process.exit(1); }
+            console.log('Version ' + root + ' überall gleich');
+          "
+
+  # Server-Manager-Tests als eigener Job parallel zu „pruefen“ (beide je gut eine Minute – nacheinander dauerte es doppelt)
+  manager:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Tests (Server-Manager)
+        timeout-minutes: 5
+        run: npm run manager:test
+
+  # Druckteile zwischen Systemen austauschen: dieselben Tests auch unter Windows (der „pruefen“-Lauf oben ist Linux).
+  # test/fixtures/export-windows.json ist unter Windows erzeugt – so wird Windows → Linux und Windows → Windows geprüft.
+  austausch-windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Export/Import (Windows)
+        working-directory: server
+        run: node --import tsx --test test/datenaustausch.test.ts test/datenaustausch-plattform.test.ts

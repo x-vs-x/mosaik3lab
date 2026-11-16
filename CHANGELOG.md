@@ -1,0 +1,107 @@
+# Änderungen
+
+Alle Versionen von Mosaik³LAB. Versionsnummern nach [SemVer](https://semver.org/lang/de/): **MAJOR.MINOR.PATCH**:
+große Umstellung, neue Funktion, Fehlerbehebung. Neue Einträge kommen unter „Unveröffentlicht“, `npm run release` macht
+daraus die nächste Version.
+
+## [Unveröffentlicht]
+
+- **Server-Manager:** Bietet bei einer Paket-Installation kein Git-Update mehr an (Git wird dafür nicht gebraucht – vorher
+  erschien das Angebot, wenn Git zufällig auf dem Rechner installiert war). „Pakete auf Schwachstellen prüfen“ erscheint dort
+  nicht mehr, weil Sicherheitskorrekturen mit dem nächsten Paket kommen.
+- **Schnellerer Rückfall bei kaputtem Update:** Startet die neue Version gar nicht (beendet sich mehrmals hintereinander),
+  schaltet der Installer nach etwa 20 Sekunden auf die vorige Version zurück statt erst nach 2 Minuten. Langsame, aber
+  normale Starts (z. B. Raspberry Pi) haben weiterhin bis zu 2 Minuten Zeit.
+- **Ersteinrichtung mit Schul-Domain:** Beim Anlegen des ersten Administrators fragt der Server-Manager, ob die Domain seiner
+  E-Mail-Adresse die der Schule ist (sonst eigene Domain eintragen), zeigt alle Angaben zur Bestätigung und trägt die Domain
+  als erlaubte E-Mail-Domain ein. Nur bei neuen Installationen – vorhandene Einstellungen bleiben unverändert.
+
+## [1.2.0] – 2026-11-16
+
+- **Personen entfernen:** Unter Verwaltung → Personen gibt es jetzt „Entfernen“. Die Person verliert alle Rechte und wird
+  sofort abgemeldet; ihre Anfragen und Vorschläge bleiben vollständig sichtbar. Die E-Mail-Adresse wird wieder frei – meldet
+  sich die Person später erneut an, beginnt sie neu als Lehrkraft. Sich selbst kann man nicht entfernen, so bleibt immer
+  mindestens ein Administrator.
+- **Server-Manager neu gegliedert:** Reiter „Übersicht“ (Updates ganz oben, Status, Adresse, Dienste), „Sicherung“,
+  „Netzwerk“, „E-Mail“ und „System“ statt einer langen Seite mit vielen eingeklappten Bereichen. Hinweise passen sich dem
+  Betriebssystem an (Windows, Linux, Raspberry Pi). Die Adresse ist fest `http://<Server>/mosaik3lab`; das Feld
+  „Adresse (Pfad)“ gibt es nicht mehr, damit Lesezeichen, Verknüpfungen und Links in Mails immer stimmen. Ein
+  anderer gespeicherter Pfad (ältere Einrichtung, eingespielte Sicherung) wird automatisch ersetzt. „Einrichten“ repariert
+  eine bestehende Installation am selben Ort (Programm- und Datenordner dort nicht mehr änderbar).
+- **Linux und Raspberry Pi:** Ohne aktive Firewall (Raspberry Pi OS hat meist keine, bei Ubuntu ist sie aus) meldet der
+  Server-Manager keine fehlende Firewall-Regel mehr und verlangt beim Einschalten von „Im Schulnetz erreichbar“ keine
+  Administratorrechte.
+
+## [1.1.5] – 2026-11-16
+
+- **Druckteile zwischen Windows und Linux austauschen:** geprüft und abgesichert. Eine Exportdatei, die im Windows-Editor
+  geöffnet und gespeichert wurde, wird jetzt ebenfalls gelesen (vorher: „keine Export-Datei“).
+- **Sicherung von Windows auf Linux (oder umgekehrt) einspielen:** Ordner des anderen Systems (z. B. „C:\Mosaik3LAB\…“ auf
+  einem Raspberry Pi) werden erkannt; es gelten dann die Standardordner des neuen Rechners. Vorher brach die Einrichtung ab
+  bzw. legte unter Windows Ordner wie „C:\var\backups“ an.
+
+## [1.1.4] – 2026-11-15
+
+- **Erster Administrator ohne Einrichtungscode:** Nach der Installation legt man den ersten Administrator direkt im
+  Browser an – E-Mail, Name, Passwort, fertig. Den Code am Ende der Installation gibt es nicht mehr. Bitte das Konto gleich
+  nach der Installation anlegen: Bis dahin könnte es jeder im Schulnetz tun.
+
+## [1.1.3] – 2026-11-15
+
+- **Schneller im Hintergrund:** Der Zähler neuer Vorschläge lädt nur noch die Zahl statt der ganzen Liste, die Personenliste
+  braucht eine Datenbankabfrage statt einer je Person, und eine versendete Benachrichtigung schreibt nur noch ihren Status.
+
+## [1.1.2] – 2026-11-15
+
+- **Suche:** Findet Druckteile auch ohne Umlaute („Loeffel“, „Loffel“ → „Löffel“) und mit mehreren Wörtern – im Katalog und
+  in allen Listen der Verwaltung.
+- **Weniger Stolperfallen:** Bilder, Druckdateien und Videos werden erst nach Rückfrage gelöscht. Noch nicht bestätigte
+  Einträge in Listen (z. B. Größen) gehen beim Speichern nicht mehr verloren. Ungespeicherte Stammdaten werden auch beim
+  Wechsel der Seite gemeldet. Doppelklicks lösen nichts doppelt aus.
+- **Bedienung mit Tastatur und Taster:** Nach „Bitte prüfen Sie die Angaben“ steht der Cursor direkt im ersten fehlenden
+  Feld. Nach dem Entfernen eines Eintrags bleibt der Fokus in der Liste.
+- **Kleinigkeiten:** „Zurück zum Katalog“ behält Suche und Filter. Anfragen mit ausgeschaltetem Status bleiben filterbar.
+  „Kopieren“ funktioniert auch ohne HTTPS. Richtige Texte bei gesperrtem Konto ohne Mail-Versand und bei der Statusanzeige
+  für Lehrkräfte. Umlaute in Dateinamen bei Fehlermeldungen.
+- **Server-Manager:** Einstellungen laden wieder vollständig, wenn die App nur auf diesem Rechner erreichbar ist.
+  „vor 3 Tagen“ statt „vor 3 Tage“. Klare Meldung, wenn die Testmail nicht gesendet werden kann.
+- **Schneller:** Die App lädt für Lehrkräfte weniger Programmcode; Bilder im Katalog werden schneller ausgeliefert und
+  Programmdateien länger zwischengespeichert.
+- **Sicherer:** Die Statusabfrage für Lehrkräfte gibt keine internen Angaben mehr heraus. Ein Fehler, durch den beim
+  Sortieren der Bilder ein Bild verloren gehen konnte, ist behoben.
+
+## [1.1.1] – 2026-11-15
+
+- **„Was ist neu“ und Versionsanzeige:** Erscheinen jetzt auch in installierten Paketen zuverlässig (zeigten dort „unbekannt“).
+- **Updates noch sicherer:** Der Programmordner ist für das Dienstkonto schreibgeschützt (Windows und Linux). Meldet sich der Update-Helfer nicht,
+  sagt der Server-Manager das nach einigen Minuten klar, statt endlos zu warten. Ein Update kann auch aus einem zweiten
+  Browserfenster nicht doppelt gestartet werden. Das Protokoll des Update-Helfers ist im Server-Manager einsehbar.
+- **Server-Manager auf dem Handy:** Häkchen werden bei langen Beschriftungen nicht mehr zusammengedrückt. Alle Texte in der
+  Sie-Form.
+
+## [1.1.0] – 2026-11-15
+
+- **Updates per Knopfdruck:** Der Server-Manager meldet neue Versionen selbst und zeigt, was sich ändert. Ein Klick auf
+  „Jetzt aktualisieren“ genügt: Vorher wird automatisch gesichert. Klappt etwas nicht, läuft die bisherige Version
+  einfach weiter, Ihre Daten bleiben unverändert.
+- **Was ist neu:** Nach einem Update sehen Administratoren einmal, was neu ist – im Server-Manager und beim Anmelden in
+  Mosaik³LAB.
+- **Sicherungen:** Eine Sicherung aus einer neueren Version wird nicht mehr versehentlich in eine ältere zurückgespielt.
+  In der Liste steht jetzt bei jeder Sicherung, von welcher Version sie stammt. Die Sicherung von direkt vor einem Update
+  bleibt immer erhalten.
+- **Mehr Sicherheit bei der Installation:** Installation und Update können nicht mehr versehentlich doppelt gestartet
+  werden. Ein älteres Paket wird über einer neueren Version abgelehnt.
+
+## [1.0.0] – 2026-11-15
+
+Erste freigegebene Version für den Betrieb in der Schule.
+
+- **Katalog** für Hilfs- und Lehrmittel aus dem 3D-Drucker, **Anfragen** von Lehrkräften mit Status und E-Mail-Benachrichtigung,
+  **Vorschläge**, **Verwaltung** für Druck-Team und Administratoren (Druckteile, Farbrollen, Stammdaten, Personen und Rechte).
+- **Server-Manager** unter `<Adresse>/mosaik3lab/manager/` (nur Administratoren): Dienste, Sicherungen (verschlüsselt),
+  Updates, Adresse/HTTPS, E-Mail-Versand, Pfade.
+- **Installer** für Windows, Linux (x64) und Raspberry Pi OS 64 Bit: alles im Paket, Dienste mit Autostart, im Schulnetz
+  erreichbar. Update mit Sicherung und automatischem Rückfall.
+- **Ersteinrichtung über das Netz:** Solange es keinen Administrator gibt, führt jede Adresse zur Einrichtung (E-Mail, Passwort,
+  Einrichtungscode aus dem Installer).
+- **Versionierung:** eine Versionsnummer für alles; der Installer lehnt ältere Versionen über einer neueren ab.
