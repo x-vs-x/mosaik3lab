@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.3.0] – 2026-11-16
+
 - **Server-Manager:** Bietet bei einer Paket-Installation kein Git-Update mehr an (Git wird dafür nicht gebraucht – vorher
   erschien das Angebot, wenn Git zufällig auf dem Rechner installiert war). „Pakete auf Schwachstellen prüfen“ erscheint dort
   nicht mehr, weil Sicherheitskorrekturen mit dem nächsten Paket kommen.
