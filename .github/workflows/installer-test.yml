@@ -171,6 +171,7 @@ jobs:
       # ---- Runde „neu“: Neuinstallation, Update, Rückfall, Downgrade, Update per Knopfdruck, Deinstallation ----
       - name: Installieren (Installieren.cmd /still)
         if: matrix.runde == 'neu'
+        timeout-minutes: 14
         shell: cmd
         run: call "%PAKETE%\v1\Installieren.cmd" /still
 
@@ -184,6 +185,7 @@ jobs:
 
       - name: Aktualisieren (Installieren.cmd /still, neue Version)
         if: matrix.runde == 'neu'
+        timeout-minutes: 14
         shell: cmd
         run: call "%PAKETE%\v2\Installieren.cmd" /still
 
@@ -197,6 +199,7 @@ jobs:
       # Rückfall: das kaputte Update muss mit Fehler enden und automatisch auf die vorige Version zurückschalten
       - name: Rückfall-Test (kaputtes Update installieren)
         if: matrix.runde == 'neu'
+        timeout-minutes: 14
         shell: cmd
         run: |
           call "%PAKETE%\v3\Installieren.cmd" /still > "%RUNNER_TEMP%\v3.txt" 2>&1
@@ -213,6 +216,7 @@ jobs:
       # Downgrade: ein älteres Paket (kennt die neueste Migration nicht) muss vor jeder Änderung abgelehnt werden
       - name: Downgrade-Test (älteres Paket installieren)
         if: matrix.runde == 'neu'
+        timeout-minutes: 7
         shell: cmd
         run: |
           call "%PAKETE%\v0\Installieren.cmd" /still > "%RUNNER_TEMP%\v0.txt" 2>&1
@@ -229,6 +233,7 @@ jobs:
       # Wie im Server-Manager „Jetzt aktualisieren“: höhere Version aus einer Test-Paketquelle, installiert vom Update-Helfer
       - name: Update per Knopfdruck (Update-Helfer)
         if: matrix.runde == 'neu'
+        timeout-minutes: 14
         run: |
           node .github/installer-test/knopfdruck.mjs "$env:PAKETE\v1" (Join-Path $env:ProgramFiles 'Mosaik3LAB')
           if ($LASTEXITCODE) { exit 1 }
@@ -239,6 +244,7 @@ jobs:
 
       - name: Deinstallieren (Daten behalten)
         if: matrix.runde == 'neu'
+        timeout-minutes: 7
         working-directory: ${{ runner.temp }}
         run: |
           $p = Join-Path $env:ProgramFiles 'Mosaik3LAB\current'
@@ -269,6 +275,7 @@ jobs:
       # Frische Daten der alten Version (die neue hat ggf. ein neueres Datenbank-Schema – darüber würde die alte zu Recht abgelehnt)
       - name: Altes Format installieren (frische Daten der alten Version)
         if: matrix.runde == 'altformat'
+        timeout-minutes: 14
         shell: cmd
         run: |
           if exist C:\Mosaik3LAB rmdir /s /q C:\Mosaik3LAB
@@ -285,6 +292,7 @@ jobs:
 
       - name: Rückfall-Test aufs alte Format (kaputtes gebündeltes Update)
         if: matrix.runde == 'altformat'
+        timeout-minutes: 14
         shell: cmd
         run: |
           call "%PAKETE%\v3\Installieren.cmd" /still > "%RUNNER_TEMP%\v3b.txt" 2>&1
@@ -300,6 +308,7 @@ jobs:
 
       - name: Update von altem Paketformat auf gebündeltes
         if: matrix.runde == 'altformat'
+        timeout-minutes: 14
         shell: cmd
         run: call "%PAKETE%\v1\Installieren.cmd" /still
 
@@ -329,6 +338,7 @@ jobs:
 
       - name: Version 1.0.0 installieren (frische Daten)
         if: matrix.runde == 'v100'
+        timeout-minutes: 14
         shell: cmd
         run: |
           if exist C:\Mosaik3LAB rmdir /s /q C:\Mosaik3LAB
@@ -340,6 +350,7 @@ jobs:
 
       - name: Update 1.0.0 → neue Version (Installieren.cmd)
         if: matrix.runde == 'v100'
+        timeout-minutes: 14
         shell: cmd
         run: call "%PAKETE%\v1\Installieren.cmd" /still
 
@@ -350,6 +361,7 @@ jobs:
       # ---- Ende der Runden „altformat“ und „v100“: deinstallieren ----
       - name: Deinstallieren (Runde ${{ matrix.runde }})
         if: matrix.runde != 'neu'
+        timeout-minutes: 7
         run: |
           $p = Join-Path $env:ProgramFiles 'Mosaik3LAB\current'
           Push-Location $env:RUNNER_TEMP
@@ -359,7 +371,7 @@ jobs:
           .github/installer-test/pruefen.ps1 deinstalliert; if ($LASTEXITCODE) { exit 1 }
 
       - name: Logs sammeln
-        if: failure()
+        if: failure() || cancelled() # auch nach Abbruch (Zeitlimit des Jobs) – sonst fehlen genau dann die Protokolle
         run: |
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\logs" | Out-Null
           Get-ChildItem C:\Mosaik3LAB\logs -Recurse -File -ErrorAction SilentlyContinue | Copy-Item -Destination "$env:RUNNER_TEMP\logs"
@@ -368,7 +380,7 @@ jobs:
           Get-CimInstance Win32_Service -Filter "Name LIKE 'mosaik3lab-%'" | Format-Table Name, State, StartMode, PathName -AutoSize | Out-String -Width 300 | Set-Content "$env:RUNNER_TEMP\logs\dienste.txt"
 
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() || cancelled() # auch nach Abbruch (Zeitlimit des Jobs) – sonst fehlen genau dann die Protokolle
         continue-on-error: true # voller Artefakt-Speicher darf den Test nie abbrechen
         with:
           name: installer-logs-windows-${{ matrix.runde }}

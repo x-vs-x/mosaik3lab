@@ -121,7 +121,12 @@ export async function starten() {
       download.fertigAt = new Date().toISOString();
       download.fertig = true;
       log.info(`Update ${latest.version} heruntergeladen und geprüft – Update-Helfer wird gestartet.`);
-      if (!(await platform.services.control('updater', 'start'))) throw new Error('Der Update-Helfer ließ sich nicht starten.');
+      if (!(await platform.services.control('updater', 'start'))) {
+        // Linux mit zu altem polkit: der Manager darf den Helfer gar nicht starten – das klar sagen statt „nicht gestartet“
+        const polkit = platform.polkitProblem ? await platform.polkitProblem().catch(() => null) : null;
+        if (polkit) throw Object.assign(new Error(`Der Update-Helfer ließ sich nicht starten: ${polkit}`), { friendly: true, hint: 'Das neue Paket herunterladen und mit sudo ./installieren.sh installieren – es wurde nichts verändert.' });
+        throw new Error('Der Update-Helfer ließ sich nicht starten.');
+      }
     } catch (err) {
       download.error = err.friendly ? err.message : 'Das Update konnte nicht gestartet werden – es wurde nichts verändert.';
       download.hint = err.friendly ? err.hint : 'Erneut „Jetzt aktualisieren“ versuchen; tritt es wieder auf, das Paket per USB-Stick installieren (Protokoll „Update“).';

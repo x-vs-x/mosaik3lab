@@ -10,6 +10,23 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 - **Aufgeräumt:** …
 -->
 
+## 2026-11-17 – Prüfung Server-Manager, Installation, Update, Sicherung (Session: manager-pruefung, Branch: fix/manager-pruefung)
+- **Gebaut:** Firewall-Schalter ohne Adminrechte (Einstellung gespeichert, Befehl zum Kopieren, vorhandene Regeln ohne
+  Adminrechte; auch im „Abgleichen“); „Einrichten/Reparieren“ bei Paket-Installationen → Hinweis aufs Installer-Paket (UI +
+  `POST /api/setup` lehnt ab); Wiederherstellen fragt bei fremdem Passwort nach; polkit < 0.106 (Bullseye, Ubuntu 22.04)
+  wird bei Einrichtung, im Status und beim Update-Knopf gemeldet; CLI als root gibt Daten dem Dienstbenutzer zurück, ohne
+  sudo klare Ablehnung; Notzugang-Text mit SSH-Tunnel (Linux); Installer zeigt den Beginn jedes Schritts mit Uhrzeit.
+  CI: Zeitlimit je Installationsschritt (`.github/installer-test/zeitlimit.sh`: bei Hänger Prozessbaum, Dienste, Protokolle,
+  dann Abbruch), `timeout-minutes` je Schritt, Logs auch nach Abbruch, Knopfdruck-Test wartet 10 statt 25 Minuten, neue
+  Prüfung „kommandozeile“ (Linux). Wackelige Start-Wartezeit in `remote.test.mjs`/`erstzugang.test.mjs` (10 s → bis 60 s).
+- **Dateien:** manager/cli.mjs, server.mjs, installieren.sh, lib/{services,reconcile,setup,status,updates}.mjs,
+  platform/{linux,index}.mjs, public/{ui,app,einstellungen,erweitert}.js, test/{rechte (neu),remote,erstzugang}.test.mjs,
+  .github/workflows/installer-{linux,test}.yml, .github/installer-test/{zeitlimit.sh (neu),pruefen.sh,knopfdruck.mjs},
+  CHANGELOG.md, docs/INSTALLATION.md.
+- **Geprüft:** typecheck ✔ · lint ✔ · `node --test manager/test/rechte.test.mjs` ✔ · remote/erstzugang ✔ · Klicktest
+  isolierter Manager (Port 5195, Probelauf) ✔ · Installer-Test auf dem PR.
+- **Aufgeräumt:** Test-Manager gestoppt, `C:\Entwicklung\_testdaten\manager-pruefung` gelöscht.
+
 ## 2026-11-16 – Texte anonymisiert, Schul-Domain bei der Ersteinrichtung (Unter-Session, Branch: feature/anonymisieren)
 - **Gebaut:**
   - Anonymisiert (nur Texte/Kommentare): Ort, Website-Link, interne IP und die Beschreibung der konkreten Schule aus README,

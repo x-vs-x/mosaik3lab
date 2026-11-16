@@ -227,7 +227,10 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
         refuseOlderVersion(installed?.version ?? installed?.id ?? null, version(PROGRAM_DIR), { allowOlder: !!input.allowOlder });
         schemaBefore = await refuseDowngrade(dbFile, PROGRAM_DIR, id);
       }
-      return { detail: `${platform.label}${platform.untested ? ' (ungetestet)' : ''}, ${process.arch}, Node ${process.version}${gitNote}` };
+      // Linux mit zu altem polkit (Bullseye, Ubuntu 22.04): Einrichtung geht, aber der Manager kann die Dienste nicht steuern – deutlich sagen
+      const polkit = platform.polkitProblem ? await platform.polkitProblem().catch(() => null) : null;
+      if (polkit) log().warn(`Einrichtung: ${polkit}`);
+      return { detail: `${platform.label}${platform.untested ? ' (ungetestet)' : ''}, ${process.arch}, Node ${process.version}${gitNote}${polkit ? `\n  ! ACHTUNG: ${polkit}` : ''}` };
     });
 
     await step('folders', async () => {

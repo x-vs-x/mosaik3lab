@@ -227,6 +227,7 @@ export async function admin(script, title) {
     const err = new InputError(r.message ?? `${title} ist fehlgeschlagen (Code ${r.code}).`, 'Notfalls den Befehl selbst als Administrator ausführen.');
     err.command = script;
     err.code = r.code;
+    err.manual = !!r.manual; // keine Rechte (Dienst, kein sudo) – nicht: Bestätigung abgelehnt
     throw err;
   }
   return r;
@@ -264,15 +265,33 @@ export async function setNetwork(enabled, { dryRun = false } = {}) {
   const want = wantedFirewallPorts(c);
   const stale = [];
   for (const p of candidateFirewallPorts(c)) if ((!enabled || !want.includes(p)) && (dryRun || (await firewallExists(p).catch(() => false)))) stale.push(p);
-  const script = [...stale.map((p) => platform.firewall.removeScript(p)), ...(enabled ? want.map((p) => platform.firewall.allowScript(p)) : [])].join('\n');
+  // Schon vorhandene Regeln nicht noch einmal anlegen: sonst bräuchte jedes Einschalten Adminrechte – auch nachdem die IT
+  // die Regel von Hand angelegt hat (der Manager-Dienst hat keine Adminrechte).
+  const exists = dryRun || !enabled ? [] : await Promise.all(want.map((p) => firewallExists(p).catch(() => null)));
+  const add = enabled ? want.filter((_, i) => exists[i] !== true) : [];
+  const script = [...stale.map((p) => platform.firewall.removeScript(p)), ...add.map((p) => platform.firewall.allowScript(p))].join('\n');
   if (dryRun) return { dryRun: true, command: script };
   // Keine aktive Firewall (z. B. Raspberry Pi OS): Ports sind ohnehin offen – nur die Einstellung merken, keine Adminrechte nötig.
-  if (script && (await firewallActive())) await admin(script, enabled ? `Firewall: Port ${want.join(', ')} freigeben` : 'Firewall: Freigabe entfernen');
+  let manual = null;
+  if (script && (await firewallActive())) {
+    try {
+      await admin(script, enabled ? `Firewall: Port ${want.join(', ')} freigeben` : 'Firewall: Freigabe entfernen');
+    } catch (err) {
+      // Ohne Adminrechte (Manager als Dienst, Linux ohne sudo): Einstellung trotzdem übernehmen und den Befehl für die IT
+      // zeigen – sonst ließe sich der Schalter nie umlegen, auch nicht, nachdem die Regel von Hand angelegt wurde.
+      // Hat jemand die Windows-Bestätigung abgelehnt, bleibt alles wie es war.
+      if (!err.manual) throw err;
+      manual = err;
+    }
+  }
   const { recordManifest } = await import('./setup.mjs');
-  for (const p of stale) recordManifest({ type: 'firewall', name: FIREWALL_RULE(p), port: p }, false);
-  if (enabled) for (const p of want) recordManifest({ type: 'firewall', name: FIREWALL_RULE(p), port: p });
+  if (!manual) for (const p of stale) recordManifest({ type: 'firewall', name: FIREWALL_RULE(p), port: p }, false);
+  if (enabled) for (const p of want) recordManifest({ type: 'firewall', name: FIREWALL_RULE(p), port: p }); // Deinstallieren entfernt sie (auch von Hand angelegte)
   updateConfig({ app: { network: enabled } });
   if (await isAppRunning()) await restartService('webapp');
   if ((await serviceStatus('portal')).running) await restartService('portal');
+  if (manual) {
+    throw Object.assign(new InputError(`Gespeichert – ${enabled ? 'aber die Firewall-Regel fehlt noch' : 'die alte Firewall-Regel ist aber noch da'}: ${manual.message}`, enabled ? 'Den Befehl einmal als Administrator ausführen – danach ist Mosaik³LAB im Schulnetz erreichbar.' : 'Den Befehl einmal als Administrator ausführen (nicht dringend: die App hört ohnehin nur noch auf diesem Rechner).'), { command: manual.command, manual: true, saved: true });
+  }
   return firewallStatus();
 }

@@ -8,6 +8,13 @@ import { spawn } from 'node:child_process';
 import { run, shQuote, SERVICE_IDS, SERVICE_TITLES, FIREWALL_RULE } from './common.mjs';
 
 const USER = 'mosaik3lab'; // eingeschränkter Systembenutzer für alle Dienste
+
+/** Ausgabe von „pkaction --version“ („pkaction version 0.105“ bzw. „… 122“) → Version, wenn älter als 0.106 (keine JS-Regeln), sonst null. */
+export function polkitTooOld(text) {
+  const m = /(\d+)(?:\.(\d+))?/.exec(String(text ?? ''));
+  if (!m || Number(m[1]) > 0 || Number(m[2] ?? 0) >= 106) return null;
+  return m[0];
+}
 const which = async (cmd) => (await run('sh', ['-c', `command -v ${cmd}`], { timeout: 3000 })).code === 0;
 
 export const linux = {
@@ -19,6 +26,23 @@ export const linux = {
 
   async isAdmin() {
     return process.getuid?.() === 0;
+  },
+
+  /**
+   * Darf der Manager (Benutzer mosaik3lab) Web-App, Backup, Portal und Update-Helfer steuern? Das regelt eine polkit-Regel
+   * in JavaScript (/etc/polkit-1/rules.d) – die versteht polkit erst ab 0.106. Raspberry Pi OS/Debian 11 „Bullseye“ und
+   * Ubuntu 22.04 haben 0.105. → null (in Ordnung oder nicht feststellbar) oder ein Satz für die IT.
+   */
+  async polkitProblem() {
+    const r = await run('pkaction', ['--version'], { timeout: 5000 });
+    const folgen = 'Der Server-Manager kann die Dienste dann nicht selbst starten und stoppen, „Jetzt aktualisieren“ geht nicht. Mosaik³LAB läuft trotzdem: Updates mit dem neuen Paket (sudo ./installieren.sh), Dienste mit sudo systemctl. Empfohlen: Raspberry Pi OS „Bookworm“ (Debian 12) bzw. Ubuntu 24.04 oder neuer.';
+    if (r.code !== 0) {
+      if (['/usr/lib/polkit-1/polkitd', '/usr/libexec/polkitd', '/usr/lib/policykit-1/polkitd'].some((f) => fs.existsSync(f))) return null; // da, Version unbekannt
+      return `polkit fehlt (sudo apt-get install polkitd). ${folgen}`;
+    }
+    const alt = polkitTooOld(r.stdout);
+    if (!alt) return null;
+    return `polkit ${alt} ist zu alt für die Regel des Managers (erst ab 0.106, z. B. Raspberry Pi OS „Bullseye“, Ubuntu 22.04). ${folgen}`;
   },
 
   async portOwner(port) {

@@ -6,6 +6,22 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Server-Manager, „Im Schulnetz erreichbar“ und Ports:** Fehlen dem Manager Administratorrechte für die Firewall-Regel
+  (er läuft als Dienst), wird die Einstellung trotzdem gespeichert und der fertige Befehl zum Kopieren angezeigt (Linux mit
+  `sudo`). Vorher blieb der Schalter hängen – auch nachdem die Regel von Hand angelegt war. Vorhandene Regeln brauchen keine
+  Adminrechte mehr.
+- **Server-Manager, Paket-Installation:** „Einrichten/Reparieren“ unter „System“ zeigt jetzt, dass man das Installer-Paket
+  erneut ausführt – der Knopf konnte dort ohne Adminrechte nicht funktionieren.
+- **Wiederherstellen einer Sicherung mit anderem Passwort** (z. B. von einem anderen Rechner): Der Manager fragt nach dem
+  Passwort, statt nur „Falsches Backup-Passwort“ zu melden.
+- **Linux/Raspberry Pi:** Zu altes polkit (Raspberry Pi OS „Bullseye“, Ubuntu 22.04) wird bei der Einrichtung und im
+  Manager klar gemeldet – dort kann der Manager die Dienste nicht steuern und „Jetzt aktualisieren“ geht nicht.
+  Befehle der Kommandozeile mit `sudo` (z. B. `cli.mjs backup restore`) geben Daten danach dem Dienstbenutzer zurück; ohne
+  `sudo` werden sie mit klarer Meldung abgelehnt (vorher konnte die Web-App danach ihre Datenbank nicht mehr schreiben).
+  Der Hinweis „Aus Sicherung einrichten“ in `installieren.sh` nennt jetzt den passenden Befehl.
+- **Installer:** zeigt den Beginn jedes Schritts mit Uhrzeit – bei langen Schritten (Sicherung vor dem Update) sieht man,
+  woran gerade gearbeitet wird.
+
 ## [1.3.0] – 2026-11-16
 
 - **Server-Manager:** Bietet bei einer Paket-Installation kein Git-Update mehr an (Git wird dafür nicht gebraucht – vorher

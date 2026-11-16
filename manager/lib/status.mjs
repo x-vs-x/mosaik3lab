@@ -56,6 +56,10 @@ export function appAddresses(c = getConfig(), identity = hostIdentity(), externa
   return { local, network: [identity.hostname, ...identity.ips].map((h) => `http://${h}:${c.app.port}${c.portal.basePath}/`) };
 }
 
+/** Linux: zu altes oder fehlendes polkit (der Manager kann die Dienste nicht steuern) – ändert sich nicht, einmal prüfen. */
+let polkitChecked;
+const polkitNote = () => (polkitChecked ??= platform.polkitProblem && process.getuid?.() !== 0 ? platform.polkitProblem().catch(() => null) : Promise.resolve(null));
+
 /** Alles, was die Seite braucht – in einem Aufruf. */
 export async function pageStatus() {
   const c = getConfig();
@@ -104,6 +108,8 @@ export async function pageStatus() {
   else if (!c.backup.encrypt) notes.push({ light: 'info', text: 'Sicherungen sind nicht verschlüsselt, enthalten aber das Mail-Passwort und die Konten.', fix: 'backup-password' });
   for (const d of auto.drift) notes.push({ light: d.status === 'fehler' ? 'error' : 'warn', text: `${d.detail} – „Abgleichen“ behebt das.`, fix: 'reconcile' });
   for (const r of auto.runtime.filter((x) => x.light === 'error')) notes.push({ light: 'error', text: `${r.title}: ${r.label}.`, fix: 'advanced' });
+  const polkit = p.mode === 'installation' ? await polkitNote() : null;
+  if (polkit) notes.push({ light: 'warn', text: polkit });
   if (p.mode !== 'installation') notes.push({ light: 'info', text: 'Läuft aus der Arbeitskopie – für den Dauerbetrieb unter „System“ → „Einrichten“.' });
   const summary = summarize(notes);
   const light = summary.light;

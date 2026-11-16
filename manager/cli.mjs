@@ -12,7 +12,7 @@ const { publicConfig, resolvePaths, configErrors, getConfig, INSTALL, DEFAULTS }
 const { serviceStatus, startService, stopService, KEYS } = await import('./lib/services.mjs');
 const { listBackups, createBackup, restoreBackup, fillMissingFiles, KINDS } = await import('./lib/backup.mjs');
 const { checkUpdate, installUpdate } = await import('./lib/update.mjs');
-const { install, uninstall } = await import('./lib/setup.mjs');
+const { install, uninstall, STEPS, ROLLBACK_STEP } = await import('./lib/setup.mjs');
 const { reconcile } = await import('./lib/reconcile.mjs');
 const { configureBackupPassword, keyFileExists } = await import('./lib/backupcrypto.mjs');
 const { runtimeStatus, updateRuntime, npmAudit } = await import('./lib/runtime.mjs');
@@ -74,6 +74,33 @@ async function ask(question) {
 }
 
 const [cmd, sub, arg] = words;
+
+// Linux-Installation: Daten, Sicherungen und Protokolle gehören dem Dienstbenutzer mosaik3lab. Legt ein anderes Konto dort
+// Dateien an (z. B. die Datenbank beim Wiederherstellen), kann die Web-App sie danach nicht mehr schreiben.
+// → als root: Besitz danach zurückgeben; als anderer Benutzer: ändernde Befehle mit klarer Meldung ablehnen.
+const ALS_DIENST = process.platform === 'linux' && INSTALL && !['setup', 'uninstall'].includes(cmd);
+const AENDERT = (cmd === 'backup' && sub && sub !== 'list' && !(sub === 'password' && !arg)) || (cmd === 'reconcile' && !has('--dry-run'));
+if (ALS_DIENST && AENDERT && process.getuid?.() !== 0 && (await import('node:os')).userInfo().username !== 'mosaik3lab') {
+  fail(new Error('Dieser Befehl ändert Daten der Installation und muss mit sudo laufen (die Dateien gehören dem Dienstbenutzer mosaik3lab).'), 4);
+}
+async function besitzZurueck() {
+  if (!ALS_DIENST || !AENDERT || process.getuid?.() !== 0) return;
+  const { run } = await import('./platform/common.mjs');
+  const uid = Number((await run('id', ['-u', 'mosaik3lab'], { timeout: 10_000 })).stdout.trim());
+  if (!uid) return;
+  const p = resolvePaths();
+  for (const d of new Set([INSTALL.dataRoot, p.dataDir, p.ablageDir, p.backupDir, p.logDir])) {
+    // nur echte Ordner, die schon dem Dienstbenutzer gehören (nie z. B. /etc), ohne Verknüpfungen zu folgen
+    let st;
+    try {
+      st = fs.lstatSync(d);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory() && st.uid === uid) await run('find', [d, '-xdev', '-user', 'root', '(', '-type', 'd', '-o', '-links', '1', ')', '-exec', 'chown', '-h', 'mosaik3lab:mosaik3lab', '{}', '+'], { timeout: 5 * 60_000 });
+  }
+}
+
 try {
   switch (cmd) {
     case 'status': {
@@ -203,7 +230,11 @@ try {
       if (has('--system-dry-run')) input.systemDryRun = true;
       if (has('--skip-build')) input.skipBuild = true;
       if (has('--aeltere-version')) input.allowOlder = true; // bewusst eine ältere Version installieren (sonst abgelehnt)
-      const r = await install(input, (id, status, detail) => !JSON_OUT && status !== 'läuft' && console.log(stepLine({ id, status, detail })), { dryRun: has('--dry-run') });
+      // Auch den Beginn jedes Schritts zeigen (mit Uhrzeit): dauert einer lange (Sicherung vor dem Update, Raspberry Pi),
+      // sieht man, woran gerade gearbeitet wird – und bei einem Hänger, wo.
+      const titles = Object.fromEntries([...STEPS, ROLLBACK_STEP]);
+      const at = () => new Date().toLocaleTimeString('de-DE');
+      const r = await install(input, (id, status, detail) => !JSON_OUT && console.log(status === 'läuft' ? `… ${at()} ${titles[id] ?? id} …` : stepLine({ id, status, detail })), { dryRun: has('--dry-run') });
       if (JSON_OUT) print(r);
       else if (r.backupPassword) console.log(`\n! BACKUP-PASSWORT (jetzt notieren, wird nicht erneut angezeigt): ${r.backupPassword}\n  Ohne dieses Passwort lassen sich die verschlüsselten Sicherungen nicht wiederherstellen.`);
       break;
@@ -249,6 +280,8 @@ try {
       fail(new Error(`Unbekannter Befehl „${cmd}“.\n${HELP}`), 4);
   }
 } catch (err) {
+  await besitzZurueck().catch(() => {});
   fail(err);
 }
+await besitzZurueck().catch(() => {});
 setTimeout(() => process.exit(process.exitCode ?? 0), 50).unref();

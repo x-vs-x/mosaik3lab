@@ -1,6 +1,6 @@
 // Einstellungen je Reiter: Netzwerk (Schulnetz, Adresse, HTTPS, Ports), E-Mail, Sicherungs-Zeitplan, Ordner.
 // Gespeichert wird je Formular nur, was sich seit dem Laden geändert hat.
-import { $, action, api, busy, confirmAccess, ctx } from './ui.js';
+import { $, action, api, busy, confirmAccess, ctx, errorInto } from './ui.js';
 import { askPaths } from './erweitert.js';
 
 const net = $('#form-network');
@@ -16,9 +16,10 @@ const portsBody = (f) => ({ enabled: f.portalEnabled.checked, httpPort: Number(f
 const folderBody = (f) => ({ dataDir: f.dataDir.value.trim(), ablageDir: f.ablageDir.value.trim(), moveAblage: f.moveAblage.checked });
 const backupBody = (f) => ({ backupEnabled: f.backupEnabled.checked, backupTime: f.backupTime.value, backupKeep: Number(f.backupKeep.value), backupDir: f.backupDir.value.trim() });
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const fail = (box, ex) => {
-  box.textContent = ex.hint ? `${ex.message} – ${ex.hint}` : ex.message;
-  box.hidden = false;
+const fail = async (box, ex) => {
+  // „Gespeichert, aber …“ (z. B. die Firewall-Regel braucht Adminrechte): Formular auf den gespeicherten Stand bringen
+  if (ex.saved) await loadSettings().catch(() => {});
+  errorInto(box, ex); // mit dem Befehl für Administratoren zum Kopieren
   throw ex;
 };
 
@@ -99,7 +100,7 @@ net.addEventListener('submit', async (e) => {
       await loadSettings();
       return done;
     } catch (ex) {
-      fail(err, ex);
+      await fail(err, ex);
     }
   }, (done) => (done.length ? `Gespeichert: ${done.join(', ')}.` : 'Nichts geändert.'));
 });
@@ -117,7 +118,7 @@ mail.addEventListener('submit', async (e) => {
       await loadSettings();
       return 'E-Mail-Einstellungen gespeichert.';
     } catch (ex) {
-      fail(err, ex);
+      await fail(err, ex);
     }
   }, (t) => t);
 });
@@ -155,7 +156,7 @@ backupForm.addEventListener('submit', async (e) => {
       await loadSettings();
       return 'Gespeichert.';
     } catch (ex) {
-      fail(err, ex);
+      await fail(err, ex);
     }
   }, (t) => t);
 });
@@ -172,7 +173,7 @@ folders.addEventListener('submit', async (e) => {
       await loadSettings();
       return `Gespeichert.${note ? ` ${note}` : ''}`;
     } catch (ex) {
-      fail(err, ex);
+      await fail(err, ex);
     }
   }, (t) => t);
 });

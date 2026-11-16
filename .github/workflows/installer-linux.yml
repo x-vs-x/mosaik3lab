@@ -128,7 +128,8 @@ jobs:
       # ---- Runde „neu“: Neuinstallation, Update, Rückfall, Downgrade, Update per Knopfdruck, Deinstallation ----
       - name: Installieren (sudo ./installieren.sh --still)
         if: matrix.runde == 'neu'
-        run: sudo "$V1/installieren.sh" --still
+        timeout-minutes: 14
+        run: .github/installer-test/zeitlimit.sh 12 sudo "$V1/installieren.sh" --still
 
       - name: Prüfen nach der Installation
         if: matrix.runde == 'neu'
@@ -138,9 +139,15 @@ jobs:
         if: matrix.runde == 'neu'
         run: .github/installer-test/pruefen.sh marker
 
+      - name: Kommandozeile als root und ohne sudo
+        if: matrix.runde == 'neu'
+        timeout-minutes: 5
+        run: .github/installer-test/pruefen.sh kommandozeile
+
       - name: Aktualisieren (sudo ./installieren.sh --still, neue Version)
         if: matrix.runde == 'neu'
-        run: sudo "$V2/installieren.sh" --still
+        timeout-minutes: 14
+        run: .github/installer-test/zeitlimit.sh 12 sudo "$V2/installieren.sh" --still
 
       - name: Prüfen nach dem Update
         if: matrix.runde == 'neu'
@@ -153,11 +160,13 @@ jobs:
       # Rückfall: das kaputte Update muss mit Fehler enden und automatisch auf die vorige Version zurückschalten
       - name: Rückfall-Test (kaputtes Update installieren)
         if: matrix.runde == 'neu'
+        timeout-minutes: 14
         run: |
           set +e
-          sudo "$V3/installieren.sh" --still 2>&1 | tee "$RUNNER_TEMP/v3.txt"
+          .github/installer-test/zeitlimit.sh 12 sudo "$V3/installieren.sh" --still 2>&1 | tee "$RUNNER_TEMP/v3.txt"
           rc=${PIPESTATUS[0]}
           set -e
+          [ "$rc" != 124 ] || { echo "FEHLER: das kaputte Update hängt (Zeitlimit) statt zurückzuschalten"; exit 1; }
           [ "$rc" != 0 ] || { echo "FEHLER: das kaputte Update endete mit Exit 0"; exit 1; }
           grep -q 'automatisch auf' "$RUNNER_TEMP/v3.txt" || { echo "FEHLER: keine Meldung zum Rückfall"; exit 1; }
           echo "OK   kaputtes Update endete mit Exit $rc und hat zurückgeschaltet"
@@ -172,11 +181,13 @@ jobs:
       # Downgrade: ein älteres Paket (kennt die neueste Migration nicht) muss vor jeder Änderung abgelehnt werden
       - name: Downgrade-Test (älteres Paket installieren)
         if: matrix.runde == 'neu'
+        timeout-minutes: 7
         run: |
           set +e
-          sudo "$V0/installieren.sh" --still 2>&1 | tee "$RUNNER_TEMP/v0.txt"
+          .github/installer-test/zeitlimit.sh 5 sudo "$V0/installieren.sh" --still 2>&1 | tee "$RUNNER_TEMP/v0.txt"
           rc=${PIPESTATUS[0]}
           set -e
+          [ "$rc" != 124 ] || { echo "FEHLER: das ältere Paket hängt (Zeitlimit) statt sofort abgelehnt zu werden"; exit 1; }
           [ "$rc" != 0 ] || { echo "FEHLER: das ältere Paket wurde installiert"; exit 1; }
           grep -q 'Downgrade verweigert' "$RUNNER_TEMP/v0.txt" || { echo "FEHLER: keine Meldung „Downgrade verweigert“"; exit 1; }
           echo "OK   älteres Paket abgelehnt (Exit $rc)"
@@ -190,7 +201,8 @@ jobs:
       # Wie im Server-Manager „Jetzt aktualisieren“: höhere Version aus einer Test-Paketquelle, installiert vom Update-Helfer
       - name: Update per Knopfdruck (Update-Helfer)
         if: matrix.runde == 'neu'
-        run: sudo "$(command -v node)" .github/installer-test/knopfdruck.mjs "$V1" /opt/mosaik3lab
+        timeout-minutes: 14
+        run: .github/installer-test/zeitlimit.sh 12 sudo "$(command -v node)" .github/installer-test/knopfdruck.mjs "$V1" /opt/mosaik3lab
 
       - name: Prüfen nach dem Update per Knopfdruck
         if: matrix.runde == 'neu'
@@ -200,6 +212,7 @@ jobs:
 
       - name: Deinstallieren (Daten behalten)
         if: matrix.runde == 'neu'
+        timeout-minutes: 5
         working-directory: ${{ runner.temp }}
         run: sudo /opt/mosaik3lab/current/node/node /opt/mosaik3lab/current/manager/cli.mjs uninstall --yes
 
@@ -228,9 +241,10 @@ jobs:
       # Frische Daten der alten Version (die neue hat ggf. ein neueres Datenbank-Schema – darüber würde die alte zu Recht abgelehnt)
       - name: Altes Format installieren (frische Daten der alten Version)
         if: matrix.runde == 'altformat'
+        timeout-minutes: 14
         run: |
           sudo rm -rf /var/lib/mosaik3lab /var/backups/mosaik3lab /var/log/mosaik3lab
-          sudo "$VF/installieren.sh" --still
+          .github/installer-test/zeitlimit.sh 12 sudo "$VF/installieren.sh" --still
 
       - name: Prüfen (altes Format)
         if: matrix.runde == 'altformat'
@@ -242,11 +256,13 @@ jobs:
 
       - name: Rückfall-Test aufs alte Format (kaputtes gebündeltes Update)
         if: matrix.runde == 'altformat'
+        timeout-minutes: 14
         run: |
           set +e
-          sudo "$V3/installieren.sh" --still 2>&1 | tee "$RUNNER_TEMP/v3b.txt"
+          .github/installer-test/zeitlimit.sh 12 sudo "$V3/installieren.sh" --still 2>&1 | tee "$RUNNER_TEMP/v3b.txt"
           rc=${PIPESTATUS[0]}
           set -e
+          [ "$rc" != 124 ] || { echo "FEHLER: das kaputte Update hängt (Zeitlimit) statt zurückzuschalten"; exit 1; }
           [ "$rc" != 0 ] || { echo "FEHLER: das kaputte Update endete mit Exit 0"; exit 1; }
           grep -q 'automatisch auf' "$RUNNER_TEMP/v3b.txt" || { echo "FEHLER: keine Meldung zum Rückfall"; exit 1; }
           echo "OK   kaputtes Update endete mit Exit $rc und hat aufs alte Format zurückgeschaltet"
@@ -259,7 +275,8 @@ jobs:
 
       - name: Update von altem Paketformat auf gebündeltes
         if: matrix.runde == 'altformat'
-        run: sudo "$V1/installieren.sh" --still
+        timeout-minutes: 14
+        run: .github/installer-test/zeitlimit.sh 12 sudo "$V1/installieren.sh" --still
 
       - name: Prüfen nach dem Update aufs gebündelte Format
         if: matrix.runde == 'altformat'
@@ -287,9 +304,10 @@ jobs:
 
       - name: Version 1.0.0 installieren (frische Daten)
         if: matrix.runde == 'v100'
+        timeout-minutes: 14
         run: |
           sudo rm -rf /var/lib/mosaik3lab /var/backups/mosaik3lab /var/log/mosaik3lab
-          sudo "$V100/installieren.sh" --still
+          .github/installer-test/zeitlimit.sh 12 sudo "$V100/installieren.sh" --still
 
       - name: Prüfen (1.0.0) und Testdaten anlegen
         if: matrix.runde == 'v100'
@@ -299,7 +317,8 @@ jobs:
 
       - name: Update 1.0.0 → neue Version (installieren.sh)
         if: matrix.runde == 'v100'
-        run: sudo "$V1/installieren.sh" --still
+        timeout-minutes: 14
+        run: .github/installer-test/zeitlimit.sh 12 sudo "$V1/installieren.sh" --still
 
       - name: Prüfen nach dem Update von 1.0.0
         if: matrix.runde == 'v100'
@@ -310,12 +329,13 @@ jobs:
       # ---- Ende der Runden „altformat“ und „v100“: deinstallieren ----
       - name: Deinstallieren (Runde ${{ matrix.runde }})
         if: matrix.runde != 'neu'
+        timeout-minutes: 5
         run: |
           (cd "$RUNNER_TEMP" && sudo /opt/mosaik3lab/current/node/node /opt/mosaik3lab/current/manager/cli.mjs uninstall --yes)
           .github/installer-test/pruefen.sh deinstalliert
 
       - name: Logs sammeln
-        if: failure()
+        if: failure() || cancelled() # auch nach Abbruch (Zeitlimit des Jobs) – sonst fehlen genau dann die Protokolle
         run: |
           mkdir -p "$RUNNER_TEMP/logs"
           sudo cp -r /var/log/mosaik3lab "$RUNNER_TEMP/logs/" 2>/dev/null || true
@@ -324,10 +344,12 @@ jobs:
           for d in webapp backup portal manager; do sudo journalctl -u mosaik3lab-$d --no-pager > "$RUNNER_TEMP/logs/journal-$d.txt" 2>&1 || true; done
           systemctl list-units 'mosaik3lab-*' --all --no-pager > "$RUNNER_TEMP/logs/dienste.txt" 2>&1 || true
           sudo ls -laR /var/lib/mosaik3lab /var/backups/mosaik3lab > "$RUNNER_TEMP/logs/ordner.txt" 2>&1 || true
+          ps -eo pid,ppid,user,etimes,stat,args --forest > "$RUNNER_TEMP/logs/prozesse.txt" 2>&1 || true
+          sudo cp /opt/mosaik3lab/update-helfer.log /opt/mosaik3lab/update-status.json "$RUNNER_TEMP/logs/" 2>/dev/null || true
           sudo chown -R "$(id -u)" "$RUNNER_TEMP/logs"
 
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() || cancelled() # auch nach Abbruch (Zeitlimit des Jobs) – sonst fehlen genau dann die Protokolle
         continue-on-error: true # voller Artefakt-Speicher darf den Test nie abbrechen
         with:
           name: installer-logs-linux-${{ inputs.arch }}-${{ matrix.runde }}

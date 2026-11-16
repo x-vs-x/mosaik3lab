@@ -89,7 +89,7 @@ const dienstLaeuft = () =>
     ? /RUNNING|START_PENDING|STOP_PENDING/.test(spawnSync('sc.exe', ['query', ID], { encoding: 'utf8' }).stdout)
     : /^(active|activating|deactivating|reloading)/.test(spawnSync('systemctl', ['is-active', ID], { encoding: 'utf8' }).stdout.trim());
 // warten, bis der Helfer fertig ist (Status abgeschlossen und Dienst beendet)
-const ende = Date.now() + 25 * 60_000;
+const ende = Date.now() + 10 * 60_000; // dauert sonst unter einer Minute – darüber hängt etwas (Zeitlimit des Schritts: 12 Minuten)
 for (;;) {
   await new Promise((res) => setTimeout(res, 3000));
   let st = null;
@@ -98,7 +98,10 @@ for (;;) {
   } catch {}
   const fertig = st && ['fertig', 'zurueckgesetzt', 'fehler'].includes(st.phase) && Date.parse(st.at) > start;
   if (fertig && !dienstLaeuft()) break;
-  if (Date.now() > ende) fail('Update-Helfer ist nach 25 Minuten nicht fertig');
+  if (Date.now() > ende) {
+    console.log(`Letzter Status des Helfers: ${JSON.stringify(st, null, 1)}`);
+    fail('Update-Helfer ist nach 10 Minuten nicht fertig');
+  }
 }
 if (WIN) {
   // Konfiguration ohne Test-Quelle

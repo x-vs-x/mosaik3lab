@@ -107,14 +107,16 @@ export async function reconcile({ dryRun = false, paths = {}, restart = true, fi
       }
     }
   } catch (err) {
-    add('firewall', 'fehler', err.message);
+    add('firewall', 'fehler', err.message, err.command); // ohne Adminrechte: Befehl für die IT mitgeben
   }
 
   // 5. Dienste eingerichtet? (nur in einer Installation)
   if (INSTALL) {
     for (const key of ['webapp', 'backup', ...(c.portal.enabled ? ['portal'] : []), 'manager']) {
       const st = await platform.services.status(key).catch(() => ({ installed: false }));
-      add(`dienst-${key}`, st.installed ? 'ok' : 'warnung', st.installed ? `Dienst ${key} eingerichtet` : `Dienst ${key} fehlt – „Einrichten“ erneut ausführen`);
+      // Paket-Installation: repariert wird mit dem Installer-Paket (der Manager-Dienst hat dafür keine Rechte)
+      const fix = fs.existsSync(path.join(INSTALL.programRoot, 'current', 'paket.json')) ? `das Installer-Paket erneut ausführen (${platform.id === 'windows' ? 'Installieren.cmd' : 'sudo ./installieren.sh'})` : '„Einrichten“ erneut ausführen';
+      add(`dienst-${key}`, st.installed ? 'ok' : 'warnung', st.installed ? `Dienst ${key} eingerichtet` : `Dienst ${key} fehlt – ${fix}`);
     }
   }
 

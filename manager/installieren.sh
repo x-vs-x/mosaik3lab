@@ -46,8 +46,10 @@ else
   echo " Mosaik3LAB wird eingerichtet: Programm unter $PROGRAMM, Daten und Bilder unter /var/lib/mosaik3lab,"
   echo " Sicherungen unter /var/backups/mosaik3lab, Dienste mit Autostart, im Schulnetz erreichbar."
   echo
-  echo " Vorhandenen Datenbestand von einem anderen Rechner übernehmen? Dann hier abbrechen und stattdessen"
-  echo " \"sh manager/mosaik3lab.sh\" starten: Einrichten – \"Aus Backup einrichten\"."
+  # Der Manager aus dem entpackten Paket liefe ohne root und könnte nichts einrichten – deshalb hier der Befehl
+  echo " Vorhandenen Datenbestand von einem anderen Rechner (auch Windows) übernehmen? Dann hier abbrechen und stattdessen:"
+  echo "   sudo ./node/node manager/cli.mjs setup --config Installieren.json --from-backup <datei.m3lbackup> --backup-password <passwort>"
+  echo " (Ordner, die es hier nicht gibt, ersetzt Mosaik3LAB durch die Standardordner dieses Rechners.)"
 fi
 echo
 if [ -z "$DRY" ]; then
