@@ -103,6 +103,16 @@ export function zustand() {
 
 /** „Jetzt aktualisieren“: herunterladen + prüfen, Auftrag schreiben, Update-Helfer starten. Ein Klick, Rest läuft allein. */
 export async function starten() {
+  log.info(`„Jetzt aktualisieren“ gedrückt (installiert ${installiert()?.version ?? '?'}).`);
+  try {
+    return await startenIntern();
+  } catch (err) {
+    log.warn(`„Jetzt aktualisieren“ abgelehnt: ${err.message}`);
+    throw err;
+  }
+}
+
+async function startenIntern() {
   if (!istPaketInstallation()) throw new InputError('Updates per Knopfdruck gibt es für Installationen aus einem Installer-Paket.');
   const l = lauf();
   if (l?.haengt) throw new InputError(l.meldung, l.hint);
