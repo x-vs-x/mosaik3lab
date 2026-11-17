@@ -29,10 +29,32 @@ if ! "$NODE" --version >/dev/null 2>&1; then
 fi
 
 # ---------- Einmal Administratorrechte holen (Programm, Benutzer, Dienste, Firewall) ----------
+# Ohne root: einmal mit sudo neu starten. Fehlt sudo oder schlägt die Anmeldung fehl, klar abbrechen statt mit einer
+# Meldung von sudo bzw. der Shell („sudo: not found“) zu enden.
+ohne_rechte() {
+  echo
+  echo "Abbruch: $1"
+  echo "Mosaik3LAB braucht für die Einrichtung Administratorrechte (root). Bitte so starten:"
+  echo "   sudo ./installieren.sh"
+  echo "oder – auf Systemen ohne sudo – als root:"
+  echo "   su -c 'sh $SELF'"
+  echo "Es wurde nichts verändert."
+  exit 1
+}
 if [ -z "$DRY" ] && [ -z "$MOSAIK3LAB_SYSTEM_DRY_RUN" ] && [ "$(id -u)" != 0 ]; then
-  if [ -n "$STILL" ]; then exec sudo -n sh "$SELF" "$@"; fi
-  echo "Für die Einrichtung werden Administratorrechte gebraucht – bitte das eigene Passwort eingeben (sudo)."
-  exec sudo sh "$SELF" "$@"
+  command -v sudo >/dev/null 2>&1 || ohne_rechte "sudo ist auf diesem Rechner nicht installiert."
+  if [ -n "$STILL" ]; then
+    sudo -n true 2>/dev/null || ohne_rechte "sudo verlangt ein Passwort (bei --still gibt es keine Rückfrage)."
+  else
+    echo "Für die Einrichtung werden Administratorrechte gebraucht – bitte das eigene Passwort eingeben (sudo)."
+    sudo -v || ohne_rechte "sudo hat die Anmeldung abgelehnt (falsches Passwort oder dieses Konto darf kein sudo)."
+    exec sudo sh "$SELF" "$@"
+  fi
+  exec sudo -n sh "$SELF" "$@"
+fi
+# Sicherheitsnetz: Ab hier muss es root sein (z. B. falls sudo auf einen anderen Benutzer eingestellt ist).
+if [ -z "$DRY" ] && [ -z "$MOSAIK3LAB_SYSTEM_DRY_RUN" ] && [ "$(id -u)" != 0 ]; then
+  ohne_rechte "das Skript läuft nicht als root."
 fi
 
 # ---------- Einrichten bzw. aktualisieren ----------
