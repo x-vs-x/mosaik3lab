@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.4.2] – 2026-11-17
+
 - **Linux/Raspberry Pi – Installation ohne Administratorrechte:** Fehlt `sudo` auf dem Rechner, verweigert sudo die
   Anmeldung oder läuft das Skript sonst nicht als root, bricht `installieren.sh` jetzt mit einer klaren Meldung ab
   („Abbruch: … Bitte so starten: sudo ./installieren.sh …“) und ändert nichts. Wie bisher startet es sich ohne root
