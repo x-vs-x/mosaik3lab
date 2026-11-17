@@ -18,12 +18,18 @@ const NEU: Person = { email: '', name: '', role: 'lehrkraft', bereiche: ['anfrag
 
 function Haekchen({ id, label, satz, checked, onChange }: { id: string; label: string; satz: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <li className="flex items-start gap-3">
-      <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-describedby={`${id}-d`} className="mt-0.5 size-6 shrink-0 accent-brand-700" />
-      <label htmlFor={id} className="min-w-0 cursor-pointer">
-        <span className="font-bold text-stone-900">{label}</span>
-        <span id={`${id}-d`} className="block text-hinweis text-stone-600">
-          {satz}
+    <li>
+      {/* Ganze Zeile (Kästchen + Text) ist eine Tippfläche, mind. 44 px hoch; der Fokusrahmen liegt um die ganze Zeile. */}
+      <label
+        htmlFor={id}
+        className="-mx-2 flex min-h-11 cursor-pointer items-start gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-stone-100 has-focus-visible:outline-3 has-focus-visible:outline-offset-0 has-focus-visible:outline-stone-900"
+      >
+        <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-describedby={`${id}-d`} className="mt-0.5 size-6 shrink-0 cursor-pointer accent-brand-700 focus-visible:outline-none" />
+        <span className="min-w-0">
+          <span className="font-bold text-stone-900">{label}</span>
+          <span id={`${id}-d`} className="block text-hinweis text-stone-600">
+            {satz}
+          </span>
         </span>
       </label>
     </li>
@@ -145,7 +151,7 @@ export function RechteDialog({
           <p aria-hidden className="mb-3 text-hinweis font-bold uppercase tracking-wide text-stone-500">
             Als Lehrkraft
           </p>
-          <ul className="space-y-3">
+          <ul className="space-y-1">
             {LEHRKRAFT_HAEKCHEN.map((b) => (
               <Haekchen key={b.key} id={`${baseId}-${b.key}`} label={b.label} satz={b.satz} checked={hat(b.key)} onChange={(v) => setze(b.key, v)} />
             ))}
@@ -158,7 +164,7 @@ export function RechteDialog({
             <p aria-hidden className="mb-3 text-hinweis font-bold uppercase tracking-wide text-stone-500">
               Im 3D-Druck-Team
             </p>
-            <ul className="space-y-3">
+            <ul className="space-y-1">
               {TEAM_HAEKCHEN.map((b) => (
                 <Haekchen key={b.key} id={`${baseId}-${b.key}`} label={b.label} satz={b.satz} checked={hat(b.key)} onChange={(v) => setze(b.key, v)} />
               ))}

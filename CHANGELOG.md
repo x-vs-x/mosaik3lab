@@ -6,6 +6,10 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Kleinigkeiten auf dem Handy:** In der unteren Leiste heißt „Vorschläge“ auf schmalen Handys (unter 390 px) kurz
+  „Ideen“, damit die fünf Einträge nicht aneinanderstoßen (Screenreader sagen weiter „Vorschläge“). Der Platzhalter der
+  Katalogsuche ist kürzer („Suchen, z. B. „Stift““) und wird auf 320 px nicht mehr abgeschnitten. Im Dialog „Rechte ändern“
+  ist jetzt die ganze Zeile (Häkchen und Text) eine große Tippfläche mit Hover-Hintergrund und Fokusrahmen.
 - **Ansichten geprüft (Handy, Tablet, PC):** Kleine Knöpfe sind jetzt überall gut antippbar – „Ändern“ und das Auge zum
   Passwort-Anzeigen (Anmeldung, Passwort festlegen) nehmen die ganze Feldhöhe ein, das „×“ an Meldungen ist so groß wie beim
   Dialog-Schließen, das Häkchen zum Exportieren (Druckteile verwalten) und „Foto entfernen“ (Vorschlag machen) haben eine
