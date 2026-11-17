@@ -22,7 +22,7 @@ import {
 } from '../../components/ui';
 import { ColorSwatch } from '../../components/ColorSwatch';
 import { api, ApiError } from '../../lib/api';
-import { useMasterData } from '../../lib/config';
+import { useConfig, useMasterData } from '../../lib/config';
 import { filamentLabel, findFilament } from '../../lib/constants';
 import { formatDuration, formatRelative, plural } from '../../lib/format';
 import { ITEM_KIND_LABELS, type Filament, type Item, type MasterData } from '../../lib/types';
@@ -66,6 +66,7 @@ export function ItemsAdminPage() {
   const [busyId, setBusyId] = useState<string>();
   const toast = useToast();
   const md = useMasterData();
+  const { reload: reloadConfig } = useConfig();
   // Ohne „Katalog bearbeiten“ nur ansehen (das Backend prüft zusätzlich).
   const { can } = useAuth();
   const canEdit = can('catalog:manage');
@@ -150,7 +151,11 @@ export function ItemsAdminPage() {
           )
         }
       />
-      {canImport && <EinspielenDialog open={einspielen} onClose={() => setEinspielen(false)} onDone={() => void reload()} />}
+      {canImport && <EinspielenDialog open={einspielen} onClose={() => setEinspielen(false)} onDone={() => {
+            // Das Einspielen kann Kategorien, Materialien, Einsatzbereiche und Farbrollen anlegen.
+            void reload();
+            void reloadConfig();
+          }} />}
 
       {error && <Alert kind="error">{error.message}</Alert>}
       {loading && !items && <Spinner />}
@@ -274,6 +279,7 @@ export function ItemsAdminPage() {
                         disabled={!canEdit || busyId === item.id}
                         onChange={(v) => togglePublish(item, v)}
                         label={item.published ? 'Veröffentlicht' : 'Entwurf'}
+                        srLabel={`„${item.name}“ im Katalog veröffentlichen`}
                         description={item.published ? 'Im Katalog sichtbar' : 'Nur für das Team sichtbar'}
                       />
                     </div>

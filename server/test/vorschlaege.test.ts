@@ -151,6 +151,15 @@ test('„In Produkt umwandeln“: Entwurf mit Titel, Beschreibung und kopierten 
   const mine = (await propTeacher.req('GET', '/api/proposals/mine')).json[0];
   assert.equal(mine.status, 'umgesetzt');
   assert.ok(!('itemId' in mine), 'Lehrkraft sieht keine interne Artikel-ID');
+  // Kein Widerspruch: Mit Entwurf im Katalog bleibt der Status „umgesetzt“ (Antwort ändern geht weiter).
+  for (const status of ['neu', 'in_pruefung', 'abgelehnt']) {
+    const z = await propTeam.req('PATCH', `/api/proposals/${proposalId}`, { status, reply: 'Doch nicht' });
+    assert.equal(z.status, 409, `${status}: ${JSON.stringify(z.json)}`);
+    assert.equal(z.json.fields.status, 'Bereits umgewandelt');
+  }
+  const antwort = await propTeam.req('PATCH', `/api/proposals/${proposalId}`, { status: 'umgesetzt', reply: 'Liegt als Entwurf bereit.' });
+  assert.equal(antwort.status, 200);
+  assert.equal(antwort.json.reply, 'Liegt als Entwurf bereit.');
 });
 test('Löschen des Entwurfs entfernt nur dessen Bilder; der Vorschlag bleibt erhalten', async () => {
   const p = (await propTeam.req('GET', `/api/proposals/${proposalId}`)).json;
@@ -160,6 +169,8 @@ test('Löschen des Entwurfs entfernt nur dessen Bilder; der Vorschlag bleibt erh
   assert.equal(after.itemId, null);
   assert.equal(after.photos.length, 2);
   assert.equal((await propTeam.req('GET', `/api/proposals/${proposalId}/photos/${proposalPhoto}`)).status, 200);
+  // Ohne Entwurf ist der Status wieder frei wählbar.
+  assert.equal((await propTeam.req('PATCH', `/api/proposals/${proposalId}`, { status: 'in_pruefung', reply: '' })).status, 200);
 });
 test('Zweiter Vorschlag erhält die nächste Nummer', async () => {
   const r = await propOther.req('POST', '/api/proposals', undefined, { form: proposalForm({ title: 'Rutschfeste Unterlage', description: 'Teller rutscht auf dem Tisch hin und her.' }) });
