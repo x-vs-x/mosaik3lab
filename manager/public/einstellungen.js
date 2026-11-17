@@ -56,7 +56,8 @@ export async function loadSettings() {
   $('#mail-link-warnung').textContent = l.warnung ?? '';
   $('#mail-link-warnung').hidden = !l.warnung;
   f.mailBaseUrl.placeholder = ctx.status?.addresses ? (ctx.status.addresses.network[0] ?? ctx.status.addresses.local) : '';
-  $('#mail-state').textContent = m.enabled ? (m.host && m.from ? '– eingeschaltet' : '– bitte ausfüllen') : '– aus';
+  const mailState = m.enabled ? (m.host && m.from ? ['ok', 'an'] : ['warn', 'bitte ausfüllen']) : ['off', 'aus'];
+  Object.assign($('#mail-state'), { className: `light ${mailState[0]}`, textContent: mailState[1] });
   $('#mail-fields').hidden = !m.enabled;
   $('#mail-test-box').hidden = !m.enabled;
 
@@ -132,12 +133,10 @@ mail.addEventListener('submit', async (e) => {
 action($('#btn-mail-test'), async () => {
   const box = $('#mail-result');
   if (!same(mailBody(mail.elements), loaded.mail) || mail.elements.mailPassword.value) {
-    box.textContent = '✘ Bitte zuerst speichern – die Testmail nutzt die gespeicherten Einstellungen.';
-    box.className = 'small error';
+    Object.assign(box, { textContent: 'Bitte zuerst speichern – die Testmail nutzt die gespeicherten Einstellungen.', className: 'callout warn small', hidden: false });
     return false;
   }
-  box.textContent = 'Testmail wird gesendet …';
-  box.className = 'small';
+  Object.assign(box, { textContent: 'Testmail wird gesendet …', className: 'small muted', hidden: false });
   let r;
   try {
     r = await api('mail/test', { to: mail.elements.mailTestTo.value });
@@ -145,8 +144,8 @@ action($('#btn-mail-test'), async () => {
     r = { ok: false, message: ex.hint ? `${ex.message} – ${ex.hint}` : ex.message };
   }
   if (!r) return false; // abgemeldet
-  box.textContent = `${r.ok ? '✔' : '✘'} ${r.message}`;
-  box.className = `small${r.ok ? '' : ' error'}`;
+  box.textContent = r.message; // Hinweisfeld grün/rot, die Meldung sagt selbst, was passiert ist
+  box.className = `callout small ${r.ok ? 'ok' : 'error'}`;
   return false;
 });
 

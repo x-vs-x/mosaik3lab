@@ -10,6 +10,29 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 - **Aufgeräumt:** …
 -->
 
+## 2026-11-17 – Server-Manager neu gestaltet (Unter-Session, Branch: feature/manager-design)
+- **Gebaut:** Design nach freigegebenem Entwurf (`_testdaten/manager-entwurf/entwurf.html`, Apple-HIG-Grundsätze:
+  Zurückhaltung, ein Akzent, Hierarchie über Schrift + Weißraum). `app.css` neu: Variablen für 5 Schriftstufen,
+  4/8-Abstände, Radien, Farben hell/dunkel (WCAG AA gemessen), Federkurven 120–240 ms, `prefers-reduced-motion`,
+  `prefers-contrast`, `prefers-reduced-transparency`, `forced-colors`; Kapsel-Knöpfe ≥ 44 px, Ampel = Punkt + Wort,
+  Karten ohne Rand/Schatten, Glas nur an der festen Reiterleiste (Handy: wischbar mit Randverlauf), Dialoge mit festem
+  Kopf/Fuß (Handy fast vollflächig). `index.html`: Texte gekürzt, Erklärungen in `<details>`, Umzug/Einrichten als
+  aufklappbare Karten, Dialoge gegliedert (`.dlg-head/-body/-foot`), Symbole aus Überschriften entfernt.
+  JS nur Darstellung: Reiter einblenden + ins Bild holen + Randverlauf (`app.js`), Sicherungen als Liste mit leerem
+  Zustand, Kurzfassung Sicherung als Liste, Hinweise mit Ampelwort, „Stand HH:MM“; Testmail-Ergebnis und Mail-Status
+  als Hinweisfeld/Ampel (`einstellungen.js`); Toast mit Schließen-Knopf, Trennlinie über Dialogknöpfen nur beim
+  Scrollen (`ui.js`); kürzere Update-Texte (`update.js`); Einrichten aufgeklappt, solange nicht eingerichtet
+  (`erweitert.js`). Alle `id`, `data-testid`, Formularnamen unverändert; Schulnetz-Hinweis aus PR #11 übernommen.
+- **Dateien:** `manager/public/{app.css,index.html,app.js,ui.js,update.js,einstellungen.js,erweitert.js}`,
+  `docs/ANLEITUNG-DRUCKTEILE-UND-SICHERUNG.md`, `CHANGELOG.md`.
+- **Geprüft:** typecheck ✔ · lint ✔ · test ✔ · Klicktest mit isolierter Manager-Instanz (Port 5195, Probelauf-System,
+  leere DB): Willkommen inkl. Domain-Abfrage + Zusammenfassung → Konto angelegt, Anmeldung (falsch/richtig), Speichern
+  in Sicherung, E-Mail (mit Widerspruch-Warnung) und Netzwerk (mit Rückfrage), Hinweis-Knopf „E-Mail-Einstellungen
+  öffnen“. Prüffunktion bei 320×568, 375×812, 667×375, 820×1180, 1180×820, 1366×900, hell und dunkel: alle Reiter
+  (Ausklappbares offen), Anmeldung, Willkommen, Zusammenfassung, Rückfrage, Was ist neu, Toasts – 0 Befunde
+  (kein waagrechtes Scrollen, nichts abgeschnitten, Tippflächen ≥ 44 px, Kontrast AA, Dialog-Fuß sichtbar).
+- **Aufgeräumt:** Testinstanz gestoppt, `_testdaten/manager-design` gelöscht, Hilfsskripte im Scratchpad gelöscht.
+
 ## 2026-11-17 – Kleinigkeiten Handy (Unter-Session session-2, Branch: fix/kleinigkeiten-handy)
 - **Gebaut:** untere Leiste: neues Feld `tinyLabel` (nur „Vorschläge“ → „Ideen“, sichtbar unter 390 px; „Vorschläge“ bleibt
   als `sr-only` der Name des Links, die Zahl neuer Vorschläge bleibt im Namen). Katalogsuche: Platzhalter „Suchen, z. B.

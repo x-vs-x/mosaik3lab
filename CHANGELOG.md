@@ -6,6 +6,11 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Server-Manager neu gestaltet:** ruhiger und klarer – helle Steinflächen, App-Rot nur für die wichtigsten Knöpfe,
+  klare Schriftstufen, runde Knöpfe mit großen Tippflächen, kürzere Texte (Erklärungen zum Aufklappen), Sicherungen als
+  übersichtliche Liste, Status als Punkt mit Wort. Reiterleiste auf dem Handy waagrecht wischbar, Dialoge auf dem Handy
+  fast vollflächig mit festen Knöpfen, kleine schnelle Übergänge (aus bei „Bewegung reduzieren“), hell/dunkel nach System.
+  Keine Funktionsänderung.
 - **Kleinigkeiten auf dem Handy:** In der unteren Leiste heißt „Vorschläge“ auf schmalen Handys (unter 390 px) kurz
   „Ideen“, damit die fünf Einträge nicht aneinanderstoßen (Screenreader sagen weiter „Vorschläge“). Der Platzhalter der
   Katalogsuche ist kürzer („Suchen, z. B. „Stift““) und wird auf 320 px nicht mehr abgeschnitten. Im Dialog „Rechte ändern“
