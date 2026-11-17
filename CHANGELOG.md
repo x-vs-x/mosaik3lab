@@ -6,6 +6,13 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Größen sind freiwillig:** Druckteile lassen sich ohne „Verfügbare Größen“ anlegen; Lehrkräfte wählen dann keine Größe.
+- **Ganze Linien und ganze Materialien als Farbwahl:** Unter „Bestimmte Farben oder Linien“ gibt es „Alle PLA“, „Alle PETG“ …
+  und je Linie „Ganze Linie wählen“. Später in den Stammdaten angelegte Farbrollen dieser Linie bzw. dieses Materials sind
+  automatisch mit dabei – anders als bei „Alle Farben“ ohne TPU & Co.
+- **Farbrollen löschen, auch wenn sie verwendet werden:** Die Farbe verschwindet dabei automatisch aus allen Druckteilen.
+  War es die letzte Farbe eines Bereichs, gilt dort „Alle Farben“. Bestehende Anfragen behalten ihre Farbe.
+
 ## [1.5.0] – 2026-11-17
 
 - **Server-Manager neu gestaltet:** ruhiger und klarer – helle Steinflächen, App-Rot nur für die wichtigsten Knöpfe,

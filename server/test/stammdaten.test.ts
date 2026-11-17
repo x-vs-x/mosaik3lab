@@ -58,11 +58,8 @@ test('Ungültiger Eintrag: Meldung nennt Zeile und Feld, fields je Zeilenindex',
   assert.match(hex.json.error, /^Zeile 1: Farbwert: Farbwert im Format #RRGGBB\.$/);
   assert.equal((await md()).categories.length, categories.length, 'nichts gespeichert');
 });
-test('Farbrollen: verwendete nicht löschbar, unbenutzte schon, neue erhalten eine UUID', async () => {
+test('Farbrollen: löschbar (auch verwendete), neue erhalten eine UUID', async () => {
   const { filaments } = await md();
-  const used = await putList(admin, 'filaments', filaments.filter((f: any) => f.id !== 'bambu-tpu-95a-hf-black'));
-  assert.equal(used.status, 409, JSON.stringify(used.json));
-  assert.match(used.json.error, /Farbrolle/);
   const next = [
     ...filaments.filter((f: any) => f.id !== 'bambu-pla-basic-black'),
     { brand: 'Eigen', line: 'PLA', colorName: 'Testgrün', hex: '#00ff00' },

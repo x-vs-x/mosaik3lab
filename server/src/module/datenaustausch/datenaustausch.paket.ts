@@ -39,7 +39,7 @@ const artikelS = z.object({
   kind: z.enum(ITEM_KINDS).default('hilfsmittel'),
   useAreas: z.array(z.string().max(200)).max(100).default([]),
   sizes: z.array(z.string().max(200)).max(100).default([]),
-  colorAreas: z.array(z.object({ id: z.string().max(64).default(''), name: z.string().max(200), alleFarben: z.boolean().optional(), colors: z.array(z.string().max(64)).max(300) })).max(20),
+  colorAreas: z.array(z.object({ id: z.string().max(64).default(''), name: z.string().max(200), alleFarben: z.boolean().optional(), colors: z.array(z.string().max(64)).max(300), gruppen: z.array(z.string().max(140)).max(50).optional() })).max(20),
   price: z.string().max(200).default(''),
   customFields: z.array(z.any()).max(30).default([]),
   material: z.string().max(200),

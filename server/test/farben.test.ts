@@ -122,8 +122,80 @@ test('Farbe vielen Druckteilen zuordnen: in einem Rutsch, „Alle Farben“ unbe
   assert.equal(nachher.find((x: any) => x.id === mitAlle.id).colorAreas.find((a: any) => a.alleFarben)?.alleFarben, true);
   // Zweimal zuordnen ändert nichts mehr.
   assert.equal((await team.req('POST', '/api/items/farbe-zuordnen', body)).json.druckteile, 0);
-  // Eine zugeordnete Farbrolle kann nicht gelöscht werden (wird verwendet).
+  // Eine zugeordnete Farbrolle lässt sich löschen – sie verschwindet dabei aus allen Druckteilen.
   const { filaments } = await md();
   const del = await admin.req('PUT', '/api/admin/settings/masterdata/filaments', { entries: filaments.filter((f: any) => f.id !== 'bambu-abs-azure') });
-  assert.equal(del.status, 409);
+  assert.equal(del.status, 200, JSON.stringify(del.json));
+  const ohne = await items();
+  assert.ok(!ohne.some((i: any) => i.colors.includes('bambu-abs-azure') || i.colorAreas.some((a: any) => a.colors.includes('bambu-abs-azure'))));
+});
+
+test('Farbrolle löschen: letzte Farbe eines Bereichs → dort „Alle Farben“, Druckteil bleibt gültig', async () => {
+  const [item] = (await items()).filter((i: any) => i.colorAreas.length === 1);
+  const { filaments } = await md();
+  const einzige = filaments.find((f: any) => f.available).id;
+  const r = await team.req('PUT', `/api/items/${item.id}`, itemBody(item, [{ id: 'farbe', name: 'Farbe', colors: [einzige] }]));
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const del = await admin.req('PUT', '/api/admin/settings/masterdata/filaments', { entries: filaments.filter((f: any) => f.id !== einzige) });
+  assert.equal(del.status, 200, JSON.stringify(del.json));
+  const nachher = (await items()).find((i: any) => i.id === item.id);
+  assert.equal(nachher.colorAreas[0].alleFarben, true);
+  assert.ok(!nachher.colors.includes(einzige));
+  // Speichern des Druckteils klappt weiter.
+  assert.equal((await team.req('PUT', `/api/items/${item.id}`, itemBody(nachher, nachher.colorAreas))).status, 200);
+});
+
+test('Ganze Linie / ganzes Material: später angelegte Rollen kommen dazu, Abwählen nimmt sie wieder weg', async () => {
+  const [item] = (await items()).filter((i: any) => i.colorAreas.length === 1);
+  const { filaments } = await md();
+  const tpu = filaments.find((f: any) => /^TPU/.test(f.line)).id;
+  const r = await team.req('PUT', `/api/items/${item.id}`, itemBody(item, [{ id: 'farbe', name: 'Farbe', colors: [tpu], gruppen: ['art:PLA'] }]));
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const area = r.json.colorAreas[0];
+  assert.deepEqual(area.gruppen, ['art:PLA']);
+  assert.ok(area.colors.includes(tpu), 'einzeln gewählte TPU-Farbe bleibt');
+  const plaIds = filaments.filter((f: any) => /^PLA/i.test(f.line)).map((f: any) => f.id);
+  assert.ok(plaIds.length > 0 && plaIds.every((id: string) => area.colors.includes(id)), 'alle PLA dabei');
+  assert.ok(!area.colors.some((id: string) => filaments.find((f: any) => f.id === id && /^PETG/.test(f.line))), 'kein PETG');
+
+  // Neue PLA-Rolle (eigene Marke) kommt automatisch dazu, neue PETG-Rolle nicht.
+  const neu = await admin.req('PUT', '/api/admin/settings/masterdata/filaments', {
+    entries: [...filaments, { brand: 'Eigen', line: 'PLA Glitzer', colorName: 'Lila', hex: '#8800ff' }, { brand: 'Eigen', line: 'PETG', colorName: 'Grau', hex: '#888888' }],
+  });
+  assert.equal(neu.status, 200, JSON.stringify(neu.json));
+  const lila = neu.json.filaments.find((f: any) => f.colorName === 'Lila' && f.brand === 'Eigen').id;
+  const grau = neu.json.filaments.find((f: any) => f.colorName === 'Grau' && f.brand === 'Eigen').id;
+  const mitNeu = (await items()).find((i: any) => i.id === item.id).colorAreas[0];
+  assert.ok(mitNeu.colors.includes(lila));
+  assert.ok(!mitNeu.colors.includes(grau));
+
+  // Die Oberfläche schickt alle Farben mit zurück – der Server speichert nur die nicht abgedeckten einzeln.
+  const zurueck = await team.req('PUT', `/api/items/${item.id}`, itemBody(item, [{ ...mitNeu, gruppen: [] }].map((a) => ({ ...a, colors: [tpu] }))));
+  assert.equal(zurueck.status, 200);
+  assert.deepEqual(zurueck.json.colorAreas[0].colors, [tpu]);
+  // Nur eine Gruppe ohne Einzelfarben ist gültig.
+  const nurLinie = await team.req('PUT', `/api/items/${item.id}`, itemBody(item, [{ id: 'farbe', name: 'Farbe', colors: [], gruppen: ['linie:Eigen PLA Glitzer'] }]));
+  assert.equal(nurLinie.status, 200, JSON.stringify(nurLinie.json));
+  assert.deepEqual(nurLinie.json.colorAreas[0].colors, [lila]);
+  // Gruppen-Farbe ist bestellbar.
+  const anfrage = await anon.req('POST', '/api/orders', {
+    itemId: item.id, quantity: 1, colors: { farbe: lila }, size: item.sizes[0] ?? '',
+    classOrTeam: '1a', requesterName: 'Test', requesterEmail: 'test.lehrkraft@mosaikschule-lu.de',
+  });
+  assert.equal(anfrage.status, 201, JSON.stringify(anfrage.json));
+});
+
+test('Größen sind freiwillig: Druckteil ohne Größen speichern und ohne Größe anfragen', async () => {
+  const [item] = (await items()).filter((i: any) => i.colorAreas.length === 1 && i.published);
+  const r = await team.req('PUT', `/api/items/${item.id}`, { ...itemBody(item, item.colorAreas), sizes: [] });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.deepEqual(r.json.sizes, []);
+  const area = r.json.colorAreas[0];
+  const { filaments } = await md();
+  const farbe = area.colors.find((id: string) => filaments.find((f: any) => f.id === id)?.available);
+  const body = { itemId: item.id, quantity: 1, colors: { [area.id]: farbe }, classOrTeam: '1a', requesterName: 'Test', requesterEmail: 'test.lehrkraft@mosaikschule-lu.de' };
+  const ok = await anon.req('POST', '/api/orders', body);
+  assert.equal(ok.status, 201, JSON.stringify(ok.json));
+  assert.equal(ok.json.size ?? '', '');
+  assert.equal((await anon.req('POST', '/api/orders', { ...body, size: 'XL' })).status, 400, 'Größe, die es nicht gibt');
 });

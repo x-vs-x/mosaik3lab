@@ -94,7 +94,8 @@ function resolveOrderInput(item: Item, input: OrderInputData, filaments: Filamen
     colorChoices = resolveColors(item, input.colors, input.color, filaments);
   }
   const personalization = resolvePersonalization(item, input.personalization);
-  if (!item.sizes.includes(input.size)) {
+  // Größen sind freiwillig: ohne Größen am Druckteil bleibt die Angabe leer.
+  if (item.sizes.length ? !item.sizes.includes(input.size) : input.size) {
     throw badRequest('Bitte eine verfügbare Größe wählen.', { size: 'Größe nicht verfügbar' });
   }
   return {

@@ -5,7 +5,7 @@ import { Button, Field, Input } from '../../../components/ui';
 import { useMasterData } from '../../../lib/config';
 import type { ColorArea, Filament } from '../../../lib/types';
 import { FilamentPicker } from './FilamentPicker';
-import { MAX_COLOR_AREAS, newId, plural, sectionHasError, type FormSectionProps } from './itemForm';
+import { MAX_COLOR_AREAS, newId, ohneGruppen, plural, sectionHasError, type FormSectionProps } from './itemForm';
 import { ListError, Section } from './Section';
 
 /** Farben & Bereiche sowie verfügbare Größen. */
@@ -13,6 +13,7 @@ export function ColorsSection({ form, set, errors }: FormSectionProps) {
   const md = useMasterData();
   const { can } = useAuth();
   const colorCount = new Set(form.colorAreas.flatMap((a) => a.colors)).size;
+  const gruppenCount = new Set(form.colorAreas.flatMap((a) => (a.alleFarben ? [] : (a.gruppen ?? [])))).size;
   const alle = form.colorAreas.filter((a) => a.alleFarben).length;
 
   return (
@@ -24,8 +25,10 @@ export function ColorsSection({ form, set, errors }: FormSectionProps) {
         form.colorAreas.length > 1 ? `Mehrfarbig: ${plural(form.colorAreas.length, 'Bereich', 'Bereiche')}` : 'Einfarbig',
         alle === form.colorAreas.length
           ? 'Alle Farben'
-          : `${plural(colorCount, 'Farbe', 'Farben')}${alle ? ' + „Alle Farben“' : ''}`,
-        plural(form.sizes.length, 'Größe', 'Größen'),
+          : [gruppenCount ? plural(gruppenCount, 'ganze Gruppe', 'ganze Gruppen') : '', colorCount || !gruppenCount ? plural(colorCount, 'Farbe', 'Farben') : '']
+              .filter(Boolean)
+              .join(' + ') + (alle ? ' + „Alle Farben“' : ''),
+        form.sizes.length ? plural(form.sizes.length, 'Größe', 'Größen') : 'ohne Größen',
       ].join(' · ')}
       defaultOpen
       hasError={sectionHasError(errors, 'farben')}
@@ -37,7 +40,11 @@ export function ColorsSection({ form, set, errors }: FormSectionProps) {
         error={errors.colorAreas ?? errors.colors}
         manageLink={can('masterdata:manage')}
       />
-      <Field label="Verfügbare Größen" required hint="Eingabe mit Enter oder „Hinzufügen“ bestätigen." error={errors.sizes}>
+      <Field
+        label="Verfügbare Größen (freiwillig)"
+        hint="Nur nötig, wenn Lehrkräfte eine Größe wählen sollen. Eingabe mit Enter oder „Hinzufügen“ bestätigen."
+        error={errors.sizes}
+      >
         {({ id, describedBy, invalid }) => (
           <ListEditor id={id} values={form.sizes} onChange={(v) => set('sizes', v)} placeholder="z. B. Ø 25 mm" describedBy={describedBy} invalid={invalid} itemLabel="Größe" />
         )}
@@ -94,9 +101,11 @@ function ColorAreasEditor({
               legend={`Farben für „${area.name || `Bereich ${i + 1}`}“`}
               filaments={filaments}
               alleFarben={!!area.alleFarben}
-              onAlleFarben={(on) => update(i, { alleFarben: on, colors: [] })}
+              onAlleFarben={(on) => update(i, { alleFarben: on, colors: [], gruppen: [] })}
               selected={area.colors}
               onChange={(v) => update(i, { colors: v })}
+              gruppen={area.gruppen ?? []}
+              onGruppen={(g) => update(i, { gruppen: g, colors: ohneGruppen(area.colors, [...(area.gruppen ?? []), ...g], filaments) })}
               manageLink={manageLink && i === 0}
             />
           </div>
@@ -106,9 +115,11 @@ function ColorAreasEditor({
             legend="Welche Farben kann man wählen?"
             filaments={filaments}
             alleFarben={!!area.alleFarben}
-            onAlleFarben={(on) => update(i, { alleFarben: on, colors: [] })}
+            onAlleFarben={(on) => update(i, { alleFarben: on, colors: [], gruppen: [] })}
             selected={area.colors}
             onChange={(v) => update(i, { colors: v })}
+            gruppen={area.gruppen ?? []}
+            onGruppen={(g) => update(i, { gruppen: g, colors: ohneGruppen(area.colors, [...(area.gruppen ?? []), ...g], filaments) })}
             manageLink={manageLink}
           />
         ),

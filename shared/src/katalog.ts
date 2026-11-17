@@ -28,9 +28,32 @@ export const colorAreaSchema = z
     alleFarben: z.boolean().optional(),
     /** IDs von Farbrollen (Filamenten) aus den Stammdaten – bei „nur bestimmte Farben“. */
     colors: uniqueList(text(1, 64), 0, 200),
+    /**
+     * Ganze Gruppen, auch mit später angelegten Farbrollen: `linie:<Marke Linie>` (z. B. „linie:Bambu Lab PLA Basic“) oder
+     * `art:<Materialart>` (z. B. „art:PLA“ = alle PLA-Linien). Beim Lesen füllt der Server die passenden Rollen in colors ein.
+     */
+    gruppen: uniqueList(text(1, 140), 0, 50).optional(),
   })
-  .refine((a) => a.alleFarben || a.colors.length > 0, { message: 'Bitte mindestens eine Farbe wählen', path: ['colors'] });
+  .refine((a) => a.alleFarben || a.colors.length > 0 || (a.gruppen?.length ?? 0) > 0, {
+    message: 'Bitte mindestens eine Farbe wählen',
+    path: ['colors'],
+  });
 export type ColorArea = z.infer<typeof colorAreaSchema>;
+
+type Rolle = { brand: string; line: string };
+/** Gruppe „Linie“ einer Farbrolle, z. B. „Bambu Lab PLA Basic“ (leer = ohne Marke und Linie). */
+export const linieVon = (f: Rolle) => [f.brand, f.line].map((s) => s.trim()).filter(Boolean).join(' ');
+/** Materialart einer Farbrolle aus dem ersten Wort der Linie, z. B. „PLA“ aus „PLA Basic“ (leer = ohne Linie). */
+export const materialartVon = (f: Rolle) => (f.line.trim().split(/\s+/)[0] ?? '').toLocaleUpperCase('de-DE');
+export const gruppeLinie = (f: Rolle) => `linie:${linieVon(f)}`;
+export const gruppeArt = (art: string) => `art:${art}`;
+/** Gehört die Farbrolle zu einer der Gruppen eines Farbbereichs? */
+export function inGruppen(f: Rolle, gruppen: readonly string[] | undefined) {
+  if (!gruppen?.length) return false;
+  const linie = linieVon(f);
+  const art = materialartVon(f);
+  return gruppen.some((g) => (!!linie && g === `linie:${linie}`) || (!!art && g === `art:${art}`));
+}
 
 /** POST /api/items/farbe-zuordnen – eine Farbrolle mehreren Druckteilen (Farbbereichen) auf einmal hinzufügen. */
 export const farbeZuordnenSchema = z.object({
@@ -78,7 +101,8 @@ export const itemInputSchema = z.object({
   /** Freier Preistext, z. B. „ca. 2 € Material“ – leer = keine Angabe. */
   price: z.string().trim().max(80).default(''),
   customFields: z.array(customFieldSchema).max(10).default([]),
-  sizes: uniqueList(text(1, 60), 1, 20),
+  /** Verfügbare Größen – freiwillig; leer = beim Anfragen keine Größenwahl. */
+  sizes: uniqueList(text(1, 60), 0, 20).default([]),
   material: text(1, 60),
   materialInfo: z.string().trim().max(1000).default(''),
   printTimeMinutes: z.number().int().min(1).max(10000),

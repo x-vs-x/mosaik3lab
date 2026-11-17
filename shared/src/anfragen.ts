@@ -74,7 +74,8 @@ export const orderInputSchema = z.object({
     .min(1)
     .max(10)
     .optional(),
-  size: text(1, 60),
+  /** Leer, wenn das Druckteil keine Größen hat. */
+  size: z.string().trim().max(60).default(''),
   requesterEmail: emailSchema,
   classOrTeam: text(1, 60),
   customization: z.string().trim().max(1000).default(''),

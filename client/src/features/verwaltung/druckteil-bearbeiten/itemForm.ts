@@ -1,5 +1,6 @@
 // Formular-Grundlagen des Druckteil-Editors: Leerwerte, Umwandlung, lokale Prüfung, kleine Helfer.
-import type { Item, ItemInput } from '../../../lib/types';
+import { inGruppen } from '@mosaik3lab/shared/katalog';
+import type { Filament, Item, ItemInput } from '../../../lib/types';
 
 export const MAX_COLOR_AREAS = 8;
 export const MAX_CUSTOM_FIELDS = 10;
@@ -39,6 +40,16 @@ export const EMPTY: ItemInput = {
   published: false,
 };
 
+/**
+ * Feste Auswahl ohne die Rollen der Gruppen (vorher und nachher): Eine neu gewählte Gruppe deckt sie ab, und beim
+ * Abwählen einer Gruppe gehen ihre Farben mit (der Server füllt beim Lesen die Rollen der Gruppen in colors ein).
+ */
+export const ohneGruppen = (colors: string[], gruppen: string[], filaments: Filament[]) =>
+  colors.filter((id) => {
+    const f = filaments.find((x) => x.id === id);
+    return !f || !inGruppen(f, gruppen);
+  });
+
 export function toInput(item: Item): ItemInput {
   const { name, shortDescription, description, kind, category, useAreas, sizes, material, materialInfo, printTimeMinutes, safetyNotes, published } = item;
   return {
@@ -50,7 +61,7 @@ export function toInput(item: Item): ItemInput {
     useAreas,
     // Bei „Alle Farben“ liefert der Server alle Farbrollen mit – gespeichert wird aber keine feste Liste.
     colorAreas: (item.colorAreas?.length ? item.colorAreas : [{ id: 'farbe', name: 'Farbe', colors: item.colors }]).map((a) =>
-      a.alleFarben ? { ...a, colors: [] } : a,
+      a.alleFarben ? { ...a, colors: [], gruppen: [] } : a,
     ),
     price: item.price ?? '',
     customFields: item.customFields ?? [],
@@ -77,7 +88,7 @@ export const sectionHasError = (errors: FieldErrors, section: keyof typeof SECTI
 
 /** Verständliche Meldung je Bereich/Feld, bevor der Server allgemein „Mindestens 1 Eintrag“ meldet. */
 export function validateLocal(form: ItemInput): FieldErrors {
-  const emptyArea = form.colorAreas.find((a) => !a.name.trim() || (!a.alleFarben && a.colors.length === 0));
+  const emptyArea = form.colorAreas.find((a) => !a.name.trim() || (!a.alleFarben && a.colors.length === 0 && !a.gruppen?.length));
   const unnamedField = form.customFields.find((f) => !f.label.trim() || (f.type === 'select' && f.options.length === 0));
   const local: FieldErrors = {};
   if (emptyArea) {

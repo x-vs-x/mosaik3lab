@@ -6,10 +6,18 @@ import { Alert, cx, inputClass } from "../../../components/ui";
 import { filamentLabel } from "../../../lib/constants";
 import type { Filament } from "../../../lib/types";
 import { filamentRolle } from "@mosaik3lab/shared/stammdaten";
+import {
+  gruppeArt,
+  gruppeLinie,
+  inGruppen,
+  linieVon,
+  materialartVon,
+} from "@mosaik3lab/shared/katalog";
 
 /**
  * Farbwahl eines Farbbereichs: oben „Alle Farben“ (auch später angelegte) oder „Nur bestimmte Farben“;
- * bei „bestimmte“ die Farbrollen mit Farbtupfer, gruppiert nach Linie, mit Suche und „alle dieser Linie“.
+ * bei „bestimmte“ ganze Materialarten (z. B. alle PLA) oder ganze Linien – beides auch mit später angelegten Rollen –
+ * und einzelne Farbrollen mit Farbtupfer, gruppiert nach Linie, mit Suche.
  */
 export function FilamentPicker({
   legend,
@@ -20,6 +28,8 @@ export function FilamentPicker({
   onChange,
   error,
   manageLink,
+  gruppen,
+  onGruppen,
 }: {
   legend: string;
   filaments: Filament[];
@@ -29,11 +39,28 @@ export function FilamentPicker({
   onChange: (ids: string[]) => void;
   error?: string;
   manageLink: boolean;
+  /** Ganze Linien/Materialarten (`linie:…`, `art:…`), inkl. später angelegter Rollen. */
+  gruppen: string[];
+  onGruppen: (gruppen: string[]) => void;
 }) {
   const uid = useId();
   const [q, setQ] = useState("");
   const known = new Set(filaments.map((f) => f.id));
   const missing = selected.filter((id) => !known.has(id));
+  const abgedeckt = (f: Filament) => inGruppen(f, gruppen);
+  const schalteGruppe = (g: string) =>
+    onGruppen(
+      gruppen.includes(g) ? gruppen.filter((x) => x !== g) : [...gruppen, g],
+    );
+  // Materialarten (erstes Wort der Linie, z. B. „PLA“) in der Reihenfolge der Stammdaten.
+  const arten = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const f of filaments) {
+      const art = materialartVon(f);
+      if (art) map.set(art, (map.get(art) ?? 0) + 1);
+    }
+    return [...map.entries()];
+  }, [filaments]);
 
   const groups = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -46,7 +73,7 @@ export function FilamentPicker({
           .includes(needle)
       )
         continue;
-      const key = [f.brand, f.line].filter(Boolean).join(" ") || "Ohne Marke";
+      const key = linieVon(f) || "Ohne Marke";
       map.set(key, [...(map.get(key) ?? []), f]);
     }
     return [...map.entries()];
@@ -58,12 +85,20 @@ export function FilamentPicker({
         ? selected.filter((x) => x !== id)
         : [...selected, id],
     );
+  // Einzeln gewählt = nicht schon über eine Gruppe abgedeckt (die zeigt der Server in selected mit an).
   const selectedFilaments = selected
     .map((id) => filaments.find((f) => f.id === id))
-    .filter((f): f is Filament => !!f);
+    .filter((f): f is Filament => !!f && !abgedeckt(f));
+  const ausGruppen = filaments.filter(abgedeckt).length;
+  const gruppenNamen = gruppen.map((g) =>
+    g.startsWith("art:") ? `alle ${g.slice(4)}` : g.slice(6),
+  );
 
   return (
-    <fieldset className="min-w-0" aria-describedby={error ? `${uid}-error` : undefined}>
+    <fieldset
+      className="min-w-0"
+      aria-describedby={error ? `${uid}-error` : undefined}
+    >
       <legend className="mb-1.5 font-bold text-stone-800">
         {legend}{" "}
         <span className="text-rose-700" aria-hidden>
@@ -84,8 +119,8 @@ export function FilamentPicker({
             ],
             [
               false,
-              "Nur bestimmte Farben",
-              "Sie wählen die Farben unten selbst aus.",
+              "Bestimmte Farben oder Linien",
+              "Einzelne Farben, ganze Linien oder z. B. alle PLA-Farben.",
             ],
           ] as const
         ).map(([wert, titel, text]) => (
@@ -107,9 +142,7 @@ export function FilamentPicker({
             />
             <span>
               <span className="block font-bold text-stone-900">{titel}</span>
-              <span className="block text-hinweis text-stone-600">
-                {text}
-              </span>
+              <span className="block text-hinweis text-stone-600">{text}</span>
             </span>
           </label>
         ))}
@@ -122,7 +155,9 @@ export function FilamentPicker({
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-hinweis text-stone-600">
               <span className="font-bold text-stone-800">
-                {selected.length} ausgewählt.
+                {gruppen.length > 0
+                  ? `${gruppenNamen.join(", ")} (${ausGruppen} Farben)${selectedFilaments.length ? ` + ${selectedFilaments.length} einzeln` : ""}.`
+                  : `${selectedFilaments.length} ausgewählt.`}
               </span>{" "}
               Leere Rollen sind markiert und werden Lehrkräften erst angeboten,
               wenn sie wieder vorrätig sind.
@@ -183,6 +218,41 @@ export function FilamentPicker({
             </Alert>
           ) : (
             <>
+              {arten.length > 0 && (
+                <div className="mb-3 rounded-2xl bg-white p-3 ring-1 ring-stone-200">
+                  <p className="mb-2 text-hinweis text-stone-600">
+                    <span className="font-bold text-stone-800">
+                      Ganzes Material:
+                    </span>{" "}
+                    alle Farben dieses Materials, auch später angelegte.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {arten.map(([art, n]) => {
+                      const an = gruppen.includes(gruppeArt(art));
+                      return (
+                        <button
+                          key={art}
+                          type="button"
+                          aria-pressed={an}
+                          onClick={() => schalteGruppe(gruppeArt(art))}
+                          className={cx(
+                            "inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 font-bold ring-1 ring-inset",
+                            an
+                              ? "bg-brand-50 text-brand-900 ring-brand-400"
+                              : "bg-white text-stone-800 ring-stone-300 hover:bg-stone-50",
+                          )}
+                        >
+                          {an && <Check className="size-4" aria-hidden />}
+                          Alle {art}
+                          <span className="font-normal text-stone-600">
+                            ({n})
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="relative mb-3">
                 <label htmlFor={`${uid}-filter`} className="sr-only">
                   Farbrollen filtern ({legend})
@@ -208,44 +278,79 @@ export function FilamentPicker({
                 )}
                 {groups.map(([group, list]) => {
                   const allOn = list.every((f) => selected.includes(f.id));
+                  const linie =
+                    group === "Ohne Marke" ? "" : gruppeLinie(list[0]);
+                  const linieAn = !!linie && gruppen.includes(linie);
+                  const ueberArt = !!linie && !linieAn && list.every(abgedeckt);
                   return (
                     <div key={group} role="group" aria-label={group}>
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2 px-1">
                         <p className="text-hinweis font-bold uppercase tracking-wide text-stone-500">
                           {group}
                         </p>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onChange(
-                              allOn
-                                ? selected.filter(
-                                    (id) => !list.some((f) => f.id === id),
-                                  )
-                                : [
-                                    ...selected,
-                                    ...list
-                                      .filter((f) => !selected.includes(f.id))
-                                      .map((f) => f.id),
-                                  ],
-                            )
-                          }
-                          className="min-h-11 rounded-xl px-2 text-hinweis font-bold text-brand-700 hover:text-brand-900"
-                        >
-                          {allOn
-                            ? "Alle dieser Linie abwählen"
-                            : "Alle dieser Linie wählen"}
-                          <span className="sr-only"> ({group})</span>
-                        </button>
+                        {linie ? (
+                          ueberArt ? (
+                            <span className="inline-flex min-h-11 items-center gap-1 px-2 text-hinweis font-bold text-brand-800">
+                              <Check className="size-4" aria-hidden />
+                              Über „Alle {materialartVon(list[0])}“ gewählt
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              aria-pressed={linieAn}
+                              onClick={() => schalteGruppe(linie)}
+                              className={cx(
+                                "inline-flex min-h-11 items-center gap-1 rounded-xl px-2 text-hinweis font-bold",
+                                linieAn
+                                  ? "text-brand-900"
+                                  : "text-brand-700 hover:text-brand-900",
+                              )}
+                            >
+                              {linieAn && (
+                                <Check className="size-4" aria-hidden />
+                              )}
+                              {linieAn
+                                ? "Ganze Linie gewählt (auch neue)"
+                                : "Ganze Linie wählen (auch neue)"}
+                              <span className="sr-only"> ({group})</span>
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onChange(
+                                allOn
+                                  ? selected.filter(
+                                      (id) => !list.some((f) => f.id === id),
+                                    )
+                                  : [
+                                      ...selected,
+                                      ...list
+                                        .filter((f) => !selected.includes(f.id))
+                                        .map((f) => f.id),
+                                    ],
+                              )
+                            }
+                            className="min-h-11 rounded-xl px-2 text-hinweis font-bold text-brand-700 hover:text-brand-900"
+                          >
+                            {allOn
+                              ? "Alle dieser Liste abwählen"
+                              : "Alle dieser Liste wählen"}
+                            <span className="sr-only"> ({group})</span>
+                          </button>
+                        )}
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {list.map((f) => {
-                          const checked = selected.includes(f.id);
+                          const inGruppe = abgedeckt(f);
+                          const checked = inGruppe || selected.includes(f.id);
                           return (
                             <label
                               key={f.id}
                               className={cx(
-                                "flex min-h-12 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 ring-1 ring-inset transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-600",
+                                "flex min-h-12 items-center gap-3 rounded-xl px-3 py-2 ring-1 ring-inset transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-600",
+                                inGruppe ? "cursor-default" : "cursor-pointer",
                                 checked
                                   ? "bg-brand-50 ring-brand-400"
                                   : "bg-white ring-stone-300 hover:bg-stone-50",
@@ -255,6 +360,7 @@ export function FilamentPicker({
                               <input
                                 type="checkbox"
                                 checked={checked}
+                                disabled={inGruppe}
                                 onChange={() => toggle(f.id)}
                                 className="size-5 shrink-0 accent-brand-700"
                               />

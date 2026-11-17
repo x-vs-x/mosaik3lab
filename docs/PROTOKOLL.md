@@ -3,6 +3,17 @@
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
 <!-- Vorlage:
+## 2026-11-17 – Größen freiwillig, Farbgruppen, Farbrollen löschen (Hauptchat, Branch: feature/farben-groessen)
+- **Gebaut:** `sizes` am Druckteil freiwillig (Anfrage ohne Größe, wenn das Teil keine hat). Farbbereiche mit `gruppen`
+  (`linie:<Marke Linie>`, `art:<Materialart>` = erstes Wort der Linie), Server füllt beim Lesen die passenden Rollen ein,
+  speichert abgedeckte Rollen nicht einzeln. Picker: „Alle PLA/PETG/…“ und „Ganze Linie wählen (auch neue)“. Farbrolle
+  löschen nimmt sie aus allen Druckteilen; leerer Bereich → „Alle Farben“. Export/Import tragen `gruppen` mit.
+- **Dateien:** shared/src/katalog.ts, shared/src/anfragen.ts, Migration 017_farbbereich_gruppen.sql,
+  module/katalog/katalog.repository.ts + katalog.service.ts, module/anfragen/anfragen.service.ts,
+  module/stammdaten/stammdaten.service.ts, module/datenaustausch/*, client druckteil-bearbeiten/{FilamentPicker,ColorsSection,itemForm},
+  einstellungen/stammdaten/{ListPanel,FilamentsPanel}, Tests farben/stammdaten.
+- **Aufgeräumt:** Testserver gestoppt, Testdaten-Ordner gelöscht.
+
 ## JJJJ-MM-TT – <Funktion> (Session: <name>, Branch: feature/<kurzname>)
 - **Gebaut:** …
 - **Dateien:** …

@@ -130,7 +130,8 @@ export function FilamentsPanel({
           >
             Farbrollen
           </Link>
-          .
+          . Gelöschte Farbrollen werden automatisch aus allen Druckteilen
+          entfernt.
           {hinweis && (
             <BambuHinweis
               hinweis={hinweis}
@@ -165,6 +166,20 @@ export function FilamentsPanel({
           : `Farbrolle ${i + 1}`
       }
       onDirty={onDirty}
+      onSaved={(removed) => {
+        // Gelöschte Farbrollen nimmt der Server automatisch aus den Druckteilen.
+        const ids = new Set(removed.map((r) => r.id));
+        const betroffen = (items ?? []).filter((i) =>
+          i.colorAreas.some(
+            (a) => !a.alleFarben && a.colors.some((c) => ids.has(c)),
+          ),
+        ).length;
+        if (darfZuordnen) void reloadItems();
+        if (!betroffen) return undefined;
+        return betroffen === 1
+          ? "Gelöschte Farben wurden aus 1 Druckteil entfernt."
+          : `Gelöschte Farben wurden aus ${betroffen} Druckteilen entfernt.`;
+      }}
       layout="compact"
       toolbar={({ dirty, applySaved }) => (
         <>
