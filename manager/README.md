@@ -284,8 +284,7 @@ nicht geht, wird der Befehl zum Kopieren angezeigt. Am Ende übernimmt der Manag
 
 Alle Pfade sind Vorgaben und im Einrichtungsdialog änderbar. Jede Systemänderung (Ordner, Dienst, Firewall-Regel,
 Verknüpfung, Datei, Ordnerrechte) steht in `install-manifest.json` im Verwaltungsordner (Windows: Programmordner, sonst `<Wurzel>/manager`).
-Unter Windows dürfen der einrichtende Benutzer (Deinstallieren) und „Lokaler Dienst“ (Updates nach `releases\`, WinSW-Tausch) den
-Programmordner ändern; sonst schreibt im Betrieb nichts dorthin. Unter Linux richtet das Installer-Paket als root ein
+Bei Paket-Installationen schreiben nur Administratoren/System bzw. root in den Programmordner (dort liegen Programm, Dienstdateien und WinSW – der Update-Helfer startet sie mit Adminrechten). Unter Linux erzeugt die Einrichtung Unit-Dateien und polkit-Regel selbst und schreibt sie als root direkt nach `/etc` (nicht über `<Wurzel>/manager/dienste`, das dem Dienstbenutzer gehört); Deinstallieren übernimmt aus dem Manifest nur passende Einträge (`lib/manifestpruefung.mjs`). Unter Linux richtet das Installer-Paket als root ein
 (`sudo ./installieren.sh`): Das Setup legt den Systembenutzer `mosaik3lab` an und übergibt ihm Daten-, Ablage-, Sicherungs- und
 Protokollordner (vor dem Start der Dienste noch einmal, damit nichts root gehört); `/opt/mosaik3lab` bleibt bei root. **Erneutes Einrichten** einer vorhandenen Installation = Update:
 neue Version unter `releases\`, laufende Dienste stoppen, `current` umschalten, ältere Versionen aufräumen (aktuelle + vorige bleiben),
@@ -306,10 +305,10 @@ Linux: root – der Manager darf ihn per Dienst-Recht bzw. polkit starten) über
 - prüft **selbst** gegen die offizielle Prüfsumme und lehnt ältere/gleiche Versionen ab (dem Manager wird nicht vertraut),
 - installiert mit dem Ablauf des Pakets (`cli.mjs setup`, wie `Installieren.cmd`): Sicherung „vor Update auf …“ (wird nie
   rotiert), Umschalten, Health, bei Fehler automatisch zurück inkl. Datenbank,
-- bricht nach 45 Minuten ab und stellt den alten Stand her; antwortet die App danach nicht, setzt er selbst zurück,
+- bricht nach 3 Stunden ab (Sicherung vor dem Update darf 2 Stunden, der ganze Helfer 4 Stunden – alle Limits in `lib/zeitlimits.mjs`, Übersicht in docs/INSTALLATION.md „Zeitlimits beim Update“) und stellt den alten Stand her; antwortet die App danach nicht, setzt er selbst zurück,
 - startet beim Hochfahren einmal: ein **unterbrochenes Update** (Stromausfall) wird erkannt, läuft die App nicht → zurück.
 Fortschritt schreibt nur der Helfer: `<Programmordner>/update-status.json` (Phasen `läuft`, `fertig`, `zurueckgesetzt`,
-`fehler`, Texte für Admins; „wartet“ leitet der Manager selbst ab, nach 10 min ohne Meldung = Fehler), Protokoll
+`fehler`, Texte für Admins; „wartet“ leitet der Manager selbst ab, nach 10 min ohne Meldung = Fehler; „läuft“ ohne neue Zeile = „läuft noch“, erst nach 4 Stunden ein Hinweis auf Neustart), Protokoll
 `<Programmordner>/update-helfer.log` (im Manager unter Protokoll → „Update-Helfer“). Der Programmordner ist für das Dienstkonto
 schreibgeschützt.
 Einrichtung und Update laufen nie doppelt (`lib/sperre.mjs`, `<Programmordner>/.einrichtung.lock`). Versionen vor 1.1.0

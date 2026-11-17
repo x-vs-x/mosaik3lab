@@ -11,6 +11,14 @@ daraus die nächste Version.
 - **Druckteile verwalten:** Der Schalter „Veröffentlicht/Entwurf“ steht auf breiten Bildschirmen in jeder Zeile an derselben
   Stelle, statt je nach Druckteil nach links oder rechts zu springen.
 
+- **Update per Knopfdruck auf dem Raspberry Pi mit großer Ablage:** Die Sicherung vor dem Update darf jetzt bis zu 2 Stunden
+  dauern, ohne dass ein äußeres Zeitlimit sie abbricht (Wächter des Update-Helfers 3 Stunden, ganzer Helfer 4 Stunden;
+  vorher brach der Helfer schon nach 45 Minuten ab). Der Server-Manager zeigt „läuft noch“ statt eines Fehlers, solange
+  der Helfer arbeitet, und nennt bei langer Wartezeit den Grund.
+- **Sicherheit (Linux/Raspberry Pi):** Dienst-Dateien und polkit-Regel schreibt die Einrichtung als root direkt nach `/etc`,
+  nicht mehr über einen Ordner, den der Dienstbenutzer ändern kann. Deinstallieren übernimmt nur passende Einträge.
+- **Sicherheit (Windows):** Liegt der Programmordner nicht unter „Programme“, setzt die Einrichtung ausdrücklich, dass nur
+  Administratoren und System dort schreiben (der Update-Helfer startet Programm und Dienstdateien als System).
 - **Einstellungen aufgeräumt:** Ablagepfade und Mailserver-Status stehen nicht mehr in den App-Einstellungen – das regelt
   der Server-Manager (Knopf „Server-Manager öffnen“ bleibt). Ist der Mailversand fehlerhaft oder zuletzt gescheitert,
   erscheint dort ein Hinweis. Serverpfade werden nicht mehr an den Browser geschickt.

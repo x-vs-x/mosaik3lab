@@ -6,8 +6,8 @@
 //      Prüfsumme (SHA256SUMS.txt der Veröffentlichung, selbst geholt – dem Manager wird nicht vertraut), Version neuer.
 //   3. Installieren mit dem Ablauf des Pakets selbst (manager/cli.mjs setup – wie Installieren.cmd): Sicherung, Umschalten,
 //      Health-Check, bei Fehler automatisch zurück auf die bisherige Version (inkl. Datenbank aus der Sicherung).
-//   4. Wächter: hängt die Installation länger als 45 Minuten, wird sie (samt Unterprozessen) abgebrochen und der alte
-//      Stand wiederhergestellt.
+//   4. Wächter: dauert die Installation länger als SETUP_MAX_MS (3 Stunden, lib/zeitlimits.mjs – länger als die Sicherung
+//      vor dem Update darf), wird sie (samt Unterprozessen) abgebrochen und der alte Stand wiederhergestellt.
 //   5. Notfall: Beim Hochfahren (der Helfer startet dann einmal) wird ein unterbrochenes Update erkannt (Status „läuft“).
 //      Antwortet die App nicht, wird auf die bisherige Version zurückgeschaltet.
 // Der Status (auch „vorige Version“ für den Rückfall) steht in ctx.statusFile im Programmordner – nur der Helfer schreibt
@@ -16,8 +16,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { compareVersions, refuseOlderVersion } from './paketupdate.mjs';
+import { SETUP_MAX_MS } from './zeitlimits.mjs';
 
-export const MAX_DAUER_MS = 45 * 60_000;
+export const MAX_DAUER_MS = SETUP_MAX_MS;
 export const updatesDir = (dataRoot) => path.join(dataRoot, 'updates');
 /** Status des Helfers – im Programmordner (nur Admin/root schreibbar, für den Manager lesbar). */
 export const statusDatei = (programRoot) => path.join(programRoot, 'update-status.json');

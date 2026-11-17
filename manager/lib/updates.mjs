@@ -8,12 +8,13 @@ import { logger } from './log.mjs';
 import { currentRelease } from './update.mjs';
 import { checkPakete, downloadPaket } from './paketquelle.mjs';
 import { updatesDir, statusDatei } from './aktualisieren.mjs';
+import { laufAnzeige, zeitlimitsMinuten } from './zeitlimits.mjs';
 import { platform } from '../platform/index.mjs';
 
 const log = logger('update');
 let pruefung = null; // { checkedAt, installed, versions, latest, error?, hint?, unsupported? }
 let download = null; // { version, done, total, startedAt, fertig?, error?, hint? }
-const WARTEN_MAX_MS = 10 * 60_000; // so lange darf der Helfer nach dem Start brauchen, bis er sich meldet
+// Zeitlimits und Anzeige-Entscheidung: lib/zeitlimits.mjs (WARTEN_MAX_MS: so lange darf der Helfer brauchen, bis er sich meldet)
 
 /** Installation aus einem Installer-Paket? (dann Updates aus der Paketquelle) */
 export const istPaketInstallation = () => !!INSTALL && fs.existsSync(path.join(INSTALL.programRoot, 'current', 'paket.json'));
@@ -36,22 +37,20 @@ const helferStatus = () => {
  * dem Start noch nicht gemeldet hat. Meldet er sich zu lange nicht, ist das ein Fehler (statt endlos „wartet“).
  */
 const lauf = () => {
-  const h = helferStatus();
-  if (!download?.fertig || download.error) return h;
-  const neu = h && Date.parse(h.at) >= Date.parse(download.startedAt);
-  if (neu) return h;
-  if (Date.now() - Date.parse(download.fertigAt ?? download.startedAt) > WARTEN_MAX_MS) {
-    download.error = 'Der Update-Helfer hat nicht reagiert – es wurde nichts verändert.';
-    download.hint = 'Server neu starten und erneut „Jetzt aktualisieren“ wählen; sonst das Paket per USB-Stick installieren.';
+  const { lauf: l, fehler } = laufAnzeige(helferStatus(), download, Date.now(), installiert()?.version ?? null);
+  if (fehler) {
+    Object.assign(download, fehler);
     log.error('Update: der Update-Helfer hat sich nach dem Start nicht gemeldet.');
-    return h;
   }
-  return { phase: 'wartet', version: download.version, von: installiert()?.version ?? null, meldung: 'Update ist geprüft und wird gleich installiert …', at: download.fertigAt ?? download.startedAt };
+  return l;
 };
-/** Läuft gerade ein Update (Download, wartet auf den Helfer oder Helfer arbeitet)? */
+/**
+ * Läuft gerade ein Update (Download, wartet auf den Helfer oder Helfer arbeitet)? Auch ein „hängender“ Lauf (Status noch
+ * „läuft“, Helfer längst beendet) sperrt: erst der Neustart (Notfall-Prüfung des Helfers beim Hochfahren) räumt ihn auf.
+ */
 const laeuftGerade = () => {
   const l = lauf();
-  return l?.phase === 'läuft' || l?.phase === 'wartet' || (!!download && !download.error && !download.fertig);
+  return l?.phase === 'läuft' || l?.phase === 'wartet' || !!l?.haengt || (!!download && !download.error && !download.fertig);
 };
 const merkDatei = () => path.join(resolvePaths().logDir, 'update-pruefung.json');
 
@@ -98,12 +97,15 @@ export function zustand() {
     latest: p?.latest ? { version: p.latest.version, date: p.latest.date, size: p.latest.asset?.size ?? null } : null,
     download,
     lauf: lauf(),
+    zeitlimits: zeitlimitsMinuten(), // für die Wartetexte, solange der Manager während des Updates gestoppt ist
   };
 }
 
 /** „Jetzt aktualisieren“: herunterladen + prüfen, Auftrag schreiben, Update-Helfer starten. Ein Klick, Rest läuft allein. */
 export async function starten() {
   if (!istPaketInstallation()) throw new InputError('Updates per Knopfdruck gibt es für Installationen aus einem Installer-Paket.');
+  const l = lauf();
+  if (l?.haengt) throw new InputError(l.meldung, l.hint);
   if (laeuftGerade()) throw new InputError('Ein Update läuft bereits – bitte warten.');
   // nur eine Prüfung gegen die installierte Version zählt (nach einem Update ist die alte veraltet)
   const latest = zustand().latest ? pruefung.latest : null;

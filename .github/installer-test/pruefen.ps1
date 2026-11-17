@@ -17,6 +17,17 @@ function Ok($text) { Write-Host "OK   $text" }
 function Fehler($text) { Write-Host "FEHLER $text"; $script:Fehler++ }
 function Pruefe($bedingung, $text) { if ($bedingung) { Ok $text } else { Fehler $text } }
 
+# Wer außer Administratoren/System darf diesen Pfad ändern? → „Konto: Rechte“ je erlaubendem Eintrag (leer = in Ordnung).
+# Geprüft werden Dienstkonten und normale Benutzer: Lokaler Dienst, Netzwerkdienst, Benutzer, Authentifizierte Benutzer, Jeder, Interaktiv.
+$FremdeKonten = 'S-1-5-19', 'S-1-5-20', 'S-1-5-32-545', 'S-1-5-11', 'S-1-1-0', 'S-1-5-4'
+$SchreibBits = 0x500D0156 # WriteData, AppendData, WriteEA, DeleteChild, WriteAttributes, Delete, WRITE_DAC, WRITE_OWNER, GENERIC_ALL, GENERIC_WRITE
+function FremdBeschreibbar($pfad) {
+  foreach ($ace in (Get-Acl -LiteralPath $pfad).Access) {
+    $sid = try { $ace.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value } catch { "$($ace.IdentityReference)" }
+    if ($ace.AccessControlType -eq 'Allow' -and $FremdeKonten -contains $sid -and (([long]$ace.FileSystemRights) -band $SchreibBits)) { "$($ace.IdentityReference): $($ace.FileSystemRights)" }
+  }
+}
+
 # HTTP-Status holen (wiederholt, bis 200 kommt oder die Zeit um ist – Dienste brauchen nach dem Start etwas)
 function Status($url, $sekunden = 90) {
   $ende = (Get-Date).AddSeconds($sekunden); $code = 0
@@ -46,6 +57,16 @@ switch ($Phase) {
     Pruefe ($u.StartName -eq 'LocalSystem') "Update-Helfer läuft als System ($($u.StartName))"
     Pruefe ($u.StartMode -eq 'Auto') "Update-Helfer prüft beim Hochfahren ($($u.StartMode))"
     Pruefe ((& sc.exe sdshow mosaik3lab-updater) -join '' -like '*;;;LS)*') 'Manager darf den Update-Helfer starten'
+    # Alles, was System (Update-Helfer) oder die Dienste starten, darf nur für Administratoren/System beschreibbar sein:
+    # Programmordner, Dienstdateien (WinSW-.exe/.xml), WinSW, node.exe, Helfer-Skript, Programmdateien aller Dienste
+    $dateien = @($Programm, "$Programm\releases", "$Programm\dienste", "$Programm\werkzeuge", "$Programm\current\node\node.exe", "$Programm\current\manager\runners\aktualisieren.mjs")
+    $dateien += @(Get-ChildItem "$Programm\dienste", "$Programm\werkzeuge" -File -ErrorAction SilentlyContinue | ForEach-Object FullName)
+    $exes = @(Get-CimInstance Win32_Service -Filter "Name LIKE 'mosaik3lab-%'" | ForEach-Object { ($_.PathName -replace '^"([^"]+)".*$', '$1') })
+    $dateien += $exes
+    $offen = @($dateien | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -Unique | ForEach-Object { $p = $_; FremdBeschreibbar $p | ForEach-Object { "$p → $_" } })
+    Pruefe ($offen.Count -eq 0) "Programm, Dienstdateien und WinSW nur für Administratoren/System beschreibbar ($($dateien.Count) Pfade geprüft)$(if ($offen) { ' – beschreibbar: ' + ($offen -join '; ') })"
+    $fremdOrt = @($exes | Where-Object { -not $_.StartsWith("$Programm\", 'OrdinalIgnoreCase') })
+    Pruefe ($fremdOrt.Count -eq 0) "alle Dienste starten aus dem Programmordner ($($exes -join ', '))"
     }
     foreach ($d in $Dienste) {
       $svc = Get-CimInstance Win32_Service -Filter "Name='$d'"

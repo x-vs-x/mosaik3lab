@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { run, psQuote, SERVICE_IDS, SERVICE_TITLES, FIREWALL_RULE } from './common.mjs';
+import { ADMIN_MAX_MS } from '../lib/zeitlimits.mjs';
 
 const xml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const SYSTEM32 = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32');
@@ -72,12 +73,12 @@ export const windows = {
   /** Admin-Skript ausführen: direkt (schon Admin) oder mit Windows-Bestätigung (UAC). Als Dienst: nur Anleitung. */
   async elevate(script) {
     if (await windows.isAdmin()) {
-      const r = await powershell(`$ErrorActionPreference='Stop';${script}`, { timeout: 600_000 });
+      const r = await powershell(`$ErrorActionPreference='Stop';${script}`, { timeout: ADMIN_MAX_MS }); // icacls /T über eine große Ablage dauert
       return { ok: r.code === 0, code: r.code, output: `${r.stdout}\n${r.stderr}`.trim() };
     }
     if (process.env.MOSAIK3LAB_SERVICE === '1') return { ok: false, code: 3, manual: true, message: 'Als Dienst kann keine Windows-Bestätigung angezeigt werden – Befehl bitte als Administrator ausführen.' };
     const encoded = Buffer.from(`$ErrorActionPreference='Stop';${script}`, 'utf16le').toString('base64');
-    const r = await powershell(`try { $p = Start-Process powershell.exe -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand','${encoded}'; exit $p.ExitCode } catch { exit 1223 }`, { timeout: 600_000 });
+    const r = await powershell(`try { $p = Start-Process powershell.exe -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand','${encoded}'; exit $p.ExitCode } catch { exit 1223 }`, { timeout: ADMIN_MAX_MS });
     if (r.code === 1223) return { ok: false, code: 3, message: 'Die Windows-Bestätigung wurde abgelehnt.' };
     return { ok: r.code === 0, code: r.code, output: `${r.stdout}\n${r.stderr}`.trim() };
   },
@@ -89,6 +90,25 @@ export const windows = {
    */
   /** Rechte eines Ordners (samt Inhalt) auf die vererbten Standardrechte zurücksetzen – unter „Programme“: nur Admin/System schreiben. */
   resetAclScript: (dir) => `& icacls ${psQuote(dir)} /reset /T /C /Q | Out-Null`,
+
+  /**
+   * Programmordner einer Paket-Installation: nur Administratoren und System schreiben. Der Update-Helfer (System) startet
+   * WinSW und node.exe aus diesem Ordner – wäre etwas davon für den Manager (Lokaler Dienst) beschreibbar, bekäme ein
+   * übernommener Manager System-Rechte. Unter „Programme“ genügen die vererbten Standardrechte; an einem anderen Ort (z. B.
+   * unter C:\Mosaik3LAB, das dem Lokalen Dienst „Ändern“ vererbt) werden sie ausdrücklich gesetzt. Besitzer: Administratoren
+   * (ein Besitzer darf sonst die Rechte selbst wieder ändern).
+   */
+  protectProgramScript(dir) {
+    const rel = path.relative(path.dirname(windows.defaults().programRoot).toLowerCase(), String(dir).toLowerCase());
+    const inProgramFiles = !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
+    const owner = `& icacls ${psQuote(dir)} /setowner '*S-1-5-32-544' /T /C /Q | Out-Null`;
+    if (inProgramFiles) return `${windows.resetAclScript(dir)}; ${owner}`;
+    return [
+      `& icacls ${psQuote(dir)} /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' '*${LOCAL_SERVICE_SID}:(OI)(CI)RX' /C /Q | Out-Null`,
+      `& icacls ${psQuote(path.join(dir, '*'))} /reset /T /C /Q | Out-Null`,
+      owner,
+    ].join('; ');
+  },
 
   prepareDirsScript(dirs) {
     const name = os.userInfo().username;
