@@ -9,6 +9,7 @@ import { execFile } from 'node:child_process';
 import { InputError } from './config.mjs';
 import { dbSchemaVersion, releaseSchemaVersion } from './schema.mjs';
 import { openBackup, applyBackup, EXT } from './backup.mjs';
+import { SICHERUNG_MAX_MS } from './zeitlimits.mjs'; // Sicherung vor dem Update: großzügig (Pi, große Ablage), kleiner als die äußeren Limits
 
 /** Versionsnummer nach SemVer: „1.2.3“, „1.2.3-dev.abc1234“, „1.2.3-abc1234“ → [1, 2, 3] (Zusätze zählen nicht); null = unlesbar. */
 export function parseVersion(v) {
@@ -54,7 +55,7 @@ export async function backupWithInstalled(programRoot, reason = 'vor Update') {
   const env = { ...process.env };
   delete env.MANAGER_CONFIG; // die installierte Version findet ihre Einstellungen selbst (install.json)
   const { code, stdout } = await new Promise((resolve) =>
-    execFile(fs.existsSync(bundled) ? bundled : process.execPath, [path.join(current, 'manager', 'cli.mjs'), 'backup', 'run', '--json', '--reason', reason], { cwd: programRoot, env, windowsHide: true, timeout: 60 * 60_000, maxBuffer: 16 * 1024 * 1024 }, (err, out) => resolve({ code: err ? (err.code ?? 1) : 0, stdout: out })),
+    execFile(fs.existsSync(bundled) ? bundled : process.execPath, [path.join(current, 'manager', 'cli.mjs'), 'backup', 'run', '--json', '--reason', reason], { cwd: programRoot, env, windowsHide: true, timeout: SICHERUNG_MAX_MS, maxBuffer: 16 * 1024 * 1024 }, (err, out) => resolve({ code: err ? (err.code ?? 1) : 0, stdout: out })),
   );
   let r = null;
   try {

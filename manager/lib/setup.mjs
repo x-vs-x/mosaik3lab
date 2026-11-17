@@ -28,6 +28,7 @@ import { checkHealth } from './services.mjs';
 import { startAbbruch } from './startwache.mjs';
 import { activeAdminCount, checkAdminInput, createAdmin } from './admin.mjs';
 import { appRunnable } from './appstart.mjs';
+import { manifestPruefen } from './manifestpruefung.mjs';
 
 const log = () => logger('manager');
 export const MIN_NODE = [24, 0]; // node:sqlite für die kommende Datenbank der App
@@ -155,11 +156,12 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
     }
   };
   if (!dryRun) manifestTarget = L.manager;
-  // Paket-Installation unter Linux: Programmordner gehört root und ist nur für root beschreibbar (nach dem Anlegen und nach dem Kopieren)
+  // Paket-Installation: Programmordner nur für root bzw. Administratoren/System beschreibbar (nach dem Anlegen und nach dem
+  // Kopieren) – der Update-Helfer läuft mit Adminrechten daraus.
   const programmSchuetzen = async () => {
     if (dryRun || sysDry || !platform.protectProgramScript || !paketInfo() || !fs.existsSync(programRoot)) return;
     const { admin } = await import('./services.mjs');
-    await admin(platform.protectProgramScript(programRoot), 'Programmordner schützen (nur root schreibt)');
+    await admin(platform.protectProgramScript(programRoot), platform.id === 'windows' ? 'Programmordner schützen (nur Administratoren und System schreiben)' : 'Programmordner schützen (nur root schreibt)');
   };
   const dataOwned = () => [...new Set([dataRoot, dirs.ablage, dirs.backups, dirs.logs])];
   const dbFile = settingsdb.dbFileOf(dirs.storage);
@@ -250,10 +252,7 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
         const { admin } = await import('./services.mjs');
         await admin(platform.prepareDirsScript([...missing]), 'Ordner anlegen');
       }
-      if (inProgramFiles && paket && !sysDry && fs.existsSync(programRoot) && platform.resetAclScript) {
-        const { admin } = await import('./services.mjs');
-        await admin(platform.resetAclScript(programRoot), 'Rechte des Programmordners auf Windows-Standard setzen');
-      }
+      // Paket-Installation: programmSchuetzen() setzt die Rechte (Windows unter „Programme“: Standard; anderswo ausdrücklich nur Admin/System)
       for (const d of list) fs.mkdirSync(d, { recursive: true });
       await programmSchuetzen();
       recordManifest({ type: 'folder', path: programRoot, role: 'program' });
@@ -451,9 +450,11 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
       // Installer-Paket bringt node.exe mit (<Version>/node/) – über „current“, damit ein Rückfall die passende Node-Version nimmt
       const bundled = path.join(current, 'node', path.basename(process.execPath));
       const node = fs.existsSync(path.join(fs.existsSync(current) ? fs.realpathSync(current) : PROGRAM_DIR, 'node', path.basename(process.execPath))) ? bundled : process.execPath;
-      // Beim Update per Knopfdruck läuft dieses Setup im Dienst „Update-Helfer“ – den nicht anfassen (ein Austausch seiner
-      // Dienst-Datei würde ihn – und damit dieses Setup – mitten im Schritt stoppen). Er bleibt wie er ist.
-      const keys = ['webapp', 'backup', 'portal', 'manager', ...(process.env.MOSAIK3LAB_UPDATE_HELFER === '1' ? [] : ['updater'])];
+      // Beim Update per Knopfdruck läuft dieses Setup im Dienst „Update-Helfer“ – unter Windows den nicht anfassen (ein Austausch
+      // seiner WinSW-Datei würde ihn – und damit dieses Setup – mitten im Schritt stoppen). Unter Linux wird nur die Unit neu
+      // geschrieben (daemon-reload stoppt nichts) – so kommen auch neue Zeitlimits (TimeoutStartSec) per Knopfdruck an.
+      const helferLaeuft = process.env.MOSAIK3LAB_UPDATE_HELFER === '1' && !platform.services.updaterLiveUpdate;
+      const keys = ['webapp', 'backup', 'portal', 'manager', ...(helferLaeuft ? [] : ['updater'])];
       const defs = keys.map((key) => ({
         key, id: SERVICE_IDS[key], title: SERVICE_TITLES[key], node, workDir: current, logDir: dirs.logs, serviceDir: dirs.services,
         args: [path.join(current, 'manager', key === 'manager' ? 'server.mjs' : key === 'updater' ? 'runners/aktualisieren.mjs' : `runners/${key}.mjs`), ...(key === 'manager' ? ['--wait-port'] : []), '--config', configFile],
@@ -463,7 +464,8 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
       const script = defs.map((d) => platform.services.installScript(d)).join('\n');
       if (dryRun || sysDry) return { detail: defs.map((d) => d.id).join(', '), command: script, planned: true };
       if (platform.wrapper) await ensureWrapper(defs[0].wrapperExe, !!input.downloadWrapper);
-      for (const d of defs) for (const f of platform.services.files(d)) fs.writeFileSync(f.path, f.content);
+      // Linux: Inhalte stehen im Admin-Skript, root schreibt direkt nach /etc (nie über den Datenordner, platform/linux.mjs)
+      if (!platform.services.filesInInstallScript) for (const d of defs) for (const f of platform.services.files(d)) fs.writeFileSync(f.path, f.content);
       const { admin } = await import('./services.mjs');
       await admin(script, 'Dienste einrichten');
       for (const d of defs) recordManifest({ type: 'service', name: d.id });
@@ -687,7 +689,10 @@ export async function uninstall({ dataRoot = INSTALL?.dataRoot, managerDir, keep
   managerDir ??= INSTALL && (!dataRoot || dataRoot === INSTALL.dataRoot) ? INSTALL.managerDir : dataRoot && path.join(dataRoot, 'manager');
   const m = managerDir && readManifest(managerDir);
   if (!m) throw new InputError('Keine Installation gefunden (install-manifest.json fehlt).', 'Den Datenordner der Installation angeben: uninstall --data-root <ordner> (bzw. --manager-dir <Programmordner>)');
-  const by = (t) => m.entries.filter((e) => e.type === t);
+  // Das Manifest kann (Linux: Datenordner) vom Dienstbenutzer stammen – nur Einträge, die zu Mosaik³LAB passen (manifestpruefung.mjs)
+  const geprueft = manifestPruefen(m.entries, { serviceIds: Object.values(SERVICE_IDS), programRoot: INSTALL?.programRoot ?? null });
+  for (const v of geprueft.verworfen) log().warn(`Deinstallieren: Eintrag im Manifest übersprungen (${v.grund}): ${JSON.stringify(v.entry).slice(0, 200)}`);
+  const by = (t) => geprueft.entries.filter((e) => e.type === t);
   const adminLines = [
     ...by('service').map((e) => platform.services.uninstallScript(e.name, layout({ dataRoot, managerDir }).services)),
     ...by('firewall').map((e) => platform.firewall.removeScript(e.port)),

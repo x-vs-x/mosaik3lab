@@ -6,6 +6,15 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Update per Knopfdruck auf dem Raspberry Pi mit großer Ablage:** Die Sicherung vor dem Update darf jetzt bis zu 2 Stunden
+  dauern, ohne dass ein äußeres Zeitlimit sie abbricht (Wächter des Update-Helfers 3 Stunden, ganzer Helfer 4 Stunden;
+  vorher brach der Helfer schon nach 45 Minuten ab). Der Server-Manager zeigt „läuft noch“ statt eines Fehlers, solange
+  der Helfer arbeitet, und nennt bei langer Wartezeit den Grund.
+- **Sicherheit (Linux/Raspberry Pi):** Dienst-Dateien und polkit-Regel schreibt die Einrichtung als root direkt nach `/etc`,
+  nicht mehr über einen Ordner, den der Dienstbenutzer ändern kann. Deinstallieren übernimmt nur passende Einträge.
+- **Sicherheit (Windows):** Liegt der Programmordner nicht unter „Programme“, setzt die Einrichtung ausdrücklich, dass nur
+  Administratoren und System dort schreiben (der Update-Helfer startet Programm und Dienstdateien als System).
+
 ## [1.3.1] – 2026-11-17
 
 - **Server-Manager, „Im Schulnetz erreichbar“ und Ports:** Fehlen dem Manager Administratorrechte für die Firewall-Regel

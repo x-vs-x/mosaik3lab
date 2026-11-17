@@ -10,6 +10,38 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 - **Aufgeräumt:** …
 -->
 
+## 2026-11-17 – Zeitlimits beim Update und Härtung der Admin-Schritte (Unter-Session, Branch: fix/manager-haertung)
+- **Zeitlimits angeglichen:** neu `manager/lib/zeitlimits.mjs` – eine Stelle, von innen nach außen jeweils größer:
+  Sicherung vor dem Update 2 h (vorher 60 min), Admin-Schritt (`elevate`, z. B. chown/icacls über die Ablage) 30 min
+  (vorher 10), Wächter des Helfers 3 h (vorher 45 min – kleiner als die Sicherung!), ganzer Helfer 4 h (Linux
+  `TimeoutStartSec=14400`, vorher 3600; Windows/WinSW ohne Start-Limit). Anzeige-Entscheidung `laufAnzeige()`: „wartet“
+  max. 10 min bis zur ersten Meldung, danach Status des Helfers, bei Stille „läuft noch (seit …)“, nach 4 h „nicht
+  beendet – Server neu starten“ (sperrt neue Updates bis zur Notfall-Prüfung). Seite: Wartetext, solange der Manager
+  während des Updates gestoppt ist, mit den Limits aus `GET api/update` (`zeitlimits`). Linux: Update per Knopfdruck
+  schreibt jetzt auch die Unit des Helfers neu (daemon-reload stoppt ihn nicht), damit neue Limits ankommen.
+- **Härtung Linux:** Unit-Dateien und polkit-Regel stehen als Text im Admin-Skript, root schreibt sie per Temp-Datei +
+  `mv` direkt nach `/etc` (root:root 644) – nicht mehr erst nach `/var/lib/mosaik3lab/manager/dienste` (gehört
+  mosaik3lab: Austausch vor `install` → root-Code; Verweis dort → root schreibt beliebige Datei). Reste dort werden entfernt.
+  Deinstallieren prüft `install-manifest.json` (liegt unter Linux im Datenordner) mit `lib/manifestpruefung.mjs`: nur
+  bekannte Dienstnamen (vorher Shell-Einschleusung als root möglich), gültige Ports, Verknüpfungsdateien, Programmordner
+  der Installation; Dienstname im Skript zusätzlich gequotet.
+- **Härtung Windows:** `protectProgramScript` – unter „Programme“ wie bisher Standardrechte (+ Besitzer Administratoren),
+  an anderem Ort ausdrücklich nur Administratoren/System schreiben (Benutzer/Lokaler Dienst lesen). Vorher bekam ein
+  Programmordner außerhalb von „Programme“ (z. B. unter `C:\Mosaik3LAB`, das Lokaler Dienst „Ändern“ vererbt) keinen Schutz.
+- **Geprüft (unverändert gut):** Update-Paket wird in `<Programm>/.update` kopiert und die Kopie gegen die offizielle
+  SHA-256 (vom Helfer selbst geholt) geprüft; Auftrag wird validiert; Status nur im Programmordner. Offen (klein, im Bericht):
+  der Helfer liest Pfade (Backup-Ziel, Datenordner) aus der vom Manager beschreibbaren Datenbank bzw. Startdatei.
+- **CI:** `pruefen.sh installiert`: Unit-Dateien/polkit-Regel root:root 644, nicht von mosaik3lab beschreibbar (auch
+  ihre Ordner), keine Unit-Dateien mehr im Datenordner, `TimeoutStartSec=14400`. `pruefen.ps1 installiert`: Programmordner,
+  `dienste\`, `werkzeuge\`, WinSW-Dateien, node.exe, Helfer-Skript und alle Dienst-Programme ohne Schreibrecht für Lokaler
+  Dienst, Netzwerkdienst, Benutzer, Authentifizierte Benutzer, Jeder, Interaktiv; alle Dienste starten aus dem Programmordner.
+- **Dateien:** manager/lib/{zeitlimits (neu),manifestpruefung (neu),aktualisieren,paketupdate,updates,setup}.mjs,
+  manager/platform/{linux,windows}.mjs, manager/public/update.js, manager/test/haertung.test.mjs (neu), manager/README.md,
+  .github/installer-test/{pruefen.sh,pruefen.ps1}, docs/INSTALLATION.md, CHANGELOG.md.
+- **Geprüft:** `node --test manager/test/haertung.test.mjs` ✔ · `aktualisieren.test.mjs` ✔ · typecheck ✔ · lint ✔ ·
+  `npm test` ✔ · Installer-Test (Windows, Linux, Pi) auf dem PR.
+- **Aufgeräumt:** keine Server gestartet; nichts an der installierten Version geändert.
+
 ## 2026-11-17 – Prüfung Server-Manager, Installation, Update, Sicherung (Session: manager-pruefung, Branch: fix/manager-pruefung)
 - **Gebaut:** Firewall-Schalter ohne Adminrechte (Einstellung gespeichert, Befehl zum Kopieren, vorhandene Regeln ohne
   Adminrechte; auch im „Abgleichen“); „Einrichten/Reparieren“ bei Paket-Installationen → Hinweis aufs Installer-Paket (UI +

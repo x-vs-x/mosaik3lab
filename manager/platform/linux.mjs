@@ -6,8 +6,19 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { run, shQuote, SERVICE_IDS, SERVICE_TITLES, FIREWALL_RULE } from './common.mjs';
+import { ADMIN_MAX_MS, HELFER_MAX_MS } from '../lib/zeitlimits.mjs';
 
 const USER = 'mosaik3lab'; // eingeschränkter Systembenutzer für alle Dienste
+const POLKIT_RULE = '/etc/polkit-1/rules.d/50-mosaik3lab.rules';
+
+/**
+ * Datei als root schreiben (Teil eines Admin-Skripts): Inhalt steht im Skript, nie in einer Zwischendatei. Erst in eine
+ * Temp-Datei im Zielordner (gehört root), dann Besitzer/Rechte setzen und umbenennen – das Ziel ist nie halb geschrieben.
+ */
+export const rootWrite = (target, content) => {
+  const dir = path.posix.dirname(target);
+  return `mkdir -p ${shQuote(dir)} && t=$(mktemp ${shQuote(`${dir}/.mosaik3lab.`)}XXXXXX) && printf '%s' ${shQuote(content)} > "$t" && chown root:root "$t" && chmod 644 "$t" && mv -f "$t" ${shQuote(target)}`;
+};
 
 /** Ausgabe von „pkaction --version“ („pkaction version 0.105“ bzw. „… 122“) → Version, wenn älter als 0.106 (keine JS-Regeln), sonst null. */
 export function polkitTooOld(text) {
@@ -73,9 +84,12 @@ export const linux = {
     child.unref();
   },
 
-  /** Admin-Skript: als root direkt, sonst sudo ohne Passwortabfrage – sonst Befehl zum Kopieren (nichts hängt). */
+  /**
+   * Admin-Skript: als root direkt, sonst sudo ohne Passwortabfrage – sonst Befehl zum Kopieren (nichts hängt).
+   * Zeitlimit ADMIN_MAX_MS (30 min): „Datenordner dem Dienstbenutzer übergeben“ (chown -R) dauert auf einem Pi mit großer Ablage.
+   */
   async elevate(script) {
-    const r = (await linux.isAdmin()) ? await run('sh', ['-ec', script], { timeout: 600_000 }) : await run('sudo', ['-n', 'sh', '-ec', script], { timeout: 600_000 });
+    const r = (await linux.isAdmin()) ? await run('sh', ['-ec', script], { timeout: ADMIN_MAX_MS }) : await run('sudo', ['-n', 'sh', '-ec', script], { timeout: ADMIN_MAX_MS });
     if (r.code === 0) return { ok: true, code: 0, output: r.stdout };
     return { ok: false, code: 3, manual: true, message: 'Administratorrechte nötig – Befehl bitte mit sudo im Terminal ausführen.', output: r.stderr };
   },
@@ -142,30 +156,42 @@ export const linux = {
       const r = await run('systemctl', ['show', SERVICE_IDS[key], '--property=LoadState,ActiveState'], { timeout: 5000 });
       return { installed: r.stdout.includes('LoadState=loaded'), running: r.stdout.includes('ActiveState=active') };
     },
+    /**
+     * Sicherheit: Unit-Dateien und polkit-Regel entstehen im Setup-Prozess und stehen als Text im Admin-Skript – root schreibt
+     * sie direkt nach /etc (gehört root, 644). Früher lagen sie zuerst in <Datenordner>/manager/dienste (gehört dem
+     * Dienstbenutzer): Ein übernommener Manager hätte sie vor dem Installieren austauschen (→ Code als root) oder dort einen
+     * Verweis anlegen können, dem root beim Schreiben gefolgt wäre. Deshalb schreibt setup.mjs hier nichts selbst.
+     */
+    filesInInstallScript: true,
+    /** Der Update-Helfer darf seine eigene Unit während eines Laufs erneuern (daemon-reload stoppt ihn nicht) – neue Zeitlimits gelten sofort. */
+    updaterLiveUpdate: true,
     files(def) {
       if (def.key === 'updater') {
-        // Update-Helfer: root, einmaliger Lauf (beim Hochfahren: Notfall-Prüfung; sonst auf Anforderung des Managers)
+        // Update-Helfer: root, einmaliger Lauf (beim Hochfahren: Notfall-Prüfung; sonst auf Anforderung des Managers).
+        // TimeoutStartSec = Gesamtlimit des Helfers (lib/zeitlimits.mjs) – größer als Wächter und Sicherung darin.
         const unit = `# Erzeugt vom Mosaik³LAB Server-Manager\n[Unit]\nDescription=${def.title}\nAfter=network-online.target\n\n[Service]\nType=oneshot\nWorkingDirectory=${def.workDir}\nExecStart=${[def.node, ...def.args].join(' ')}\n` +
-          Object.entries(def.env).map(([k, v]) => `Environment=${k}=${v}\n`).join('') + 'TimeoutStartSec=3600\n\n[Install]\nWantedBy=multi-user.target\n';
-        return [{ path: path.join(def.serviceDir, `${def.id}.service`), content: unit }];
+          Object.entries(def.env).map(([k, v]) => `Environment=${k}=${v}\n`).join('') + `TimeoutStartSec=${Math.round(HELFER_MAX_MS / 1000)}\n\n[Install]\nWantedBy=multi-user.target\n`;
+        return [{ path: `/etc/systemd/system/${def.id}.service`, content: unit }];
       }
       const unit =
         `# Erzeugt vom Mosaik³LAB Server-Manager\n[Unit]\nDescription=${def.title}\nAfter=network-online.target\n\n[Service]\nType=simple\nUser=${USER}\nGroup=${USER}\n` +
         `WorkingDirectory=${def.workDir}\nExecStart=${[def.node, ...def.args].join(' ')}\n` + Object.entries(def.env).map(([k, v]) => `Environment=${k}=${v}\n`).join('') +
         (def.key === 'portal' ? 'AmbientCapabilities=CAP_NET_BIND_SERVICE\nCapabilityBoundingSet=CAP_NET_BIND_SERVICE\n' : '') + // Port 80/443 ohne Root
         `Restart=on-failure\nRestartSec=5\nTimeoutStopSec=30\nNoNewPrivileges=yes\nProtectSystem=full\n\n[Install]\nWantedBy=multi-user.target\n`;
-      const files = [{ path: path.join(def.serviceDir, `${def.id}.service`), content: unit }];
+      const files = [{ path: `/etc/systemd/system/${def.id}.service`, content: unit }];
       if (def.key === 'manager') {
-        files.push({ path: path.join(def.serviceDir, '50-mosaik3lab.rules'), content: `// Manager darf Web-App, Backup, Portal und den Update-Helfer steuern\npolkit.addRule(function(a, s) {\n  if (a.id == "org.freedesktop.systemd1.manage-units" && s.user == "${USER}" && /^mosaik3lab-(webapp|backup|portal|updater)\\.service$/.test(a.lookup("unit"))) return polkit.Result.YES;\n});\n` });
+        files.push({ path: POLKIT_RULE, content: `// Manager darf Web-App, Backup, Portal und den Update-Helfer steuern\npolkit.addRule(function(a, s) {\n  if (a.id == "org.freedesktop.systemd1.manage-units" && s.user == "${USER}" && /^mosaik3lab-(webapp|backup|portal|updater)\\.service$/.test(a.lookup("unit"))) return polkit.Result.YES;\n});\n` });
       }
       return files;
     },
     installScript: (def) => [
-      `install -m 644 ${shQuote(path.join(def.serviceDir, `${def.id}.service`))} /etc/systemd/system/${def.id}.service`,
-      def.key === 'manager' ? `mkdir -p /etc/polkit-1/rules.d && install -m 644 ${shQuote(path.join(def.serviceDir, '50-mosaik3lab.rules'))} /etc/polkit-1/rules.d/50-mosaik3lab.rules` : '',
+      // Reste älterer Versionen im Datenordner zuerst entfernen (rm löscht nur den Eintrag, folgt keinem Verweis) – erst danach
+      // nach /etc schreiben: Zeigte „dienste“ per Verweis auf /etc/systemd/system, träfe rm nur die gleich neu geschriebenen Dateien.
+      `rm -f ${[`${def.id}.service`, ...(def.key === 'manager' ? ['50-mosaik3lab.rules'] : [])].map((n) => shQuote(path.posix.join(def.serviceDir, n))).join(' ')}`,
+      ...linux.services.files(def).map((f) => rootWrite(f.path, f.content)),
       `systemctl daemon-reload && systemctl enable ${def.id}`,
-    ].filter(Boolean).join('\n'),
-    uninstallScript: (id) => `systemctl disable --now ${id} 2>/dev/null || true; rm -f /etc/systemd/system/${id}.service /etc/polkit-1/rules.d/50-mosaik3lab.rules; systemctl daemon-reload`,
+    ].join('\n'),
+    uninstallScript: (id) => `systemctl disable --now ${shQuote(id)} 2>/dev/null || true; rm -f ${shQuote(`/etc/systemd/system/${id}.service`)} ${POLKIT_RULE}; systemctl daemon-reload`,
     controlScript: (key, action) => `systemctl ${action} ${SERVICE_IDS[key]}`,
     async control(key, action) {
       // Update-Helfer (Typ oneshot): „start“ würde bis zum Ende des Updates warten – im Hintergrund starten (--no-block)
