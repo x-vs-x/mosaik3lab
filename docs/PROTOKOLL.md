@@ -2,6 +2,16 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-17 – Export/Import vollständig geprüft (Hauptchat, Branch: feature/austausch-pruefung)
+- **Anlass:** Frage des Nutzers, ob beim Export hier und Import in der Schule alle Stammdaten und jede Angabe ankommen.
+- **Geprüft (Code):** Export nimmt alle Felder des Druckteils und die benutzten Kategorien (mit Farbe/Symbol),
+  Einsatzbereiche, Materialien und Farbrollen (alle Angaben) mit; Import ergänzt Fehlendes, ändert Vorhandenes nie.
+- **Gefunden und behoben:** Der Vergleich bei „Ersetzen“ (`fingerabdruck` in `datenaustausch.service.ts`) übersah
+  Änderungen an Art und Farbgruppen. Gruppen-Rollen werden beim Vergleich herausgerechnet (füllt der Server ein).
+- **Test:** `datenaustausch.test.ts` „Rundreise in eine frische Installation“: alle Felder, Personalisierung (alle drei
+  Typen), leere Größen, „Alle Farben“, Linie und Materialart, eigene Farbrolle, neue Stammdaten; Gegenprobe ohne Korrektur rot.
+- **Aufgeräumt:** keine Server, keine Restdateien.
+
 <!-- Vorlage:
 ## 2026-11-17 – Update-Rückfrage ohne Dialog (Hauptchat, Branch: feature/update-bestaetigung)
 - **Anlass:** Über die Web-App auf dem iPad drehte „Jetzt aktualisieren“ endlos; am Server kam kein Auftrag an, die Seite

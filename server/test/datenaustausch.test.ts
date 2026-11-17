@@ -510,5 +510,82 @@ test('Altes Format (vollständiger Export mit allen Stammdaten und Anfragestatus
   }
 });
 
+test('Rundreise in eine frische Installation: jede Angabe eines Druckteils und jede neue Stammdate kommt an (Art, Felder, Gruppen, eigene Farbrolle)', async () => {
+  // Quelle: eigene Farbrolle mit allen Angaben, neue Kategorie mit Farbe/Symbol, neues Material, neuer Einsatzbereich.
+  const md0 = (await src.req('GET', '/api/config')).json.masterData;
+  const fil = await src.req('PUT', '/api/admin/settings/masterdata/filaments', {
+    entries: [...md0.filaments, { brand: 'Rundreise', line: 'PLA Glanz', colorName: 'Türkis', hex: '#00b1b7', herstellerNummer: 'RR-7', available: false }],
+  });
+  assert.equal(fil.status, 200, fil.text);
+  const eigen = fil.json.filaments.find((f: any) => f.brand === 'Rundreise');
+  for (const [liste, eintrag] of [['categories', { name: 'Rundreise-Kategorie', color: 'lila', icon: 'musik' }], ['materials', { name: 'Rundreise-Material' }], ['useAreas', { name: 'Rundreise-Bereich' }]] as const) {
+    const r = await src.req('PUT', `/api/admin/settings/masterdata/${liste}`, { entries: [...md0[liste], eintrag] });
+    assert.equal(r.status, 200, r.text);
+  }
+  const bambu = md0.filaments.find((f: any) => f.katalogId);
+  const body = {
+    name: 'Rundreise-Teil', shortDescription: 'Prüft, dass alles ankommt', description: 'Lange Beschreibung', category: 'Rundreise-Kategorie', kind: 'lehrmittel',
+    useAreas: ['Rundreise-Bereich'],
+    colorAreas: [
+      { id: 'grund', name: 'Grundplatte', alleFarben: true, colors: [] },
+      { id: 'griff', name: 'Griff', colors: [bambu.id], gruppen: ['linie:Rundreise PLA Glanz'] },
+      { id: 'deckel', name: 'Deckel', colors: [], gruppen: ['art:PLA'] },
+    ],
+    price: 'ca. 1 €', sizes: [],
+    customFields: [
+      { id: 'text', label: 'Beschriftung', type: 'text', required: true, maxLength: 12, hint: 'max. 12 Zeichen', options: [] },
+      { id: 'wahl', label: 'Form', type: 'select', required: false, maxLength: 60, hint: '', options: ['rund', 'eckig'] },
+      { id: 'zahl', label: 'Anzahl', type: 'number', required: false, maxLength: 3, hint: '', options: [] },
+    ],
+    material: 'Rundreise-Material', materialInfo: 'nicht spülmaschinenfest', printTimeMinutes: 95, safetyNotes: ['Kleinteile', 'Aufsicht'], published: false,
+  };
+  const neu = await src.req('POST', '/api/items', body);
+  assert.equal(neu.status, 201, neu.text);
+  const quelle = (await src.req('GET', `/api/items/${neu.json.id}`)).json;
+
+  // Ziel: frische Installation ohne Stammdaten (eigene Instanz, eigenes Import-Limit).
+  const schule = await start({ demo: false });
+  try {
+    const sc = new Client(schule.base);
+    await schule.storage.users.create({
+      id: newId(), username: 'schule', email: 'schule.admin@mosaikschule-lu.de', displayName: 'Schule', role: 'admin',
+      passwordHash: await hashPassword('Schule-Admin-Passwort-1'), active: true, isDemo: false,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), lastLoginAt: null, teamBereiche: [], fehlversuche: 0,
+    });
+    assert.equal((await sc.login('schule.admin@mosaikschule-lu.de', 'Schule-Admin-Passwort-1')).status, 200);
+
+    const { bericht } = await einspielen(sc, (await exportiere(src, [quelle.id])).text, 'ueberspringen');
+    assert.equal(bericht.abschnitte.artikel.neu, 1);
+    const ziel = (await sc.req('GET', `/api/items/${quelle.id}`)).json;
+    for (const f of ['number', 'name', 'shortDescription', 'description', 'category', 'kind', 'useAreas', 'price', 'sizes', 'customFields', 'material', 'materialInfo', 'printTimeMinutes', 'safetyNotes', 'published'])
+      assert.deepEqual(ziel[f], quelle[f], f);
+    const bereiche = (i: any) => i.colorAreas.map((a: any) => [a.id, a.name, !!a.alleFarben, a.gruppen ?? []]);
+    assert.deepEqual(bereiche(ziel), bereiche(quelle), 'Farbbereiche samt „Alle Farben“ und Gruppen');
+    const mdZ = (await sc.req('GET', '/api/config')).json.masterData;
+    const rolle = mdZ.filaments.find((f: any) => f.brand === 'Rundreise');
+    assert.deepEqual({ ...rolle, id: undefined }, { ...eigen, id: undefined }, 'eigene Farbrolle mit allen Angaben (auch „nicht vorrätig“)');
+    const griff = ziel.colorAreas.find((a: any) => a.id === 'griff').colors;
+    assert.ok(griff.includes(rolle.id) && griff.includes(bambu.id), 'Linie füllt die Rolle am Ziel ein, feste Bambu-Rolle bleibt');
+    assert.deepEqual(mdZ.filaments.find((f: any) => f.id === bambu.id), md0.filaments.find((f: any) => f.id === bambu.id), 'Bambu-Rolle wie in der Quelle');
+    const kat = mdZ.categories.find((k: any) => k.name === 'Rundreise-Kategorie');
+    assert.deepEqual([kat?.color, kat?.icon], ['lila', 'musik'], 'Kategorie mit Farbe und Symbol');
+    assert.ok(mdZ.materials.some((m: any) => m.name === 'Rundreise-Material'));
+    assert.ok(mdZ.useAreas.some((u: any) => u.name === 'Rundreise-Bereich'));
+
+    // Noch einmal „Ersetzen“ ohne Änderung: gleich. Nur die Art geändert bzw. nur Gruppe → feste Rollen (gleiche Farben): wird ersetzt.
+    const ersetze = async () => (await einspielen(sc, (await exportiere(src, [quelle.id])).text, 'ersetzen')).bericht.abschnitte.artikel;
+    assert.equal((await ersetze()).unveraendert, 1);
+    assert.equal((await src.req('PUT', `/api/items/${quelle.id}`, { ...body, kind: 'beides' })).status, 200);
+    assert.equal((await ersetze()).ersetzt, 1, 'nur Art geändert');
+    assert.equal((await sc.req('GET', `/api/items/${quelle.id}`)).json.kind, 'beides');
+    const fest = { ...body, kind: 'beides', colorAreas: [body.colorAreas[0], { id: 'griff', name: 'Griff', colors: [bambu.id, eigen.id] }, body.colorAreas[2]] };
+    assert.equal((await src.req('PUT', `/api/items/${quelle.id}`, fest)).status, 200);
+    assert.equal((await ersetze()).ersetzt, 1, 'nur Gruppe durch dieselben festen Rollen ersetzt');
+    assert.deepEqual((await sc.req('GET', `/api/items/${quelle.id}`)).json.colorAreas.find((a: any) => a.id === 'griff').gruppen ?? [], []);
+  } finally {
+    await schule.stop();
+  }
+});
+
 after(() => sourceSrv.stop());
 after(() => targetSrv.stop());

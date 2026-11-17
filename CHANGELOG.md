@@ -6,6 +6,10 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Druckteile einspielen mit „Ersetzen“:** Wurde in der Quelle nur die Art (Hilfs-/Lehrmittel) oder nur eine Farbgruppe
+  („Alle dieser Linie“, „Alle PLA“) geändert, galt das Druckteil als unverändert und wurde nicht ersetzt. Jetzt wird es
+  übernommen.
+
 ## [1.6.3] – 2026-11-17
 
 - **„Jetzt aktualisieren“ funktioniert auf dem iPad:** Die Rückfrage erscheint jetzt direkt in der Update-Karte statt in

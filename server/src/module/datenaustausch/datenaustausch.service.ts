@@ -4,13 +4,13 @@ import path from 'node:path';
 import { newId, UUID_PATTERN } from '../../domain/ids';
 import { MIME_BY_EXT } from '../../domain/objekttypen';
 import type { Category, Filament, SimpleEntry } from '../../domain/settings';
-import { type Item, type ItemVideo, type ModelFile } from '../../domain/types';
+import { type ColorArea, type Item, type ItemVideo, type ModelFile } from '../../domain/types';
 import { normalizeItemInput } from '../katalog/katalog.service';
 import type { Storage } from '../../storage';
 import { dateiName, type Datei } from '../../kern/files';
 import { nextNumber, transaction } from '../../kern/db';
 import { MAX_IMAGES_PER_ITEM, MAX_MODELS_PER_ITEM, MAX_VIDEOS_PER_ITEM } from '../../kern/uploads';
-import { itemInputSchema } from '@mosaik3lab/shared/katalog';
+import { inGruppen, itemInputSchema } from '@mosaik3lab/shared/katalog';
 import { COLOR_KEYS, ICON_KEYS } from '@mosaik3lab/shared/stammdaten';
 import { PAKET_ROLLEN, type Paket, type PaketArtikel } from './datenaustausch.export';
 import { ID, type DateiInfo } from './datenaustausch.paket';
@@ -76,15 +76,16 @@ interface Ergebnis {
 }
 
 /** Vergleichswert eines Druckteils (ohne technische IDs von Dateien, mit Prüfsummen der Dateien). */
-function fingerabdruck(i: Pick<Item, 'name' | 'shortDescription' | 'description' | 'category' | 'useAreas' | 'sizes' | 'colorAreas' | 'price' | 'customFields' | 'material' | 'materialInfo' | 'printTimeMinutes' | 'safetyNotes' | 'published'>, videos: { title: string; url: string; sha: string }[], dateien: { rolle: string; sha: string }[] | null) {
+function fingerabdruck(i: Pick<Item, 'name' | 'shortDescription' | 'description' | 'category' | 'kind' | 'useAreas' | 'sizes' | 'colorAreas' | 'price' | 'customFields' | 'material' | 'materialInfo' | 'printTimeMinutes' | 'safetyNotes' | 'published'>, videos: { title: string; url: string; sha: string }[], dateien: { rolle: string; sha: string }[] | null, farben: (a: ColorArea) => unknown) {
   return JSON.stringify({
     n: i.name,
     k: i.shortDescription,
     b: i.description,
     c: i.category,
+    art: i.kind,
     a: [...i.useAreas].sort(),
     g: i.sizes,
-    f: i.colorAreas.map((a) => [a.name, a.alleFarben ? 'alle' : a.colors]),
+    f: i.colorAreas.map((a) => [a.name, farben(a)]),
     p: i.price,
     x: i.customFields.map((f) => [f.label, f.type, f.required, f.maxLength, f.hint, f.options]),
     m: i.material,
@@ -203,6 +204,10 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
   const materialVon = new Map(mat.liste.map((m) => [lc(m.name), m.name]));
   const bereichVon = new Map(einsatz.liste.map((e) => [lc(e.name), e.name]));
   const filamentIds = new Set(fil.liste.map((f) => f.id));
+  // Vergleich der Farben: feste Rollen ohne die von Gruppen abgedeckten (die füllt der Server beim Lesen ein) + Gruppen.
+  const rolleVon = new Map(fil.liste.map((f) => [f.id, f]));
+  const farbenVon = (ar: ColorArea) =>
+    ar.alleFarben ? 'alle' : [ar.colors.filter((c) => !inGruppen(rolleVon.get(c) ?? { brand: '', line: '' }, ar.gruppen)).sort(), [...(ar.gruppen ?? [])].sort()];
   const vergebeneNummern = new Set<string>();
   const nummerBelegt = (n: string) => vergebeneNummern.has(n) || itemRepo.numberExists(n);
   const jetzt = new Date().toISOString();
@@ -317,7 +322,7 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
         : null;
       const vorhVideos = aktuell.videos.filter((v) => paket.mitDateien || !v.file).map((v) => ({ title: v.title, url: v.url, sha: v.file ? shaVonName(aktuell.id, v.file) : '' }));
       const neuVideos = paket.mitDateien ? videoFinger : videoFinger.filter((_, k) => !a.videos[k].dateiId);
-      const gleich = fingerabdruck(aktuell, vorhVideos, vorhDateien) === fingerabdruck(data, neuVideos, paket.mitDateien ? [...dateienFinger].sort((x, y) => x.rolle.localeCompare(y.rolle)) : null);
+      const gleich = fingerabdruck(aktuell, vorhVideos, vorhDateien, farbenVon) === fingerabdruck(data, neuVideos, paket.mitDateien ? [...dateienFinger].sort((x, y) => x.rolle.localeCompare(y.rolle)) : null, farbenVon);
       if (gleich) {
         z.artikel.unveraendert++;
         z.dateien.unveraendert += dateiMap.size;
