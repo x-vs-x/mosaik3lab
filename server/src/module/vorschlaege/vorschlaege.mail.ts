@@ -3,6 +3,7 @@ import type { Storage } from '../../storage';
 import type { Db } from '../../kern/db';
 import { readMailConfig, type MailConfig } from '../../kern/mail/mailConfig';
 import { baseUrl, escapeHtml, formatMailDate, sendMail, type BuiltMail } from '../../kern/mail/mailer';
+import { badge, button, C, fieldTable, FOOTER_TEAM, html, NO_LINK, renderLayout, small, textFooter } from '../../kern/mail/layout';
 
 // Benachrichtigung über neue Vorschläge – an dieselben Empfänger und über denselben Versand wie neue Anfragen.
 // Links der Lehrkraft stehen nur als Text in der Mail (nicht anklickbar), Fotos werden nicht angehängt.
@@ -14,52 +15,47 @@ export function proposalAdminUrl(p: Proposal, appUrl: string) {
 
 export function buildProposalMail(p: Proposal, settings: Pick<MailConfig, 'appBaseUrl'>): BuiltMail {
   const link = proposalAdminUrl(p, settings.appBaseUrl);
-  const fields: [string, string][] = [
-    ['Vorschlagsnummer', p.number],
-    ['Eingang', formatMailDate(p.createdAt)],
-    ['Lehrkraft', p.requesterEmail || '—'],
-    ['Titel', p.title],
-    ['Beschreibung', p.description],
-    ['Einsatz', p.usage || '—'],
-    ['Gewünschte Menge', String(p.quantity)],
-    ['Dringlichkeit', PROPOSAL_URGENCY_LABELS[p.urgency]],
-    ['Links', p.links.length ? p.links.join('\n') : '—'],
-    ['Fotos', p.photos.length ? `${p.photos.length} (in der Verwaltung ansehen)` : '—'],
-  ];
+  // Leere Angaben fehlen (wie bei Anfragen).
+  const fields = (
+    [
+      ['Beschreibung', p.description],
+      ['Einsatz', p.usage],
+      ['Menge', `${p.quantity} Stück`],
+      ['Dringlichkeit', PROPOSAL_URGENCY_LABELS[p.urgency]],
+      ['Links', p.links.join('\n')],
+      ['Fotos', p.photos.length ? `${p.photos.length} (in der Verwaltung ansehen)` : ''],
+      ['Lehrkraft', p.requesterEmail],
+      ['Vorschlagsnummer', p.number],
+      ['Eingang', formatMailDate(p.createdAt)],
+    ] as [string, string][]
+  )
+    .map(([l, v]) => [l, (v ?? '').trim()] as [string, string])
+    .filter(([, v]) => v);
   const subject = `Neuer Vorschlag ${p.number} – ${p.title}`.replace(/[\r\n]+/g, ' ');
+  const width = Math.max(...fields.map(([l]) => l.length)) + 2;
   const text = [
-    'Neuer Vorschlag in Mosaik³LAB',
+    `NEUER VORSCHLAG ${p.number}`,
     '',
-    ...fields.map(([l, v]) => (v.includes('\n') ? `${l}:\n${v}` : `${l}: ${v}`)),
+    p.title,
     '',
-    link ? `Zum Vorschlag in der Verwaltung: ${link}` : 'Hinweis: Im Server-Manager ist keine Adresse der App hinterlegt, daher fehlen Links.',
+    ...fields.map(([l, v]) => (v.includes('\n') ? `${l}:\n${v}` : `${`${l}:`.padEnd(width)}${v}`)),
     '',
-    '— Automatische Nachricht von Mosaik³LAB',
+    link ? `Vorschlag öffnen: ${link}` : NO_LINK,
+    '',
+    textFooter(FOOTER_TEAM),
   ].join('\n');
-  const FONT = 'font-family:Arial,Helvetica,sans-serif';
-  const rows = fields
-    .map(
-      ([l, v]) =>
-        `<tr><th scope="row" align="left" valign="top" style="${FONT};padding:8px 16px 8px 0;color:#57534e;font-weight:bold;white-space:nowrap;border-bottom:1px solid #e7e5e4">${escapeHtml(l)}</th>` +
-        `<td valign="top" style="${FONT};padding:8px 0;color:#1c1917;border-bottom:1px solid #e7e5e4">${escapeHtml(v).replace(/\r?\n/g, '<br>')}</td></tr>`,
-    )
-    .join('\n');
-  const button = link
-    ? `<p style="margin:24px 0 0"><a href="${escapeHtml(link)}" style="${FONT};display:inline-block;background:#0b5cad;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:8px">Vorschlag in der Verwaltung öffnen</a></p>`
-    : `<p style="${FONT};margin:24px 0 0;color:#57534e;font-size:14px">Hinweis: Im Server-Manager ist keine Adresse der App hinterlegt, daher fehlen Links.</p>`;
-  const html = `<!doctype html>
-<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(subject)}</title></head>
-<body style="margin:0;padding:24px;background:#f5f5f4">
-<div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #e7e5e4">
-<h1 style="${FONT};font-size:20px;margin:0 0 16px;color:#1c1917">Neuer Vorschlag in Mosaik³LAB</h1>
-<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:15px">
-${rows}
-</table>
-${button}
-<p style="${FONT};margin:24px 0 0;color:#78716c;font-size:12px">Automatische Nachricht von Mosaik³LAB</p>
-</div>
-</body></html>`;
-  return { subject, text, html };
+  const content =
+    fieldTable(fields.map(([label, v]) => ({ label, valueHtml: html(v) }))) +
+    (link ? `<div style="height:16px;line-height:16px;font-size:0">&nbsp;</div>${button('Vorschlag öffnen', link)}` : small(NO_LINK));
+  const htmlDoc = renderLayout({
+    title: subject,
+    preheader: [p.title, p.usage, PROPOSAL_URGENCY_LABELS[p.urgency]].filter(Boolean).join(' – ').replace(/[\r\n]+/g, ' '),
+    eyebrowHtml: `${badge('Neuer Vorschlag', C.brandSoft, C.brand)}&nbsp; ${escapeHtml(p.number)}`,
+    heading: p.title,
+    contentHtml: content,
+    footer: FOOTER_TEAM,
+  });
+  return { subject, text, html: htmlDoc };
 }
 
 /** Benachrichtigt im Hintergrund; ein Mailfehler verhindert nie den Vorschlag (Ergebnis siehe Einstellungen → Mailstatus). */
