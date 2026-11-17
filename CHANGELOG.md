@@ -8,6 +8,8 @@ daraus die nächste Version.
 
 - **iPad:** Auf der Anmeldeseite und der Seite „Passwort festlegen“ lässt sich mit offener Tastatur nicht mehr ins Leere
   scrollen – das Formular steht auf Handy und Tablet hochkant oben, die Seite ist nur so hoch wie ihr Inhalt.
+- **Druckteile verwalten:** Der Schalter „Veröffentlicht/Entwurf“ steht auf breiten Bildschirmen in jeder Zeile an derselben
+  Stelle, statt je nach Druckteil nach links oder rechts zu springen.
 
 - **Einstellungen aufgeräumt:** Ablagepfade und Mailserver-Status stehen nicht mehr in den App-Einstellungen – das regelt
   der Server-Manager (Knopf „Server-Manager öffnen“ bleibt). Ist der Mailversand fehlerhaft oder zuletzt gescheitert,
