@@ -14,6 +14,11 @@ daraus die nächste Version.
   Schulnetz ist (automatisch erkannt). Im Server-Manager, Reiter „E-Mail“, einstellbar („Automatisch erkennen · Nur im
   Schulnetz · Auch von außerhalb“) mit Anzeige der Erkennung und Warnung bei Widerspruch. Bestehende Mail-Einstellungen
   bleiben unverändert (neue Einstellung: automatisch).
+- **Ansichten geprüft (Handy, Tablet, PC):** Kleine Knöpfe sind jetzt überall gut antippbar – „Ändern“ und das Auge zum
+  Passwort-Anzeigen (Anmeldung, Passwort festlegen) nehmen die ganze Feldhöhe ein, das „×“ an Meldungen ist so groß wie beim
+  Dialog-Schließen, das Häkchen zum Exportieren (Druckteile verwalten) und „Foto entfernen“ (Vorschlag machen) haben eine
+  größere Tippfläche, Links in Vorschlägen stehen mit mehr Abstand. Im Dialog „Druckteil löschen?“ steht der Hinweis
+  „Beispieldatensatz“ jetzt über den Knöpfen statt darunter.
 
 ## [1.4.2] – 2026-11-17
 

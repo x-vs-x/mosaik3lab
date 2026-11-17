@@ -280,14 +280,17 @@ export function ItemsAdminPage() {
                 <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-center">
                   <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-4">
                     {canExport && (
-                      <input
-                        type="checkbox"
-                        className="size-6 shrink-0 cursor-pointer accent-brand-700"
-                        checked={gewaehlt.has(item.id)}
-                        onChange={(e) => waehle([item.id], e.target.checked)}
-                        aria-label={`„${item.name}“ zum Exportieren auswählen`}
-                        data-testid={`auswahl-${item.id}`}
-                      />
+                      // Tippfläche 41 px um das Häkchen; der negative Rand lässt die Zeile so breit wie bisher
+                      <label className="-m-2.5 grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl hover:bg-stone-100">
+                        <input
+                          type="checkbox"
+                          className="size-6 cursor-pointer accent-brand-700"
+                          checked={gewaehlt.has(item.id)}
+                          onChange={(e) => waehle([item.id], e.target.checked)}
+                          aria-label={`„${item.name}“ zum Exportieren auswählen`}
+                          data-testid={`auswahl-${item.id}`}
+                        />
+                      </label>
                     )}
                     <div className="size-14 shrink-0 overflow-hidden rounded-xl ring-1 ring-stone-200 sm:size-20 sm:rounded-2xl">
                       <ItemImage item={item} iconSize="size-8" />
@@ -392,14 +395,15 @@ export function ItemsAdminPage() {
           „<strong>{toDelete?.name}</strong>“ wird mit allen Bildern und Druckdateien dauerhaft gelöscht. Bestehende
           Anfragen bleiben erhalten.
         </p>
+        {/* Hinweis zum Datensatz vor den Knöpfen – die Aktionsleiste schließt den Dialog ab */}
+        {toDelete?.isDemo && (
+          <Badge className="mt-4 bg-amber-50 text-amber-900 ring-amber-300">Beispieldatensatz</Badge>
+        )}
         <ActionBar
           className="mt-6"
           secondary={<Button variant="secondary" onClick={closeDelete} disabled={deleting}>Abbrechen</Button>}
           primary={<Button variant="danger" icon={Trash2} loading={deleting} onClick={confirmDelete}>Endgültig löschen</Button>}
         />
-        {toDelete?.isDemo && (
-          <Badge className="mt-4 bg-amber-50 text-amber-900 ring-amber-300">Beispieldatensatz</Badge>
-        )}
       </Dialog>
     </>
   );

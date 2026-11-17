@@ -49,7 +49,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => dismiss(t.id)}
-              className="-m-1 rounded-lg p-1 text-stone-500 hover:bg-stone-100 hover:text-stone-800"
+              // Tippfläche 41 px wie beim Dialog-Schließen; negative Ränder halten die Meldung so kompakt wie bisher
+              className="-my-2.5 -mr-2.5 grid size-11 shrink-0 place-items-center rounded-xl text-stone-500 hover:bg-stone-100 hover:text-stone-800"
               aria-label="Meldung schließen"
             >
               <X className="size-5" aria-hidden />

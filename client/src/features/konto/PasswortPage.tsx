@@ -99,7 +99,8 @@ export function PasswortPage() {
                   <button
                     type="button"
                     onClick={() => setShow((s) => !s)}
-                    className="absolute right-1.5 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-lg text-stone-600 hover:bg-stone-100"
+                    // volle Feldhöhe als Tippfläche (≥ 41 px); der durchsichtige Rand lässt den Feldrahmen auch beim Überfahren sichtbar
+                    className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-xl border border-transparent bg-clip-padding text-stone-600 hover:bg-stone-100"
                     aria-label={show ? 'Passwort verbergen' : 'Passwort anzeigen'}
                     aria-pressed={show}
                   >

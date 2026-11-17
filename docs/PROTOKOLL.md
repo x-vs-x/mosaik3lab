@@ -23,6 +23,19 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   kommen an (`smtp-faenger.mjs`, `mail-pruefen.mjs`, `pruefen.sh mail-*`).
 - **Geprüft:** typecheck ✔ · lint ✔ · test ✔ · Vorschau bei 375/768/1280 px ✔
 - **Aufgeräumt:** Vorschau-Ordner `_testdatenmail-vorschau`, Test-Manager-Ordner gelöscht.
+## 2026-11-17 – Ansichten-Prüfung (Unter-Session session-2, Branch: fix/ansichten-pruefung)
+- **Geprüft:** alle Seiten und Dialoge der Web-App in 320×568, 375×812, 667×375, 820×1180, 1180×820 und 1366×900, als
+  Besucher, Lehrkraft, Druck-Team und Administrator – inklusive leerer Zustände, Fehler (Pflichtfelder, falsches Passwort,
+  Server nicht erreichbar, Sitzung abgelaufen, Cookies blockiert), langer Namen/Adressen/Dateinamen, Neuigkeiten, Toasts,
+  „Datei ist bereit“ (iOS-Teilen nachgestellt) und Menü/untere Leiste. Gemessen per Skript in sechs gleichzeitigen iframes
+  (Seitenbreite, Dialog-Überlauf, Knöpfe in Karte/Dialog, Tippflächen ≥ 40 px, abgeschnittene Texte), Optik per Screenshot.
+- **Behoben (nur Tippflächen und eine Anordnung):** `LoginPage.tsx`/`PasswortPage.tsx` (Knöpfe im Feld volle Feldhöhe),
+  `Toast.tsx` (× 41 px), `ItemsAdminPage.tsx` (Export-Häkchen mit 41-px-Label; „Beispieldatensatz“ vor die Aktionsleiste),
+  `ProposalFormPage.tsx` („Foto entfernen“ 41 px), `proposals.tsx` (Links mit Polster).
+- **Offene Gestaltungsfragen** im PR beschrieben (untere Leiste unter 360 px eng, Platzhalter der Katalogsuche auf 320 px
+  abgeschnitten, Häkchen im Dialog „Rechte ändern“ nur über das Label groß).
+- **Geprüft:** typecheck ✔ · lint ✔ (0 Fehler) · test ✔ · im Browser ✔
+- **Aufgeräumt:** Dev-Server (5182/3012) gestoppt, `C:\Entwicklung\_testdaten\session-2` gelöscht, Hilfsskripte im Scratchpad entfernt.
 
 ## 2026-11-17 – Filter Druckteile, Stammdaten-Kopf und Farbrollen-Spalten (Unter-Session, Branch: feature/filter-stammdaten)
 - **Druckteile verwalten:** Filter „Alle · Veröffentlicht · Entwurf“ (Knöpfe mit `aria-pressed`, Zahlen folgen der Suche),
