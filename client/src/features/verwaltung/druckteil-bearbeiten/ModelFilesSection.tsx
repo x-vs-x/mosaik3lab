@@ -1,5 +1,6 @@
 import { Download, FileBox, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { DateiLaden } from '../../../components/DateiLaden';
 import { useToast } from '../../../components/Toast';
 import { api, ApiError, modelUrl } from '../../../lib/api';
 import { formatBytes, formatDate } from '../../../lib/format';
@@ -58,14 +59,15 @@ function ModelFilesEditor({ item, onChange }: { item: Item; onChange: (i: Item) 
                   {formatBytes(m.sizeBytes)} · {formatDate(m.uploadedAt)}
                 </p>
               </div>
-              <a
-                href={modelUrl(item.id, m.id)}
-                download
-                className="grid size-11 place-items-center rounded-xl text-stone-700 hover:bg-stone-100"
+              {/* Per fetch statt Link: auf dem iPad (Web-App) führte der Link in eine Dateivorschau ohne Rückweg. */}
+              <DateiLaden
+                pfad={modelUrl(item.id, m.id)}
+                ersatzname={m.originalName}
+                titel={m.originalName}
+                icon={Download}
+                className="grid size-11 shrink-0 place-items-center rounded-xl text-stone-700 hover:bg-stone-100 disabled:opacity-60"
                 aria-label={`${m.originalName} herunterladen`}
-              >
-                <Download className="size-5" aria-hidden />
-              </a>
+              />
               <button
                 type="button"
                 onClick={() => remove(m.id, m.originalName)}

@@ -34,9 +34,10 @@ export function CategoriesPanel({ md, onDirty }: { md: MasterData; onDirty: (d: 
                   <Input id={id} value={row.name} maxLength={60} invalid={invalid} aria-describedby={describedBy} onChange={(e) => update({ name: e.target.value })} />
                 )}
               </Field>
-              <div className="sm:pb-2.5">
+              {/* Feste Breite: das Namensfeld ist in jeder Zeile gleich breit, egal wie lang die Vorschau ist */}
+              <div className="min-w-0 sm:w-56 sm:shrink-0 sm:pb-2.5">
                 <p className="mb-1.5 text-hinweis font-bold text-stone-500">Vorschau</p>
-                <Badge className={style.chip} icon={Icon}>
+                <Badge className={`${style.chip} max-w-full`} icon={Icon}>
                   {row.name.trim() || 'Neue Kategorie'}
                 </Badge>
               </div>

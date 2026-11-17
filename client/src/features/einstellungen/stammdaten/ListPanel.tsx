@@ -112,7 +112,8 @@ export function ListPanel<T extends Entry>({
   const add = () => {
     const row = { ...blank(), _key: newKey() } as Row<T>;
     focusKey.current = row._key;
-    setRows((rs) => [...rs, row]);
+    // Neue Zeile oben, direkt unter dem Knopf im Kopf – sichtbar ohne Scrollen; gespeichert wird die Reihenfolge wie angezeigt.
+    setRows((rs) => [row, ...rs]);
   };
 
   const errors = useMemo(() => new Map(rows.map((r) => [r._key, validate(r)])), [rows, validate]);
@@ -168,27 +169,33 @@ export function ListPanel<T extends Entry>({
 
   return (
     <Card as="section" className="p-4 sm:p-7">
-      <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="flex flex-wrap items-center gap-2 text-abschnitt font-bold text-stone-900 sm:text-xl">
+      <div className="mb-4 sm:mb-5">
+        {/* Kopf: Überschrift links, Aktionen rechts daneben (Handy: darunter, volle Breite); Erklärung darunter über die ganze Breite */}
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+          <h2 className="flex min-h-11 min-w-0 flex-wrap items-center gap-2 text-abschnitt font-bold text-stone-900 sm:text-xl">
             {title}
             {dirty && <Badge className="bg-amber-50 text-amber-900 ring-amber-300">Ungespeicherte Änderungen</Badge>}
           </h2>
-          {intro && (
-            <>
-              {/* Handy: lange Erklärung zum Aufklappen, ab sm immer sichtbar */}
-              <details className="group mt-1 sm:hidden">
-                <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 font-bold text-brand-800 [&::-webkit-details-marker]:hidden">
-                  Erklärung
-                  <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden />
-                </summary>
-                <div className="text-hinweis text-stone-600">{intro}</div>
-              </details>
-              <div className="mt-1 hidden text-base text-stone-600 sm:block">{intro}</div>
-            </>
-          )}
+          <div ref={addRef} className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end" data-testid={`${list}-aktionen`}>
+            <Button icon={Plus} onClick={add} className="w-full sm:w-auto" data-testid={`${list}-hinzufuegen`}>
+              {addLabel}
+            </Button>
+            {toolbar?.({ dirty, applySaved, rows })}
+          </div>
         </div>
-        {toolbar && <div className="flex flex-wrap gap-2">{toolbar({ dirty, applySaved, rows })}</div>}
+        {intro && (
+          <>
+            {/* Handy: lange Erklärung zum Aufklappen, ab sm immer sichtbar */}
+            <details className="group mt-1 sm:hidden">
+              <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 font-bold text-brand-800 [&::-webkit-details-marker]:hidden">
+                Erklärung
+                <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden />
+              </summary>
+              <div className="text-hinweis text-stone-600">{intro}</div>
+            </details>
+            <div className="mt-2 hidden max-w-4xl text-base text-stone-600 sm:block">{intro}</div>
+          </>
+        )}
       </div>
 
       {rows.length === 0 ? (
@@ -228,12 +235,6 @@ export function ListPanel<T extends Entry>({
           })}
         </ol>
       )}
-
-      <div ref={addRef} className="mt-4">
-        <Button variant="secondary" icon={Plus} onClick={add}>
-          {addLabel}
-        </Button>
-      </div>
 
       {showErrors && (invalidCount > 0 || listError) && (
         <Alert kind="error" className="mt-5" title="Bitte prüfen Sie die Eingaben">

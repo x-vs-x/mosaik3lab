@@ -6,6 +6,21 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Druckteile verwalten:** Neuer Filter „Alle · Veröffentlicht · Entwurf“ (mit Anzahl) neben der Suche. Filter und Suche
+  stehen in der Adresse und überstehen „Zurück“ und Neuladen; „Alle auswählen“ für den Export nimmt nur die gefilterten
+  Druckteile, bei leerem Ergebnis gibt es einen Knopf „Alle Druckteile anzeigen“.
+- **Stammdaten:** „… hinzufügen“ steht jetzt oben im Kopf jeder Liste (auf dem Handy volle Breite unter der Überschrift),
+  der neue Eintrag erscheint ganz oben mit dem Cursor im ersten Feld. Bei den Farbrollen stehen „Farbrolle hinzufügen“ und
+  „Bambu-Lab-Farben importieren“ nebeneinander (Handy: untereinander).
+- **Farbrollen:** Farbe, Name, Herkunft, Schalter „vorrätig“ und Knöpfe stehen auf Tablet und PC in festen Spalten – in jeder
+  Zeile an derselben Stelle, egal wie lang der Name ist; auf dem Handy ordentlich untereinander. Bei den Kategorien ist das
+  Namensfeld in jeder Zeile gleich breit.
+- **Farbrollen – Marke und Linie:** Beide Felder bleiben frei beschreibbar und bieten die schon vorhandenen Werte als
+  antippbare Vorschläge an (ohne Doppelte, alphabetisch); bei „Linie“ zuerst die Linien der gewählten Marke.
+- **iPad/iPhone – Herunterladen ohne Sackgasse:** „Exportieren“ (Druckteile verwalten) und das Herunterladen von Druckdateien
+  verlassen die App nicht mehr. Auf iPad/iPhone öffnet sich nach dem Laden das Teilen-Menü („In Dateien sichern“), danach ist
+  man sofort wieder in der App; am PC und auf Android wird wie gewohnt heruntergeladen. Ladeanzeige am Knopf und
+  verständliche Meldung, wenn etwas schiefgeht (z. B. offline).
 - **iPad:** Auf der Anmeldeseite und der Seite „Passwort festlegen“ lässt sich mit offener Tastatur nicht mehr ins Leere
   scrollen – das Formular steht auf Handy und Tablet hochkant oben, die Seite ist nur so hoch wie ihr Inhalt.
 - **Druckteile verwalten:** Der Schalter „Veröffentlicht/Entwurf“ steht auf breiten Bildschirmen in jeder Zeile an derselben
