@@ -31,6 +31,7 @@ import type { Permission } from '../lib/types';
 import { Dialog } from './Dialog';
 import { useToast } from './Toast';
 import { NeuigkeitenDialog } from '../features/neuigkeiten/NeuigkeitenDialog';
+import { meldeSeitenwechsel } from '../features/katalog/katalogScroll';
 import { Logo } from './Logo';
 import { Alert, Button, cx } from './ui';
 
@@ -258,7 +259,9 @@ export function Layout() {
   useEffect(() => {
     setMenuOpen(false);
     document.getElementById('main')?.focus({ preventScroll: true });
-    // Bei „Zurück“ (POP) stellt der Browser die alte Scrollposition wieder her.
+    // Bei „Zurück“ (POP) stellt der Browser die alte Scrollposition wieder her; den Katalog stellt
+    // `CatalogPage` selbst wieder her, sobald die Liste geladen ist (auch nach Link „Zurück zum Katalog“).
+    meldeSeitenwechsel(location.pathname);
     if (navigationType !== 'POP') window.scrollTo({ top: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- nur bei Seitenwechsel
   }, [location.pathname]);

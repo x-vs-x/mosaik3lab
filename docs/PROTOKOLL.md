@@ -2,6 +2,21 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Katalog: Scrollhöhe und Bilder wischen (Unter-Session, Branch: feature/katalog-bedienung)
+- **Anlass:** Zurück aus einem Druckteil sprang der Katalog nach oben; auf der Detailseite ließen sich Bilder nicht wischen.
+- **Ursache Scrollen:** Nach „Zurück“ lädt die Liste neu; beim Zurückspringen des Browsers war die Seite noch zu kurz.
+  Über die Navigation (PUSH) sprang das Layout ohnehin nach oben.
+- **Gebaut:** `features/katalog/katalogScroll.ts` merkt die Höhe je Katalog-Adresse in `sessionStorage` (beim Scrollen
+  und beim Antippen einer Karte); `CatalogPage` stellt sie nach dem Laden der Liste wieder her – bei POP oder wenn die
+  vorige Seite ein Druckteil war (`Layout` meldet den Seitenwechsel). Andere Seiten springen weiter nach oben.
+  Neue `BildGalerie.tsx` (+ `galerie.ts`): Wischen per Pointer-Events mit `touch-action: pan-y`, Pfeil-Knöpfe (48 px,
+  beschriftet), Pfeiltasten, Zähler „2 / 3“, Vorschaubilder wie bisher. In `ItemDetailPage.tsx` nur der Bildbereich ersetzt.
+  Test `client/test/katalogBedienung.test.ts`.
+- **Geprüft:** Browser bei 320/375/768/1024/1440 px; Zurück-Taste, „Zurück zum Katalog“ und Navigation (mit Filter) auf
+  gleicher Höhe; Wischen, Pfeil und Pfeiltaste wechseln das Bild. Hinweis: `requestAnimationFrame` und Scroll-Ereignisse
+  laufen in versteckten Tabs nicht, deshalb `setTimeout` und Merken beim Antippen.
+- **Aufgeräumt:** Testserver gestoppt, `_testdaten/katalog-bedienung` und Testbilder gelöscht.
+
 ## 2026-11-17 – Export/Import vollständig geprüft (Hauptchat, Branch: feature/austausch-pruefung)
 - **Anlass:** Frage des Nutzers, ob beim Export hier und Import in der Schule alle Stammdaten und jede Angabe ankommen.
 - **Geprüft (Code):** Export nimmt alle Felder des Druckteils und die benutzten Kategorien (mit Farbe/Symbol),

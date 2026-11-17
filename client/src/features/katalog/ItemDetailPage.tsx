@@ -3,7 +3,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { ColorSwatch } from '../../components/ColorSwatch';
-import { ItemImage } from '../../components/ItemImage';
 import { Alert, Badge, Button, Card, cx, DemoBadge, LinkButton, Spinner } from '../../components/ui';
 import { videoUrl } from '../../lib/api';
 import { itemColorAreas } from '../../lib/colors';
@@ -14,6 +13,7 @@ import { ITEM_KIND_LABELS, type Filament, type Item, type ItemVideo } from '../.
 import { useApi, useDocumentTitle } from '../../lib/useApi';
 import { ladeEntwurf } from '../../lib/entwurfSpeicher';
 import { anfrageEntwurfSchluessel, RequestDialog } from './RequestDialog';
+import { BildGalerie } from './BildGalerie';
 
 export function ItemDetailPage() {
   const { id } = useParams();
@@ -25,7 +25,6 @@ export function ItemDetailPage() {
   useEffect(() => {
     if (id && !authLoading && ladeEntwurf(anfrageEntwurfSchluessel(id, user?.id))) setRequestOpen(true);
   }, [id, authLoading, user?.id]);
-  const [activeImage, setActiveImage] = useState(0);
   useDocumentTitle(item?.name ?? 'Druckteil');
 
   if (loading && !item) return <Spinner />;
@@ -52,31 +51,7 @@ export function ItemDetailPage() {
 
       <div className="mt-4 grid gap-5 sm:mt-6 sm:gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-1 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:gap-12">
         {/* Bilder */}
-        <div>
-          <div className="aspect-[2/1] overflow-hidden rounded-2xl border border-stone-200/80 bg-white sm:aspect-[4/3] sm:rounded-3xl">
-            <ItemImage item={item} index={activeImage} iconSize="size-16 sm:size-24" />
-          </div>
-          {item.images.length > 1 && (
-            <ul className="mt-3 flex flex-wrap gap-3" aria-label="Weitere Bilder">
-              {item.images.map((img, i) => (
-                <li key={img}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveImage(i)}
-                    aria-label={`Bild ${i + 1} von ${item.images.length} anzeigen`}
-                    aria-pressed={i === activeImage}
-                    className={cx(
-                      'block size-20 overflow-hidden rounded-2xl ring-2 ring-offset-2 transition',
-                      i === activeImage ? 'ring-brand-600' : 'ring-transparent hover:ring-stone-300',
-                    )}
-                  >
-                    <ItemImage item={item} index={i} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <BildGalerie key={item.id} item={item} />
 
         {/* Kerninfos */}
         <div>
