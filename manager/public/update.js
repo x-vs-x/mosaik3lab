@@ -127,7 +127,9 @@ export function renderUpdate(u) {
   ] : []));
 
   const now = $('#btn-update-now');
-  now.hidden = active || !(u.behind > 0) || !!u.unsupported;
+  const fragt = !$('#update-confirm').hidden;
+  if (fragt && (active || !(u.behind > 0))) $('#update-confirm').hidden = true;
+  now.hidden = active || !(u.behind > 0) || !!u.unsupported || (fragt && !active);
   $('#btn-update-search').disabled = active;
   $('#update-checked').textContent = u.checkedAt ? `Zuletzt geprüft: ${fmt(u.checkedAt)}${u.latest?.size ? ` · Download ${fmtBytes(u.latest.size)}` : ''}` : '';
 }
@@ -164,21 +166,38 @@ export async function loadUpdate() {
   renderUpdate(u);
   updTimer = setTimeout(loadUpdate, updWatch ? 2500 : 30_000);
 }
-action($('#btn-update-now'), async () => {
+// „Jetzt aktualisieren“ → Rückfrage direkt in der Karte (kein Dialogfenster: das blieb in Safari auf dem iPad hängen,
+// der Knopf drehte endlos). Erst „Ja, jetzt aktualisieren“ startet das Update.
+const zeigeRueckfrage = (an) => {
+  $('#update-confirm').hidden = !an;
+  $('#btn-update-now').hidden = an || $('#btn-update-now').hidden;
+  if (!an && upd) renderUpdate(upd);
+};
+$('#btn-update-now').addEventListener('click', () => {
+  const u = upd;
+  if (!u?.latest || updActive(u) || updWatch) return;
+  $('#update-confirm-title').textContent = `Auf Version ${u.latest.version} aktualisieren?`;
+  $('#update-confirm-text').textContent = `Vorher wird automatisch alles gesichert. Mosaik³LAB ist dabei einige Minuten nicht erreichbar – am besten zu einer ruhigen Zeit, wenn niemand damit arbeitet. Sollte etwas nicht klappen, läuft automatisch die bisherige Version ${u.installed?.version ?? ''} weiter, Ihre Daten bleiben erhalten.`;
+  zeigeRueckfrage(true);
+  $('#update-confirm-title').focus();
+});
+$('#btn-update-no').addEventListener('click', () => {
+  zeigeRueckfrage(false);
+  $('#btn-update-now').focus();
+});
+action($('#btn-update-yes'), async () => {
   const u = upd;
   if (!u?.latest || updActive(u) || updWatch) return false;
-  const ok = await confirmBox(`Auf Version ${u.latest.version} aktualisieren?`,
-    `Vorher wird automatisch alles gesichert. Mosaik³LAB ist dabei einige Minuten nicht erreichbar – am besten zu einer ruhigen Zeit, wenn niemand damit arbeitet. Sollte etwas nicht klappen, läuft automatisch die bisherige Version ${u.installed?.version ?? ''} weiter, Ihre Daten bleiben erhalten.`,
-    'Jetzt aktualisieren');
-  if (!ok) return false;
   updWatch = { from: u.installed?.version, restarted: false };
   try {
     // Antwortet sofort (der Download läuft im Hintergrund) – kommt nach 30 s nichts, Meldung statt endloser Ladeanzeige
     await api('update/install', {}, { timeout: 30_000 });
   } catch (err) {
     updWatch = null;
+    zeigeRueckfrage(false); // Knopf wieder anbieten – erneut versuchen geht sofort
     throw err;
   }
+  $('#update-confirm').hidden = true;
   await loadUpdate();
   return false;
 });

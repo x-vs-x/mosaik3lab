@@ -3,6 +3,14 @@
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
 <!-- Vorlage:
+## 2026-11-17 – Update-Rückfrage ohne Dialog (Hauptchat, Branch: feature/update-bestaetigung)
+- **Anlass:** Über die Web-App auf dem iPad drehte „Jetzt aktualisieren“ endlos; am Server kam kein Auftrag an, die Seite
+  fragte nur im 30-s-Takt nach → der Knopf wartete auf das (in Safari nicht sichtbare) Bestätigungsfenster.
+- **Gebaut:** Rückfrage als Bereich in der Update-Karte (`#update-confirm`, Knöpfe „Ja, jetzt aktualisieren“/„Abbrechen“),
+  nach Fehler wird der Knopf wieder angeboten. `confirmBox`: offen, aber nicht sichtbar → `window.confirm`.
+  Geprüft in einer Test-Installation hinter dem Portal (App-Adresse wie vom iPad, Tablet-Größe).
+- **Aufgeräumt:** Test-Installation `_testdaten/updknopf` gelöscht.
+
 ## 2026-11-17 – Installer: Klick ins Fenster hält nicht mehr an (Hauptchat, Branch: feature/installer-klick)
 - **Anlass:** Update auf 1.6.0 per Installieren.cmd stand nach „Programm kopieren“ still – Windows-Markiermodus nach Klick.
 - **Gebaut:** `manager/Installieren.cmd` startet `cli.mjs setup` innerhalb von PowerShell, das QuickEdit nur für dieses
