@@ -6,9 +6,12 @@
 #   pruefen.sh erhalten      nach dem Update: Admin-Konto meldet sich an, Markerdatei ist noch da, Sicherung vor dem Update da
 #   pruefen.sh zurueck        nach Rückfall/abgelehntem Downgrade: vorige Version ($ERWARTET) aktiv, Schema passt
 #   pruefen.sh deinstalliert  Dienste, Firewall-Regel und Programmordner weg, Daten noch da
+#   pruefen.sh mail-einrichten  SMTP-Fänger starten, Mailversand über den Manager der installierten (alten) Version einrichten, Testmail
+#   pruefen.sh mail-erhalten    nach dem Update: Mail-Einstellungen unverändert (neue Einstellung „auto“), Testmail und echte
+#                               App-Mail („Passwort vergessen“) kommen an – multipart/alternative, neues Layout, Passwort am SMTP
 # Gegenstück zu pruefen.ps1 (Windows).
 set -u
-PHASE="${1:?Phase angeben: installiert | marker | kommandozeile | erhalten | zurueck | deinstalliert}"
+PHASE="${1:?Phase angeben: installiert | marker | kommandozeile | erhalten | zurueck | deinstalliert | mail-einrichten | mail-erhalten}"
 PROGRAMM=/opt/mosaik3lab
 DATEN=/var/lib/mosaik3lab
 BACKUPS=/var/backups/mosaik3lab
@@ -45,6 +48,24 @@ manager_post() {
   rm -f "$jar"
   return $rc
 }
+# Mailversand-Test: lokaler SMTP-Fänger (smtp-faenger.mjs), Einstellungen wie bei einer Schule (mit SMTP-Anmeldung)
+POSTFACH="${RUNNER_TEMP:-/tmp}/ci-postfach"
+SMTP_PORT=2525
+SMTP_USER=ci-smtp
+SMTP_PASS=ci-smtp-Geheim-42 # nur für den Wegwerf-Runner
+MAIL_URL=http://192.168.1.26/mosaik3lab
+MAIL="{\"enabled\":true,\"host\":\"127.0.0.1\",\"port\":$SMTP_PORT,\"secure\":false,\"user\":\"$SMTP_USER\",\"password\":\"$SMTP_PASS\",\"from\":\"Mosaik3LAB <mosaik3lab@schule.test>\",\"recipients\":[\"werkstatt@schule.test\"],\"appBaseUrl\":\"$MAIL_URL\"}"
+HIER=$(dirname "$0")
+JAR=$(mktemp)
+# Anmelden am Manager (Sitzung im Cookie-Glas $JAR), danach mgr_get/mgr_post mit derselben Sitzung
+anmelden() {
+  TOKEN=$(curl -s -c "$JAR" -b "$JAR" http://127.0.0.1:5190/ | grep -o 'name="csrf-token" content="[0-9a-f]*"' | grep -o '[0-9a-f]{16,}')
+  curl -s -f -c "$JAR" -b "$JAR" -H 'Content-Type: application/json' -H "x-manager-token: $TOKEN" -d "$LOGIN" http://127.0.0.1:5190/api/auth/login >/dev/null
+}
+mgr_get() { curl -s -f -b "$JAR" -H "x-manager-token: $TOKEN" "http://127.0.0.1:5190$1"; }
+mgr_post() { curl -s -f -c "$JAR" -b "$JAR" -H 'Content-Type: application/json' -H "x-manager-token: $TOKEN" -d "$2" "http://127.0.0.1:5190$1"; }
+anzahl() { find "$POSTFACH" -name '*.eml' 2>/dev/null | wc -l; }
+
 needs_admin() { curl -s http://127.0.0.1:5190/api/auth | grep -q '"needsAdmin":true'; }
 
 case "$PHASE" in
@@ -152,6 +173,32 @@ case "$PHASE" in
     pruefe "[ -d $DATEN/daten ]" "$DATEN/daten behalten"
     pruefe "[ -n \"\$(sudo find $DATEN/daten -name '*.db')\" ]" 'Datenbank behalten'
     pruefe "[ -f $MARKER ]" 'Markerdatei behalten'
+    ;;
+  mail-einrichten)
+    mkdir -p "$POSTFACH"
+    nohup node "$HIER/smtp-faenger.mjs" $SMTP_PORT "$POSTFACH" > "$POSTFACH/faenger.log" 2>&1 &
+    sleep 1
+    pruefe "grep -q 'SMTP-Fänger auf' '$POSTFACH/faenger.log'" "SMTP-Fänger läuft auf 127.0.0.1:$SMTP_PORT"
+    pruefe "anmelden" 'Anmeldung am Manager (installierte Version vor dem Update)'
+    pruefe "mgr_post /api/mail '$MAIL' >/dev/null" 'Mailversand über den Manager eingerichtet (SMTP mit Anmeldung, Empfänger, Adresse in den Mails)'
+    pruefe "mgr_get /api/mail | grep -q '\"host\":\"127.0.0.1\"'" "Mail-Einstellungen gespeichert ($(mgr_get /api/mail | head -c 300))"
+    seit=$(anzahl)
+    mgr_post /api/mail/test '{"to":"vorher@schule.test"}'; echo
+    pruefe "ALTES_LAYOUT=1 node '$HIER/mail-pruefen.mjs' '$POSTFACH' $seit vorher@schule.test $SMTP_USER $SMTP_PASS" 'Testmail der Version vor dem Update kommt an'
+    ;;
+  mail-erhalten)
+    pruefe "anmelden" 'Anmeldung am Manager nach dem Update'
+    nachher=$(mgr_get /api/mail)
+    echo "$nachher" | head -c 600; echo
+    soll="{\"enabled\":true,\"host\":\"127.0.0.1\",\"port\":$SMTP_PORT,\"secure\":false,\"user\":\"$SMTP_USER\",\"passwordSet\":true,\"from\":\"Mosaik3LAB <mosaik3lab@schule.test>\",\"recipients\":[\"werkstatt@schule.test\"],\"appBaseUrl\":\"$MAIL_URL\",\"erreichbarkeit\":\"auto\"}"
+    abw=$(node -e 'const [m, soll] = process.argv.slice(1).map((x) => JSON.parse(x)); console.log(Object.keys(soll).filter((k) => JSON.stringify(m[k]) !== JSON.stringify(soll[k])).map((k) => k + "=" + JSON.stringify(m[k])).join(", "))' "$nachher" "$soll" 2>&1)
+    if [ -z "$abw" ]; then ok 'Mail-Einstellungen nach dem Update unverändert, Passwort noch gesetzt, neue Einstellung = automatisch'; else fehler "Mail-Einstellungen nach dem Update verändert – abweichend: $abw"; fi
+    seit=$(anzahl)
+    mgr_post /api/mail/test '{"to":"pruefer@schule.test"}'; echo
+    pruefe "node '$HIER/mail-pruefen.mjs' '$POSTFACH' $seit pruefer@schule.test $SMTP_USER $SMTP_PASS 'Der Mailversand funktioniert' 'nur im Schulnetz' '$MAIL_URL/verwaltung/bestellungen'" 'Testmail nach dem Update: kommt an, neues Layout, Hinweis „nur im Schulnetz“'
+    seit=$(anzahl)
+    curl -s -f -H 'Content-Type: application/json' -H 'X-Requested-With: mosaik3lab' -d '{"email":"ci-admin@schule.test"}' http://127.0.0.1/mosaik3lab/api/auth/passwort-vergessen; echo
+    pruefe "node '$HIER/mail-pruefen.mjs' '$POSTFACH' $seit ci-admin@schule.test $SMTP_USER $SMTP_PASS 'Neues Passwort festlegen' '$MAIL_URL/passwort#'" 'Echte App-Mail („Passwort vergessen“) nach dem Update kommt an'
     ;;
   *) echo "unbekannte Phase: $PHASE"; exit 2 ;;
 esac

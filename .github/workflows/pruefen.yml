@@ -83,6 +83,7 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
-      - name: Export/Import (Windows)
+      - name: Export/Import und Mails (Windows)
         working-directory: server
-        run: node --import tsx --test test/datenaustausch.test.ts test/datenaustausch-plattform.test.ts
+        # Mails: Erkennung „nur Schulnetz“, Link-Adresse aus Schnittstellen-Listen, echter SMTP-Versand – auch unter Windows
+        run: node --import tsx --test test/datenaustausch.test.ts test/datenaustausch-plattform.test.ts test/erreichbarkeit.test.ts test/mail-smtp.test.ts

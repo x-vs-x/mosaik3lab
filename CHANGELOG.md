@@ -6,6 +6,15 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **E-Mails neu gestaltet:** Alle Mails (neue/geänderte Anfrage, neuer Vorschlag, Passwort festlegen/zurücksetzen,
+  Testmail) im Aussehen der App – roter Kopf mit Mosaik³LAB, ein großer Knopf (auf dem Handy volle Breite), der Link
+  zusätzlich als Text, kurze Texte; passen sich an Handy, Tablet und Computer an. Mail nach der Kontosperre erklärt jetzt
+  die Sperre statt „neues Passwort angefordert“.
+- **Hinweis „Der Link funktioniert nur im Schulnetz“** unter dem Knopf, wenn die Adresse in den Mails eine Adresse im
+  Schulnetz ist (automatisch erkannt). Im Server-Manager, Reiter „E-Mail“, einstellbar („Automatisch erkennen · Nur im
+  Schulnetz · Auch von außerhalb“) mit Anzeige der Erkennung und Warnung bei Widerspruch. Bestehende Mail-Einstellungen
+  bleiben unverändert (neue Einstellung: automatisch).
+
 ## [1.4.2] – 2026-11-17
 
 - **Linux/Raspberry Pi – Installation ohne Administratorrechte:** Fehlt `sudo` auf dem Rechner, verweigert sudo die
