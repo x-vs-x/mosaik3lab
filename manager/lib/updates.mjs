@@ -114,6 +114,7 @@ export async function starten() {
   if (!helfer.installed) throw new InputError('Für Updates per Knopfdruck fehlt der Update-Helfer (kommt mit Version 1.1.0).', 'Einmal das neue Paket per USB-Stick installieren (Installieren.cmd bzw. installieren.sh) – danach geht es hier.');
   download = { version: latest.version, done: 0, total: latest.asset?.size ?? null, startedAt: new Date().toISOString() }; // startedAt = Lauf-Kennung
   fs.mkdirSync(dir(), { recursive: true });
+  log.info(`Update ${latest.version}: Download startet (${latest.asset?.name ?? 'Paket'}).`);
   // im Hintergrund: Herunterladen kann dauern, die Seite zeigt den Fortschritt
   (async () => {
     try {

@@ -1,8 +1,8 @@
 // Installer-Test: „Update per Knopfdruck“ Ende zu Ende auf dem Runner (Windows als Administrator, Linux mit sudo).
 // Baut aus dem getesteten Paket eine höhere Version (Patch +1), stellt sie über eine Test-Paketquelle bereit (Format der
-// GitHub-API, mit SHA256SUMS.txt), legt Paket + Auftrag wie der Server-Manager in <Datenwurzel>/updates und startet den
-// Update-Helfer über die Dienststeuerung (wie der Server-Manager). Erwartet: Status „fertig“, neue Version aktiv, Dateien
-// aufgeräumt. Daten prüft danach pruefen.* erhalten.
+// GitHub-API, mit SHA256SUMS.txt) und drückt „Jetzt aktualisieren“ mit dem Code des installierten Server-Managers
+// (knopf-manager.mjs: suchen, herunterladen, prüfen, Helfer starten). Erwartet: Status „fertig“, neue Version aktiv,
+// Dateien aufgeräumt. Daten prüft danach pruefen.* erhalten.
 //   node knopfdruck.mjs <entpacktes Paket (v1)> <Programmordner>
 import fs from 'node:fs';
 import os from 'node:os';
@@ -60,30 +60,29 @@ const server = http.createServer((q, s) => {
 await new Promise((res) => server.listen(0, '127.0.0.1', res));
 const url = `http://127.0.0.1:${server.address().port}/releases`;
 
-// 3. wie der Server-Manager: Paket + Auftrag in <Datenwurzel>/updates
+// 3. Update-Helfer bekommt die Test-Paketquelle über seine Umgebung (Linux: systemctl set-environment, Windows:
+//    WinSW-Konfiguration) – er prüft das Paket selbst noch einmal gegen die Prüfsumme.
 const updates = path.join(install.dataRoot, 'updates');
-fs.mkdirSync(updates, { recursive: true });
-fs.copyFileSync(archiv, path.join(updates, name));
-fs.writeFileSync(path.join(updates, 'auftrag.json'), JSON.stringify({ version: neu, file: name, at: new Date().toISOString() }));
-
-// 4. Update-Helfer starten wie der Server-Manager: über die Dienststeuerung (nicht direkt).
-//    Linux: als Dienstbenutzer mosaik3lab per systemctl (prüft die polkit-Freigabe), läuft dann als root.
-//    Windows: über die Dienststeuerung, läuft als Konto System. Die Test-Paketquelle bekommt der Dienst über seine
-//    Umgebung (Linux: systemctl set-environment, Windows: WinSW-Konfiguration).
 const ID = 'mosaik3lab-updater';
 const statusDatei = path.join(programm, 'update-status.json'); // schreibt nur der Helfer (Programmordner)
 const start = Date.now();
 const xml = path.join(programm, 'dienste', `${ID}.xml`);
-if (WIN) {
-  fs.writeFileSync(xml, fs.readFileSync(xml, 'utf8').replace('</service>', `  <env name="MOSAIK3LAB_PAKETQUELLE" value="${url}"/>\n</service>`));
-  const r = spawnSync('sc.exe', ['start', ID], { encoding: 'utf8' });
-  if (r.status !== 0) fail(`Dienst ${ID} ließ sich nicht starten: ${r.stdout}`);
-} else {
-  spawnSync('systemctl', ['set-environment', `MOSAIK3LAB_PAKETQUELLE=${url}`], { stdio: 'inherit' });
-  // wie der Manager: --no-block, danach den Status abfragen (die Test-Paketquelle in diesem Prozess antwortet weiter)
-  const r = await new Promise((res) => spawn('runuser', ['-u', 'mosaik3lab', '--', 'systemctl', 'start', '--no-block', ID], { stdio: 'inherit' }).on('close', (status) => res({ status })));
-  if (r.status !== 0) fail('Das Dienstkonto mosaik3lab darf den Update-Helfer nicht starten (polkit)');
-}
+if (WIN) fs.writeFileSync(xml, fs.readFileSync(xml, 'utf8').replace('</service>', `  <env name="MOSAIK3LAB_PAKETQUELLE" value="${url}"/>
+</service>`));
+else spawnSync('systemctl', ['set-environment', `MOSAIK3LAB_PAKETQUELLE=${url}`], { stdio: 'inherit' });
+
+// 4. „Jetzt aktualisieren“ mit dem Code des installierten Server-Managers (suchen, herunterladen, prüfen, Auftrag, Helfer
+//    über die Dienststeuerung starten). Linux: als Dienstbenutzer mosaik3lab – prüft auch die polkit-Freigabe.
+//    Die Test-Paketquelle in diesem Prozess antwortet dabei weiter (darum asynchron starten).
+const skript = path.join(os.tmpdir(), 'mosaik3lab-knopf-manager.mjs');
+fs.copyFileSync(path.join(import.meta.dirname, 'knopf-manager.mjs'), skript);
+fs.chmodSync(skript, 0o644);
+const env = { ...process.env, MOSAIK3LAB_PAKETQUELLE: url };
+// mit dem Node der Installation (wie der Manager-Dienst)
+const node = path.join(programm, 'current', 'node', WIN ? 'node.exe' : 'node');
+const [cmd, args] = WIN ? [node, [skript, programm, neu]] : ['runuser', ['-u', 'mosaik3lab', '--', 'env', `MOSAIK3LAB_PAKETQUELLE=${url}`, node, skript, programm, neu]];
+const m = await new Promise((res) => spawn(cmd, args, { stdio: 'inherit', env }).on('close', (status) => res({ status })));
+if (m.status !== 0) fail('„Jetzt aktualisieren“ im Server-Manager hat nicht geklappt');
 const dienstLaeuft = () =>
   WIN
     ? /RUNNING|START_PENDING|STOP_PENDING/.test(spawnSync('sc.exe', ['query', ID], { encoding: 'utf8' }).stdout)

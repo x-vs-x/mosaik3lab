@@ -3,6 +3,15 @@
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
 <!-- Vorlage:
+## 2026-11-17 – Update-Knopf: Download-Wächter und echter Test (Hauptchat, Branch: feature/update-knopf)
+- **Anlass:** Lokal (1.5.0) drehte „Jetzt aktualisieren“ endlos; kein Download, kein Protokolleintrag. Der Installer-Test
+  hatte den Weg des Managers nur nachgeahmt (Paket + Auftrag selbst abgelegt), Download und Start über den Manager waren
+  nie geprüft.
+- **Gebaut:** `downloadPaket` mit Wächter (90 s ohne Antwort/Daten → verständlicher Abbruch, Teildatei weg), Log-Eintrag
+  beim Download-Start. Installer-Test: `knopf-manager.mjs` ruft `pruefen()`/`starten()` des installierten Managers auf
+  (Linux als Dienstbenutzer). Neuer Test `manager/test/paketquelle-wache.test.mjs`.
+- **Aufgeräumt:** Test-Installation unter `_testdaten/updknopf` gelöscht.
+
 ## 2026-11-17 – Größen freiwillig, Farbgruppen, Farbrollen löschen (Hauptchat, Branch: feature/farben-groessen)
 - **Gebaut:** `sizes` am Druckteil freiwillig (Anfrage ohne Größe, wenn das Teil keine hat). Farbbereiche mit `gruppen`
   (`linie:<Marke Linie>`, `art:<Materialart>` = erstes Wort der Linie), Server füllt beim Lesen die passenden Rollen ein,
