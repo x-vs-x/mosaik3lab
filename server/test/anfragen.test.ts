@@ -95,6 +95,26 @@ test('Lehrkraft-Rolle sieht keine Anfragen und darf Status nicht ändern', async
   assert.equal(r.status, 201);
   assert.deepEqual(Object.keys(r.json).sort(), ['id', 'itemName', 'number'], 'auch angemeldet nur Bestätigung');
 });
+test('Angemeldet gilt die eigene E-Mail: andere Adresse im Body wird ersetzt (Lehrkraft und Konto)', async () => {
+  const fremd = `jemand.anderes@${SCHOOL}`;
+  const r = await teacher.req('POST', '/api/orders', { ...orderBody(), requesterEmail: fremd });
+  assert.equal(r.status, 201, JSON.stringify(r.json));
+  const stored = (await team.req('GET', `/api/orders/${r.json.id}`)).json;
+  assert.equal(stored.requesterEmail, TEACHER, 'Anfrage gehört der angemeldeten Lehrkraft');
+  const mine = (await teacher.req('GET', '/api/orders/mine')).json;
+  assert.ok(mine.some((o: any) => o.id === r.json.id), 'erscheint unter „Meine Anfragen“');
+  // Auch eine fremde Domain spielt angemeldet keine Rolle – es zählt die Adresse der Sitzung.
+  const gmail = await teacher.req('POST', '/api/orders', { ...orderBody(), requesterEmail: 'jemand@gmail.com' });
+  assert.equal(gmail.status, 201, JSON.stringify(gmail.json));
+  // Konto (Druck-Team): ebenfalls die eigene Adresse
+  const me = (await team.req('GET', '/api/auth/me')).json.user;
+  const t = await team.req('POST', '/api/orders', { ...orderBody(), requesterEmail: fremd });
+  assert.equal(t.status, 201, JSON.stringify(t.json));
+  assert.equal(t.json.requesterEmail, me.email);
+  assert.ok((await team.req('GET', '/api/orders/mine')).json.some((o: any) => o.id === t.json.id));
+  const list = (await team.req('GET', '/api/orders/requesters')).json;
+  assert.ok(!list.some((x: any) => x.email === fremd), 'fremde Adresse wird nicht angelegt');
+});
 test('Ausgeschalteter Status ist nicht wählbar', async () => {
   const r = await team.req('PATCH', `/api/orders/${order.id}/status`, { status: 'in_druck' });
   assert.equal(r.status, 400, JSON.stringify(r.json));

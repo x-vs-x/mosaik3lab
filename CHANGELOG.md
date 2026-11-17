@@ -6,6 +6,14 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Anfrage angemeldet:** Wer angemeldet ist (Lehrkraft, Admin, Druck-Team), sieht im Anfrageformular die eigene E-Mail
+  fest eingetragen („Ihre Schul-E-Mail (angemeldet)“). Der Server nimmt immer diese Adresse – so landet jede Anfrage
+  sicher unter „Meine Anfragen“, auch wenn ein alter Entwurf eine andere Adresse enthielt. Ohne Anmeldung unverändert.
+- **Stammdaten:** Beim Speichern mit fehlendem oder ungültigem Eintrag nennt die Meldung Zeile und Feld (z. B. „Zeile 8:
+  Name fehlt.“) und markiert die Zeile, statt nur „Bitte überprüfen Sie Ihre Eingaben.“ zu zeigen.
+- **Druckteil-Seite:** Der Abschnitt „Sicherheitshinweise“ (nur fürs Druck-Team) entfällt, wenn keine Hinweise hinterlegt sind.
+  Im Druckteil-Editor (Personalisierung) entfällt der gelbe Datenschutz-Hinweis fürs Team; Lehrkräfte sehen ihren weiter.
+
 ## [1.3.1] – 2026-11-17
 
 - **Server-Manager, „Im Schulnetz erreichbar“ und Ports:** Fehlen dem Manager Administratorrechte für die Firewall-Regel
