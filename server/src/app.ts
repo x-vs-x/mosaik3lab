@@ -106,7 +106,7 @@ export async function createApp(config: AppConfig) {
     res.json({ ok: true, version: config.appVersion, demoAccountsEnabled: config.allowDemoAccounts, db: storage.database.info() });
   });
   app.use('/api/config', publicConfigRoutes(storage, config));
-  app.use('/api/admin/settings', adminSettingsRoutes(storage, auth, config));
+  app.use('/api/admin/settings', adminSettingsRoutes(storage, auth));
   app.use('/api/admin/daten', datenRoutes(storage, auth, config));
   app.use('/api/filaments', filamentRoutes(storage, auth));
   app.use('/api/auth', authRoutes(storage, auth, authOptions));

@@ -46,15 +46,6 @@ export interface MailInfoView {
   error: string;
 }
 
-/** Ablagepfade (nur lesend – eingestellt im Server-Manager). */
-export interface PathSet {
-  storageDir: string;
-  /** SQLite-Datenbank */
-  dbFile: string;
-  /** Dateiablage: <ablage>/<objekttyp>/<objekt-id>/<rolle>/<datei-id>.<endung> */
-  ablageDir: string;
-}
-
 /** GET /api/admin/settings – nur Administration. */
 export interface AdminSettings {
   masterData: MasterData;
@@ -62,5 +53,4 @@ export interface AdminSettings {
   mailStatus: MailStatus;
   features: Features;
   orderForm: OrderFormSettings;
-  paths: PathSet;
 }
