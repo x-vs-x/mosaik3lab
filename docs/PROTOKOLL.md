@@ -10,6 +10,36 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 - **Aufgeräumt:** …
 -->
 
+## 2026-11-17 – Filter Druckteile, Stammdaten-Kopf und Farbrollen-Spalten (Unter-Session, Branch: feature/filter-stammdaten)
+- **Druckteile verwalten:** Filter „Alle · Veröffentlicht · Entwurf“ (Knöpfe mit `aria-pressed`, Zahlen folgen der Suche),
+  `?ansicht=` und `?q=` in der Adresse, Export-„Alle auswählen“ auf die gefilterte Liste, leerer Zustand mit „Alle
+  Druckteile anzeigen“. Reine Funktionen in `druckteilFilter.ts` mit Test.
+- **Stammdaten (`ListPanel`):** „… hinzufügen“ als Hauptknopf im Kopf (rechts neben der Überschrift, Handy volle Breite
+  darunter), Zusatzknöpfe (Bambu-Import) daneben; Erklärung darunter. Neue Zeile wird oben eingefügt und fokussiert
+  (gespeichert wird die angezeigte Reihenfolge – wer sie weiter unten will, schiebt sie mit den Pfeilen).
+- **Farbrollen:** Zeilen als Raster (ab md: Farbe | Name | Herkunft 10rem | vorrätig 9.5rem; Handy: Farbe + Name, darunter
+  Schalter + Herkunft), Schalter-Beschriftung fest „vorrätig“ (Name nur für Screenreader), „Druckteilen zuordnen …“
+  rechtsbündig. Kategorien: Vorschau mit fester Breite, damit das Namensfeld überall gleich breit ist.
+- **Marke/Linie-Vorschläge:** `vorschlaege.ts` (eindeutig, alphabetisch, Linien der Marke zuerst) mit Test; `VorschlagFeld.tsx`
+  zeigt passende Werte als Knöpfe unter dem Feld (kein `<datalist>`, das auf iPad/iPhone kaum bedienbar ist). Nummer,
+  Farbname und Farbwert bleiben normale Felder.
+- **Herunterladen ohne Wegnavigieren (iPad-Web-App):** neu `client/src/lib/herunterladen.ts` (fetch mit Sitzung und
+  `X-Requested-With` → Blob → auf iOS `navigator.share({ files })`, sonst Blob-URL + unsichtbares `<a download>`;
+  Dateiname aus `Content-Disposition`; AbortError still; NotAllowedError – Safari erlaubt Teilen nach langem Laden nicht
+  mehr – → Dialog „Datei ist bereit“ mit zweitem Tippen) und Knopf `client/src/components/DateiLaden.tsx` (Ladeanzeige,
+  Fehler als Toast). Eingesetzt beim Export und bei Druckdateien (`ModelFilesSection.tsx`). Weitere Stellen geprüft:
+  Fotos bei Vorschlägen und Video-Links öffnen mit `target="_blank"` (eigenes Fenster mit „Fertig“), Server-Manager-Link
+  ist eine Seite, kein Download – unverändert. Entscheidung teilen/herunterladen getestet (`client/test/herunterladen.test.ts`).
+  Nicht testbar hier: echtes iPad – im Browser simuliert (iPad-Kennung, canShare/share ersetzt).
+- **Dateien:** `client/src/features/verwaltung/{ItemsAdminPage.tsx,druckteilFilter.ts}`,
+  `client/src/features/einstellungen/stammdaten/{ListPanel,FilamentsPanel,CategoriesPanel,VorschlagFeld}.tsx`,
+  `client/src/features/einstellungen/stammdaten/vorschlaege.ts`, `client/src/lib/herunterladen.ts`,
+  `client/src/components/DateiLaden.tsx`, `client/src/features/verwaltung/druckteil-bearbeiten/ModelFilesSection.tsx`,
+  `client/test/{druckteilFilter,vorschlaege,herunterladen}.test.ts`, `CHANGELOG.md`.
+- **Geprüft:** typecheck ✔ · lint ✔ · test ✔ · im Browser (375, 768, 820, 1180, 1366 px): kein waagrechtes Überlaufen,
+  Schalter, Entfernen und Pfeile je Liste in allen Zeilen auf gleicher x-Position (getBoundingClientRect).
+- **Aufgeräumt:** Testserver (5182/3012) gestoppt, `C:\Entwicklung\_testdaten\session-2` gelöscht.
+
 ## 2026-11-17 – Zeitlimits beim Update und Härtung der Admin-Schritte (Unter-Session, Branch: fix/manager-haertung)
 - **Zeitlimits angeglichen:** neu `manager/lib/zeitlimits.mjs` – eine Stelle, von innen nach außen jeweils größer:
   Sicherung vor dem Update 2 h (vorher 60 min), Admin-Schritt (`elevate`, z. B. chown/icacls über die Ablage) 30 min

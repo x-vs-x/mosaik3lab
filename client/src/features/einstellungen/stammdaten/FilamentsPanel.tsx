@@ -2,6 +2,7 @@ import { Download, Link2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -25,6 +26,8 @@ import { FarbeZuordnenDialog } from "./FarbeZuordnenDialog";
 import { Aufklappen } from "./Aufklappen";
 import { BambuImportDialog } from "./BambuImportDialog";
 import { type Row } from "./listRows";
+import { VorschlagFeld } from "./VorschlagFeld";
+import { linienVorschlaege, markenVorschlaege } from "./vorschlaege";
 import { ListPanel } from "./ListPanel";
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -73,8 +76,8 @@ export function FilamentsPanel({
     const f = row.id ? md.filaments.find((x) => x.id === row.id) : undefined;
     if (!n || !f) return null;
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-hinweis text-stone-600">
-        <span>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-hinweis text-stone-600">
+        <span className="min-w-0">
           {n.fest === 0
             ? "Bei keinem Druckteil ausgewählt"
             : n.fest === 1
@@ -86,6 +89,7 @@ export function FilamentsPanel({
           variant="ghost"
           size="sm"
           icon={Link2}
+          className="ml-auto shrink-0"
           onClick={() => setZuordnen(f)}
         >
           Druckteilen zuordnen …
@@ -98,6 +102,8 @@ export function FilamentsPanel({
       .then((r) => setHinweis(r.hinweis))
       .catch(() => setHinweis(null));
   }, []);
+  // Vorschläge aus den gespeicherten Farbrollen – neu Eingetipptes erscheint nach dem Speichern mit.
+  const marken = useMemo(() => markenVorschlaege(md.filaments), [md.filaments]);
   const validate = useCallback((r: Row<Filament>) => {
     if (!r.colorName.trim()) return "Bitte einen Farbnamen eingeben.";
     if (!HEX.test(r.hex))
@@ -163,9 +169,11 @@ export function FilamentsPanel({
       toolbar={({ dirty, applySaved }) => (
         <>
           <Button
-            variant="soft"
+            variant="secondary"
             icon={Download}
             onClick={() => setImportOpen(true)}
+            className="w-full sm:w-auto"
+            data-testid="bambu-import-open"
           >
             Bambu-Lab-Farben importieren
           </Button>
@@ -204,17 +212,16 @@ export function FilamentsPanel({
         const hexError = row.colorName.trim() ? error : undefined;
         const kind = filamentRolle(row);
         return (
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-end gap-3">
-              <ColorSwatch
-                hex={HEX.test(row.hex) ? row.hex : "#ffffff"}
-                className="mb-1 size-10"
-              />
+          <div className={RASTER}>
+            <ColorSwatch
+              hex={HEX.test(row.hex) ? row.hex : "#ffffff"}
+              className="size-10"
+            />
+            <div className="min-w-0">
               <Field
                 label="Farbname"
                 required
                 error={!row.colorName.trim() ? error : undefined}
-                className="min-w-40 flex-1"
               >
                 {({ id, invalid, describedBy }) => (
                   <Input
@@ -228,48 +235,43 @@ export function FilamentsPanel({
                   />
                 )}
               </Field>
-              <div className="pb-1.5">
-                <Switch
-                  checked={row.available !== false}
-                  onChange={(v) =>
-                    update({ available: v } as Partial<Omit<Filament, "id">>)
-                  }
-                  label={`${row.colorName.trim() || "Farbrolle"} vorrätig`}
-                  description={kind || undefined}
-                />
-              </div>
-              <Badge className="mb-2 bg-amber-50 text-amber-900 ring-amber-200">
-                eigene
-              </Badge>
+              {kind && (
+                <p className="mt-1 text-hinweis text-stone-600">{kind}</p>
+              )}
             </div>
-            {zuordnenLeiste(row)}
-            <Aufklappen
-              label="Marke, Linie, Nummer und Farbe ändern"
-              open={!row.id || !!hexError}
-            >
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="Marke">
-                  {({ id }) => (
-                    <Input
-                      id={id}
-                      value={row.brand}
-                      maxLength={40}
-                      placeholder="z. B. Bambu Lab"
-                      onChange={(e) => update({ brand: e.target.value })}
-                    />
-                  )}
-                </Field>
-                <Field label="Linie">
-                  {({ id }) => (
-                    <Input
-                      id={id}
-                      value={row.line}
-                      maxLength={40}
-                      placeholder="z. B. PLA Basic"
-                      onChange={(e) => update({ line: e.target.value })}
-                    />
-                  )}
-                </Field>
+            <Steuerung
+              badge={
+                <Badge className="bg-amber-50 text-amber-900 ring-amber-200">
+                  eigene
+                </Badge>
+              }
+              name={row.colorName.trim() || "Farbrolle"}
+              checked={row.available !== false}
+              onChange={(v) => update({ available: v })}
+            />
+            <div className="col-span-full space-y-1 md:col-start-2">
+              {zuordnenLeiste(row)}
+              <Aufklappen
+                label="Marke, Linie, Nummer und Farbe ändern"
+                open={!row.id || !!hexError}
+              >
+              <div className="grid items-start gap-3 sm:grid-cols-3">
+                <VorschlagFeld
+                  label="Marke"
+                  value={row.brand}
+                  maxLength={40}
+                  placeholder="z. B. Bambu Lab"
+                  vorschlaege={marken}
+                  onChange={(v) => update({ brand: v })}
+                />
+                <VorschlagFeld
+                  label="Linie"
+                  value={row.line}
+                  maxLength={40}
+                  placeholder="z. B. PLA Basic"
+                  vorschlaege={linienVorschlaege(md.filaments, row.brand)}
+                  onChange={(v) => update({ line: v })}
+                />
                 <Field label="Nummer (freiwillig)">
                   {({ id }) => (
                     <Input
@@ -322,7 +324,8 @@ export function FilamentsPanel({
                   )}
                 </Field>
               </div>
-            </Aufklappen>
+              </Aufklappen>
+            </div>
           </div>
         );
       }}
@@ -341,10 +344,9 @@ function KatalogZeile({
   extra: ReactNode;
 }) {
   return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap items-center gap-3">
-        <ColorSwatch hex={row.hex} className="size-10" />
-        <div className="min-w-40 flex-1">
+    <div className={RASTER}>
+      <ColorSwatch hex={row.hex} className="size-10" />
+      <div className="min-w-0">
           <p className="font-bold text-stone-900">
             {row.colorName}{" "}
             {row.herstellerName && row.herstellerName !== row.colorName && (
@@ -356,23 +358,59 @@ function KatalogZeile({
           <p className="text-hinweis text-stone-600">
             {filamentRolle(row)} <span className="font-mono">{row.hex}</span>
           </p>
-        </div>
-        {row.weggefallen ? (
-          <Badge className="bg-red-50 text-red-800 ring-red-200">
-            nicht mehr bei Bambu Lab
-          </Badge>
-        ) : (
-          <Badge className="bg-brand-50 text-brand-800 ring-brand-200">
-            Bambu-Katalog
-          </Badge>
-        )}
+      </div>
+      <Steuerung
+        badge={
+          row.weggefallen ? (
+            <Badge className="bg-red-50 text-red-800 ring-red-200">
+              nicht mehr bei Bambu Lab
+            </Badge>
+          ) : (
+            <Badge className="bg-brand-50 text-brand-800 ring-brand-200">
+              Bambu-Katalog
+            </Badge>
+          )
+        }
+        name={row.colorName}
+        checked={row.available !== false}
+        onChange={(v) => update({ available: v })}
+      />
+      {extra && <div className="col-span-full md:col-start-2">{extra}</div>}
+    </div>
+  );
+}
+
+/**
+ * Feste Spalten je Zeile – ab md: Farbe | Name | Herkunft | Vorrätig (die Pfeile und „Entfernen“ setzt ListPanel
+ * links/rechts daneben). So stehen Schalter und Knöpfe in jeder Zeile an derselben Stelle, egal wie lang der Name ist.
+ * Handy: Farbe + Name oben, Schalter und Herkunft in einer Reihe darunter.
+ */
+const RASTER =
+  "grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 md:grid-cols-[2.5rem_minmax(0,1fr)_10rem_9.5rem]";
+
+function Steuerung({
+  badge,
+  name,
+  checked,
+  onChange,
+}: {
+  badge: ReactNode;
+  name: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    // Handy: Schalter links, Herkunft dahinter – so steht der Schalter in jeder Zeile an derselben Stelle.
+    <div className="col-span-2 flex items-center gap-3 md:contents">
+      <div className="order-last min-w-0 md:order-none">{badge}</div>
+      <div className="shrink-0">
         <Switch
-          checked={row.available !== false}
-          onChange={(v) => update({ available: v })}
-          label={`${row.colorName} vorrätig`}
+          checked={checked}
+          onChange={onChange}
+          label="vorrätig"
+          srLabel={`${name} vorrätig`}
         />
       </div>
-      {extra}
     </div>
   );
 }
