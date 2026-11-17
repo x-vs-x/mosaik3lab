@@ -26,9 +26,47 @@ function displayName(list: MasterDataList, e: Entry) {
 
 export const isMasterDataList = (list: string): list is MasterDataList => list in masterDataSchemas;
 
+/** Feldnamen für Meldungen wie „Zeile 8: Name fehlt“. */
+const FIELD_LABELS: Record<string, string> = {
+  name: 'Name',
+  color: 'Farbe',
+  icon: 'Symbol',
+  brand: 'Marke',
+  line: 'Linie',
+  colorName: 'Farbname',
+  hex: 'Farbwert',
+  herstellerNummer: 'Herstellernummer',
+};
+
+/**
+ * Liste prüfen – Fehler mit Zeilennummer (ab 1, wie in der Oberfläche) und Feld statt nur „Bitte überprüfen …“.
+ * `fields` je Zeile unter ihrem Index (ab 0), damit die Oberfläche die Zeile markieren kann.
+ */
+function parseEntries(list: MasterDataList, entries: unknown): Entry[] {
+  const parsed = masterDataSchemas[list].safeParse(entries);
+  if (parsed.success) return parsed.data as Entry[];
+  const fields: Record<string, string> = {};
+  const lines: string[] = [];
+  for (const issue of parsed.error.issues) {
+    const [index, field] = issue.path;
+    if (typeof index !== 'number') {
+      if (!fields._) lines.push(`Die Liste fehlt oder ist ungültig (${issue.message})`);
+      fields._ ??= issue.message;
+      continue;
+    }
+    if (fields[index]) continue; // je Zeile nur die erste Meldung
+    const label = typeof field === 'string' ? (FIELD_LABELS[field] ?? field) : 'Eintrag';
+    const problem = issue.message === 'Pflichtfeld' ? `${label} fehlt` : `${label}: ${issue.message}`;
+    fields[index] = problem;
+    lines.push(`Zeile ${index + 1}: ${problem}`);
+  }
+  const more = lines.length > 3 ? ` (und ${lines.length - 3} weitere)` : '';
+  throw badRequest(`${lines.slice(0, 3).join('; ')}${more}.`, fields);
+}
+
 /** Eine ganze Liste speichern: keine Dubletten, verwendete Einträge nicht löschen, Umbenennungen in Druckteile übernehmen. */
 export async function saveList(storage: Storage, list: MasterDataList, entries: unknown) {
-  const incoming = masterDataSchemas[list].parse(entries) as Entry[];
+  const incoming = parseEntries(list, entries);
   const label = LIST_LABELS[list];
 
   const current = (await storage.settings.get()).masterData[list] as Entry[];

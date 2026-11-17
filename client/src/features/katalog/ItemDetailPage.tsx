@@ -176,26 +176,22 @@ export function ItemDetailPage() {
           </Card>
         )}
 
-        {/* Sicherheitshinweise derzeit nur für das Druck-Team sichtbar */}
-        {showSafety && (
+        {/* Sicherheitshinweise derzeit nur für das Druck-Team sichtbar – ohne hinterlegte Hinweise ganz weglassen */}
+        {showSafety && item.safetyNotes.length > 0 && (
         <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 sm:rounded-3xl sm:p-7">
           <h2 className="flex flex-wrap items-center gap-x-2.5 text-abschnitt font-bold text-amber-950 sm:text-xl">
             <ShieldAlert className="size-6 text-amber-700" aria-hidden />
             Sicherheitshinweise
             <span className="text-hinweis font-normal text-amber-900">(nur für das Druck-Team sichtbar)</span>
           </h2>
-          {item.safetyNotes.length > 0 ? (
-            <ul className="mt-4 space-y-3">
-              {item.safetyNotes.map((n) => (
-                <li key={n} className="flex gap-3 text-amber-950">
-                  <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-amber-600" aria-hidden />
-                  {n}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-3 text-amber-950">Für dieses Druckteil sind keine besonderen Hinweise hinterlegt.</p>
-          )}
+          <ul className="mt-4 space-y-3">
+            {item.safetyNotes.map((n) => (
+              <li key={n} className="flex gap-3 text-amber-950">
+                <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-amber-600" aria-hidden />
+                {n}
+              </li>
+            ))}
+          </ul>
           <p className="mt-5 border-t border-amber-200 pt-4 text-hinweis text-amber-900">
             3D-gedruckte Hilfs- und Lehrmittel sind keine zertifizierten Medizinprodukte. Bitte vor jedem Einsatz auf
             Beschädigungen prüfen.

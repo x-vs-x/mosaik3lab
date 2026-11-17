@@ -42,6 +42,22 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   `npm test` ✔ · Installer-Test (Windows, Linux, Pi) auf dem PR.
 - **Aufgeräumt:** keine Server gestartet; nichts an der installierten Version geändert.
 
+## 2026-11-17 – Anfrage-E-Mail fest, Stammdaten-Meldung, Sicherheitshinweise (Session: anfrage-mail, Branch: fix/anfrage-mail)
+- **Gebaut:** Angemeldet (Lehrkraft oder Konto) ersetzt `createOrder` eine abweichende `requesterEmail` still durch die
+  Sitzungsadresse (Konto: `user.email`, sonst Lehrkraft), ohne Domänenprüfung; das Formular zeigt sie nur lesend, Entwurf und
+  Geräte-Vorbelegung überschreiben sie nicht, die Gast-Vorbelegung wird angemeldet nicht mehr mit der eigenen Adresse
+  überschrieben. Stammdaten: `saveList` meldet „Zeile n: Feld fehlt“ bzw. „Zeile n: Feld: Meldung“, `fields` je Zeilenindex;
+  `ListPanel` markiert die Zeile bis zur nächsten Änderung. Druckteil-Seite: Sicherheitshinweise nur mit Inhalt (sonst nirgends
+  angezeigt – Mail/Export geben nur Daten weiter); Datenschutz-Warnung im Personalisierungs-Editor entfernt. ARCHITEKTUR: Login-Beschreibung korrigiert (keine „Login-Bremse“, sondern
+  Rate-Limit 60/10 min je IP + Kontosperre nach 10 falschen Passwörtern für 1 Stunde).
+- **Dateien:** server/src/module/anfragen/anfragen.service.ts, server/src/module/stammdaten/stammdaten.service.ts,
+  server/test/{anfragen,stammdaten}.test.ts, client/src/lib/anfrageEmail.ts (neu),
+  client/src/features/katalog/{RequestDialog,ItemDetailPage}.tsx, client/src/features/verwaltung/druckteil-bearbeiten/CustomFieldsSection.tsx,
+  client/src/features/einstellungen/stammdaten/{ListPanel.tsx,listRows.ts}, client/test/anfrageformular.test.ts,
+  docs/ARCHITEKTUR.md, CHANGELOG.md.
+- **Geprüft:** typecheck ✔ · lint ✔ · test ✔ (kein Browser-Klicktest).
+- **Aufgeräumt:** kein Server gestartet, Scratchpad-Datei gelöscht.
+
 ## 2026-11-17 – Prüfung Server-Manager, Installation, Update, Sicherung (Session: manager-pruefung, Branch: fix/manager-pruefung)
 - **Gebaut:** Firewall-Schalter ohne Adminrechte (Einstellung gespeichert, Befehl zum Kopieren, vorhandene Regeln ohne
   Adminrechte; auch im „Abgleichen“); „Einrichten/Reparieren“ bei Paket-Installationen → Hinweis aufs Installer-Paket (UI +
