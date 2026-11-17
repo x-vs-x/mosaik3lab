@@ -24,7 +24,7 @@ test('Betreff und Kurzfassung: Menge × Druckteil, Farben, Größe, Klasse – a
   const m = buildOrderMail(order(), { id: 'i1' } as any, settings, filaments);
   assert.equal(m.subject, 'Neue Anfrage ANF-2026-0042 – 7 × Kabelhalter');
   assert.match(m.text, /^NEUE ANFRAGE ANF-2026-0042\n\n7 × Kabelhalter\n3 × Blau, 4 × Gelb · Größe M · Klasse 7b\n/);
-  assert.ok(m.html.includes('3 × Blau, 4 × Gelb &middot; Größe M &middot; Klasse 7b'));
+  assert.ok(m.html.includes('3 × Blau, 4 × Gelb · Größe M · Klasse 7b'));
   // Preheader: unsichtbar, ganz am Anfang des Body.
   assert.match(m.html, /<body[^>]*>\s*<div style="display:none;[^"]*">7 × Kabelhalter – 3 × Blau, 4 × Gelb – Größe M – Klasse 7b/);
   // Links ohne doppelten Schrägstrich, Button als Tabelle (Outlook).

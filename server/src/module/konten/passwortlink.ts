@@ -1,7 +1,9 @@
 import crypto from 'node:crypto';
 import type { User } from '../../domain/types';
 import { readMailConfig } from '../../kern/mail/mailConfig';
-import { baseUrl, escapeHtml, sendMail, type BuiltMail } from '../../kern/mail/mailer';
+import { linksNurImSchulnetz } from '../../kern/mail/erreichbarkeit';
+import { baseUrl, sendMail, type BuiltMail } from '../../kern/mail/mailer';
+import { button, FOOTER_KONTO, para, renderLayout, schulnetzText, small, textFooter } from '../../kern/mail/layout';
 import { hashPassword } from '../../kern/auth/password';
 import { notFound } from '../../kern/errors';
 import type { Storage } from '../../storage';
@@ -25,26 +27,35 @@ export function neuerLink(storage: Storage, user: User, zweck: PasswortZweck, ab
   return token;
 }
 
-export function buildPasswortMail(user: User, zweck: PasswortZweck, url: string, ablaufend: boolean): BuiltMail {
+/** Anlass eines Links zum Zurücksetzen: selbst angefordert/vom Administrator oder nach der Sperre. */
+export type PasswortAnlass = 'angefordert' | 'gesperrt';
+
+export function buildPasswortMail(user: User, zweck: PasswortZweck, url: string, ablaufend: boolean, anlass: PasswortAnlass = 'angefordert', nurSchulnetz = false): BuiltMail {
   const einrichten = zweck === 'einrichten';
-  const subject = einrichten ? 'Mosaik³LAB: Bitte Passwort festlegen' : 'Mosaik³LAB: Passwort zurücksetzen';
+  const subject = einrichten ? 'Mosaik³LAB: Passwort festlegen' : 'Mosaik³LAB: Passwort zurücksetzen';
+  const heading = einrichten ? 'Passwort festlegen' : 'Neues Passwort festlegen';
   const intro = einrichten
-    ? 'Sie haben in Mosaik³LAB zusätzliche Rechte bekommen. Dafür brauchen Sie ab jetzt ein Passwort. Bitte legen Sie es über diesen Link fest:'
-    : 'Für Ihr Konto in Mosaik³LAB wurde ein neues Passwort angefordert. Über diesen Link legen Sie es fest:';
-  const gueltig = ablaufend ? 'Der Link gilt 24 Stunden und nur einmal.' : 'Der Link gilt nur einmal.';
-  const hinweis = einrichten ? '' : 'Haben Sie das nicht angefordert? Dann können Sie diese Mail ignorieren – Ihr bisheriges Passwort bleibt gültig.';
-  const button = einrichten ? 'Passwort festlegen' : 'Neues Passwort festlegen';
-  const text = [`Hallo ${user.displayName},`, '', intro, url, '', gueltig, hinweis, '', 'Das Passwort ist frei wählbar, mindestens 8 Zeichen.']
+    ? 'Sie haben in Mosaik³LAB zusätzliche Rechte bekommen. Dafür brauchen Sie ab jetzt ein Passwort.'
+    : anlass === 'gesperrt'
+      ? 'Ihr Konto wurde nach zu vielen falschen Passwörtern für eine Stunde gesperrt. Mit einem neuen Passwort geht es sofort wieder.'
+      : 'Für Ihr Konto wurde ein neues Passwort angefordert.';
+  const gueltig = `${ablaufend ? 'Der Link gilt 24 Stunden und nur einmal.' : 'Der Link gilt nur einmal.'} Das Passwort ist frei wählbar, mindestens 8 Zeichen.`;
+  const hinweis = einrichten
+    ? ''
+    : anlass === 'gesperrt'
+      ? 'Waren das nicht Sie? Dann legen Sie am besten jetzt ein neues Passwort fest.'
+      : 'Nicht angefordert? Dann ignorieren Sie diese Mail – Ihr bisheriges Passwort bleibt gültig.';
+  const hallo = `Hallo ${user.displayName},`;
+  const text = [hallo, '', intro, '', `${heading}:`, url, ...schulnetzText(nurSchulnetz), '', gueltig, hinweis, '', textFooter(FOOTER_KONTO)]
     .filter((l, i, a) => l !== '' || a[i - 1] !== '')
     .join('\n');
-  const p = (s: string) => (s ? `<p style="margin:0 0 14px;font:16px/1.5 Arial,sans-serif;color:#292524">${escapeHtml(s)}</p>` : '');
-  const html = `<!doctype html><html lang="de"><body style="margin:0;padding:24px;background:#f5f5f4">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px"><tr><td style="padding:28px">
-${p(`Hallo ${user.displayName},`)}${p(intro)}
-<p style="margin:20px 0"><a href="${escapeHtml(url)}" style="display:inline-block;padding:14px 22px;background:#0f766e;color:#ffffff;border-radius:10px;font:bold 16px Arial,sans-serif;text-decoration:none">${button}</a></p>
-${p(gueltig)}${p(hinweis)}${p('Das Passwort ist frei wählbar, mindestens 8 Zeichen.')}
-<p style="margin:16px 0 0;font:13px/1.5 Arial,sans-serif;color:#78716c">Falls der Knopf nicht funktioniert: ${escapeHtml(url)}</p>
-</td></tr></table></body></html>`;
+  const html = renderLayout({
+    title: subject,
+    preheader: einrichten ? 'Legen Sie Ihr Passwort für Mosaik³LAB fest.' : intro,
+    heading,
+    contentHtml: para(hallo) + para(intro) + button(heading, url, nurSchulnetz) + small(gueltig) + small(hinweis),
+    footer: FOOTER_KONTO,
+  });
   return { subject, text, html };
 }
 
@@ -52,14 +63,20 @@ ${p(gueltig)}${p(hinweis)}${p('Das Passwort ist frei wählbar, mindestens 8 Zeic
  * Link anlegen und an die Person schicken. Geht das nicht (Mailversand aus, keine App-Adresse, Fehler),
  * kommt das Token zurück, damit der Administrator den Link weitergeben kann.
  */
-export async function linkVerschicken(storage: Storage, user: User, zweck: PasswortZweck, ablaufend = true): Promise<PasswortLinkErgebnis> {
+export async function linkVerschicken(
+  storage: Storage,
+  user: User,
+  zweck: PasswortZweck,
+  ablaufend = true,
+  anlass: PasswortAnlass = 'angefordert',
+): Promise<PasswortLinkErgebnis> {
   const token = neuerLink(storage, user, zweck, ablaufend);
   const r = readMailConfig(storage.sqlite.db);
   if (r.state !== 'ok' || !r.config.enabled) return { gesendet: false, token, grund: 'Der Mailversand ist nicht eingerichtet.' };
   const base = baseUrl(r.config.appBaseUrl);
   if (!base) return { gesendet: false, token, grund: 'Im Server-Manager fehlt die Adresse der App für Links in Mails.' };
   try {
-    await sendMail(r.config, [user.email], buildPasswortMail(user, zweck, `${base}/passwort#${token}`, ablaufend));
+    await sendMail(r.config, [user.email], buildPasswortMail(user, zweck, `${base}/passwort#${token}`, ablaufend, anlass, linksNurImSchulnetz(r.config)));
     return { gesendet: true };
   } catch (err) {
     console.warn('[Mail] Passwort-Link an', user.email, 'nicht gesendet:', (err as Error).message);

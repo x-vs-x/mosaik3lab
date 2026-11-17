@@ -162,6 +162,11 @@ jobs:
         if: matrix.runde == 'neu'
         run: .github/installer-test/pruefen.sh marker
 
+      - name: Mailversand einrichten (SMTP-Fänger, über den Manager)
+        if: matrix.runde == 'neu'
+        timeout-minutes: 5
+        run: .github/installer-test/pruefen.sh mail-einrichten
+
       - name: Kommandozeile als root und ohne sudo
         if: matrix.runde == 'neu'
         timeout-minutes: 5
@@ -179,6 +184,11 @@ jobs:
           .github/installer-test/pruefen.sh erhalten
           # aktive Version merken: nach Rückfall und abgelehntem Downgrade muss genau sie wieder laufen
           echo "ERWARTET=$(node -p "require('/opt/mosaik3lab/current/.release.json').id")" >> "$GITHUB_ENV"
+
+      - name: Mailversand nach dem Update (Einstellungen, Testmail, App-Mail)
+        if: matrix.runde == 'neu'
+        timeout-minutes: 5
+        run: .github/installer-test/pruefen.sh mail-erhalten
 
       # Rückfall: das kaputte Update muss mit Fehler enden und automatisch auf die vorige Version zurückschalten
       - name: Rückfall-Test (kaputtes Update installieren)
@@ -232,6 +242,11 @@ jobs:
         run: |
           .github/installer-test/pruefen.sh installiert
           .github/installer-test/pruefen.sh erhalten
+
+      - name: Mailversand nach dem Update per Knopfdruck
+        if: matrix.runde == 'neu'
+        timeout-minutes: 5
+        run: .github/installer-test/pruefen.sh mail-erhalten
 
       - name: Deinstallieren (Daten behalten)
         if: matrix.runde == 'neu'
@@ -338,6 +353,11 @@ jobs:
           .github/installer-test/pruefen.sh installiert
           .github/installer-test/pruefen.sh marker
 
+      - name: Mailversand mit 1.0.0 einrichten (SMTP-Fänger, über den Manager)
+        if: matrix.runde == 'v100'
+        timeout-minutes: 5
+        run: .github/installer-test/pruefen.sh mail-einrichten
+
       - name: Update 1.0.0 → neue Version (installieren.sh)
         if: matrix.runde == 'v100'
         timeout-minutes: 14
@@ -348,6 +368,11 @@ jobs:
         run: |
           .github/installer-test/pruefen.sh installiert
           .github/installer-test/pruefen.sh erhalten
+
+      - name: Mailversand nach dem Update von 1.0.0 (Einstellungen, Testmail, App-Mail)
+        if: matrix.runde == 'v100'
+        timeout-minutes: 5
+        run: .github/installer-test/pruefen.sh mail-erhalten
 
       # ---- Ende der Runden „altformat“ und „v100“: deinstallieren ----
       - name: Deinstallieren (Runde ${{ matrix.runde }})
@@ -362,6 +387,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/logs"
           sudo cp -r /var/log/mosaik3lab "$RUNNER_TEMP/logs/" 2>/dev/null || true
+          cp -r "$RUNNER_TEMP/ci-postfach" "$RUNNER_TEMP/logs/" 2>/dev/null || true # Mails beim SMTP-Fänger (Mail-Test)
           sudo cp /opt/mosaik3lab/install.json /var/lib/mosaik3lab/manager/install-manifest.json "$RUNNER_TEMP/logs/" 2>/dev/null || true
           sudo cp -r /var/lib/mosaik3lab/manager/dienste "$RUNNER_TEMP/logs/" 2>/dev/null || true
           for d in webapp backup portal manager; do sudo journalctl -u mosaik3lab-$d --no-pager > "$RUNNER_TEMP/logs/journal-$d.txt" 2>&1 || true; done

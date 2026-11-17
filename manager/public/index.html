@@ -204,6 +204,9 @@
               <label>Passwort<input name="mailPassword" type="password" autocomplete="new-password" data-testid="mail-password" /></label>
               <label>Absender<input name="mailFrom" placeholder="mosaik3lab@schule.de" data-testid="mail-from" /></label>
               <label class="full">Adresse in den Mails (leer = automatisch)<input name="mailBaseUrl" data-testid="mail-baseurl" /></label>
+              <label class="full">Links in den Mails sind erreichbar<select name="mailErreichbarkeit" data-testid="mail-erreichbarkeit" aria-describedby="mail-erkennung"><option value="auto">Automatisch erkennen</option><option value="schulnetz">Nur im Schulnetz</option><option value="oeffentlich">Auch von außerhalb</option></select></label>
+              <p class="full muted small" id="mail-erkennung" data-testid="mail-erkennung"></p>
+              <p class="full callout warn" id="mail-link-warnung" role="alert" hidden data-testid="mail-link-warnung"></p>
             </div>
           </section>
           <div class="savebar">
