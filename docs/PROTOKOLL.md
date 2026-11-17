@@ -27,6 +27,26 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   isolierter Manager (Port 5195, Probelauf) ✔ · Installer-Test auf dem PR.
 - **Aufgeräumt:** Test-Manager gestoppt, `C:\Entwicklung\_testdaten\manager-pruefung` gelöscht.
 
+## 2026-11-17 – Fehlersuche in der ganzen App (Unter-Session, Branch: fix/app-pruefung)
+- **Gebaut (nur Fehlerbehebungen):**
+  - Server: Vorschlag mit Entwurf im Katalog kann nicht mehr auf einen anderen Status als „umgesetzt“ gesetzt werden (409,
+    Feld `status`); nach dem Löschen des Entwurfs wieder frei.
+  - Client: Fokus auf die erste fehlerhafte Auswahl im Anfrageformular (`lib/fokus.ts`), E-Mail der angemeldeten Lehrkraft
+    nach dem Laden der Anmeldung, Farbwahl aus Vorlagen auf die angebotene gleichnamige Rolle (`aufAngeboteneFarben`),
+    Konfiguration nach dem Einspielen neu laden, Hinweis „ohne vorrätige Farbe“ je Farbbereich (`ohneVorraetigeFarbe`),
+    Ziel nach der Anmeldung für Einzelrechte (`lib/anmeldeZiel.ts`), doppelter „Vorschläge“-Eintrag in der Handy-Leiste,
+    Dialog schließt nur bei Klick, der auf dem Hintergrund begann, Screenreader-Name der Veröffentlichen-Schalter
+    (`Switch srLabel`), Vorschlags-Karte (Status gesperrt bei Entwurf, Fehlerfeld, „Speichern“ nach Erfolg aus, Link auf
+    Anfragen nur mit `orders:view`), Filter „Meine Anfragen“ als Umschaltknöpfe statt Tabs ohne Tab-Verhalten.
+  - Leere, versehentlich eingecheckte Datei `konten.repository.ts` in der Projektwurzel entfernt.
+- **Dateien:** `server/src/module/vorschlaege/vorschlaege.service.ts`, `server/test/vorschlaege.test.ts`,
+  `client/src/components/{Dialog,Layout,ui}.tsx`, `client/src/features/katalog/{RequestDialog,MyOrdersPage}.tsx`,
+  `client/src/features/konto/LoginPage.tsx`, `client/src/features/verwaltung/{FilamentsPage,ItemsAdminPage,ProposalsAdminPage}.tsx`,
+  `client/src/lib/{colors,fokus,anmeldeZiel}.ts`, `client/test/anfrageformular.test.ts`, `CHANGELOG.md`
+- **Geprüft:** typecheck ✔ · lint ✔ (nur alte Warnungen) · test ✔ · API-Stichproben je Rolle (Rechte aller Verwaltungsrouten,
+  Selbst-Entfernen/-Herabstufen, Stammdaten-Dubletten) · im Browser: Fokus im Anfrageformular, Vorschlagskarte, Handy-Breite 375 px
+- **Aufgeräumt:** Dev-Server (5182/3012) gestoppt, `C:\Entwicklung\_testdaten\session-2` gelöscht, Prüfskript im Scratchpad gelöscht.
+
 ## 2026-11-16 – Texte anonymisiert, Schul-Domain bei der Ersteinrichtung (Unter-Session, Branch: feature/anonymisieren)
 - **Gebaut:**
   - Anonymisiert (nur Texte/Kommentare): Ort, Website-Link, interne IP und die Beschreibung der konkreten Schule aus README,

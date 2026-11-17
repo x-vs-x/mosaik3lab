@@ -227,7 +227,7 @@ export function MyOrdersPage() {
         <>
           <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
             {tracked && (
-              <div role="tablist" aria-label="Anfragen filtern" className="inline-flex self-start rounded-2xl bg-stone-200/60 p-1">
+              <div role="group" aria-label="Anfragen filtern" className="inline-flex self-start rounded-2xl bg-stone-200/60 p-1">
                 {(
                   [
                     ['offen', `Offen (${countOpen})`],
@@ -237,9 +237,8 @@ export function MyOrdersPage() {
                 ).map(([key, label]) => (
                   <button
                     key={key}
-                    role="tab"
                     type="button"
-                    aria-selected={tab === key}
+                    aria-pressed={tab === key}
                     onClick={() => setTab(key)}
                     className={cx(
                       'min-h-11 rounded-xl px-3 font-bold transition-colors sm:min-h-12 sm:px-4',

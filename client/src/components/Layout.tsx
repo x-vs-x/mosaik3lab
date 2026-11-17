@@ -262,13 +262,13 @@ export function Layout() {
   }, [location.pathname]);
 
   const teamProposals = can('vorschlaege:sehen');
+  // Verwaltung: Übersicht oder – bei Einzelrechten ohne Übersicht – die erste freigegebene Seite.
+  const adminStart = ADMIN_NAV.find((i) => i.permission && can(i.permission));
   const bottomNav: NavItem[] = [
     // Wer die Vorschläge des Teams sieht, findet „Meine Vorschläge“ im Menü – sonst wird die Leiste auf dem Handy zu eng.
     ...mainNav.filter((i) => !(teamProposals && i.to === '/vorschlaege')),
-    // Verwaltung: Übersicht oder – bei Einzelrechten ohne Übersicht – die erste freigegebene Seite.
-    ...ADMIN_NAV.filter((i) => i.permission && can(i.permission))
-      .slice(0, 1)
-      .map((i) => ({ ...i, shortLabel: 'Verwaltung', icon: Wrench })),
+    // Ist die erste freigegebene Seite selbst „Vorschläge“, nur einmal zeigen (mit Zahl neuer Vorschläge).
+    ...(adminStart && adminStart.to !== '/verwaltung/vorschlaege' ? [{ ...adminStart, shortLabel: 'Verwaltung', icon: Wrench }] : []),
     // Team: Vorschläge direkt erreichbar, mit Zahl neuer Vorschläge.
     ...ADMIN_NAV.filter((i) => i.to === '/verwaltung/vorschlaege' && teamProposals).map((i) => ({ ...i, shortLabel: 'Vorschläge', badge: newProposals })),
     ...(user ? [{ to: '/konto', label: 'Mein Konto', shortLabel: 'Konto', icon: UserRound }] : []),

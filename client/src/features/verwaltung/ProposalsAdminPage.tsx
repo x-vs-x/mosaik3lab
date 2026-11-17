@@ -26,7 +26,8 @@ function ProposalCard({ proposal, highlight, onChange }: { proposal: Proposal; h
   const { can } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const [status, setStatus] = useState<ProposalStatus>(proposal.status);
+  // Mit Entwurf im Katalog gilt immer „Umgesetzt“ (ältere Daten können noch einen anderen Status tragen).
+  const [status, setStatus] = useState<ProposalStatus>(proposal.itemId ? 'umgesetzt' : proposal.status);
   const [reply, setReply] = useState(proposal.reply);
   const [busy, setBusy] = useState<'save' | 'convert'>();
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -40,6 +41,9 @@ function ProposalCard({ proposal, highlight, onChange }: { proposal: Proposal; h
     try {
       const updated = await api<Proposal>(`/proposals/${proposal.id}`, { method: 'PATCH', body: { status, reply } });
       onChange(updated);
+      // Der Server kürzt Leerzeichen – lokalen Stand angleichen, sonst bleibt „Speichern“ aktiv.
+      setStatus(updated.status);
+      setReply(updated.reply);
       toast('success', `${proposal.number} gespeichert.`);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -74,9 +78,16 @@ function ProposalCard({ proposal, highlight, onChange }: { proposal: Proposal; h
           <h2 className="text-abschnitt font-bold text-stone-900 sm:text-xl">{proposal.title}</h2>
           <p className="text-base text-stone-600">
             von{' '}
-            <Link to={`/verwaltung/bestellungen?email=${encodeURIComponent(proposal.requesterEmail)}&status=alle`} className="font-bold text-brand-800 hover:underline">
-              <Email adresse={proposal.requesterEmail || 'unbekannt'} />
-            </Link>
+            {/* Die Anfragen der Lehrkraft sieht nur, wer Anfragen bearbeiten darf. */}
+            {can('orders:view') ? (
+              <Link to={`/verwaltung/bestellungen?email=${encodeURIComponent(proposal.requesterEmail)}&status=alle`} className="font-bold text-brand-800 hover:underline">
+                <Email adresse={proposal.requesterEmail || 'unbekannt'} />
+              </Link>
+            ) : (
+              <strong>
+                <Email adresse={proposal.requesterEmail || 'unbekannt'} />
+              </strong>
+            )}
           </p>
         </div>
         <ProposalStatusBadge status={proposal.status} />
@@ -107,9 +118,20 @@ function ProposalCard({ proposal, highlight, onChange }: { proposal: Proposal; h
 
       {editable && (
         <div className="grid gap-4 border-t border-stone-100 pt-4 md:grid-cols-[14rem_1fr]">
-          <Field label="Status">
-            {({ id }) => (
-              <Select id={id} value={status} onChange={(e) => setStatus(e.target.value as ProposalStatus)}>
+          <Field
+            label="Status"
+            error={fields.status}
+            hint={proposal.itemId ? 'Bleibt „Umgesetzt“, solange der Entwurf im Katalog steht.' : undefined}
+          >
+            {({ id, describedBy, invalid }) => (
+              <Select
+                id={id}
+                aria-describedby={describedBy}
+                invalid={invalid}
+                value={status}
+                disabled={!!proposal.itemId}
+                onChange={(e) => setStatus(e.target.value as ProposalStatus)}
+              >
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
                     {STATUS_LABELS[s]}

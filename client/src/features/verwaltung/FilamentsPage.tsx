@@ -6,7 +6,7 @@ import { useToast } from '../../components/Toast';
 import { Alert, Badge, Card, cx, LinkButton, PageHeader, Spinner, Switch } from '../../components/ui';
 import { api, ApiError } from '../../lib/api';
 import { useConfig, useMasterData } from '../../lib/config';
-import { availableFilaments } from '../../lib/filaments';
+import { ohneVorraetigeFarbe } from '../../lib/colors';
 import type { Filament, Item, MasterData } from '../../lib/types';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
 
@@ -38,7 +38,7 @@ export function FilamentsPage() {
   }, [shown]);
 
   const usage = (id: string) => items?.filter((i) => i.colors.includes(id)).length ?? 0;
-  const withoutColor = (items ?? []).filter((i) => i.published && i.colors.length > 0 && availableFilaments(md, i.colors).length === 0);
+  const withoutColor = (items ?? []).filter((i) => i.published && ohneVorraetigeFarbe(i, md));
 
   const toggle = async (f: Filament, available: boolean) => {
     setBusy(f.id);

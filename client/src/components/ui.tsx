@@ -320,12 +320,15 @@ export function Switch({
   label,
   description,
   disabled,
+  srLabel,
 }: {
   checked: boolean;
   onChange: (value: boolean) => void;
   label: string;
   description?: string;
   disabled?: boolean;
+  /** Name für Screenreader, wenn die sichtbare Beschriftung allein nicht reicht (z. B. in Listen: welches Druckteil?). */
+  srLabel?: string;
 }) {
   const id = useId();
   return (
@@ -335,6 +338,7 @@ export function Switch({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={srLabel}
         aria-describedby={description ? `${id}-d` : undefined}
         disabled={disabled}
         onClick={() => onChange(!checked)}
