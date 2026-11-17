@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.4.0] – 2026-11-17
+
 - **Druckteile verwalten:** Neuer Filter „Alle · Veröffentlicht · Entwurf“ (mit Anzahl) neben der Suche. Filter und Suche
   stehen in der Adresse und überstehen „Zurück“ und Neuladen; „Alle auswählen“ für den Export nimmt nur die gefilterten
   Druckteile, bei leerem Ergebnis gibt es einen Knopf „Alle Druckteile anzeigen“.
