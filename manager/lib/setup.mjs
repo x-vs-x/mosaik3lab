@@ -300,7 +300,9 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
       switchCurrent(programRoot, id);
       if (previous && !input.fromBackup) update = { previous, failed: id, backupId };
       pruneAfter = prune; // nur aktuelle + vorige Version behalten – erst nach Erfolg (wie das Git-Update), damit ein Rückfall die vorige hat
-      writeJsonAtomic(path.join(programRoot, 'install.json'), { dataRoot, configFile, logDir: dirs.logs, managerDir: dirs.manager });
+      // Für alle lesbar (nur Ordner, keine Geheimnisse): Manager und Kommandozeile erkennen daran die Installation –
+      // unter Linux läuft der Manager als mosaik3lab, die Datei gehört root (mit 0600 sah er sich als „Arbeitskopie“)
+      writeJsonAtomic(path.join(programRoot, 'install.json'), { dataRoot, configFile, logDir: dirs.logs, managerDir: dirs.manager }, { mode: 0o644 });
       const { logoIco, logoPng, LOGO_SVG } = await import('./icon.mjs');
       fs.writeFileSync(path.join(programRoot, 'mosaik3lab.ico'), logoIco());
       fs.writeFileSync(path.join(programRoot, 'mosaik3lab.png'), logoPng(256));

@@ -78,13 +78,23 @@ const [cmd, sub, arg] = words;
 // Linux-Installation: Daten, Sicherungen und Protokolle gehören dem Dienstbenutzer mosaik3lab. Legt ein anderes Konto dort
 // Dateien an (z. B. die Datenbank beim Wiederherstellen), kann die Web-App sie danach nicht mehr schreiben.
 // → als root: Besitz danach zurückgeben; als anderer Benutzer: ändernde Befehle mit klarer Meldung ablehnen.
-const ALS_DIENST = process.platform === 'linux' && INSTALL && !['setup', 'uninstall'].includes(cmd);
+// Installiert = läuft aus <Programmordner>/releases/<version> – auch wenn install.json für dieses Konto nicht lesbar ist
+// (dann ist INSTALL leer und der Befehl würde sonst mit falschen Ordnern weiterlaufen).
+const { PROGRAM_DIR } = await import('./lib/config.mjs');
+const ausProgrammordner = (() => {
+  try {
+    return (fs.realpathSync(PROGRAM_DIR).split(/[\\/]/).at(-2)) === 'releases';
+  } catch {
+    return false;
+  }
+})();
+const ALS_DIENST = process.platform === 'linux' && (INSTALL || ausProgrammordner) && !['setup', 'uninstall'].includes(cmd);
 const AENDERT = (cmd === 'backup' && sub && sub !== 'list' && !(sub === 'password' && !arg)) || (cmd === 'reconcile' && !has('--dry-run'));
 if (ALS_DIENST && AENDERT && process.getuid?.() !== 0 && (await import('node:os')).userInfo().username !== 'mosaik3lab') {
   fail(new Error('Dieser Befehl ändert Daten der Installation und muss mit sudo laufen (die Dateien gehören dem Dienstbenutzer mosaik3lab).'), 4);
 }
 async function besitzZurueck() {
-  if (!ALS_DIENST || !AENDERT || process.getuid?.() !== 0) return;
+  if (!ALS_DIENST || !AENDERT || !INSTALL || process.getuid?.() !== 0) return;
   const { run } = await import('./platform/common.mjs');
   const uid = Number((await run('id', ['-u', 'mosaik3lab'], { timeout: 10_000 })).stdout.trim());
   if (!uid) return;

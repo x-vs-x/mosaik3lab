@@ -83,6 +83,11 @@ case "$PHASE" in
     pruefe "! sudo ss -ltnH 'sport = :3001' | grep -qv '127.0.0.1'" 'App hört nur auf 127.0.0.1:3001'
     pruefe "[ -x $PROGRAMM/current/node/node ]" "Programm mit node unter $PROGRAMM"
     pruefe "[ -f $PROGRAMM/install.json ]" 'install.json im Programmordner'
+    if grep -q 'mode: 0o644' "$PROGRAMM/current/manager/lib/setup.mjs"; then # ältere Versionen schrieben sie nur für root lesbar
+      # Der Manager-Dienst (mosaik3lab) muss die Installation erkennen – sonst hält er sich für eine Arbeitskopie
+      pruefe "sudo -u mosaik3lab test -r $PROGRAMM/install.json" 'install.json für den Dienstbenutzer lesbar'
+      pruefe "(cd /tmp && sudo -u mosaik3lab $PROGRAMM/current/node/node --input-type=module -e \"const m = await import('$PROGRAMM/current/manager/lib/config.mjs'); process.exit(m.INSTALL ? 0 : 1)\")" 'Manager erkennt als mosaik3lab die Installation'
+    fi
     for o in "$DATEN/daten" "$DATEN/ablage" "$BACKUPS" "$LOGS"; do
       pruefe "[ -d $o ] && [ \"\$(stat -c %U $o)\" = mosaik3lab ]" "Ordner $o gehört mosaik3lab"
     done

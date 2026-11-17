@@ -14,6 +14,9 @@ daraus die nächste Version.
   erneut ausführt – der Knopf konnte dort ohne Adminrechte nicht funktionieren.
 - **Wiederherstellen einer Sicherung mit anderem Passwort** (z. B. von einem anderen Rechner): Der Manager fragt nach dem
   Passwort, statt nur „Falsches Backup-Passwort“ zu melden.
+- **Linux/Raspberry Pi: Server-Manager erkennt die Installation wieder.** `install.json` war nur für root lesbar – der
+  Manager-Dienst (Benutzer mosaik3lab) hielt sich deshalb für eine Arbeitskopie (z. B. kein Update per Knopfdruck, Hinweis
+  „Läuft aus der Arbeitskopie“). Wird beim nächsten Paket-Update automatisch repariert.
 - **Linux/Raspberry Pi:** Zu altes polkit (Raspberry Pi OS „Bullseye“, Ubuntu 22.04) wird bei der Einrichtung und im
   Manager klar gemeldet – dort kann der Manager die Dienste nicht steuern und „Jetzt aktualisieren“ geht nicht.
   Befehle der Kommandozeile mit `sudo` (z. B. `cli.mjs backup restore`) geben Daten danach dem Dienstbenutzer zurück; ohne

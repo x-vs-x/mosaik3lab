@@ -85,7 +85,9 @@ export const linux = {
    * (z. B. Standard-ACLs auf /opt). Der Update-Helfer läuft als root aus diesem Ordner.
    */
   protectProgramScript: (dir) =>
-    `chown -R -h root:root ${shQuote(dir)} && chmod -R go-w ${shQuote(dir)} && { ! command -v setfacl >/dev/null 2>&1 || setfacl -R -b ${shQuote(dir)}; }`,
+    `chown -R -h root:root ${shQuote(dir)} && chmod -R go-w ${shQuote(dir)} && { ! command -v setfacl >/dev/null 2>&1 || setfacl -R -b ${shQuote(dir)}; }` +
+    // install.json muss der Manager (mosaik3lab) lesen können – ältere Versionen schrieben sie nur für root lesbar
+    ` && { [ ! -f ${shQuote(path.join(dir, 'install.json'))} ] || chmod 644 ${shQuote(path.join(dir, 'install.json'))}; }`,
 
   /** Dienstbenutzer anlegen und ihm die Ordner übergeben; wer einrichtet (auch hinter sudo), kommt in seine Gruppe. */
   prepareDirsScript(dirs) {
