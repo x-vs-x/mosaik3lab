@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.6.0] – 2026-11-17
+
 - **Größen sind freiwillig:** Druckteile lassen sich ohne „Verfügbare Größen“ anlegen; Lehrkräfte wählen dann keine Größe.
 - **Ganze Linien und ganze Materialien als Farbwahl:** Unter „Bestimmte Farben oder Linien“ gibt es „Alle PLA“, „Alle PETG“ …
   und je Linie „Ganze Linie wählen“. Später in den Stammdaten angelegte Farbrollen dieser Linie bzw. dieses Materials sind
