@@ -1,5 +1,5 @@
 // Reiter „System“: Laufzeit, Abgleichen, Protokoll, Einrichten.
-import { $, action, api, confirmBox, ctx, el, light, showError, toast } from './ui.js';
+import { $, action, api, commandBlock, confirmBox, ctx, el, light, showError, toast } from './ui.js';
 import { stepList } from './update.js';
 
 /** Wer nach Administratorrechten fragt – je Betriebssystem. */
@@ -44,7 +44,8 @@ action($('#btn-audit'), async () => {
 // ---------- Abgleichen ----------
 export function showReconcile(r) {
   if (!r) return r;
-  $('#reconcile-info').replaceChildren(el('ol', { class: 'steps' }, r.steps.map((st) => el('li', {}, light({ ok: 'ok', fertig: 'ok', geplant: 'warn', fehler: 'error', warnung: 'warn', rueckfrage: 'warn' }[st.status] ?? 'info', st.status), el('span', { class: 'detail' }, st.detail)))));
+  // Befehl nur bei Fehlern zeigen (Probelauf liefert ihn auch für geplante Schritte)
+  $('#reconcile-info').replaceChildren(el('ol', { class: 'steps' }, r.steps.map((st) => el('li', {}, light({ ok: 'ok', fertig: 'ok', geplant: 'warn', fehler: 'error', warnung: 'warn', rueckfrage: 'warn' }[st.status] ?? 'info', st.status), el('span', { class: 'detail' }, st.detail, st.status === 'fehler' ? commandBlock(st) : null)))));
   return r;
 }
 /** Ordner, die auf diesem Rechner nicht passen (z. B. anderes Laufwerk): nachfragen und erneut abgleichen. */
@@ -81,7 +82,14 @@ function showSteps(job) {
   ), ...[job.backupPassword ? el('li', {}, el('span', {}, ''), el('span', { class: 'error', role: 'alert' }, `Backup-Passwort (jetzt notieren – wird nicht erneut angezeigt): ${job.backupPassword}`)) : null, ...(job.needsInput ?? []).map((n) => el('li', {}, el('span', {}, 'Rückfrage:'), el('span', { class: 'error' }, `${n.label} ${n.path}: ${n.reason} – unter „Abweichende Ordner“ ${n.key}=<Ordner> eintragen und erneut einrichten.`))), job.error ? el('li', {}, el('span', {}, ''), el('span', { class: 'error' }, `${job.error}${job.hint ? ` Was tun? ${job.hint}` : ''}`)) : null, job.command ? el('li', {}, el('span', {}, 'Befehl:'), el('pre', { class: 'cmd' }, job.command)) : null].filter(Boolean));
 }
 async function loadSetup() {
-  const { proposal, job } = await api('setup');
+  const { proposal, job, paket } = await api('setup');
+  // Paket-Installation: Einrichten/Reparieren geht nur über das Installer-Paket (Adminrechte) – kein Knopf, der nicht kann
+  setupForm.hidden = !!paket;
+  if (paket) {
+    $('#h-adv-setup').textContent = 'Einrichtung reparieren';
+    $('#setup-intro').textContent = paket;
+    return;
+  }
   const f = setupForm.elements;
   f.programRoot.value ||= proposal.programRoot;
   f.dataRoot.value ||= proposal.dataRoot;

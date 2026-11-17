@@ -92,11 +92,12 @@ before(async () => {
   fs.writeFileSync(configFile, JSON.stringify({ dataDir: path.join(tmp, 'storage'), managerPort }));
   writeBereich(DB, 'betrieb', { 'app.port': appPort, 'portal.enabled': true, 'portal.basePath': '/mosaik3lab', 'portal.httpPort': portalPort, 'portal.httpsPort': await freePort(), 'paths.backupDir': path.join(tmp, 'backups'), 'paths.logDir': path.join(tmp, 'logs') });
   proc = spawn(process.execPath, [path.join(MANAGER, 'server.mjs')], { env: { ...process.env, MANAGER_CONFIG: configFile, MOSAIK3LAB_QUIET: '1', MOSAIK3LAB_NO_AUTOMATION: '1', DISABLE_DEMO_ACCOUNTS: 'true', MOSAIK3LAB_SYSTEM_DRY_RUN: path.join(tmp, 'system.json') }, stdio: 'ignore', windowsHide: true });
-  for (let i = 0; i < 40 && !token; i++) {
+  // Start dauert auf langsamen Rechnern (Windows-Runner) teils über 10 s: bis zu 60 s warten, sofort weiter, sobald er antwortet
+  for (const ende = Date.now() + 60_000; !token && Date.now() < ende && proc.exitCode === null; ) {
     await sleep(250);
     token = await direct('GET', '/').then((r) => /name="csrf-token" content="([a-f0-9]+)"/.exec(r.text)?.[1], () => null);
   }
-  assert.ok(token, 'Manager gestartet');
+  assert.ok(token, `Manager gestartet${proc.exitCode === null ? '' : ` (beendet mit Code ${proc.exitCode})`}`);
   portal = await startPortal({ host: '127.0.0.1', httpPort: portalPort, httpsPort: 0, tls: null, basePath: '/mosaik3lab', appPort, managerPort, certInfo: null });
 });
 

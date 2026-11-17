@@ -433,10 +433,10 @@ export function updateConfig(patch, file = CONFIG_FILE) {
   return next;
 }
 
-export function writeJsonAtomic(file, data, { backup = false } = {}) {
+export function writeJsonAtomic(file, data, { backup = false, mode = 0o600 } = {}) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', { mode: 0o600 });
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', { mode });
   if (backup && fs.existsSync(file)) fs.copyFileSync(file, `${file}.bak`);
   fs.renameSync(tmp, file);
 }

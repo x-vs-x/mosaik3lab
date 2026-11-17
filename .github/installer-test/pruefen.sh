@@ -2,12 +2,13 @@
 # Prüfungen für den Installer-Test unter Linux (.github/workflows/installer-test.yml) – nur auf dem GitHub-Runner ausführen.
 #   pruefen.sh installiert    Dienste laufen (Autostart, Benutzer mosaik3lab, mitgeliefertes Node), Portal/App/Manager antworten, Ordner stimmen
 #   pruefen.sh marker         Admin-Konto über den Manager anlegen + Markerdatei in der Ablage (Daten für den Update-Test)
-#   pruefen.sh erhalten       nach dem Update: Admin-Konto meldet sich an, Markerdatei ist noch da, Sicherung vor dem Update da
+#   pruefen.sh kommandozeile  cli als root hinterlässt keine root-Dateien, ohne sudo klar abgelehnt
+#   pruefen.sh erhalten      nach dem Update: Admin-Konto meldet sich an, Markerdatei ist noch da, Sicherung vor dem Update da
 #   pruefen.sh zurueck        nach Rückfall/abgelehntem Downgrade: vorige Version ($ERWARTET) aktiv, Schema passt
 #   pruefen.sh deinstalliert  Dienste, Firewall-Regel und Programmordner weg, Daten noch da
 # Gegenstück zu pruefen.ps1 (Windows).
 set -u
-PHASE="${1:?Phase angeben: installiert | marker | erhalten | zurueck | deinstalliert}"
+PHASE="${1:?Phase angeben: installiert | marker | kommandozeile | erhalten | zurueck | deinstalliert}"
 PROGRAMM=/opt/mosaik3lab
 DATEN=/var/lib/mosaik3lab
 BACKUPS=/var/backups/mosaik3lab
@@ -82,6 +83,11 @@ case "$PHASE" in
     pruefe "! sudo ss -ltnH 'sport = :3001' | grep -qv '127.0.0.1'" 'App hört nur auf 127.0.0.1:3001'
     pruefe "[ -x $PROGRAMM/current/node/node ]" "Programm mit node unter $PROGRAMM"
     pruefe "[ -f $PROGRAMM/install.json ]" 'install.json im Programmordner'
+    if grep -q 'mode: 0o644' "$PROGRAMM/current/manager/lib/setup.mjs"; then # ältere Versionen schrieben sie nur für root lesbar
+      # Der Manager-Dienst (mosaik3lab) muss die Installation erkennen – sonst hält er sich für eine Arbeitskopie
+      pruefe "sudo -u mosaik3lab test -r $PROGRAMM/install.json" 'install.json für den Dienstbenutzer lesbar'
+      pruefe "(cd /tmp && sudo -u mosaik3lab $PROGRAMM/current/node/node --input-type=module -e \"const m = await import('$PROGRAMM/current/manager/lib/config.mjs'); process.exit(m.INSTALL ? 0 : 1)\")" 'Manager erkennt als mosaik3lab die Installation'
+    fi
     for o in "$DATEN/daten" "$DATEN/ablage" "$BACKUPS" "$LOGS"; do
       pruefe "[ -d $o ] && [ \"\$(stat -c %U $o)\" = mosaik3lab ]" "Ordner $o gehört mosaik3lab"
     done
@@ -95,6 +101,15 @@ case "$PHASE" in
     pruefe "! needs_admin" 'Manager meldet: Administrator vorhanden'
     echo 'Mosaik3LAB Installer-Test' | sudo -u mosaik3lab tee "$MARKER" >/dev/null
     pruefe "[ -f $MARKER ]" "Markerdatei $MARKER"
+    ;;
+  kommandozeile)
+    # Kommandozeile als root (z. B. „sudo … cli.mjs backup run“): neue Dateien müssen danach wieder mosaik3lab gehören,
+    # sonst kann die Web-App z. B. eine wiederhergestellte Datenbank nicht mehr schreiben. Ohne sudo: klar abgelehnt.
+    cli="$PROGRAMM/current/manager/cli.mjs"
+    pruefe "(cd /tmp && sudo $PROGRAMM/current/node/node $cli backup run --reason 'CI Kommandozeile' >/dev/null)" 'cli backup run als root'
+    pruefe "[ -z \"\$(sudo find $DATEN $BACKUPS $LOGS -user root)\" ]" 'danach keine Dateien von root in Daten, Sicherungen, Protokollen'
+    (cd /tmp && $PROGRAMM/current/node/node "$cli" backup run >/tmp/cli-ohne-sudo.txt 2>&1); rc=$?
+    pruefe "[ $rc = 4 ] && grep -q 'mit sudo' /tmp/cli-ohne-sudo.txt" "ohne sudo klar abgelehnt (Exit $rc: $(head -1 /tmp/cli-ohne-sudo.txt))"
     ;;
   erhalten)
     pruefe "[ \"\$(status http://127.0.0.1:5190/api/auth)\" = 200 ]" 'Manager antwortet nach dem Update'

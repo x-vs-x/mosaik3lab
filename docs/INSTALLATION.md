@@ -129,7 +129,10 @@ Die Linux-Pakete baut und testet GitHub („Installer-Test“) und legt sie nach
 | Raspberry Pi 4/5 mit **Raspberry Pi OS 64 Bit** (oder anderes Linux auf ARM 64 Bit) | `Mosaik3LAB-Installer-<version>-<commit>-linux-arm64.tar.gz` |
 
 Welches passt? `uname -m` im Terminal: `x86_64` → x64, `aarch64` → arm64. (`armv7l` = Raspberry Pi OS 32 Bit – dafür gibt
-es kein Paket; bitte Raspberry Pi OS 64 Bit installieren.) Vorausgesetzt: systemd (bei allen üblichen Systemen dabei) und ein
+es kein Paket; bitte Raspberry Pi OS 64 Bit installieren.) Empfohlen: **Raspberry Pi OS „Bookworm“ (Debian 12)** bzw.
+Ubuntu 24.04 oder neuer – ältere Systeme (Bullseye, Ubuntu 22.04) haben ein zu altes polkit: Mosaik³LAB läuft, aber der
+Server-Manager kann die Dienste nicht selbst steuern und „Jetzt aktualisieren“ geht nicht (Updates dann per Paket, der
+Installer weist darauf hin). Vorausgesetzt: systemd (bei allen üblichen Systemen dabei) und ein
 Benutzer mit `sudo`.
 
 ## Paket holen

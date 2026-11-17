@@ -55,6 +55,8 @@ function dryRun(base, file) {
       },
     },
     createShortcuts: async () => {}, // nie echte Verknüpfungen auf Desktop/Startmenü (gleiche Namen wie die echte Installation)
+    // nur Linux: zu altes polkit (Tests: { "polkitProblem": "…" } in der Datei)
+    ...(base.polkitProblem ? { polkitProblem: async () => read().polkitProblem ?? null } : {}),
   };
 }
 

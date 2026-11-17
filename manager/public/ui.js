@@ -36,15 +36,33 @@ function since(iso) {
   if (s < 60) return 'weniger als 1 Min';
   return s < 3600 ? `${Math.floor(s / 60)} Min` : s < 86400 ? `${Math.floor(s / 3600)} Std` : (Math.floor(s / 86400) === 1 ? '1 Tag' : `${Math.floor(s / 86400)} Tagen`);
 }
-function toast(text, error = false, hint) {
-  const t = el('div', { class: `toast${error ? ' error' : ''}`, role: error ? 'alert' : 'status' }, el('strong', {}, text), hint ? el('div', {}, `Was tun? ${hint}`) : null);
+function toast(text, error = false, hint, extra = null) {
+  const t = el('div', { class: `toast${error ? ' error' : ''}`, role: error ? 'alert' : 'status' }, el('strong', {}, text), hint ? el('div', {}, `Was tun? ${hint}`) : null, extra);
   $('#toasts').append(t);
-  setTimeout(() => t.remove(), error ? 10000 : 4500);
+  setTimeout(() => t.remove(), extra ? 60000 : error ? 10000 : 4500); // mit Befehl: Zeit zum Kopieren
 }
-const emergency = () => `Notzugang: Startet die App einmal gar nicht, kommen Sie direkt am Server unter 127.0.0.1:${ctx.managerPort} hinein – mit demselben Admin-Login.`;
+// Linux/Pi laufen oft ohne Bildschirm: dann über einen SSH-Tunnel (wie mosaik3lab.sh es anzeigt)
+const emergency = () => `Notzugang: Startet die App einmal gar nicht, kommen Sie direkt am Server unter 127.0.0.1:${ctx.managerPort} hinein – mit demselben Admin-Login.${ctx.system && ctx.system.id !== 'windows' ? ` Ohne Bildschirm am Server: ssh -L ${ctx.managerPort}:127.0.0.1:${ctx.managerPort} <benutzer>@<server>, dann im eigenen Browser 127.0.0.1:${ctx.managerPort}.` : ''}`;
 /** Vor Änderungen, die den Zugang über die App-Adresse kappen können (Port, Pfad, Netz, Stoppen): klar nachfragen. */
 const confirmAccess = (title, what) => confirmBox(title, `${what} Mosaik³LAB und dieser Manager sind danach womöglich unter einer anderen Adresse oder kurz gar nicht erreichbar. ${emergency()}`, 'Trotzdem ändern');
-const showError = (err) => toast(err.message, true, err.hint ?? (err.command ? 'Befehl als Administrator ausführen (siehe Protokoll).' : undefined));
+/**
+ * Befehl, den die IT als Administrator ausführen soll (der Manager-Dienst hat keine Adminrechte) – zum Kopieren.
+ * Linux: als ein Aufruf mit sudo; Windows: PowerShell „Als Administrator ausführen“.
+ */
+function commandBlock(err) {
+  if (!err?.command) return null;
+  const linux = ctx.system && ctx.system.id !== 'windows';
+  const cmd = linux ? `sudo sh -ec '${err.command.replace(/'/g, `'\\''`)}'` : err.command;
+  return el('div', { class: 'cmd-box' }, el('p', { class: 'small' }, linux ? 'Im Terminal des Servers ausführen:' : 'In PowerShell „Als Administrator ausführen“ eingeben:'), el('pre', { class: 'cmd', tabindex: '0', testid: 'admin-command' }, cmd));
+}
+/** Fehler in ein Feld schreiben: Meldung, „Was tun?“ und ggf. der Befehl für Administratoren. */
+function errorInto(box, err) {
+  box.replaceChildren(err.hint ? `${err.message} – ${err.hint}` : err.message, commandBlock(err) ?? '');
+  box.hidden = false;
+}
+function showError(err) {
+  toast(err.message, true, err.hint ?? (err.command ? 'Befehl als Administrator ausführen.' : undefined), commandBlock(err));
+}
 const askPassword = () => window.prompt('Diese Sicherung ist mit einem Passwort geschützt. Bitte das Passwort der Sicherung eingeben:');
 const fmtBytes = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n >= 1e6 ? `${Math.round(n / 1e6)} MB` : `${Math.max(1, Math.round(n / 1e3))} KB`).replace('.', ',');
 /** Anlass einer Sicherung in Klartext. */
@@ -143,4 +161,4 @@ function changed(key, data) {
   return true;
 }
 
-export { $, api, el, light, fmt, since, toast, emergency, confirmAccess, showError, askPassword, fmtBytes, reasonText, cmpVer, fmtDay, icon, confirmBox, busy, action, changed };
+export { $, api, el, light, fmt, since, toast, emergency, confirmAccess, showError, errorInto, commandBlock,askPassword, fmtBytes, reasonText, cmpVer, fmtDay, icon, confirmBox, busy, action, changed };

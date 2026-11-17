@@ -34,8 +34,12 @@ let port = Number(process.env.MANAGER_PORT) || getConfig().manager.port;
 
 // ---------- Hintergrundaufträge (Einrichtung, Update) ----------
 let setupJob = null;
+const PAKET_REPARIEREN = `Reparieren oder neu einrichten: das Installer-Paket erneut ausführen (${platform.id === 'windows' ? 'Installieren.cmd' : 'sudo ./installieren.sh'}) – Daten und Einstellungen bleiben erhalten.`;
 function runSetup(body) {
   if (setupJob?.phase === 'läuft') throw new InputError('Die Einrichtung läuft bereits.');
+  // Paket-Installation: Der Manager läuft als eingeschränkter Dienst (Programmordner gehört Admin/root) – Einrichten und
+  // Reparieren gehen nur mit Adminrechten über das Installer-Paket (das Gleiche wie hier, mit Sicherung und Rückfall).
+  if (istPaketInstallation() && !body.dryRun) throw new InputError(PAKET_REPARIEREN, 'Ordner und Ports ändert man hier in den Reitern, ohne neu einzurichten.');
   const job = (setupJob = { phase: 'läuft', dryRun: !!body.dryRun, steps: STEPS.map(([id, title]) => ({ id, title, status: 'offen' })) });
   const report = (id, status, detail) => {
     if (id === ROLLBACK_STEP[0] && !job.steps.some((s) => s.id === id)) job.steps.push({ id, title: ROLLBACK_STEP[1] });
@@ -243,7 +247,7 @@ const ROUTES = [
     return saveMail({ ...body, appBaseUrl: String(body.appBaseUrl ?? '').trim() || (auto.network[0] ?? auto.local).replace(/\/$/, '') });
   }],
   ['POST', '/api/mail/test', 'Testmail senden { to? } – über das Skript der App', ({ body }) => sendTestMail(body.to?.trim() || undefined)],
-  ['GET', '/api/setup', 'Vorschlag und Fortschritt der Einrichtung', () => ({ proposal: proposal(), job: setupJob })],
+  ['GET', '/api/setup', 'Vorschlag und Fortschritt der Einrichtung (paket: Text, wie man eine Paket-Installation repariert)', () => ({ proposal: proposal(), job: setupJob, paket: istPaketInstallation() ? PAKET_REPARIEREN : null })],
   ['POST', '/api/setup', 'Einrichten { input, dryRun }', ({ body }) => runSetup(body)],
   ['GET', '/api/logs', 'Letzte 100 Zeilen (?which=app|manager|backup|update|portal|helfer)', ({ query }) => tail(LOGS.includes(query.get('which')) ? query.get('which') : 'app', 100)],
 ];

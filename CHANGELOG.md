@@ -6,6 +6,25 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Server-Manager, „Im Schulnetz erreichbar“ und Ports:** Fehlen dem Manager Administratorrechte für die Firewall-Regel
+  (er läuft als Dienst), wird die Einstellung trotzdem gespeichert und der fertige Befehl zum Kopieren angezeigt (Linux mit
+  `sudo`). Vorher blieb der Schalter hängen – auch nachdem die Regel von Hand angelegt war. Vorhandene Regeln brauchen keine
+  Adminrechte mehr.
+- **Server-Manager, Paket-Installation:** „Einrichten/Reparieren“ unter „System“ zeigt jetzt, dass man das Installer-Paket
+  erneut ausführt – der Knopf konnte dort ohne Adminrechte nicht funktionieren.
+- **Wiederherstellen einer Sicherung mit anderem Passwort** (z. B. von einem anderen Rechner): Der Manager fragt nach dem
+  Passwort, statt nur „Falsches Backup-Passwort“ zu melden.
+- **Linux/Raspberry Pi: Server-Manager erkennt die Installation wieder.** `install.json` war nur für root lesbar – der
+  Manager-Dienst (Benutzer mosaik3lab) hielt sich deshalb für eine Arbeitskopie (z. B. kein Update per Knopfdruck, Hinweis
+  „Läuft aus der Arbeitskopie“). Wird beim nächsten Paket-Update automatisch repariert.
+- **Linux/Raspberry Pi:** Zu altes polkit (Raspberry Pi OS „Bullseye“, Ubuntu 22.04) wird bei der Einrichtung und im
+  Manager klar gemeldet – dort kann der Manager die Dienste nicht steuern und „Jetzt aktualisieren“ geht nicht.
+  Befehle der Kommandozeile mit `sudo` (z. B. `cli.mjs backup restore`) geben Daten danach dem Dienstbenutzer zurück; ohne
+  `sudo` werden sie mit klarer Meldung abgelehnt (vorher konnte die Web-App danach ihre Datenbank nicht mehr schreiben).
+  Der Hinweis „Aus Sicherung einrichten“ in `installieren.sh` nennt jetzt den passenden Befehl.
+- **Installer:** zeigt den Beginn jedes Schritts mit Uhrzeit – bei langen Schritten (Sicherung vor dem Update) sieht man,
+  woran gerade gearbeitet wird.
+
 - **Anfrage stellen:** Fehlt die Farbe oder Größe, springt „Anfrage senden“ jetzt direkt zur Auswahl (vorher blieb der
   Fokus auf dem Knopf – wichtig für Tastatur und Taster). Angemeldete Lehrkräfte finden immer ihre eigene Adresse im
   Formular, auch wenn die Seite langsam lädt (vorher konnte am gemeinsamen PC die zuletzt benutzte Adresse einer anderen

@@ -341,9 +341,18 @@ async function restore(b) {
   const upgrade = from && inst && cmpVer(from, inst) < 0 ? ` Diese Sicherung ist von Version ${from}. Danach wird sie automatisch auf ${inst} gebracht.` : '';
   if (!(await confirmBox('Diese Sicherung wiederherstellen?', `Alles wird auf den Stand vom ${fmt(b.created)} zurückgesetzt: Einstellungen, Konten, Anfragen und Druckteile.${ohneBilder}${upgrade} Was seitdem dazugekommen ist, ist danach weg. Der jetzige Stand wird vorher automatisch gesichert. Mosaik³LAB ist dafür kurz nicht erreichbar.`, 'Ja, wiederherstellen'))) return false;
   // Geschützte Sicherung ohne Passwort auf diesem Rechner (z. B. von einem anderen Rechner): Passwort abfragen.
-  const password = b.encrypted && !ctx.status?.backupEncrypted ? askPassword() : undefined;
+  let password = b.encrypted && !ctx.status?.backupEncrypted ? askPassword() : undefined;
   if (b.encrypted && !ctx.status?.backupEncrypted && !password) return false;
-  const r = await api('backup/restore', { id: b.id, confirm: b.id, password, autoStop: true });
+  let r;
+  try {
+    r = await api('backup/restore', { id: b.id, confirm: b.id, password, autoStop: true });
+  } catch (err) {
+    // Mit einem anderen Passwort geschützt (z. B. von einem anderen Rechner kopiert): nachfragen statt nur abzulehnen
+    if (!b.encrypted || !/Falsches Backup-Passwort|bitte das Backup-Passwort angeben/.test(err.message)) throw err;
+    password = askPassword();
+    if (!password) return false;
+    r = await api('backup/restore', { id: b.id, confirm: b.id, password, autoStop: true });
+  }
   if (!r) return false; // abgemeldet
   showReconcile(r.reconcile);
   await askPaths(r.reconcile);

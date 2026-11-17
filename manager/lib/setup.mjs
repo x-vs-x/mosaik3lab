@@ -227,7 +227,10 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
         refuseOlderVersion(installed?.version ?? installed?.id ?? null, version(PROGRAM_DIR), { allowOlder: !!input.allowOlder });
         schemaBefore = await refuseDowngrade(dbFile, PROGRAM_DIR, id);
       }
-      return { detail: `${platform.label}${platform.untested ? ' (ungetestet)' : ''}, ${process.arch}, Node ${process.version}${gitNote}` };
+      // Linux mit zu altem polkit (Bullseye, Ubuntu 22.04): Einrichtung geht, aber der Manager kann die Dienste nicht steuern – deutlich sagen
+      const polkit = platform.polkitProblem ? await platform.polkitProblem().catch(() => null) : null;
+      if (polkit) log().warn(`Einrichtung: ${polkit}`);
+      return { detail: `${platform.label}${platform.untested ? ' (ungetestet)' : ''}, ${process.arch}, Node ${process.version}${gitNote}${polkit ? `\n  ! ACHTUNG: ${polkit}` : ''}` };
     });
 
     await step('folders', async () => {
@@ -297,7 +300,9 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
       switchCurrent(programRoot, id);
       if (previous && !input.fromBackup) update = { previous, failed: id, backupId };
       pruneAfter = prune; // nur aktuelle + vorige Version behalten – erst nach Erfolg (wie das Git-Update), damit ein Rückfall die vorige hat
-      writeJsonAtomic(path.join(programRoot, 'install.json'), { dataRoot, configFile, logDir: dirs.logs, managerDir: dirs.manager });
+      // Für alle lesbar (nur Ordner, keine Geheimnisse): Manager und Kommandozeile erkennen daran die Installation –
+      // unter Linux läuft der Manager als mosaik3lab, die Datei gehört root (mit 0600 sah er sich als „Arbeitskopie“)
+      writeJsonAtomic(path.join(programRoot, 'install.json'), { dataRoot, configFile, logDir: dirs.logs, managerDir: dirs.manager }, { mode: 0o644 });
       const { logoIco, logoPng, LOGO_SVG } = await import('./icon.mjs');
       fs.writeFileSync(path.join(programRoot, 'mosaik3lab.ico'), logoIco());
       fs.writeFileSync(path.join(programRoot, 'mosaik3lab.png'), logoPng(256));
