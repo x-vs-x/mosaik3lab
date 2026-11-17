@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.4.1] – 2026-11-17
+
 - **Druckteile verwalten:** Schalter und Knöpfe (Ansehen, Bearbeiten, Löschen) neu angeordnet – feste Spalten, in jeder
   Zeile an derselben Stelle, nichts ragt mehr aus der Karte (vorher rutschte der Mülleimer bei veröffentlichten Druckteilen
   heraus). Auf dem Handy steht der Schalter oben, die Knöpfe rechtsbündig darunter.
