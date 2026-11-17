@@ -79,8 +79,11 @@ if /i "%ANTWORT%"=="n" exit /b 1
 
 rem Update: Sicherung direkt vor dem Umschalten, aelteres Paket wird abgelehnt, bei Fehlschlag automatisch
 rem zurueck auf die vorige Version - das macht alles "cli.mjs setup" (manager\lib\paketupdate.mjs).
+rem Ein Klick ins Fenster startet unter Windows den Markiermodus und haelt die Einrichtung an, bis man Esc drueckt
+rem (so geschehen beim Update auf 1.6.0). Darum laeuft sie innerhalb von PowerShell, das den Markiermodus nur fuer
+rem dieses Fenster und nur waehrend der Einrichtung abschaltet (danach wieder wie vorher).
 :setup
-"%NODE%" manager\cli.mjs setup --config Installieren.json %DRY%
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $k = Add-Type -Name Konsole -Namespace Mosaik3lab -PassThru -MemberDefinition '[DllImport(\"kernel32.dll\")] public static extern System.IntPtr GetStdHandle(int h); [DllImport(\"kernel32.dll\")] public static extern bool GetConsoleMode(System.IntPtr h, out uint m); [DllImport(\"kernel32.dll\")] public static extern bool SetConsoleMode(System.IntPtr h, uint m);'; $h = $k::GetStdHandle(-10); $m = 0; if ($k::GetConsoleMode($h, [ref]$m)) { [void]$k::SetConsoleMode($h, [uint32](($m -band (-bnot 0x40)) -bor 0x80)) } } catch {}; $a = @('manager\cli.mjs', 'setup', '--config', 'Installieren.json'); if ($env:DRY) { $a += $env:DRY }; & $env:NODE @a; exit $LASTEXITCODE"
 if errorlevel 1 goto :fehler
 if defined DRY goto :ende
 
