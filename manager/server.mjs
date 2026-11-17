@@ -254,7 +254,9 @@ const ROUTES = [
 
 /** Adresse für Links in Mails, wenn keine eigene eingetragen ist (wie beim Speichern). */
 function autoMailUrl() {
-  const auto = appAddresses();
+  // Beste Adresse im Schulnetz (ohne Docker/VM/WSL/VPN/Loopback/Link-Local), sonst wie bisher Rechnername – gleich auf Windows, Linux, Pi
+  const ip = waehleNetzAdresse(os.networkInterfaces());
+  const auto = appAddresses(undefined, ip ? { hostname: ip, ips: [] } : undefined);
   return (auto.network[0] ?? auto.local).replace(/\/$/, '');
 }
 
