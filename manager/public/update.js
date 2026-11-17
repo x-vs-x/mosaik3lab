@@ -97,8 +97,11 @@ export function renderUpdate(u) {
     const bar = $('#update-bar');
     let text;
     if (updWatch?.restarting) {
-      text = 'Der Server-Manager startet neu … einen Moment bitte. Die Seite aktualisiert sich von selbst.';
-      if (updWatch.fails > 120) text += ' Das dauert länger als üblich – falls sich in 15 Minuten nichts tut, die Seite neu laden.';
+      // Während Sicherung und Umschalten ist der Manager gestoppt – der Update-Helfer arbeitet weiter (Zeitlimits: lib/zeitlimits.mjs)
+      const z = u.zeitlimits ?? { sicherung: 120, helfer: 240 };
+      const std = (min) => (min % 60 ? `${min} Minuten` : `${min / 60} Stunden`);
+      text = 'Das Update läuft: Mosaik³LAB wird gesichert und umgestellt, der Server-Manager ist dabei kurz gestoppt. Die Seite aktualisiert sich von selbst.';
+      if (updWatch.fails > 120) text += ` Das dauert länger als üblich – meist die Sicherung (bei vielen Bildern und Videos, z. B. auf einem Raspberry Pi, bis zu ${std(z.sicherung)}). Bitte nichts abbrechen; erst wenn sich nach ${std(z.helfer)} nichts getan hat, den Server neu starten.`;
       bar.removeAttribute('value');
     } else if (d && !d.fertig && !d.error) {
       const pct = d.total ? Math.min(100, Math.round((d.done / d.total) * 100)) : null;

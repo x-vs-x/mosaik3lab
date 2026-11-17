@@ -115,6 +115,50 @@ Daten, Konten, Einstellungen, Backup-Passwort, Ablage und ältere Sicherungen bl
 Server-Manager angemeldet ist, muss sich nach dem Update neu anmelden (der Manager-Dienst wird mit gestoppt und neu
 gestartet, seine Sitzungen liegen nur im Speicher). Die App ist während des Updates einige Sekunden bis Minuten nicht erreichbar.
 
+### Zeitlimits beim Update
+
+Die Sicherung vor dem Update kann auf einem Raspberry Pi mit großer Ablage (viele Bilder und Videos) lange dauern. Damit
+eine langsame, aber gesunde Sicherung nie von einem äußeren Limit abgebrochen wird, ist jedes Limit größer als alles,
+was es umschließt (festgelegt an einer Stelle: `manager/lib/zeitlimits.mjs`):
+
+| Was | Limit |
+| --- | --- |
+| Sicherung vor dem Update (mit der bisherigen Version) | 2 Stunden |
+| einzelner Admin-Schritt (z. B. Datenordner dem Dienstbenutzer übergeben, `chown`/`icacls` über die Ablage) | 30 Minuten |
+| Wächter des Update-Helfers um die ganze Installation („hat zu lange gedauert“ → alter Stand zurück) | 3 Stunden |
+| ganzer Lauf des Update-Helfers – Linux: `TimeoutStartSec=14400` der Unit `mosaik3lab-updater` | 4 Stunden |
+| Windows: WinSW kennt kein Start-Zeitlimit; der Helfer begrenzt sich selbst (Wächter) | – |
+
+Im Server-Manager steht „Update ist geprüft und wird gleich installiert …“ höchstens 10 Minuten – meldet sich der
+Update-Helfer bis dahin nicht, kommt „Der Update-Helfer hat nicht reagiert“. Hat er sich gemeldet, zeigt die Karte
+„Updates“ seinen Stand (bei längerer Stille „läuft noch (seit …)“), bis er fertig ist. Während Sicherung und Umschalten
+ist der Server-Manager selbst gestoppt; die Seite wartet von allein und nennt die Größenordnung. Erst wenn ein Lauf
+länger als 4 Stunden „läuft“, ist der Helfer sicher beendet: Dann sagt die Karte, dass der Server neu gestartet werden
+soll – beim Hochfahren prüft der Update-Helfer und stellt bei Bedarf die bisherige Version wieder her.
+Die neuen Limits gelten ab dem Update **auf** diese Version: Unter Linux schreibt das Update auch die Unit des Helfers neu
+(ohne ihn zu stoppen); der Lauf, der dieses Update installiert, nutzt noch den Wächter der bisherigen Version (45 Minuten).
+
+### Wer darf was ändern (Sicherheit)
+
+Der Update-Helfer und die Einrichtung laufen mit Adminrechten (Linux: root, Windows: Konto System); der Server-Manager und
+die Web-App laufen eingeschränkt (Linux: Benutzer `mosaik3lab`, Windows: „Lokaler Dienst“). Damit ein übernommener
+Manager nie Admin-Rechte bekommt, führt das Admin-Konto nichts aus, was das eingeschränkte Konto ändern konnte:
+
+- **Linux:** Unit-Dateien (`/etc/systemd/system/mosaik3lab-*.service`) und die polkit-Regel
+  (`/etc/polkit-1/rules.d/50-mosaik3lab.rules`) erzeugt die Einrichtung selbst und schreibt sie als root direkt dorthin
+  (gehören root, Rechte 644) – nicht mehr über `/var/lib/mosaik3lab/manager/dienste` (gehört `mosaik3lab`; Reste älterer
+  Versionen dort werden entfernt). Programmordner `/opt/mosaik3lab` gehört root und ist nur für root beschreibbar.
+- **Windows:** Dienstdateien (WinSW `.exe`/`.xml` in `dienste\`, WinSW in `werkzeuge\`) und `node.exe` liegen im
+  Programmordner. Unter „Programme“ gelten die Windows-Standardrechte (nur Administratoren/System schreiben); liegt der
+  Programmordner woanders, setzt die Einrichtung diese Rechte ausdrücklich. Besitzer: Administratoren.
+- **Update-Pakete:** Der Manager lädt das Paket nach `<Daten>/updates` (für ihn beschreibbar). Der Helfer kopiert es zuerst
+  in `<Programm>/.update` (nur Admin/root), prüft die **Kopie** gegen die SHA-256-Prüfsumme der offiziellen Veröffentlichung
+  (`SHA256SUMS.txt`, vom Helfer selbst geholt – dem Manager wird nicht vertraut) und entpackt und installiert nur diese
+  Kopie. Den Auftrag (`auftrag.json`) prüft er ebenfalls (Versionsnummer, Dateiname); seinen Status schreibt er in den
+  Programmordner.
+- **Deinstallieren** (mit Adminrechten) übernimmt aus `install-manifest.json` (Linux im Datenordner) nur Einträge, die zu
+  Mosaik³LAB passen: bekannte Dienstnamen, gültige Ports, Verknüpfungsdateien, der Programmordner dieser Installation.
+
 ---
 
 # Linux und Raspberry Pi

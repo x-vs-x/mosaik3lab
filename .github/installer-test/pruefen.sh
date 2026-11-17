@@ -69,6 +69,19 @@ case "$PHASE" in
     pruefe "systemctl is-enabled --quiet mosaik3lab-updater" "Update-Helfer prüft beim Hochfahren ($(systemctl is-enabled mosaik3lab-updater 2>&1))"
     pruefe "[ -z \"\$(systemctl show -p User --value mosaik3lab-updater)\" ]" "Update-Helfer läuft als root"
     pruefe "sudo grep -q 'updater' /etc/polkit-1/rules.d/50-mosaik3lab.rules" "Manager darf den Update-Helfer starten (polkit)"
+    # Unit-Dateien und polkit-Regel führt root aus: sie gehören root, 644, und mosaik3lab kann weder sie noch ihre Ordner ändern
+    for f in $(sudo sh -c 'ls /etc/systemd/system/mosaik3lab-*.service /etc/polkit-1/rules.d/50-mosaik3lab.rules 2>/dev/null'); do
+      art=$(sudo stat -c '%U:%G %a' "$f")
+      pruefe "[ \"$art\" = 'root:root 644' ] && ! sudo -u mosaik3lab test -w '$f'" "$f gehört root, nur root schreibt ($art)"
+    done
+    for d in /etc/systemd/system /etc/polkit-1/rules.d; do
+      pruefe "! sudo -u mosaik3lab test -w $d" "$d für mosaik3lab nicht beschreibbar ($(sudo stat -c '%U:%G %a' $d))"
+    done
+    if grep -q filesInInstallScript "$PROGRAMM/current/manager/platform/linux.mjs"; then # ab dieser Version: root schreibt direkt nach /etc
+      rest=$(sudo find "$DATEN/manager" \( -name '*.service' -o -name '*.rules' \) 2>/dev/null)
+      pruefe "[ -z \"$rest\" ]" "keine Unit-Dateien/polkit-Regel im Datenordner – root installiert nichts aus Ordnern von mosaik3lab${rest:+ ($rest)}"
+      pruefe "systemctl cat mosaik3lab-updater | grep -q '^TimeoutStartSec=14400$'" "Update-Helfer: Gesamtlimit 4 Stunden ($(systemctl cat mosaik3lab-updater | grep TimeoutStartSec))"
+    fi
     fi
     pruefe "systemctl cat mosaik3lab-portal | grep -q 'AmbientCapabilities=CAP_NET_BIND_SERVICE'" "Portal darf Port 80 ohne root"
     pruefe "[ \"\$(status http://127.0.0.1/mosaik3lab/api/health)\" = 200 ]" 'Portal: http://127.0.0.1/mosaik3lab/api/health → 200'
