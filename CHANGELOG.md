@@ -6,6 +6,9 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **iPad:** Auf der Anmeldeseite und der Seite „Passwort festlegen“ lässt sich mit offener Tastatur nicht mehr ins Leere
+  scrollen – das Formular steht auf Handy und Tablet hochkant oben, die Seite ist nur so hoch wie ihr Inhalt.
+
 - **Einstellungen aufgeräumt:** Ablagepfade und Mailserver-Status stehen nicht mehr in den App-Einstellungen – das regelt
   der Server-Manager (Knopf „Server-Manager öffnen“ bleibt). Ist der Mailversand fehlerhaft oder zuletzt gescheitert,
   erscheint dort ein Hinweis. Serverpfade werden nicht mehr an den Browser geschickt.

@@ -80,7 +80,10 @@ export function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-[1.05fr_1fr]">
+    // Bildschirmhoch erst ab lg (zweispaltig). Darunter nur so hoch wie der Inhalt und oben ausgerichtet: Auf dem iPad legt
+    // Safari die Tastatur über die Seite, statt sie zu verkleinern – eine bildschirmhohe, mittig ausgerichtete Seite ließe
+    // sich dann ins Leere hinter der Tastatur scrollen.
+    <div className="grid lg:min-h-svh lg:grid-cols-[1.05fr_1fr]">
       {/* Linke Seite: freundlicher Einstieg */}
       <section className="relative hidden overflow-hidden bg-brand-banner p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 grid grid-cols-3 gap-4 opacity-[0.12]">
@@ -113,7 +116,7 @@ export function LoginPage() {
       </section>
 
       {/* Rechte Seite: Anmeldung */}
-      <main className="flex items-center justify-center px-4 py-6 sm:px-10 sm:py-12">
+      <main className="flex items-start justify-center px-4 py-6 sm:px-10 sm:py-12 lg:items-center">
         <div className="w-full max-w-md">
           <div className="mb-6 sm:mb-10 lg:hidden">
             <Logo />

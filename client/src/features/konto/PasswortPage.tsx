@@ -64,7 +64,7 @@ export function PasswortPage() {
 
   const einrichten = info?.zweck === 'einrichten';
   return (
-    <main className="flex min-h-svh items-center justify-center px-4 py-6 sm:px-5 sm:py-12">
+    <main className="flex items-start justify-center px-4 py-6 sm:px-5 sm:py-12 lg:min-h-svh lg:items-center">
       <div className="w-full max-w-md">
         <div className="mb-6 sm:mb-10">
           <Logo />
