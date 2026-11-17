@@ -204,24 +204,29 @@ function useScrollPositionMerken(geladen: boolean) {
     if (!geladen || bereit) return;
     // Erst hier prüfen: Das Layout meldet den Seitenwechsel nach dem ersten Zeichnen des Katalogs.
     const y = sollPositionWiederherstellen(navBeimOeffnen) ? ladePosition(search) : null;
-    // Ein Bild später, damit die Liste gezeichnet ist (und nach dem „nach oben“ im Layout).
-    const frame = requestAnimationFrame(() => {
+    // Kurz danach, damit die Liste steht (und nach dem „nach oben“ im Layout).
+    const timer = setTimeout(() => {
       if (y) window.scrollTo({ top: y, behavior: 'instant' });
       setBereit(true);
     });
-    return () => cancelAnimationFrame(frame);
+    return () => clearTimeout(timer);
   }, [geladen, bereit, navBeimOeffnen, search]);
 
   useEffect(() => {
     if (!bereit) return;
-    let frame = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const onScroll = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => merkePosition(search, window.scrollY));
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        // Beim Wechsel zum Druckteil wird die Seite kürzer, bevor der Katalog ganz weg ist – das nicht merken.
+        if (window.location.pathname.endsWith('/katalog') && window.location.search === search) {
+          merkePosition(search, window.scrollY);
+        }
+      }, 100);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      cancelAnimationFrame(frame);
+      clearTimeout(timer);
       window.removeEventListener('scroll', onScroll);
     };
   }, [bereit, search]);
@@ -266,6 +271,8 @@ function ItemCard({ item }: { item: Item }) {
       <Link
         to={`/katalog/${item.id}`}
         state={{ fromCatalog: true }}
+        // Höhe sicher merken, auch wenn kein Scroll-Ereignis mehr kam.
+        onClick={() => merkePosition(window.location.search, window.scrollY)}
         className="group flex h-full flex-col overflow-hidden rounded-2xl border sm:rounded-3xl border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(28,25,23,0.04)] transition-all hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-[0_14px_32px_-16px_rgba(28,25,23,0.25)]"
       >
         <div className="relative aspect-[5/2] overflow-hidden sm:aspect-[4/3]">
