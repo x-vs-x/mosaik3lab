@@ -8,6 +8,7 @@ import { Alert, Button, Field, Input, LinkButton, Textarea } from '../../compone
 import { api, ApiError } from '../../lib/api';
 import { useConfig, useMasterData } from '../../lib/config';
 import { aufAngeboteneFarben, initialColorChoice, itemColorAreas } from '../../lib/colors';
+import { anfrageEmail } from '../../lib/anfrageEmail';
 import { ersteFehlerstelle } from '../../lib/fokus';
 import { entwurfSchluessel } from '../../lib/entwurfSpeicher';
 import { getProfile, saveProfile } from '../../lib/guestOrders';
@@ -70,12 +71,14 @@ export function RequestDialog({
   const canAddColors = emptyAreas.length === 0 && areas.length > 0;
   const customFields = item.customFields ?? [];
 
-  const { can, user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [profile] = useState(getProfile);
-  // Angemeldete Lehrkraft: ihre E-Mail vorbelegen, damit die Anfrage unter „Meine Anfragen“ erscheint.
-  const [requesterEmail, setRequesterEmail] = useState(
-    can('orders:own') && user ? user.email : profile.requesterEmail,
-  );
+  // Angemeldet (Lehrkraft oder Konto): die eigene E-Mail ist fest (nur lesend), damit die Anfrage sicher unter
+  // „Meine Anfragen“ erscheint. Die Anmeldung kann erst nach dem Druckteil geladen sein; ein wiederhergestellter
+  // Entwurf oder die zuletzt auf diesem Gerät benutzte Adresse (gemeinsamer PC) ändern daran nichts.
+  const sessionEmail = !authLoading && user ? user.email : undefined;
+  const [requesterEmail, setRequesterEmail] = useState(profile.requesterEmail);
+  const shownEmail = sessionEmail ?? requesterEmail;
   const [classOrTeam, setClassOrTeam] = useState(template?.classOrTeam || profile.classOrTeam);
   // Zeile 1 = bisherige Anzahl + Farbe; weitere Zeilen = weitere Farben (z. B. 3 × Blau, 4 × Gelb).
   const initialRows = (): ColorRowValue[] =>
@@ -104,12 +107,6 @@ export function RequestDialog({
     setSize(d.size);
     setCustomization(d.customization);
   }, []);
-  // Die Anmeldung kann erst nach dem Druckteil geladen sein: Dann trüge das Feld noch die zuletzt auf diesem Gerät
-  // benutzte Adresse (am gemeinsamen PC die einer anderen Lehrkraft). Ein Entwurf (useEntwurf, danach) hat Vorrang.
-  const teacherEmail = !authLoading && can('orders:own') && user ? user.email : undefined;
-  useEffect(() => {
-    if (teacherEmail) setRequesterEmail(teacherEmail);
-  }, [teacherEmail]);
   const draftKey = template && edit ? `aendern-${template.orderId}` : template?.orderId;
   const entwurf = useEntwurf(anfrageEntwurfSchluessel(item.id, user?.id, draftKey), draftValue, applyDraft, {
     ready: !authLoading,
@@ -154,11 +151,11 @@ export function RequestDialog({
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const email = requesterEmail.trim();
+    const email = anfrageEmail(sessionEmail, requesterEmail);
     const local: Record<string, string> = {};
     if (!email) local.requesterEmail = 'Bitte Ihre Schul-E-Mail eintragen';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) local.requesterEmail = 'Bitte eine gültige E-Mail-Adresse eintragen, z. B. name@schule.de';
-    else if (!emailDomainAllowed(email, domains)) local.requesterEmail = domainHint(domains);
+    else if (!sessionEmail && !emailDomainAllowed(email, domains)) local.requesterEmail = domainHint(domains);
     if (!classOrTeam.trim()) local.classOrTeam = 'Bitte Klasse oder Team angeben';
     rows.forEach((row, i) => {
       for (const { area } of areas) if (!row.colors[area.id]) local[colorErrorKey(area.id, i)] = 'Bitte eine Farbe wählen';
@@ -206,7 +203,8 @@ export function RequestDialog({
         return;
       }
       const result = await api<OrderReceipt>('/orders', { method: 'POST', body });
-      saveProfile({ requesterEmail: body.requesterEmail, classOrTeam: body.classOrTeam });
+      // Angemeldet die Geräte-Vorbelegung für Gäste nicht mit der eigenen Adresse überschreiben (gemeinsamer PC).
+      saveProfile({ requesterEmail: sessionEmail ? profile.requesterEmail : body.requesterEmail, classOrTeam: body.classOrTeam });
       entwurf.clear();
       setReceipt(result);
     } catch (err) {
@@ -286,7 +284,12 @@ export function RequestDialog({
             Pflichtfelder sind mit <span className="font-bold text-rose-700">*</span> markiert.
           </p>
 
-          <Field label="Ihre Schul-E-Mail" required error={errors.requesterEmail} hint={domainHint(domains)}>
+          <Field
+            label={sessionEmail ? 'Ihre Schul-E-Mail (angemeldet)' : 'Ihre Schul-E-Mail'}
+            required
+            error={errors.requesterEmail}
+            hint={sessionEmail ? 'Sie sind angemeldet – die Anfrage erscheint unter „Meine Anfragen“.' : domainHint(domains)}
+          >
             {({ id, describedBy, invalid }) => (
               <Input
                 id={id}
@@ -295,9 +298,9 @@ export function RequestDialog({
                 autoComplete="email"
                 autoCapitalize="none"
                 spellCheck={false}
-                value={requesterEmail}
+                value={shownEmail}
                 onChange={(e) => setRequesterEmail(e.target.value)}
-                readOnly={edit}
+                readOnly={edit || !!sessionEmail}
                 maxLength={120}
                 required
                 aria-required

@@ -81,3 +81,16 @@ test('Nach der Anmeldung: Druck-Team mit Einzelrechten kommt zur angefragten Ver
   assert.equal(zielNachAnmeldung('/anfragen', nur('orders:own')), '/anfragen');
   assert.equal(verwaltungsStart(nur('orders:own', 'vorschlaege:eigene')), undefined);
 });
+
+test('Anfrage-E-Mail: angemeldet gilt die Sitzungsadresse, auch gegen Entwurf oder Geräte-Vorbelegung', async () => {
+  const { anfrageEmail } = await import('../src/lib/anfrageEmail.ts');
+  assert.equal(anfrageEmail('frau.beispiel@schule.de', 'andere@schule.de'), 'frau.beispiel@schule.de');
+  assert.equal(anfrageEmail(undefined, ' gast@schule.de '), 'gast@schule.de', 'ohne Anmeldung zählt die Eingabe');
+});
+
+test('Stammdaten: Serverfehler je Zeilenindex markiert die passende Zeile', async () => {
+  const { serverRowErrors } = await import('../src/features/einstellungen/stammdaten/listRows.ts');
+  const rows = [{ _key: 'a', name: 'X' }, { _key: 'b', name: '' }] as never[];
+  const m = serverRowErrors(rows, { 1: 'Name fehlt', _: 'Liste', 9: 'gibt es nicht' });
+  assert.deepEqual([...m], [['b', 'Name fehlt']]);
+});

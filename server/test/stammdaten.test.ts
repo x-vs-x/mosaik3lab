@@ -46,6 +46,18 @@ test('Doppelte Namen und leere Pflichtlisten werden abgelehnt', async () => {
   assert.equal((await putList(admin, 'materials', [...materials, { name: 'pla' }])).status, 400);
   assert.equal((await putList(admin, 'materials', [])).status, 400);
 });
+test('Ungültiger Eintrag: Meldung nennt Zeile und Feld, fields je Zeilenindex', async () => {
+  const { categories, filaments } = await md();
+  const leer = [...categories.slice(0, 7), { ...categories[0], id: undefined, name: '  ' }];
+  const r = await putList(admin, 'categories', leer);
+  assert.equal(r.status, 400);
+  assert.equal(r.json.error, 'Zeile 8: Name fehlt.');
+  assert.deepEqual(r.json.fields, { 7: 'Name fehlt' });
+  const hex = await putList(admin, 'filaments', [{ ...filaments[0], id: undefined, katalogId: undefined, hex: 'blau' }]);
+  assert.equal(hex.status, 400);
+  assert.match(hex.json.error, /^Zeile 1: Farbwert: Farbwert im Format #RRGGBB\.$/);
+  assert.equal((await md()).categories.length, categories.length, 'nichts gespeichert');
+});
 test('Farbrollen: verwendete nicht löschbar, unbenutzte schon, neue erhalten eine UUID', async () => {
   const { filaments } = await md();
   const used = await putList(admin, 'filaments', filaments.filter((f: any) => f.id !== 'bambu-tpu-95a-hf-black'));

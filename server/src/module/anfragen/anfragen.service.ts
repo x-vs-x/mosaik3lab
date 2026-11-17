@@ -136,16 +136,21 @@ export async function createOrder(storage: Storage, input: OrderInputData, user:
   // Verweis auf die Ursprungsanfrage nur, wenn sie der angemeldeten Lehrkraft gehört (sonst still ignoriert).
   const source = input.repeatOf && loggedIn ? await storage.orders.findById(input.repeatOf) : undefined;
   const repeatOf = source && source.requesterId === loggedIn?.id ? source.id : undefined;
-  if (!isAllowedEmail(input.requesterEmail, settings.orderForm.allowedEmailDomains)) {
+  // Angemeldet (Lehrkraft oder Konto): immer die eigene Adresse aus der Sitzung – eine andere im Body wird
+  // still ersetzt, damit die Anfrage sicher unter „Meine Anfragen“ landet und niemand unter fremder Adresse anfragt.
+  const sessionEmail = user?.email || loggedIn?.email;
+  const email = sessionEmail || input.requesterEmail;
+  // Domänen nur ohne Anmeldung prüfen; angemeldete Adressen sind schon geprüft (Anmeldung bzw. Konto).
+  if (!sessionEmail && !isAllowedEmail(email, settings.orderForm.allowedEmailDomains)) {
     const list = settings.orderForm.allowedEmailDomains.map((d) => `@${d}`).join(' oder ');
     throw badRequest(`Bitte Ihre Schul-E-Mail-Adresse (${list}) verwenden.`, { requesterEmail: `Nur Adressen mit ${list}` });
   }
   // Häkchen „Druckteile anfragen“ abgeschaltet → keine Anfragen mit dieser Adresse (auch nicht ohne Anmeldung).
-  if ((await storage.requesters.findByEmail(input.requesterEmail))?.darfAnfragen === false) {
+  if ((await storage.requesters.findByEmail(email))?.darfAnfragen === false) {
     throw forbidden('Mit dieser E-Mail-Adresse können keine Anfragen gestellt werden. Bitte an die Administration wenden.');
   }
   // Unbekannte Adresse → Lehrkraft wird automatisch neu angelegt (ohne Passwort/Profil).
-  const requester = await storage.requesters.upsertByEmail(input.requesterEmail, now);
+  const requester = await storage.requesters.upsertByEmail(email, now);
   const status = initialStatus(settings.masterData);
   const order = await storage.orders.create({
     id: newId(),

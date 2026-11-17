@@ -5,7 +5,7 @@ import { Alert, Badge, Button, Card, cx } from '../../../components/ui';
 import { api, ApiError } from '../../../lib/api';
 import { useConfig } from '../../../lib/config';
 import type { MasterData, MasterDataList } from '../../../lib/types';
-import { newKey, same, strip, toRows, type Entry, type Row } from './listRows';
+import { newKey, same, serverRowErrors, strip, toRows, type Entry, type Row } from './listRows';
 
 // Generische Listenbearbeitung (lokal bearbeiten, dann als Ganzes speichern)
 
@@ -56,6 +56,8 @@ export function ListPanel<T extends Entry>({
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [saveError, setSaveError] = useState<{ title: string; message: string }>();
+  // Vom Server abgelehnte Zeilen (z. B. „Zeile 8: Name fehlt“) – markiert, bis die Zeile geändert wird.
+  const [serverErrors, setServerErrors] = useState<Map<string, string>>(() => new Map());
   const focusKey = useRef<string | undefined>(undefined);
   const addRef = useRef<HTMLDivElement>(null);
 
@@ -84,8 +86,15 @@ export function ListPanel<T extends Entry>({
     focusKey.current = undefined;
   });
 
-  const update = (key: string, patch: Partial<Omit<T, 'id'>>) =>
+  const update = (key: string, patch: Partial<Omit<T, 'id'>>) => {
     setRows((rs) => rs.map((r) => (r._key === key ? ({ ...r, ...patch } as Row<T>) : r)));
+    setServerErrors((m) => {
+      if (!m.has(key)) return m;
+      const next = new Map(m);
+      next.delete(key);
+      return next;
+    });
+  };
   const remove = (key: string) => {
     // Fokus auf die nächste Zeile (sonst die vorige, sonst „Hinzufügen“) statt ins Leere.
     const i = rows.findIndex((r) => r._key === key);
@@ -116,6 +125,7 @@ export function ListPanel<T extends Entry>({
     setRows(fresh);
     setShowErrors(false);
     setSaveError(undefined);
+    setServerErrors(new Map());
     await reload();
   };
 
@@ -138,6 +148,7 @@ export function ListPanel<T extends Entry>({
           message: `${err.message} Ändern Sie zuerst die betroffenen Druckteile bzw. Anfragen oder verwerfen Sie das Entfernen.`,
         });
       } else {
+        if (err instanceof ApiError) setServerErrors(serverRowErrors(rows, err.fields));
         setSaveError({
           title: 'Speichern fehlgeschlagen',
           message: err instanceof ApiError ? err.message : 'Unbekannter Fehler.',
@@ -152,6 +163,7 @@ export function ListPanel<T extends Entry>({
     setRows(base);
     setShowErrors(false);
     setSaveError(undefined);
+    setServerErrors(new Map());
   };
 
   return (
@@ -186,7 +198,7 @@ export function ListPanel<T extends Entry>({
       ) : (
         <ol className={layout === 'cards' ? 'space-y-3' : 'space-y-2'}>
           {rows.map((row, i) => {
-            const err = showErrors ? errors.get(row._key) : undefined;
+            const err = showErrors ? (errors.get(row._key) ?? serverErrors.get(row._key)) : undefined;
             const label = rowLabel(row, i);
             return (
               <li

@@ -1,6 +1,6 @@
 import { PenLine, Plus, Trash2 } from 'lucide-react';
 import { ListEditor } from '../../../components/ListEditor';
-import { Alert, Button, Field, Input, Select } from '../../../components/ui';
+import { Button, Field, Input, Select } from '../../../components/ui';
 import type { CustomField, CustomFieldType } from '../../../lib/types';
 import { MAX_CUSTOM_FIELDS, newId, plural, sectionHasError, type FormSectionProps } from './itemForm';
 import { ListError, Section } from './Section';
@@ -46,10 +46,6 @@ function CustomFieldsEditor({
         Angaben, die Lehrkräfte beim Anfragen machen – z. B. eine Beschriftung oder ein Buchstabe. Ohne Felder wird nichts
         zusätzlich abgefragt.
       </p>
-      <Alert kind="warning">
-        Datenschutz: Lehrkräfte sehen im Formular den Hinweis „keine Namen von Schülerinnen und Schülern, keine Diagnosen“.
-        Bitte Felder so benennen, dass solche Angaben nicht nötig sind.
-      </Alert>
       {fields.map((f, i) => (
         <div key={f.id} className="space-y-4 rounded-2xl p-4 ring-1 ring-stone-300 sm:p-5">
           <div className="flex items-end gap-3">

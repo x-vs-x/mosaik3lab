@@ -15,7 +15,17 @@ export function strip<T extends Entry>(rows: Row<T>[]) {
 }
 export const same = <T extends Entry>(a: Row<T>[], b: Row<T>[]) => JSON.stringify(strip(a)) === JSON.stringify(strip(b));
 
-export const nameError = (name: string, noun: string) => (name.trim() ? undefined : `Bitte einen Namen für ${noun} eingeben.`);
+/** Serverfehler je Zeile (`fields` mit Zeilenindex ab 0, z. B. { "7": "Name fehlt" }) → Meldung je Zeilenschlüssel. */
+export function serverRowErrors<T extends Entry>(rows: Row<T>[], fields: Record<string, string>) {
+  const byKey = new Map<string, string>();
+  for (const [index, message] of Object.entries(fields)) {
+    const row = /^\d+$/.test(index) ? rows[Number(index)] : undefined;
+    if (row) byKey.set(row._key, message);
+  }
+  return byKey;
+}
+
+export const nameError =(name: string, noun: string) => (name.trim() ? undefined : `Bitte einen Namen für ${noun} eingeben.`);
 
 export function duplicateNames(rows: { name: string }[]) {
   const seen = new Set<string>();
