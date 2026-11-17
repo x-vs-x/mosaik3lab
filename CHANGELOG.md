@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.6.2] – 2026-11-17
+
 - **Installer (Windows) hält bei einem Klick ins Fenster nicht mehr an:** Der Markiermodus des Konsolenfensters ist während
   der Einrichtung abgeschaltet. Vorher blieb die Einrichtung nach einem Klick stehen, bis man Esc drückte.
 
