@@ -6,6 +6,11 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **iPad:** Auf der Anmeldeseite und der Seite „Passwort festlegen“ lässt sich mit offener Tastatur nicht mehr ins Leere
+  scrollen – das Formular steht auf Handy und Tablet hochkant oben, die Seite ist nur so hoch wie ihr Inhalt.
+- **Druckteile verwalten:** Der Schalter „Veröffentlicht/Entwurf“ steht auf breiten Bildschirmen in jeder Zeile an derselben
+  Stelle, statt je nach Druckteil nach links oder rechts zu springen.
+
 - **Update per Knopfdruck auf dem Raspberry Pi mit großer Ablage:** Die Sicherung vor dem Update darf jetzt bis zu 2 Stunden
   dauern, ohne dass ein äußeres Zeitlimit sie abbricht (Wächter des Update-Helfers 3 Stunden, ganzer Helfer 4 Stunden;
   vorher brach der Helfer schon nach 45 Minuten ab). Der Server-Manager zeigt „läuft noch“ statt eines Fehlers, solange

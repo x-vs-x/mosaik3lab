@@ -272,8 +272,10 @@ export function ItemsAdminPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3 sm:gap-3 sm:pt-4 xl:justify-end xl:border-0 xl:pt-0">
-                    <div className="min-w-44">
+                  {/* Feste Breite ab xl: Schalter steht in jeder Zeile an derselben Stelle – egal ob „Ansehen“ da ist
+                      (nur bei veröffentlichten) oder wie lang „Veröffentlicht“/„Entwurf“ ist. */}
+                  <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3 sm:gap-3 sm:pt-4 xl:w-[31rem] xl:shrink-0 xl:flex-nowrap xl:border-0 xl:pt-0">
+                    <div className="w-52 shrink-0">
                       <Switch
                         checked={item.published}
                         disabled={!canEdit || busyId === item.id}
