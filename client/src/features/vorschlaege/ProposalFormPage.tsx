@@ -164,7 +164,7 @@ export function ProposalFormPage() {
                     <button
                       type="button"
                       onClick={() => setPhotos(photos.filter((_, j) => j !== i))}
-                      className="absolute -right-2 -top-2 grid size-9 place-items-center rounded-full bg-white text-rose-700 shadow ring-1 ring-stone-300 hover:bg-rose-50"
+                      className="absolute -right-3 -top-3 grid size-11 place-items-center rounded-full bg-white text-rose-700 shadow ring-1 ring-stone-300 hover:bg-rose-50"
                       aria-label={`Foto ${f.name} entfernen`}
                     >
                       <Trash2 className="size-4" aria-hidden />
