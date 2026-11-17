@@ -37,11 +37,12 @@ export function ProposalStatusBadge({ status, className }: { status: ProposalSta
 export function SafeLinks({ links }: { links: string[] }) {
   if (links.length === 0) return null;
   return (
-    <ul className="space-y-1">
+    <ul>
       {links.map((l) => (
         <li key={l} className="break-all">
           {/^https?:\/\//i.test(l) ? (
-            <a href={l} target="_blank" rel="noopener noreferrer nofollow" className="font-bold text-brand-800 underline underline-offset-2">
+            // eigene Zeile je Link: als Block mit Polster gut antippbar (≥ 41 px), lange Adressen brechen um
+            <a href={l} target="_blank" rel="noopener noreferrer nofollow" className="inline-block py-2.5 font-bold text-brand-800 underline underline-offset-2">
               {l}
               <span className="sr-only"> (öffnet in neuem Tab)</span>
             </a>
