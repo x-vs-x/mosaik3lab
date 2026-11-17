@@ -254,11 +254,27 @@ test('Mail: Prüfung, Speicherung in der Datenbank für die App, Passwort nie zu
   assert.equal(saved.passwordSet, true);
   assert.ok(!JSON.stringify(saved).includes('geheim'), 'Passwort nicht in der Antwort');
   const file = settingsdb.readBereich(cfg.resolvePaths().dbFile, 'mail');
-  assert.deepEqual(Object.keys(file).sort(), ['appBaseUrl', 'enabled', 'from', 'recipients', 'smtp']);
+  assert.deepEqual(Object.keys(file).sort(), ['appBaseUrl', 'enabled', 'erreichbarkeit', 'from', 'recipients', 'smtp']);
   assert.deepEqual(file.recipients, ['A@schule.de', 'b@schule.de'], 'doppelte Empfänger entfernt');
   assert.equal(file.appBaseUrl, 'http://lab.local:3001');
+  // Links nur im Schulnetz: ohne Angabe „auto“, .local wird als Schulnetz erkannt
+  assert.equal(file.erreichbarkeit, 'auto');
+  assert.equal(saved.erreichbarkeit, 'auto');
+  assert.deepEqual([saved.links.hinweis, saved.links.warnung], [true, '']);
+  assert.throws(() => mail.saveMail({ ...saved, erreichbarkeit: 'irgendwo' }), /Erreichbarkeit/);
+  const aussen = mail.saveMail({ ...saved, erreichbarkeit: 'oeffentlich' });
+  assert.match(aussen.links.warnung, /Auch von außerhalb/, 'Widerspruch: .local ist keine öffentliche Adresse');
+  assert.equal(mail.mailState().linkWarnung, aussen.links.warnung);
   mail.saveMail({ ...saved, password: '' });
-  assert.equal(settingsdb.readBereich(cfg.resolvePaths().dbFile, 'mail').smtp.pass, 'geheim', 'leeres Feld behält Passwort');
+  const nachher = settingsdb.readBereich(cfg.resolvePaths().dbFile, 'mail');
+  assert.equal(nachher.smtp.pass, 'geheim', 'leeres Feld behält Passwort');
+  assert.equal(nachher.erreichbarkeit, 'auto');
+  // ältere Oberfläche/CLI ohne Feld: bisherigen Wert behalten
+  mail.saveMail({ ...saved, erreichbarkeit: 'schulnetz' });
+  const { erreichbarkeit: _weg, ...ohneFeld } = saved;
+  mail.saveMail({ ...ohneFeld, password: '' });
+  assert.equal(settingsdb.readBereich(cfg.resolvePaths().dbFile, 'mail').erreichbarkeit, 'schulnetz');
+  mail.saveMail({ ...saved, password: '' });
   assert.equal(mail.mailState().configured, true);
 });
 
