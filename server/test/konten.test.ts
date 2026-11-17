@@ -368,6 +368,10 @@ test('Mit Mailversand: Rechte geben schickt „Passwort festlegen“ (läuft nic
   assert.match(m.subject, /Passwort festlegen/);
   assert.doesNotMatch(m.text, /24 Stunden/);
   assert.match(m.html, /Passwort festlegen/);
+  // Knopf und Text-Fassung mit demselben Link; localhost = nur im Schulnetz → Hinweis unter dem Knopf
+  const link = /http:\/\/localhost:5173\/passwort#[A-Za-z0-9_-]+/.exec(m.text)?.[0];
+  assert.ok(link && m.html.includes(`href="${link}"`), 'Knopf-Link im HTML');
+  assert.ok(m.text.includes('nur im Schulnetz') && m.html.includes('nur im Schulnetz'));
   // Speichern ohne Änderung schickt keine zweite Mail.
   await admin.req('PUT', '/api/personen', { email, role: 'druckteam', bereiche: TEAM_STANDARD });
   assert.equal(sentMails.length, before + 1);

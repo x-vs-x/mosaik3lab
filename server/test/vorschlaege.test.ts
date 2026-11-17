@@ -54,7 +54,8 @@ test('Lehrkraft reicht Vorschlag mit Fotos ein (Nummer VOR-JJJJ-NNNN, Status neu
   const m = sentMails.at(-1);
   assert.ok(m.subject.includes(proposalNumber) && m.subject.includes('Neuer Vorschlag'), m.subject);
   assert.ok(m.text.includes('https://example.org/stiftgriff') && !m.html.includes('href="https://example.org'), 'Links nur als Text');
-  assert.ok(m.html.includes('/verwaltung/vorschlaege?offen='));
+  assert.ok(m.html.includes(`href="http://localhost:5173/verwaltung/vorschlaege?offen=${proposalId}"`), 'Knopf-Link');
+  assert.ok(m.text.includes(`http://localhost:5173/verwaltung/vorschlaege?offen=${proposalId}`), 'Link im Text');
 });
 test('Fotos liegen als Datei-Datensatz (objekttyp vorschlag, rolle foto) an vorhersagbarem Pfad', async () => {
   const db = openDb(path.join(srv.storageDir, 'mosaik3lab.db'), { readOnly: true });

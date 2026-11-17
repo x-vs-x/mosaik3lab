@@ -63,7 +63,7 @@ export async function checkLogin(storage: Storage, email: string, password: stri
     const gesperrtSeit = fehlversuche >= MAX_FEHLVERSUCHE ? new Date().toISOString() : null;
     await storage.users.update(user.id, (u) => ({ ...u, fehlversuche, gesperrtSeit }));
     if (gesperrtSeit) {
-      const r = await linkVerschicken(storage, user, 'zuruecksetzen');
+      const r = await linkVerschicken(storage, user, 'zuruecksetzen', true, 'gesperrt');
       if (!r.gesendet) console.warn(`[Anmeldung] ${user.email} gesperrt, Mail nicht gesendet: ${r.grund}`);
       throw forbidden(r.gesendet ? GESPERRT : GESPERRT_OHNE_MAIL);
     }

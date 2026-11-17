@@ -10,6 +10,19 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 - **Aufgeräumt:** …
 -->
 
+## 2026-11-17 – Mails neu gestaltet, Hinweis „nur im Schulnetz“ (Unter-Session, Branch: feature/mails-neu)
+- **Gebaut:** gemeinsames Mail-Layout `server/src/kern/mail/layout.ts` (Tabellen, Inline-Styles, max. 600 px, Handy-Regeln,
+  kugelsicherer Knopf, Link als Text, Preheader, Fuß mit Grund); alle Mailarten umgestellt (`anfragen.mail.ts`,
+  `vorschlaege.mail.ts`, `passwortlink.ts`; Sperre mit eigenem Text). Vorschau-Skript `npm run mail:vorschau -w server`.
+  Schulnetz-Hinweis: Regeln einmal in `manager/lib/erreichbarkeit.mjs` (App importiert sie, esbuild bündelt), Einstellung
+  `erreichbarkeit` im Bereich „mail“ (Standard/alt/unbekannt = auto), Server-Manager: Auswahl, Erkennung, Warnung +
+  Hinweis in der Übersicht; automatische Link-Adresse ohne Docker/VM/VPN-Schnittstellen.
+- **Tests:** `mail-smtp.test.ts` (echter Versand an SMTP-Fänger, MIME, UTF-8), `erreichbarkeit.test.ts`
+  (Erkennung, Entscheidungstabelle, Schnittstellen-Listen Windows/Ubuntu/Pi, alte Einstellungen), bestehende Mail-Tests
+  erweitert; Installer-Test Linux: Mailversand mit alter Version einrichten → nach Update unverändert, Testmail + App-Mail
+  kommen an (`smtp-faenger.mjs`, `mail-pruefen.mjs`, `pruefen.sh mail-*`).
+- **Geprüft:** typecheck ✔ · lint ✔ · test ✔ · Vorschau bei 375/768/1280 px ✔
+- **Aufgeräumt:** Vorschau-Ordner `_testdatenmail-vorschau`, Test-Manager-Ordner gelöscht.
 ## 2026-11-17 – Ansichten-Prüfung (Unter-Session session-2, Branch: fix/ansichten-pruefung)
 - **Geprüft:** alle Seiten und Dialoge der Web-App in 320×568, 375×812, 667×375, 820×1180, 1180×820 und 1366×900, als
   Besucher, Lehrkraft, Druck-Team und Administrator – inklusive leerer Zustände, Fehler (Pflichtfelder, falsches Passwort,

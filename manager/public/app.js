@@ -146,6 +146,7 @@ const FIX = {
   ports: ['Ports öffnen', () => openSection('netzwerk', '#ports')],
   log: ['Protokoll öffnen', () => openSection('system', '#h-adv-log')],
   advanced: ['System öffnen', () => openSection('system')],
+  mail: ['E-Mail-Einstellungen öffnen', () => openSection('email', '#mail-erkennung')],
 };
 /** Knopf zu einem Hinweis; „portal-port:8080“ = Portal auf einen freien Ausweich-Port legen (Port 80 belegt). */
 const fixFor = (k) => FIX[k] ?? (/^portal-port:\d+$/.test(k ?? '') ? [`Port ${k.slice(12)} verwenden`, () => api('portal', { httpPort: Number(k.slice(12)) })] : null);

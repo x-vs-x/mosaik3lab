@@ -69,6 +69,8 @@ main { max-width: 880px; margin: 0 auto; padding: 18px 16px 48px; display: grid;
 .notes li.error { border-color: var(--red); }
 .notes li.warn { border-color: #e0a100; }
 button.link { min-height: 0; padding: 0; border: none; background: none; color: var(--focus); text-decoration: underline; }
+.notes button.link { min-height: 44px; padding: 0 4px; } /* Knopf zum Hinweis: Tippfläche mind. 44 px */
+#form-mail select[name='mailErreichbarkeit'] { min-height: 44px; }
 .address { margin: 0; font-size: 1.25rem; font-weight: 700; overflow-wrap: anywhere; }
 .address a { color: var(--focus); }
 .settings { display: grid; gap: 14px; }

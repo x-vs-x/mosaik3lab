@@ -6,6 +6,14 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **E-Mails neu gestaltet:** Alle Mails (neue/geänderte Anfrage, neuer Vorschlag, Passwort festlegen/zurücksetzen,
+  Testmail) im Aussehen der App – roter Kopf mit Mosaik³LAB, ein großer Knopf (auf dem Handy volle Breite), der Link
+  zusätzlich als Text, kurze Texte; passen sich an Handy, Tablet und Computer an. Mail nach der Kontosperre erklärt jetzt
+  die Sperre statt „neues Passwort angefordert“.
+- **Hinweis „Der Link funktioniert nur im Schulnetz“** unter dem Knopf, wenn die Adresse in den Mails eine Adresse im
+  Schulnetz ist (automatisch erkannt). Im Server-Manager, Reiter „E-Mail“, einstellbar („Automatisch erkennen · Nur im
+  Schulnetz · Auch von außerhalb“) mit Anzeige der Erkennung und Warnung bei Widerspruch. Bestehende Mail-Einstellungen
+  bleiben unverändert (neue Einstellung: automatisch).
 - **Ansichten geprüft (Handy, Tablet, PC):** Kleine Knöpfe sind jetzt überall gut antippbar – „Ändern“ und das Auge zum
   Passwort-Anzeigen (Anmeldung, Passwort festlegen) nehmen die ganze Feldhöhe ein, das „×“ an Meldungen ist so groß wie beim
   Dialog-Schließen, das Häkchen zum Exportieren (Druckteile verwalten) und „Foto entfernen“ (Vorschlag machen) haben eine

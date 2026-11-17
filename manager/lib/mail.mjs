@@ -9,6 +9,7 @@ import path from 'node:path';
 import { run } from '../platform/common.mjs';
 import { appArgs } from './appstart.mjs';
 import { logger } from './log.mjs';
+import { ERREICHBARKEIT, pruefeLinks } from './erreichbarkeit.mjs';
 
 // Bewusst streng: nur Zeichen, die in normalen Adressen vorkommen (keine Shell-Zeichen wie & | ; ` $ ( ) " ' < > und keine Leerzeichen).
 const EMAIL = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/;
@@ -25,8 +26,8 @@ function read() {
   }
 }
 
-/** Für Oberfläche/CLI – ohne Passwort. */
-export function mailSettings() {
+/** Für Oberfläche/CLI – ohne Passwort. `autoUrl`: Adresse, die beim Speichern ohne eigene Adresse eingetragen würde (für die Erkennung). */
+export function mailSettings(autoUrl = '') {
   const m = read();
   return {
     file: mailFile(),
@@ -40,14 +41,20 @@ export function mailSettings() {
     from: m?.from ?? '',
     recipients: m?.recipients ?? [],
     appBaseUrl: m?.appBaseUrl ?? '',
+    // Links nur im Schulnetz? auto = erkennen; alte Einstellungen ohne Feld = auto (wie in der App)
+    erreichbarkeit: ERREICHBARKEIT.includes(m?.erreichbarkeit) ? m.erreichbarkeit : 'auto',
+    // Erkennung, Widerspruch (warnung) und HTTPS-Empfehlung für die gespeicherte bzw. automatische Adresse
+    links: pruefeLinks({ appBaseUrl: m?.appBaseUrl || autoUrl, erreichbarkeit: m?.erreichbarkeit }),
   };
 }
 
 /** Kurzstatus für Status/doctor: eingerichtet = aktiv und vollständig. */
 export function mailState() {
   const m = mailSettings();
+  // Widerspruch „Auch von außerhalb“ ↔ Schulnetz-Adresse: nur wichtig, wenn Mails verschickt werden
+  const linkWarnung = m.enabled ? m.links.warnung : '';
   const complete = !!(m.host && m.from && m.recipients.length);
-  return { configured: m.enabled && complete, enabled: m.enabled, complete, label: m.enabled && complete ? 'ja' : m.enabled ? 'unvollständig' : 'nein' };
+  return { configured: m.enabled && complete, enabled: m.enabled, complete, label: m.enabled && complete ? 'ja' : m.enabled ? 'unvollständig' : 'nein', linkWarnung };
 }
 
 /** Speichern (Prüfung wie in der App). Leeres Passwort = bisheriges behalten; clearPassword = löschen. */
@@ -67,6 +74,8 @@ export function saveMail(b) {
     from: String(b.from ?? '').trim(),
     recipients: [...new Map(recipients.map((r) => [r.toLowerCase(), r])).values()],
     appBaseUrl: String(b.appBaseUrl ?? '').trim().replace(/\/+$/, ''),
+    // ohne Angabe (ältere Oberfläche/CLI): bisherigen Wert behalten
+    erreichbarkeit: b.erreichbarkeit ?? (ERREICHBARKEIT.includes(old?.erreichbarkeit) ? old.erreichbarkeit : 'auto'),
   };
   if (!/^[a-z0-9.-]{0,200}$/i.test(m.smtp.host)) throw new InputError('SMTP-Server: nur Rechnername oder IP-Adresse (z. B. smtp.schule.de).');
   if (!Number.isInteger(m.smtp.port) || m.smtp.port < 1 || m.smtp.port > 65535) throw new InputError('SMTP-Port: 1 bis 65535 (meist 587 oder 465).');
@@ -75,7 +84,8 @@ export function saveMail(b) {
   const bad = m.recipients.find((r) => !EMAIL.test(r));
   if (bad) throw new InputError(`Empfänger ungültig: ${bad}`);
   if (m.recipients.length > 20) throw new InputError('Höchstens 20 Empfänger.');
-  if (m.appBaseUrl && !/^https?:\/\/[^\s"'<>]+$/i.test(m.appBaseUrl)) throw new InputError('App-Adresse braucht http:// oder https:// (z. B. http://mosaik3lab.schule.local:3001).');
+  if (m.appBaseUrl && !/^https?:\/\/[^\s"'<>]+$/i.test(m.appBaseUrl)) throw new InputError('App-Adresse braucht http:// oder https:// (z. B. http://mosaik3lab.schule.local/mosaik3lab).');
+  if (!ERREICHBARKEIT.includes(m.erreichbarkeit)) throw new InputError('Erreichbarkeit der Links: auto, schulnetz oder oeffentlich.');
   if (m.enabled && (!m.smtp.host || !m.from || !m.recipients.length)) throw new InputError('Zum Einschalten bitte SMTP-Server, Absender und mindestens einen Empfänger eintragen.');
   settingsdb.writeBereich(mailFile(), 'mail', m, { secrets: ['smtp'] });
   logger('manager').info(`Mail-Einstellungen gespeichert (Versand ${m.enabled ? 'an' : 'aus'}, ${m.recipients.length} Empfänger).`);
