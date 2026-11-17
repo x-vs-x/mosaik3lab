@@ -126,6 +126,29 @@ jobs:
           echo "V0=$PAKETE/v0/$name" >> "$GITHUB_ENV"
 
       # ---- Runde „neu“: Neuinstallation, Update, Rückfall, Downgrade, Update per Knopfdruck, Deinstallation ----
+      # Vorher: ohne Administratorrechte bricht das Skript mit klarer Meldung ab und ändert nichts
+      - name: Ohne Administratorrechte – klarer Abbruch
+        if: matrix.runde == 'neu'
+        timeout-minutes: 3
+        run: |
+          sudo useradd -m ohnerecht
+          kopie=/tmp/m3l-ohne-root
+          cp -r "$V1" "$kopie" && chmod -R a+rX "$kopie"
+          set +e
+          # Fall 1: Konto ohne sudo-Recht
+          out=$(sudo -u ohnerecht sh "$kopie/installieren.sh" --still 2>&1); rc=$?
+          echo "$out"
+          [ "$rc" -eq 1 ] && echo "$out" | grep -q "Abbruch:" && echo "$out" | grep -q "Es wurde nichts verändert" || { echo "::error::Fall 1 (kein sudo-Recht) ohne klaren Abbruch (Code $rc)"; exit 1; }
+          # Fall 2: sudo gar nicht installiert (PATH nur mit den nötigsten Programmen)
+          mkdir -p /tmp/ohne-sudo-bin
+          for c in sh id dirname basename pwd cat uname; do ln -sf "$(command -v "$c")" "/tmp/ohne-sudo-bin/$c"; done
+          out=$(sudo -u ohnerecht env PATH=/tmp/ohne-sudo-bin sh "$kopie/installieren.sh" 2>&1); rc=$?
+          echo "$out"
+          [ "$rc" -eq 1 ] && echo "$out" | grep -q "sudo ist auf diesem Rechner nicht installiert" || { echo "::error::Fall 2 (sudo fehlt) ohne klaren Abbruch (Code $rc)"; exit 1; }
+          test ! -e /opt/mosaik3lab || { echo "::error::/opt/mosaik3lab wurde trotz Abbruch angelegt"; exit 1; }
+          sudo userdel -r ohnerecht 2>/dev/null; rm -rf "$kopie" /tmp/ohne-sudo-bin
+          echo "OK: ohne Administratorrechte klarer Abbruch, nichts verändert"
+
       - name: Installieren (sudo ./installieren.sh --still)
         if: matrix.runde == 'neu'
         timeout-minutes: 14

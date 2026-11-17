@@ -6,6 +6,11 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Linux/Raspberry Pi – Installation ohne Administratorrechte:** Fehlt `sudo` auf dem Rechner, verweigert sudo die
+  Anmeldung oder läuft das Skript sonst nicht als root, bricht `installieren.sh` jetzt mit einer klaren Meldung ab
+  („Abbruch: … Bitte so starten: sudo ./installieren.sh …“) und ändert nichts. Wie bisher startet es sich ohne root
+  selbst mit sudo neu und fragt einmal nach dem Passwort.
+
 ## [1.4.1] – 2026-11-17
 
 - **Druckteile verwalten:** Schalter und Knöpfe (Ansehen, Bearbeiten, Löschen) neu angeordnet – feste Spalten, in jeder
