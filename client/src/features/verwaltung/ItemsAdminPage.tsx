@@ -313,10 +313,11 @@ export function ItemsAdminPage() {
                     </div>
                   </div>
 
-                  {/* Feste Breite ab xl: Schalter steht in jeder Zeile an derselben Stelle – egal ob „Ansehen“ da ist
-                      (nur bei veröffentlichten) oder wie lang „Veröffentlicht“/„Entwurf“ ist. */}
-                  <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3 sm:gap-3 sm:pt-4 xl:w-[31rem] xl:shrink-0 xl:flex-nowrap xl:border-0 xl:pt-0">
-                    <div className="w-52 shrink-0">
+                  {/* Schalter und Knöpfe in festen Spalten: Schalter links, Knöpfe rechts in immer gleicher Breite.
+                      Ohne „Ansehen“ (Entwurf) bleibt dessen Platz frei – so stehen „Bearbeiten“ und Löschen in jeder Zeile
+                      an derselben Stelle, und nichts ragt aus der Karte. Handy/Tablet: eine Zeile unter dem Inhalt. */}
+                  <div className="flex flex-col gap-2 border-t border-stone-100 pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pt-4 xl:shrink-0 xl:justify-end xl:gap-6 xl:border-0 xl:pt-0">
+                    <div className="min-w-0 flex-1 xl:w-52 xl:flex-none">
                       <Switch
                         checked={item.published}
                         disabled={!canEdit || busyId === item.id}
@@ -326,26 +327,39 @@ export function ItemsAdminPage() {
                         description={item.published ? 'Im Katalog sichtbar' : 'Nur für das Team sichtbar'}
                       />
                     </div>
-                    <div className="flex gap-2">
-                      {(item.published || !canEdit) && (
-                        <LinkButton to={`/katalog/${item.id}`} variant="ghost" size="sm" icon={Eye} aria-label={`„${item.name}“ im Katalog ansehen`}>
-                          <span className="hidden xl:inline">Ansehen</span>
-                        </LinkButton>
+                    <div className="grid shrink-0 grid-cols-[auto_auto_auto] items-center gap-2 self-end sm:self-auto">
+                      {item.published || !canEdit ? (
+                        <LinkButton
+                          to={`/katalog/${item.id}`}
+                          variant="ghost"
+                          size="sm"
+                          icon={Eye}
+                          aria-label={`„${item.name}“ im Katalog ansehen`}
+                          title="Im Katalog ansehen"
+                        />
+                      ) : (
+                        // Unsichtbare Kopie des Knopfes als Platzhalter – exakt gleich breit, damit nichts verrutscht
+                        <Button variant="ghost" size="sm" icon={Eye} className="invisible" aria-hidden tabIndex={-1} />
                       )}
-                      {canEdit && (
-                        <>
-                          <LinkButton to={`/verwaltung/hilfsmittel/${item.id}`} variant="secondary" size="sm" icon={Pencil}>
-                            Bearbeiten
-                          </LinkButton>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={Trash2}
-                            onClick={() => setToDelete(item)}
-                            className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
-                            aria-label={`„${item.name}“ löschen`}
-                          />
-                        </>
+                      {canEdit ? (
+                        <LinkButton to={`/verwaltung/hilfsmittel/${item.id}`} variant="secondary" size="sm" icon={Pencil} aria-label={`„${item.name}“ bearbeiten`}>
+                          <span className="hidden sm:inline">Bearbeiten</span>
+                        </LinkButton>
+                      ) : (
+                        <span aria-hidden />
+                      )}
+                      {canEdit ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={Trash2}
+                          onClick={() => setToDelete(item)}
+                          className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                          aria-label={`„${item.name}“ löschen`}
+                          title="Löschen"
+                        />
+                      ) : (
+                        <span aria-hidden />
                       )}
                     </div>
                   </div>
