@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.3.1] – 2026-11-17
+
 - **Server-Manager, „Im Schulnetz erreichbar“ und Ports:** Fehlen dem Manager Administratorrechte für die Firewall-Regel
   (er läuft als Dienst), wird die Einstellung trotzdem gespeichert und der fertige Befehl zum Kopieren angezeigt (Linux mit
   `sudo`). Vorher blieb der Schalter hängen – auch nachdem die Regel von Hand angelegt war. Vorhandene Regeln brauchen keine
