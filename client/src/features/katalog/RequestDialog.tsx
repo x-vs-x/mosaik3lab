@@ -1,5 +1,5 @@
 import { MAX_ORDER_QUANTITY } from '@mosaik3lab/shared/anfragen';
-import { CircleCheck, LayoutGrid, Plus, Save, Send, ShieldAlert } from 'lucide-react';
+import { CircleCheck, LayoutGrid, Plus, Save, Send } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { Dialog } from '../../components/Dialog';
@@ -391,10 +391,6 @@ export function RequestDialog({
               <legend className="sr-only">Personalisierung</legend>
               <p className="text-abschnitt font-bold text-stone-900" aria-hidden>
                 Personalisierung
-              </p>
-              <p className="flex items-start gap-2 text-hinweis font-bold text-amber-900">
-                <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-                Bitte keine Namen von Schülerinnen und Schülern und keine Diagnosen eintragen.
               </p>
               {customFields.map((f) => (
                 <CustomFieldInput

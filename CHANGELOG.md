@@ -6,6 +6,9 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Anfrageformular:** Der feste Warnhinweis „Bitte keine Namen … und keine Diagnosen eintragen“ über den
+  Personalisierungsfeldern entfällt. Eigene Hinweise der einzelnen Felder bleiben.
+
 - **Druckteile einspielen mit „Ersetzen“:** Wurde in der Quelle nur die Art (Hilfs-/Lehrmittel) oder nur eine Farbgruppe
   („Alle dieser Linie“, „Alle PLA“) geändert, galt das Druckteil als unverändert und wurde nicht ersetzt. Jetzt wird es
   übernommen.

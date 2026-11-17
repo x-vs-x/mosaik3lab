@@ -12,6 +12,13 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   Typen), leere Größen, „Alle Farben“, Linie und Materialart, eigene Farbrolle, neue Stammdaten; Gegenprobe ohne Korrektur rot.
 - **Aufgeräumt:** keine Server, keine Restdateien.
 
+## 2026-11-17 – Hinweis bei Personalisierung entfernt (Hauptchat, Branch: feature/personalisierung-hinweis)
+- **Anlass:** Wunsch des Nutzers: Absatz „Bitte keine Namen von Schülerinnen und Schülern und keine Diagnosen eintragen.“
+  im Abschnitt Personalisierung beim Anfragen entfernen.
+- **Gebaut:** Absatz samt Symbol in `client/src/features/katalog/RequestDialog.tsx` entfernt (Hinweis bei
+  „Anpassungswünsche“ und Feld-Hinweise bleiben). Im Browser als Lehrkraft geprüft.
+- **Aufgeräumt:** Testserver gestoppt, `_testdaten/hinweis` gelöscht.
+
 <!-- Vorlage:
 ## 2026-11-17 – Update-Rückfrage ohne Dialog (Hauptchat, Branch: feature/update-bestaetigung)
 - **Anlass:** Über die Web-App auf dem iPad drehte „Jetzt aktualisieren“ endlos; am Server kam kein Auftrag an, die Seite
