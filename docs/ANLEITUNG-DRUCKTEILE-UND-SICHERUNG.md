@@ -5,7 +5,7 @@ Es gibt genau **zwei** Dinge, und jedes hat genau **einen** Ort:
 | Was | Wofür | Wo |
 | --- | --- | --- |
 | **Druckteile exportieren / einspielen** | Einzelne, mehrere oder alle Druckteile an eine andere Schule weitergeben oder von dort übernehmen | App → Verwaltung → **Druckteile verwalten** |
-| **Sicherung** | Das ganze System sichern und im Notfall zurückholen oder auf einen neuen Rechner umziehen | **Server-Manager** → Karte „Sicherung“ |
+| **Sicherung** | Das ganze System sichern und im Notfall zurückholen oder auf einen neuen Rechner umziehen | **Server-Manager** → Reiter „Sicherung“ |
 
 ---
 
@@ -50,18 +50,21 @@ Gut zu wissen:
 Eine Sicherung ist **eine Datei** mit dem **ganzen System**: Einstellungen, Konten, Anfragen und alle Druckteile mit
 Bildern und Druckdateien.
 
-- **Automatisch:** Schalter „Jeden Tag automatisch sichern“, dazu die **Uhrzeit** und der **Speicherort**.
-  Am besten ein anderes Laufwerk oder ein Netzlaufwerk. Die ältesten Sicherungen werden automatisch gelöscht
-  („So viele Sicherungen aufbewahren“).
+- **Automatisch:** Reiter „Sicherung“ → „Zeitplan und Speicherort“: Schalter „Täglich automatisch sichern“, dazu die
+  **Uhrzeit** und der **Speicherort**. Am besten ein anderes Laufwerk oder ein Netzlaufwerk. Die ältesten Sicherungen
+  werden automatisch gelöscht („Anzahl aufbewahren“).
 - **„Jetzt sichern“** – zum Beispiel vor größeren Änderungen.
 - **Wiederherstellen:** In der Liste „Vorhandene Sicherungen“ bei der gewünschten Sicherung **„Wiederherstellen“**.
   Es kommt eine deutliche Rückfrage. Alles wird auf den Stand der Sicherung zurückgesetzt. Was seitdem dazugekommen
   ist, ist danach weg. Der jetzige Stand wird vorher automatisch gesichert.
 - **Passwortschutz:** Sicherungen enthalten Passwörter und Daten der Schule und sind deshalb mit dem
   **Backup-Passwort** verschlüsselt. **Ohne dieses Passwort lässt sich eine Sicherung nicht zurückspielen** – bitte
-  aufschreiben und sicher aufbewahren (z. B. bei der Schulleitung).
+  aufschreiben und sicher aufbewahren (z. B. bei der Schulleitung). Ausschalten mit „Schutz ausschalten“.
 
 ### Auf einen anderen Rechner umziehen
+
+Die Kurzfassung steht im Server-Manager auch unter „Auf anderen Rechner umziehen“ (zum Aufklappen).
+
 
 1. Im Server-Manager **„Jetzt sichern“**.
 2. Die neueste Datei (endet auf `.m3lbackup`) aus dem Speicherort auf einen **USB-Stick** kopieren.

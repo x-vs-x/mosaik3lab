@@ -1,6 +1,6 @@
 // Server-Manager – Reiter: Übersicht (Update, Gesamtstatus mit Knopf, Adresse, Dienste, Sicherung kurz), Sicherung,
 // Netzwerk, E-Mail, System (Version, Ordner, Abgleichen, Protokoll, Einrichten). Nutzt nur die JSON-API.
-import { $, action, api, askPassword, busy, changed, cmpVer, confirmBox, ctx, el, emergency, fmt, fmtBytes, light, reasonText, showError, since } from './ui.js';
+import { $, action, api, askPassword, busy, changed, cmpVer, confirmBox, ctx, el, emergency, fmt, fmtBytes, icon, light, reasonText, showError, since } from './ui.js';
 import { installUpdate, loadUpdate, markPaket, paketMode, updatingSummary, updWatch } from './update.js';
 import { loadNews } from './neuigkeiten.js';
 import { askPaths, showReconcile, updateRuntime } from './erweitert.js';
@@ -158,9 +158,17 @@ function showTab(id, { focus = false, push = true } = {}) {
   if (!TAB_IDS.includes(id)) id = 'uebersicht';
   for (const t of TABS) {
     const on = t.dataset.tab === id;
+    const page = $(`#page-${t.dataset.tab}`);
     t.setAttribute('aria-selected', String(on));
     t.tabIndex = on ? 0 : -1;
-    $(`#page-${t.dataset.tab}`).hidden = !on;
+    if (on && page.hidden) {
+      // sanft einblenden (nur beim Wechsel; bei „Bewegung reduzieren“ per CSS aus)
+      page.classList.remove('enter');
+      void page.offsetWidth;
+      page.classList.add('enter');
+    }
+    page.hidden = !on;
+    if (on) t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); // schmale Reiterleiste: aktiven Reiter ins Bild
     if (on && focus) t.focus();
   }
   if (push && location.hash !== `#${id}`) history.replaceState(null, '', `#${id}`);
@@ -178,6 +186,18 @@ for (const t of TABS) {
 }
 for (const b of document.querySelectorAll('[data-goto]')) b.addEventListener('click', () => showTab(b.dataset.goto, { focus: true }));
 window.addEventListener('hashchange', () => showTab(location.hash.slice(1), { push: false }));
+// Reiterleiste: Randverlauf nur, wenn sie wirklich weitergeht; feine Linie erst, wenn Inhalt darunter durchläuft
+const tabsBar = $('#tabs-bar');
+const tabList = $('#tabs');
+function tabEdges() {
+  const max = tabList.scrollWidth - tabList.clientWidth;
+  tabsBar.classList.toggle('more-left', tabList.scrollLeft > 2);
+  tabsBar.classList.toggle('more-right', tabList.scrollLeft < max - 2);
+  tabsBar.classList.toggle('stuck', !$('#main').hidden && tabsBar.getBoundingClientRect().top <= 0 && window.scrollY > 0);
+}
+tabList.addEventListener('scroll', tabEdges, { passive: true });
+window.addEventListener('scroll', tabEdges, { passive: true });
+window.addEventListener('resize', tabEdges);
 showTab(location.hash.slice(1), { push: false });
 
 function openSection(tab, sel) {
@@ -200,8 +220,8 @@ function renderSummary(s) {
   $('#btn-fix').hidden = !fix;
   if (fix) Object.assign($('#btn-fix'), { textContent: fix[0] }).dataset.fix = s.summary.fix;
   const more = s.notes.filter((n) => (n.light === 'warn' || n.light === 'error') && n.text !== s.summary.text);
-  if (changed('notes', [more, s.summary.fix])) $('#notes').replaceChildren(...more.map((n) => el('li', { class: n.light }, n.text, fixFor(n.fix) && n.fix !== s.summary.fix ? el('button', { type: 'button', class: 'link', onclick: (e) => busy(e.currentTarget, fixFor(n.fix)[1], 'Erledigt.') }, fixFor(n.fix)[0]) : null)));
-  $('#checked').textContent = `aktualisiert ${new Date(s.checkedAt).toLocaleTimeString('de-DE')}`;
+  if (changed('notes', [more, s.summary.fix])) $('#notes').replaceChildren(...more.map((n) => el('li', { class: n.light }, el('span', { class: 't' }, light(n.light, n.light === 'error' ? 'Fehler' : 'Hinweis'), ' ', n.text), fixFor(n.fix) && n.fix !== s.summary.fix ? el('button', { type: 'button', class: 'link', onclick: (e) => busy(e.currentTarget, fixFor(n.fix)[1], 'Erledigt.') }, fixFor(n.fix)[0]) : null)));
+  $('#checked').textContent = `Stand ${new Date(s.checkedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 // ---------- Seite ----------
@@ -250,8 +270,8 @@ function render(s) {
   const main = s.addresses.network[0] ?? s.addresses.local;
   Object.assign($('#app-link'), { href: main, textContent: main.replace(/\/$/, '') }); // z. B. http://server/mosaik3lab
   $('#address-more').textContent = s.addresses.network.length
-    ? `Auf diesem Rechner: ${s.addresses.local}${s.addresses.network.length > 1 ? ` · weitere Adressen: ${s.addresses.network.slice(1, 3).join(' · ')}` : ''}`
-    : 'Nur auf diesem Rechner erreichbar. Für Geräte im Schulnetz: Reiter „Netzwerk“ → „Im Schulnetz erreichbar“.';
+    ? `Auf diesem Rechner: ${s.addresses.local}${s.addresses.network.length > 1 ? ` · auch: ${s.addresses.network.slice(1, 3).join(' · ')}` : ''}`
+    : 'Nur auf diesem Rechner erreichbar. Für das Schulnetz: Reiter „Netzwerk“ → „Im Schulnetz erreichbar“.';
 
   // Dienste: läuft / gestoppt, Neustart. Nur bei echter Änderung neu zeichnen – sonst ginge alle 5 s der Tastaturfokus verloren.
   const shown = s.services.filter((v) => v.key !== 'portal' || s.portal?.enabled);
@@ -266,18 +286,21 @@ function render(s) {
       el('div', { class: 'svc-head' }, el('strong', {}, v.title.replace('Mosaik³LAB ', '')), light(v.light, v.label, `${v.key}-light`)),
       el('div', { class: 'muted small detail' }, detail),
       v.lastError && v.light !== 'ok' ? el('div', { class: 'error small' }, v.lastError) : null,
-      v.external ? el('div', { class: 'muted small', testid: `${v.key}-external` }, 'Starten und Stoppen dort, wo sie gestartet wurde – hier nichts zu tun.')
+      v.external ? el('div', { class: 'muted small', testid: `${v.key}-external` }, 'Wird dort gestartet und gestoppt, wo sie gestartet wurde.')
         : el('div', { class: 'row' }, ...(v.running ? [btn('Neu starten', 'restart'), btn('Stoppen', 'stop', 'danger')] : [btn('Starten', 'start', 'primary')])));
   }));
   else for (const v of shown) { const d = document.querySelector(`[data-testid="svc-${v.key}"] .detail`); if (d) d.textContent = detailOf(v); }
 
   // Sicherung
   const last = s.lastBackup;
-  $('#backup-last').replaceChildren(last ? el('span', {}, 'Letzte Sicherung: ', el('strong', {}, fmt(last.created)), ` (vor ${since(last.created)})`) : el('strong', {}, 'Noch keine Sicherung.'));
-  $('#backup-next').textContent = !s.backupAuto ? 'Die automatische Sicherung ist ausgeschaltet.' : s.nextBackup ? `Nächste automatische Sicherung: ${fmt(s.nextBackup)}` : 'Automatische Sicherung: der Backup-Dienst läuft nicht (siehe „Dienste“ in der Übersicht).';
+  $('#backup-last').replaceChildren(last ? el('span', {}, 'Letzte: ', el('strong', {}, fmt(last.created)), el('span', { class: 'muted small' }, ` (vor ${since(last.created)})`)) : el('strong', {}, 'Noch keine Sicherung.'));
+  $('#backup-next').textContent = !s.backupAuto ? 'Die automatische Sicherung ist ausgeschaltet.' : s.nextBackup ? `Nächste: ${fmt(s.nextBackup)} (automatisch)` : 'Automatisch: der Backup-Dienst läuft nicht (siehe „Dienste“ in der Übersicht).';
   // Kurzfassung für die Übersicht
-  $('#backup-short').textContent = `${last ? `Letzte Sicherung ${fmt(last.created)} (vor ${since(last.created)})` : 'Noch keine Sicherung'} · ${!s.backupAuto ? 'automatisch: aus' : s.nextBackup ? `nächste ${fmt(s.nextBackup)}` : 'Backup-Dienst läuft nicht'} · ${s.backupEncrypted ? 'mit Passwortschutz' : 'ohne Passwortschutz'}`;
-  $('#backup-crypto-state').textContent = s.backupEncrypted ? '– eingeschaltet' : '– aus';
+  $('#backup-short').replaceChildren(
+    el('dt', {}, 'Letzte'), el('dd', {}, last ? fmt(last.created) : 'noch keine', last ? el('span', { class: 'muted small' }, ` (vor ${since(last.created)})`) : null),
+    el('dt', {}, 'Nächste'), el('dd', {}, !s.backupAuto ? 'automatisch: aus' : s.nextBackup ? fmt(s.nextBackup) : 'Backup-Dienst läuft nicht'),
+    el('dt', {}, 'Schutz'), el('dd', {}, light(s.backupEncrypted ? 'ok' : 'warn', s.backupEncrypted ? 'mit Passwort' : 'ohne Passwort')));
+  Object.assign($('#backup-crypto-state'), { textContent: s.backupEncrypted ? 'an' : 'aus', className: `light ${s.backupEncrypted ? 'ok' : 'warn'}` });
   $('#backup-crypto').textContent = s.backupEncrypted ? 'Neue Sicherungen sind mit Passwort geschützt.' : 'Sicherungen sind noch nicht geschützt. Empfehlung: Passwort erzeugen.';
   $('#btn-bk-password').hidden = s.backupEncrypted;
   $('#btn-bk-new').hidden = !s.backupEncrypted;
@@ -299,7 +322,7 @@ function render(s) {
   $('#btn-check').hidden = paketMode; // Paket-Installation: Updates stehen in der Übersicht
   $('#btn-audit').hidden = paketMode; // npm audit braucht npm und den Quellstand – das Paket bringt beides nicht mit
   $('#version').textContent = s.version?.version ? `${s.version.version}${s.version.id && s.version.id !== 'Arbeitskopie' ? ` (${s.version.id})` : ' (Arbeitskopie)'}` : s.version?.id ?? '–';
-  $('#node').textContent = `· Node.js ${s.node}`;
+  $('#node').textContent = s.node;
   $('#facts').textContent = [`Mailversand eingerichtet: ${s.mail.label}`, `Datenbank: ${s.database.label}`, ...s.notes.filter((n) => n.light === 'info').map((n) => n.text)].join(' · ');
 }
 
@@ -308,7 +331,7 @@ function renderSystem(sys) {
   if (!sys || !changed('system', sys)) return;
   const win = sys.id === 'windows';
   ctx.system = sys;
-  $('#system-line').textContent = `Betriebssystem: ${sys.label} (${sys.arch})`;
+  $('#system-line').textContent = `${sys.label} (${sys.arch})`; // Beschriftung „System“ steht davor
   $('#d-network').textContent = win
     ? 'Damit Geräte im Schulnetz Mosaik³LAB öffnen können. Die Windows-Firewall-Regel wird automatisch gesetzt (Windows fragt einmal nach).'
     : sys.firewall
@@ -321,15 +344,14 @@ function renderSystem(sys) {
 }
 
 function renderBackupTable(s) {
+  // Zeilen statt Tabelle: Zeitpunkt (+ Schloss), darunter Anlass · Größe · Version; Knopf rechts (Handy: darunter)
   $('#backups').replaceChildren(s.backups.length
-    ? el('div', { class: 'table-wrap' }, el('table', { testid: 'backup-table' }, el('thead', {}, el('tr', {}, el('th', {}, 'Zeitpunkt'), el('th', {}, 'Anlass'), el('th', {}, 'Größe'), el('th', {}, el('span', { class: 'sr-only' }, 'Aktion')))),
-      el('tbody', {}, s.backups.map((b) => el('tr', {},
-        el('td', {}, fmt(b.created), b.encrypted ? el('span', { title: 'mit Passwort geschützt', 'aria-label': 'mit Passwort geschützt' }, ' 🔒') : null,
-          b.app?.version ? el('div', { class: 'muted small', testid: `backup-version-${b.id}` }, `von Version ${b.app.version}`) : null),
-        el('td', {}, reasonText(b.reason), b.kind === 'daten' ? el('div', { class: 'muted small' }, 'ältere Art, ohne Bilder') : null),
-        el('td', {}, b.bytes ? fmtBytes(b.bytes) : '–'),
-        el('td', {}, action(el('button', { type: 'button', testid: `restore-${b.id}`, 'aria-label': `Sicherung vom ${fmt(b.created)} wiederherstellen` }, 'Wiederherstellen'), () => restore(b), 'Wiederhergestellt und geprüft – alles läuft wieder mit dem Stand der Sicherung.')))))))
-    : el('p', { class: 'empty' }, 'Noch keine Sicherung.'));
+    ? el('div', { class: 'backup-list', role: 'list', testid: 'backup-table' }, s.backups.map((b) => el('div', { class: 'svc', role: 'listitem' },
+      el('div', { class: 'svc-head' }, el('strong', {}, fmt(b.created)), b.encrypted ? el('span', { class: 'light ok', title: 'mit Passwort geschützt' }, 'geschützt') : null),
+      el('div', { class: 'muted small' }, [reasonText(b.reason), b.bytes ? fmtBytes(b.bytes) : null, b.kind === 'daten' ? 'ältere Art, ohne Bilder' : null].filter(Boolean).join(' · '),
+        b.app?.version ? el('span', { testid: `backup-version-${b.id}` }, ` · von Version ${b.app.version}`) : null),
+      el('div', { class: 'row' }, action(el('button', { type: 'button', testid: `restore-${b.id}`, 'aria-label': `Sicherung vom ${fmt(b.created)} wiederherstellen` }, 'Wiederherstellen'), () => restore(b), 'Wiederhergestellt und geprüft – alles läuft wieder mit dem Stand der Sicherung.')))))
+    : el('div', { class: 'empty' }, icon('backup'), el('strong', {}, 'Noch keine Sicherung'), el('span', { class: 'small' }, s.backupAuto && s.nextBackup ? `Die erste entsteht ${fmt(s.nextBackup)} – oder sofort mit „Jetzt sichern“.` : 'Mit „Jetzt sichern“ die erste anlegen.')));
 }
 
 // ---------- Sicherung ----------
@@ -364,7 +386,7 @@ async function makeBackupPassword() {
   if (!(await confirmBox('Passwort für Sicherungen erzeugen?', 'Neue Sicherungen werden ab jetzt mit diesem Passwort verschlüsselt. Es wird nur einmal angezeigt. Ohne dieses Passwort lässt sich eine Sicherung nicht zurückspielen – bitte aufschreiben und sicher aufbewahren.', 'Erzeugen'))) return false;
   const r = await api('backup/password', { generate: true });
   showTab('sicherung');
-  $('#backup-secret').replaceChildren(el('p', { class: 'error', role: 'alert' }, 'Passwort der Sicherungen (jetzt aufschreiben – wird nicht erneut angezeigt): ', el('code', { testid: 'backup-secret-value' }, r.password)));
+  $('#backup-secret').replaceChildren(el('div', { class: 'secret', role: 'alert' }, el('span', { class: 'small' }, el('strong', {}, 'Passwort der Sicherungen'), ' – jetzt aufschreiben, wird nicht erneut angezeigt:'), el('code', { testid: 'backup-secret-value' }, r.password)));
   $('#backup-secret').scrollIntoView({ behavior: 'smooth', block: 'center' });
   return r;
 }
@@ -379,6 +401,7 @@ action($('#btn-bk-off'), async () => {
 async function start() {
   $('#main').hidden = false;
   $('#tools').hidden = false;
+  tabEdges();
   if (!ctx.status) {
     $('#summary').setAttribute('aria-busy', 'true');
     $('#summary-text').textContent = 'Status wird geladen …';

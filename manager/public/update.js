@@ -69,11 +69,10 @@ function updResult(u) {
   return null;
 }
 function updStatusLine(u) {
-  const inst = u.installed?.version ?? '?';
   if (updActive(u)) return ['info', `Update auf Version ${u.download?.version ?? u.lauf?.version} läuft – bitte warten.`, null];
   if (u.unsupported) return ['info', 'Für dieses Betriebssystem gibt es keine Updates per Knopfdruck.', 'Neue Versionen mit dem Installer-Paket einspielen.'];
   if (u.error) return ['info', u.error, u.hint ?? 'Ohne Internet ist das normal – es wird später automatisch erneut geprüft.'];
-  if (u.behind > 0) return ['new', `Neue Version ${u.latest.version} verfügbar – Sie nutzen ${inst}${u.behind > 1 ? `, es gibt ${u.behind} neue Versionen` : ''}.`, null];
+  if (u.behind > 0) return ['new', `Version ${u.latest.version} ist verfügbar${u.behind > 1 ? ` (${u.behind} neue Versionen)` : ''}.`, null];
   if (!u.checkedAt) return ['info', 'Es wurde noch nicht nach Updates gesucht.', null];
   return ['ok', 'Mosaik³LAB ist aktuell.', null];
 }
@@ -100,7 +99,7 @@ export function renderUpdate(u) {
       // Während Sicherung und Umschalten ist der Manager gestoppt – der Update-Helfer arbeitet weiter (Zeitlimits: lib/zeitlimits.mjs)
       const z = u.zeitlimits ?? { sicherung: 120, helfer: 240 };
       const std = (min) => (min % 60 ? `${min} Minuten` : `${min / 60} Stunden`);
-      text = 'Das Update läuft: Mosaik³LAB wird gesichert und umgestellt, der Server-Manager ist dabei kurz gestoppt. Die Seite aktualisiert sich von selbst.';
+      text = 'Wird gesichert und umgestellt … Der Server-Manager ist dabei kurz gestoppt, die Seite lädt sich danach selbst neu.';
       if (updWatch.fails > 120) text += ` Das dauert länger als üblich – meist die Sicherung (bei vielen Bildern und Videos, z. B. auf einem Raspberry Pi, bis zu ${std(z.sicherung)}). Bitte nichts abbrechen; erst wenn sich nach ${std(z.helfer)} nichts getan hat, den Server neu starten.`;
       bar.removeAttribute('value');
     } else if (d && !d.fertig && !d.error) {

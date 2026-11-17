@@ -37,7 +37,8 @@ function since(iso) {
   return s < 3600 ? `${Math.floor(s / 60)} Min` : s < 86400 ? `${Math.floor(s / 3600)} Std` : (Math.floor(s / 86400) === 1 ? '1 Tag' : `${Math.floor(s / 86400)} Tagen`);
 }
 function toast(text, error = false, hint, extra = null) {
-  const t = el('div', { class: `toast${error ? ' error' : ''}`, role: error ? 'alert' : 'status' }, el('strong', {}, text), hint ? el('div', {}, `Was tun? ${hint}`) : null, extra);
+  const t = el('div', { class: `toast${error ? ' error' : ''}`, role: error ? 'alert' : 'status' }, el('strong', {}, text), hint ? el('div', {}, `Was tun? ${hint}`) : null, extra,
+    el('button', { type: 'button', class: 'x', 'aria-label': 'Meldung schließen', onclick: () => t.remove() }, '×'));
   $('#toasts').append(t);
   setTimeout(() => t.remove(), extra ? 60000 : error ? 10000 : 4500); // mit Befehl: Zeit zum Kopieren
 }
@@ -110,6 +111,9 @@ function icon(name) {
   return svg;
 }
 for (const ph of document.querySelectorAll('[data-icon]')) ph.replaceWith(icon(ph.dataset.icon));
+// Dialoge: Trennlinie über den Knöpfen nur, wenn die Mitte scrollt
+const scrollMark = new ResizeObserver((entries) => { for (const { target: b } of entries) b.classList.toggle('scrolls', b.scrollHeight > b.clientHeight + 1); });
+for (const b of document.querySelectorAll('.dlg-body')) scrollMark.observe(b);
 
 
 function confirmBox(title, text, yes = 'Ausführen') {

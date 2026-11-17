@@ -103,8 +103,9 @@ async function loadSetup() {
     if (installed) f[k].value = proposal[k];
   }
   $('#setup-fixed').hidden = !installed;
+  if (!installed) $('#setup').open = true; // Arbeitskopie, noch nicht eingerichtet: Einrichten ist hier die Hauptsache – aufgeklappt zeigen
   $('#setup-intro').textContent = `Kopiert Mosaik³LAB in den Programmordner, legt die Daten getrennt davon ab und richtet Dienste (Autostart, Neustart nach Absturz), Firewall und Verknüpfungen ein. „Probelauf“ zeigt zuerst, was passieren würde.${proposal.untested ? ' (Plattform ungetestet)' : ''}`;
-  if (ctx.status?.mode === 'installation') $('#h-adv-setup').textContent = 'Einrichtung erneut ausführen / reparieren';
+  if (ctx.status?.mode === 'installation') $('#h-adv-setup').textContent = 'Einrichtung reparieren';
   if (job) showSteps(job);
 }
 async function runSetup(dryRun) {
