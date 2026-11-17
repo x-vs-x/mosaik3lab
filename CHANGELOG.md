@@ -11,6 +11,10 @@ daraus die nächste Version.
   übersichtliche Liste, Status als Punkt mit Wort. Reiterleiste auf dem Handy waagrecht wischbar, Dialoge auf dem Handy
   fast vollflächig mit festen Knöpfen, kleine schnelle Übergänge (aus bei „Bewegung reduzieren“), hell/dunkel nach System.
   Keine Funktionsänderung.
+- **Kleinigkeiten auf dem Handy:** In der unteren Leiste heißt „Vorschläge“ auf schmalen Handys (unter 390 px) kurz
+  „Ideen“, damit die fünf Einträge nicht aneinanderstoßen (Screenreader sagen weiter „Vorschläge“). Der Platzhalter der
+  Katalogsuche ist kürzer („Suchen, z. B. „Stift““) und wird auf 320 px nicht mehr abgeschnitten. Im Dialog „Rechte ändern“
+  ist jetzt die ganze Zeile (Häkchen und Text) eine große Tippfläche mit Hover-Hintergrund und Fokusrahmen.
 - **E-Mails neu gestaltet:** Alle Mails (neue/geänderte Anfrage, neuer Vorschlag, Passwort festlegen/zurücksetzen,
   Testmail) im Aussehen der App – roter Kopf mit Mosaik³LAB, ein großer Knopf (auf dem Handy volle Breite), der Link
   zusätzlich als Text, kurze Texte; passen sich an Handy, Tablet und Computer an. Mail nach der Kontosperre erklärt jetzt
