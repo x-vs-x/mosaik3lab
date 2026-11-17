@@ -128,6 +128,13 @@ function confirmBox(title, text, yes = 'Ausführen') {
   } catch {
     return Promise.resolve(window.confirm(`${title}\n\n${text}`));
   }
+  // Offen, aber nicht zu sehen (z. B. Safari auf dem iPad: außerhalb des Bildschirms oder ohne Größe)? Dann die einfache
+  // Rückfrage des Browsers – sonst wartet die Seite auf einen Knopf, den niemand sieht.
+  const r = d.getBoundingClientRect();
+  if (!d.open || r.height < 40 || r.bottom <= 0 || r.top >= window.innerHeight || r.right <= 0 || r.left >= window.innerWidth) {
+    d.close();
+    return Promise.resolve(window.confirm(`${title}\n\n${text}`));
+  }
   // Direkt auf die Knöpfe hören (nicht auf „close“ – das feuert nicht in jeder Umgebung zuverlässig).
   return new Promise((resolve) => {
     const done = (ok) => (e) => {

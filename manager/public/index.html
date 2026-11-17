@@ -55,6 +55,17 @@
               <button type="button" id="btn-update-search" data-testid="update-search">Nach Updates suchen</button>
               <small id="update-checked" class="muted" data-testid="update-checked"></small>
             </div>
+            <!-- Rückfrage direkt in der Karte (kein Dialogfenster – das blieb in Safari auf dem iPad unsichtbar hängen) -->
+            <div id="update-confirm" class="callout new" data-testid="update-confirm" role="group" aria-labelledby="update-confirm-title" hidden>
+              <div>
+                <p class="callout-text" id="update-confirm-title" tabindex="-1"></p>
+                <p class="small" id="update-confirm-text"></p>
+                <div class="row">
+                  <button type="button" class="primary big" id="btn-update-yes" data-testid="update-yes">Ja, jetzt aktualisieren</button>
+                  <button type="button" id="btn-update-no" data-testid="update-no">Abbrechen</button>
+                </div>
+              </div>
+            </div>
             <div id="update-versions" class="versions" data-testid="update-versions"></div>
           </div>
           <div id="updates"></div>
