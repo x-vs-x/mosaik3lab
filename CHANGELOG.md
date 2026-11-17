@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.6.3] – 2026-11-17
+
 - **„Jetzt aktualisieren“ funktioniert auf dem iPad:** Die Rückfrage erscheint jetzt direkt in der Update-Karte statt in
   einem Fenster. Das Fenster blieb in Safari unsichtbar, und der Knopf drehte endlos. Andere Rückfragen im Server-Manager
   weichen auf die einfache Rückfrage des Browsers aus, wenn ihr Fenster nicht richtig zu sehen ist.
