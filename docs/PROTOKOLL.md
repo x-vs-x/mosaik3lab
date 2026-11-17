@@ -3,6 +3,12 @@
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
 <!-- Vorlage:
+## 2026-11-17 – Installer: Klick ins Fenster hält nicht mehr an (Hauptchat, Branch: feature/installer-klick)
+- **Anlass:** Update auf 1.6.0 per Installieren.cmd stand nach „Programm kopieren“ still – Windows-Markiermodus nach Klick.
+- **Gebaut:** `manager/Installieren.cmd` startet `cli.mjs setup` innerhalb von PowerShell, das QuickEdit nur für dieses
+  Fenster abschaltet (PowerShell stellt den Modus beim Beenden selbst wieder her). Exitcode und `probelauf` geprüft.
+- **Aufgeräumt:** Testordner `_testdaten/installer-klick` gelöscht.
+
 ## 2026-11-17 – Update-Knopf: Download-Wächter und echter Test (Hauptchat, Branch: feature/update-knopf)
 - **Anlass:** Lokal (1.5.0) drehte „Jetzt aktualisieren“ endlos; kein Download, kein Protokolleintrag. Der Installer-Test
   hatte den Weg des Managers nur nachgeahmt (Paket + Auftrag selbst abgelegt), Download und Start über den Manager waren
