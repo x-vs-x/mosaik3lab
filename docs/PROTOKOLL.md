@@ -2,6 +2,25 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-17 – Link-Knöpfe am Druckteil, klickbare Links (Unter-Session, Branch: feature/link-knoepfe)
+- **Anlass:** Wunsch des Nutzers: Links in der Beschreibung waren nicht anklickbar; beim Druckteil Links mit Knopftext
+  und kurzer Beschreibung hinterlegen (z. B. Elektroteil zum Bestellen, Bestellliste), update-sicher.
+- **Gebaut:**
+  - Feld `links` (höchstens 10 × `{ id, text, beschreibung, url }`, `url` nur http/https über `httpLink`) im
+    `itemInputSchema` (`shared/src/katalog.ts`).
+  - Migration `018_artikel_links.sql`: JSON-Spalte `artikel.links`, Standard `[]`. Dazu Abbildung im Repository und
+    IDs in `normalizeItemInput`.
+  - Export/Import: `links` im Paket (`artikelS` optional, Standard `[]`), im `fingerabdruck` und beim Einspielen. Ältere
+    Installationen ignorieren das Feld.
+  - Formular: Abschnitt „Links und Bestellhinweise“ (`LinksSection.tsx`) mit Hinzufügen, Entfernen, Hoch/Runter und
+    lokaler Prüfung.
+  - Detailseite: `ItemLinks.tsx` mit Knöpfen (neuer Tab, Symbol „extern“, mindestens 56 px hoch) und `TextMitLinks` für
+    Beschreibung und Materialinformationen. Die Links erkennt `client/src/lib/linkText.ts`, ohne HTML.
+- **Tests:** `client/test/linkText.test.ts`; `katalog.test.ts` prüft Speichern, Lesen und Ablehnen von `javascript:`,
+  `ftp:` und Links ohne Knopftext; die „Rundreise“ in `datenaustausch.test.ts` prüft `links` mit. Klicktest auf Desktop
+  und Handy (session-2).
+- **Aufgeräumt:** Testserver gestoppt, `_testdaten/link-knoepfe` gelöscht.
+
 ## 2026-11-17 – Export/Import vollständig geprüft (Hauptchat, Branch: feature/austausch-pruefung)
 - **Anlass:** Frage des Nutzers, ob beim Export hier und Import in der Schule alle Stammdaten und jede Angabe ankommen.
 - **Geprüft (Code):** Export nimmt alle Felder des Druckteils und die benutzten Kategorien (mit Farbe/Symbol),

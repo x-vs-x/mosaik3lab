@@ -220,6 +220,7 @@ export const baseItem = (id: string) => ({
   materialInfo: '',
   printTimeMinutes: 5,
   safetyNotes: [],
+  links: [],
   images: [],
   modelFiles: [],
   published: true,

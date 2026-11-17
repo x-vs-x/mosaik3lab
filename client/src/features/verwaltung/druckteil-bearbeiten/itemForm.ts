@@ -5,6 +5,7 @@ import type { Filament, Item, ItemInput } from '../../../lib/types';
 export const MAX_COLOR_AREAS = 8;
 export const MAX_CUSTOM_FIELDS = 10;
 export const MAX_VIDEOS = 4;
+export { MAX_ITEM_LINKS } from '@mosaik3lab/shared/katalog';
 
 export type FieldErrors = Record<string, string>;
 export type SetField = <K extends keyof ItemInput>(key: K, value: ItemInput[K]) => void;
@@ -37,6 +38,7 @@ export const EMPTY: ItemInput = {
   materialInfo: '',
   printTimeMinutes: 60,
   safetyNotes: [],
+  links: [],
   published: false,
 };
 
@@ -70,6 +72,7 @@ export function toInput(item: Item): ItemInput {
     materialInfo,
     printTimeMinutes,
     safetyNotes,
+    links: item.links ?? [],
     published,
   };
 }
@@ -81,6 +84,7 @@ const SECTION_FIELDS = {
   personalisierung: ['customFields'],
   material: ['material', 'materialInfo', 'printTimeMinutes'],
   sicherheit: ['safetyNotes'],
+  links: ['links'],
 } as const;
 
 export const sectionHasError = (errors: FieldErrors, section: keyof typeof SECTION_FIELDS) =>
@@ -97,6 +101,12 @@ export function validateLocal(form: ItemInput): FieldErrors {
       : form.colorAreas.length > 1
         ? `Bitte für „${emptyArea.name}“ mindestens eine Farbe wählen.`
         : 'Bitte mindestens eine Farbe wählen.';
+  }
+  const badLink = (form.links ?? []).find((l) => !l.text.trim() || !/^https?:\/\/\S+\.\S+/i.test(l.url.trim()));
+  if (badLink) {
+    local.links = !badLink.text.trim()
+      ? 'Bitte jedem Link einen Knopftext geben.'
+      : `Bitte für „${badLink.text}“ einen vollständigen Link mit https:// angeben.`;
   }
   if (unnamedField) {
     local.customFields = !unnamedField.label.trim()

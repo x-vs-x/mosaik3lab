@@ -14,6 +14,7 @@ import { ITEM_KIND_LABELS, type Filament, type Item, type ItemVideo } from '../.
 import { useApi, useDocumentTitle } from '../../lib/useApi';
 import { ladeEntwurf } from '../../lib/entwurfSpeicher';
 import { anfrageEntwurfSchluessel, RequestDialog } from './RequestDialog';
+import { LinkKnoepfe, TextMitLinks } from './ItemLinks';
 
 export function ItemDetailPage() {
   const { id } = useParams();
@@ -162,7 +163,7 @@ export function ItemDetailPage() {
             {item.description.trim() && (
               <>
                 <h2 className="text-abschnitt font-bold text-stone-900 sm:text-xl">Beschreibung</h2>
-                <p className="mt-3 whitespace-pre-line text-stone-700">{item.description}</p>
+                <p className="mt-3 whitespace-pre-line text-stone-700"><TextMitLinks text={item.description} /></p>
               </>
             )}
             {item.materialInfo.trim() && (
@@ -170,7 +171,7 @@ export function ItemDetailPage() {
                 <h3 className={cx('font-bold text-stone-900', item.description.trim() ? 'mt-6' : 'text-abschnitt sm:text-xl')}>
                   Materialinformationen
                 </h3>
-                <p className="mt-1.5 whitespace-pre-line text-stone-700">{item.materialInfo}</p>
+                <p className="mt-1.5 whitespace-pre-line text-stone-700"><TextMitLinks text={item.materialInfo} /></p>
               </>
             )}
           </Card>
@@ -199,6 +200,8 @@ export function ItemDetailPage() {
         </section>
         )}
       </div>
+
+      <LinkKnoepfe links={item.links ?? []} />
 
       <RequestDialog key={item.id} item={item} open={requestOpen} onClose={() => setRequestOpen(false)} />
     </>

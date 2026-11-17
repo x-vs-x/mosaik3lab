@@ -6,6 +6,13 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Links am Druckteil:** Beim Anlegen und Bearbeiten eines Druckteils gibt es den neuen Abschnitt „Links und
+  Bestellhinweise“. Jeder Link bekommt einen Knopftext und eine kurze Beschreibung und erscheint auf der Seite des
+  Druckteils als Knopf, z. B. „Taster-Beispiel“ mit dem Link zu einem Elektroteil, das man dazu bestellen muss. Die Links
+  kommen beim Exportieren und Einspielen mit.
+- **Links in der Beschreibung sind anklickbar:** Adressen mit `https://`, `http://` oder `www.` in der Beschreibung und
+  den Materialinformationen öffnen sich in einem neuen Tab.
+
 - **Anfrageformular:** Der feste Warnhinweis „Bitte keine Namen … und keine Diagnosen eintragen“ über den
   Personalisierungsfeldern entfällt. Eigene Hinweise der einzelnen Felder bleiben.
 

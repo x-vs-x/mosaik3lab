@@ -83,6 +83,21 @@ export const customFieldSchema = z
   });
 export type CustomField = z.infer<typeof customFieldSchema>;
 
+/** Höchstzahl der Link-Knöpfe je Druckteil. */
+export const MAX_ITEM_LINKS = 10;
+
+/** Link-Knopf am Druckteil, z. B. „Taster-Beispiel“ mit Link zum Bestellen eines Elektroteils. */
+export const itemLinkSchema = z.object({
+  /** Leer = neuer Link (ID vergibt der Server). */
+  id: z.string().trim().max(64).default(''),
+  /** Knopftext. */
+  text: text(1, 60),
+  /** Kurze Beschreibung unter dem Knopf (freiwillig). */
+  beschreibung: z.string().trim().max(300).default(''),
+  url: httpLink,
+});
+export type ItemLink = z.infer<typeof itemLinkSchema>;
+
 export const itemInputSchema = z.object({
   name: text(3, 100),
   shortDescription: text(10, 200),
@@ -107,6 +122,8 @@ export const itemInputSchema = z.object({
   materialInfo: z.string().trim().max(1000).default(''),
   printTimeMinutes: z.number().int().min(1).max(10000),
   safetyNotes: uniqueList(text(1, 300), 0, 20).default([]),
+  /** Link-Knöpfe (z. B. Bestellliste, Zubehör) – leer = keine. */
+  links: z.array(itemLinkSchema).max(MAX_ITEM_LINKS).default([]),
   published: z.boolean().default(false),
 }).superRefine((input, ctx) => {
   if (!input.colorAreas && !input.colors) {

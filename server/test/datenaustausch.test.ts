@@ -538,6 +538,10 @@ test('Rundreise in eine frische Installation: jede Angabe eines Druckteils und j
       { id: 'zahl', label: 'Anzahl', type: 'number', required: false, maxLength: 3, hint: '', options: [] },
     ],
     material: 'Rundreise-Material', materialInfo: 'nicht spülmaschinenfest', printTimeMinutes: 95, safetyNotes: ['Kleinteile', 'Aufsicht'], published: false,
+    links: [
+      { id: 'taster', text: 'Taster-Beispiel', beschreibung: 'Passt in die Halterung', url: 'https://shop.example.org/taster?farbe=rot' },
+      { id: '', text: 'Bestellliste', beschreibung: '', url: 'http://schule.example.org/liste' },
+    ],
   };
   const neu = await src.req('POST', '/api/items', body);
   assert.equal(neu.status, 201, neu.text);
@@ -557,7 +561,7 @@ test('Rundreise in eine frische Installation: jede Angabe eines Druckteils und j
     const { bericht } = await einspielen(sc, (await exportiere(src, [quelle.id])).text, 'ueberspringen');
     assert.equal(bericht.abschnitte.artikel.neu, 1);
     const ziel = (await sc.req('GET', `/api/items/${quelle.id}`)).json;
-    for (const f of ['number', 'name', 'shortDescription', 'description', 'category', 'kind', 'useAreas', 'price', 'sizes', 'customFields', 'material', 'materialInfo', 'printTimeMinutes', 'safetyNotes', 'published'])
+    for (const f of ['number', 'name', 'shortDescription', 'description', 'category', 'kind', 'useAreas', 'price', 'sizes', 'customFields', 'material', 'materialInfo', 'printTimeMinutes', 'safetyNotes', 'links', 'published'])
       assert.deepEqual(ziel[f], quelle[f], f);
     const bereiche = (i: any) => i.colorAreas.map((a: any) => [a.id, a.name, !!a.alleFarben, a.gruppen ?? []]);
     assert.deepEqual(bereiche(ziel), bereiche(quelle), 'Farbbereiche samt „Alle Farben“ und Gruppen');

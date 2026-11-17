@@ -6,6 +6,7 @@ import { useDocumentTitle } from '../../../lib/useApi';
 import { BasicsSection } from './BasicsSection';
 import { ColorsSection } from './ColorsSection';
 import { CustomFieldsSection } from './CustomFieldsSection';
+import { LinksSection } from './LinksSection';
 import { MaterialSection } from './MaterialSection';
 import { MediaSection } from './MediaSection';
 import { ModelFilesSection } from './ModelFilesSection';
@@ -50,6 +51,7 @@ export function ItemEditPage() {
         <ColorsSection {...sectionProps} />
         <MediaSection item={item} onChange={setItem} />
         <CustomFieldsSection {...sectionProps} />
+        <LinksSection {...sectionProps} />
         <MaterialSection {...sectionProps} />
         <ModelFilesSection item={item} onChange={setItem} />
         <SafetySection {...sectionProps} />

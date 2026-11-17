@@ -46,7 +46,7 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 | `kategorie`, `einsatzbereich`, `material` | Stammdaten |
 | `filament` | Farbrolle (Marke, Linie, Farbname, Hex, verfügbar). Seit 012: `katalog_id` (ID im mitgelieferten Bambu-Lab-Katalog, NULL = eigene Rolle), `hersteller_nummer` (Bambu-Nr. bzw. freiwillige eigene Nummer), `hersteller_name` (Originalname, englisch), `weggefallen` (nicht mehr im Bambu-Katalog). Abgleich beim Start: `module/stammdaten/bambuAbgleich.ts`; Hinweis für den Admin und bekannte Katalog-IDs in `einstellung` (`bambuAbgleichHinweis`, `bambuKatalogBekannt`) |
 | `statusart` | feste Bestellstatus (Schlüssel, aktiv) – Inhalte aus dem Code, nur `aktiv` änderbar |
-| `artikel` | Druckteil (nummer, Name, Beschreibung, Preis-Text, veröffentlicht …) |
+| `artikel` | Druckteil (nummer, Name, Beschreibung, Preis-Text, veröffentlicht …; seit 018 `links`: JSON-Liste der Link-Knöpfe `{ id, text, beschreibung, url }`, nur http/https, höchstens 10, bestehende Druckteile `[]`) |
 | `artikel_farbbereich` | Farbbereiche je Artikel (Name, Sortierung, seit 013 `alle_farben`: 1 = alle Farbrollen, auch später angelegte – dann keine Einzelverweise; seit 017 `gruppen`: JSON-Liste ganzer Linien/Materialarten wie `art:PLA`, auch später angelegte Rollen) + `artikel_farbbereich_filament` (erlaubte Farben bei „Nur bestimmte Farben“) |
 | `artikel_feld` | Personalisierungsfelder je Artikel (Bezeichnung, Typ, Pflicht, max. Länge) |
 | `anfrage` | Bestellung (nummer, lehrkraft_id, artikel_id, Klasse, Menge, Bemerkung, status) |
@@ -85,7 +85,7 @@ z. B. C:\Mosaik3LAB\ablage\artikel\0193…\bild\0193…a1.jpg
 - **Kindzeilen mit `schluessel`:** `artikel_farbbereich.schluessel` und `artikel_feld.schluessel` sind die IDs aus
   Sicht der API (z. B. Farbbereich `farbe`), nur je Artikel eindeutig; die technische `id` ist davon getrennt.
   `artikel_einsatzbereich` verbindet Artikel und Einsatzbereich.
-- **Einfache Wertelisten als JSON-Text:** `artikel.groessen`, `artikel.sicherheitshinweise`, `artikel_feld.optionen`
+- **Einfache Wertelisten als JSON-Text:** `artikel.groessen`, `artikel.sicherheitshinweise`, `artikel.links`, `artikel_feld.optionen`
   (reine Textlisten ohne eigene Bedeutung).
 - **Schnappschüsse ohne Fremdschlüssel:** `anfrage_farbe.filament_id`, `anfrage_statusverlauf.von_benutzer_id`
   (die Anfrage soll lesbar bleiben, auch wenn Farbe oder Konto gelöscht werden). `anfrage.artikel_id` und
