@@ -59,7 +59,7 @@ HIER=$(dirname "$0")
 JAR=$(mktemp)
 # Anmelden am Manager (Sitzung im Cookie-Glas $JAR), danach mgr_get/mgr_post mit derselben Sitzung
 anmelden() {
-  TOKEN=$(curl -s -c "$JAR" -b "$JAR" http://127.0.0.1:5190/ | grep -o 'name="csrf-token" content="[0-9a-f]*"' | grep -o '[0-9a-f]{16,}')
+  TOKEN=$(curl -s -c "$JAR" -b "$JAR" http://127.0.0.1:5190/ | grep -o 'name="csrf-token" content="[0-9a-f]*"' | grep -o '[0-9a-f]\{16,\}')
   curl -s -f -c "$JAR" -b "$JAR" -H 'Content-Type: application/json' -H "x-manager-token: $TOKEN" -d "$LOGIN" http://127.0.0.1:5190/api/auth/login >/dev/null
 }
 mgr_get() { curl -s -f -b "$JAR" -H "x-manager-token: $TOKEN" "http://127.0.0.1:5190$1"; }
