@@ -223,7 +223,7 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
               return filamentIds.has(c);
             }),
       }))
-      .filter((ar) => ar.alleFarben || ar.colors.length > 0);
+      .filter((ar) => ar.alleFarben || ar.colors.length > 0 || (ar.gruppen?.length ?? 0) > 0);
     if (!colorAreas.length) {
       skip(a, 'keine seiner Farben ist in der Datei beschrieben (Marke, Farbname, Hex fehlen) – bitte in der Quelle Farben zuordnen und neu exportieren');
       continue;

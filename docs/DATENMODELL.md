@@ -47,7 +47,7 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 | `filament` | Farbrolle (Marke, Linie, Farbname, Hex, verfügbar). Seit 012: `katalog_id` (ID im mitgelieferten Bambu-Lab-Katalog, NULL = eigene Rolle), `hersteller_nummer` (Bambu-Nr. bzw. freiwillige eigene Nummer), `hersteller_name` (Originalname, englisch), `weggefallen` (nicht mehr im Bambu-Katalog). Abgleich beim Start: `module/stammdaten/bambuAbgleich.ts`; Hinweis für den Admin und bekannte Katalog-IDs in `einstellung` (`bambuAbgleichHinweis`, `bambuKatalogBekannt`) |
 | `statusart` | feste Bestellstatus (Schlüssel, aktiv) – Inhalte aus dem Code, nur `aktiv` änderbar |
 | `artikel` | Druckteil (nummer, Name, Beschreibung, Preis-Text, veröffentlicht …) |
-| `artikel_farbbereich` | Farbbereiche je Artikel (Name, Sortierung, seit 013 `alle_farben`: 1 = alle Farbrollen, auch später angelegte – dann keine Einzelverweise) + `artikel_farbbereich_filament` (erlaubte Farben bei „Nur bestimmte Farben“) |
+| `artikel_farbbereich` | Farbbereiche je Artikel (Name, Sortierung, seit 013 `alle_farben`: 1 = alle Farbrollen, auch später angelegte – dann keine Einzelverweise; seit 017 `gruppen`: JSON-Liste ganzer Linien/Materialarten wie `art:PLA`, auch später angelegte Rollen) + `artikel_farbbereich_filament` (erlaubte Farben bei „Nur bestimmte Farben“) |
 | `artikel_feld` | Personalisierungsfelder je Artikel (Bezeichnung, Typ, Pflicht, max. Länge) |
 | `anfrage` | Bestellung (nummer, lehrkraft_id, artikel_id, Klasse, Menge, Bemerkung, status) |
 | `anfrage_farbe` | gewählte Farbe je Farbbereich |

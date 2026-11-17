@@ -40,7 +40,9 @@ function withIds<T extends { id: string }>(list: T[]): T[] {
 export function normalizeItemInput(input: ParsedItemInput): ItemData {
   const { colors, colorAreas, customFields, ...rest } = input;
   // „Alle Farben“: keine feste Liste speichern.
-  const areas = withIds(colorAreas ?? singleColorArea(colors ?? [])).map((a) => (a.alleFarben ? { ...a, colors: [] } : { ...a, alleFarben: false }));
+  const areas = withIds(colorAreas ?? singleColorArea(colors ?? [])).map((a) =>
+    a.alleFarben ? { ...a, colors: [], gruppen: [] } : { ...a, alleFarben: false, gruppen: a.gruppen ?? [] },
+  );
   return { ...rest, colorAreas: areas, colors: allAreaColors(areas), customFields: withIds(customFields) };
 }
 

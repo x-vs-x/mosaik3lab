@@ -104,8 +104,14 @@ export async function saveList(storage: Storage, list: MasterDataList, entries: 
           .filter((r): r is { from: string; to: string } => !!r.from && r.from !== r.to)
       : [];
 
-  // Gelöschte Einträge dürfen nicht mehr verwendet werden (Zählung per SQL)
-  for (const r of removed) {
+  // Gelöschte Farbrollen verschwinden automatisch aus den Druckteilen (vor dem Löschen, wegen des Fremdschlüssels).
+  // Andere gelöschte Einträge dürfen nicht mehr verwendet werden (Zählung per SQL).
+  if (list === 'filaments' && removed.length) {
+    const weg = new Set(removed.map((r) => r.id));
+    const betroffen = [...new Set(removed.flatMap((r) => storage.masterData.itemIdsUsing(list, r.id)))];
+    for (const id of betroffen) await storage.items.update(id, (c) => ohneFarbrollen(c, weg));
+  }
+  for (const r of list === 'filaments' ? [] : removed) {
     const usedBy = storage.masterData.countItemsUsing(list, list === 'filaments' ? r.id : (r.name ?? ''));
     if (usedBy > 0) {
       throw conflict(`${label} „${displayName(list, r)}“ wird noch von ${usedBy} Druckteil(en) verwendet und kann nicht gelöscht werden.`);
@@ -119,6 +125,19 @@ export async function saveList(storage: Storage, list: MasterDataList, entries: 
   // Umbenennungen in den Druckteilen nachziehen
   for (const id of renamedItems) await storage.items.update(id, (c) => renameIn(c, list, renamed));
   return saved.masterData;
+}
+
+/**
+ * Gelöschte Farbrollen aus allen Farbbereichen nehmen. Bleibt ein Bereich ohne Farbe und ohne Gruppe, gilt dort
+ * „Alle Farben“ – so bleibt das Druckteil bestellbar und gültig.
+ */
+export function ohneFarbrollen(item: Item, weg: Set<string>): Item {
+  const colorAreas = item.colorAreas.map((a) => {
+    if (a.alleFarben) return a;
+    const colors = a.colors.filter((c) => !weg.has(c));
+    return colors.length || a.gruppen?.length ? { ...a, colors } : { ...a, alleFarben: true, colors: [], gruppen: [] };
+  });
+  return { ...item, colorAreas, colors: [...new Set(colorAreas.flatMap((a) => a.colors))], updatedAt: new Date().toISOString() };
 }
 
 function renameIn(item: Item, list: MasterDataList, renamed: { from: string; to: string }[]): Item {

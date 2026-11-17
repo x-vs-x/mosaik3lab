@@ -2,6 +2,7 @@ import { allAreaColors, type ColorArea, type CustomField, type Item, type ItemVi
 import { all, b, bool, count, json, marks, nextNumber, one, run, str, syncRows, transaction, type Db, type Row } from '../../kern/db';
 import { conflict } from '../../kern/errors';
 import { dateiFromRow, dateiName, type Datei, type FileStore } from '../../kern/files';
+import { inGruppen } from '@mosaik3lab/shared/katalog';
 
 // Druckteile (Tabelle artikel mit Einsatzbereichen, Farbbereichen, Feldern, Videos; Dateien in Tabelle datei).
 
@@ -45,8 +46,9 @@ export class ItemRepository {
       ),
       'farbbereich_id',
     );
-    // „Alle Farben“: alle Farbrollen in der Reihenfolge der Stammdaten.
-    const alleFarbrollen = all(this.db, 'SELECT id FROM filament ORDER BY sortierung').map((r) => str(r.id));
+    // „Alle Farben“ und ganze Gruppen (Linie/Materialart): Farbrollen in der Reihenfolge der Stammdaten.
+    const rollen = all(this.db, 'SELECT id, marke, linie FROM filament ORDER BY sortierung').map((r) => ({ id: str(r.id), brand: str(r.marke), line: str(r.linie) }));
+    const alleFarbrollen = rollen.map((r) => r.id);
     const felder = group(all(this.db, `SELECT * FROM artikel_feld ${nur('artikel_id')} ORDER BY sortierung`, ...p));
     const videos = group(all(this.db, `SELECT * FROM artikel_video ${nur('artikel_id')} ORDER BY sortierung`, ...p));
     const dateien = new Map<string, Datei[]>();
@@ -57,12 +59,19 @@ export class ItemRepository {
       const id = str(r.id);
       const files = dateien.get(id) ?? [];
       const byId = new Map(files.map((d) => [d.id, d]));
-      const colorAreas: ColorArea[] = (farbbereiche.get(id) ?? []).map((a) => ({
-        id: str(a.schluessel),
-        name: str(a.name),
-        alleFarben: bool(a.alle_farben),
-        colors: bool(a.alle_farben) ? [...alleFarbrollen] : (farben.get(str(a.id)) ?? []).map((f) => str(f.filament_id)),
-      }));
+      const colorAreas: ColorArea[] = (farbbereiche.get(id) ?? []).map((a) => {
+        const gruppen = json<string[]>(a.gruppen, []);
+        const fest = (farben.get(str(a.id)) ?? []).map((f) => str(f.filament_id));
+        const ausGruppen = gruppen.length ? rollen.filter((r) => inGruppen(r, gruppen)).map((r) => r.id) : [];
+        return {
+          id: str(a.schluessel),
+          name: str(a.name),
+          alleFarben: bool(a.alle_farben),
+          ...(gruppen.length ? { gruppen } : {}),
+          // Gruppen: feste Auswahl plus alle Rollen der Gruppe (auch später angelegte).
+          colors: bool(a.alle_farben) ? [...alleFarbrollen] : [...new Set([...fest, ...ausGruppen])],
+        };
+      });
       const customFields: CustomField[] = (felder.get(id) ?? []).map((f) => ({
         id: str(f.schluessel),
         label: str(f.bezeichnung),
@@ -197,7 +206,8 @@ export class ItemRepository {
     }
     syncRows(this.db, 'artikel_einsatzbereich', 'artikel_id', item.id, 'einsatzbereich_id', areaIds);
 
-    const filaments = new Set(all(this.db, 'SELECT id FROM filament').map((r) => str(r.id)));
+    const rollen = all(this.db, 'SELECT id, marke, linie FROM filament').map((r) => ({ id: str(r.id), brand: str(r.marke), line: str(r.linie) }));
+    const filaments = new Map(rollen.map((r) => [r.id, r]));
     const areas = item.colorAreas ?? [];
     const areaRowIds = syncRows(
       this.db,
@@ -205,10 +215,13 @@ export class ItemRepository {
       'artikel_id',
       item.id,
       'schluessel',
-      areas.map((a, i) => ({ schluessel: a.id, name: a.name, sortierung: i, alle_farben: b(!!a.alleFarben) })),
+      areas.map((a, i) => ({ schluessel: a.id, name: a.name, sortierung: i, alle_farben: b(!!a.alleFarben), gruppen: JSON.stringify(a.alleFarben ? [] : (a.gruppen ?? [])) })),
     );
     for (const a of areas) {
-      const known = [...new Set(a.alleFarben ? [] : a.colors)].filter((c) => filaments.has(c) || (warn.push(`Farbrolle „${c}“ unbekannt`), false));
+      const known = [...new Set(a.alleFarben ? [] : a.colors)]
+        .filter((c) => filaments.has(c) || (warn.push(`Farbrolle „${c}“ unbekannt`), false))
+        // Von einer Gruppe abgedeckte Rollen nicht einzeln speichern – sonst blieben sie beim Abwählen der Gruppe hängen.
+        .filter((c) => !inGruppen(filaments.get(c)!, a.gruppen));
       syncRows(this.db, 'artikel_farbbereich_filament', 'farbbereich_id', areaRowIds.get(a.id)!, 'filament_id', known.map((filament_id, i) => ({ filament_id, sortierung: i })));
     }
 

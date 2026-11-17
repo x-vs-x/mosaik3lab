@@ -32,6 +32,7 @@ export function ListPanel<T extends Entry>({
   renderRow,
   toolbar,
   onDirty,
+  onSaved,
   layout = 'cards',
 }: {
   list: MasterDataList;
@@ -47,6 +48,8 @@ export function ListPanel<T extends Entry>({
   renderRow: (row: Row<T>, update: (patch: Partial<Omit<T, 'id'>>) => void, error: string | undefined) => ReactNode;
   toolbar?: (tools: PanelTools<T>) => ReactNode;
   onDirty: (dirty: boolean) => void;
+  /** Nach dem Speichern; die Rückgabe (z. B. „aus 2 Druckteilen entfernt“) wird an die Erfolgsmeldung angehängt. */
+  onSaved?: (removed: Row<T>[]) => string | undefined;
   layout?: 'cards' | 'compact';
 }) {
   const { reload } = useConfig();
@@ -140,8 +143,10 @@ export function ListPanel<T extends Entry>({
         method: 'PUT',
         body: { entries: strip(rows) },
       });
+      const removed = base.filter((b) => b.id && !rows.some((r) => r.id === b.id));
       await applySaved(res);
-      toast('success', `${title} gespeichert.`);
+      const extra = onSaved?.(removed);
+      toast('success', `${title} gespeichert.${extra ? ` ${extra}` : ''}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setSaveError({
