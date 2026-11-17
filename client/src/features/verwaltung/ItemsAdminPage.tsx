@@ -1,7 +1,8 @@
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, Eye, Pencil, Plus, Search, SearchX, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
+import { DateiLaden } from '../../components/DateiLaden';
 import { Dialog } from '../../components/Dialog';
 import { ItemImage } from '../../components/ItemImage';
 import { useToast } from '../../components/Toast';
@@ -12,6 +13,7 @@ import {
   Button,
   buttonClass,
   Card,
+  cx,
   DemoBadge,
   EmptyState,
   inputClass,
@@ -27,8 +29,8 @@ import { filamentLabel, findFilament } from '../../lib/constants';
 import { formatDuration, formatRelative, plural } from '../../lib/format';
 import { ITEM_KIND_LABELS, type Filament, type Item, type MasterData } from '../../lib/types';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
-import { passtZurSuche } from '@mosaik3lab/shared/suche';
 import { EinspielenDialog, exportUrl, MAX_AUSWAHL } from './DruckteileAustausch';
+import { ANSICHTEN, filtereDruckteile, leseAnsicht, zaehleAnsichten, type Ansicht } from './druckteilFilter';
 
 const MAX_SWATCHES = 10;
 
@@ -60,7 +62,18 @@ function ItemColors({ ids, md }: { ids: string[]; md: MasterData }) {
 export function ItemsAdminPage() {
   useDocumentTitle('Druckteile verwalten');
   const { data: items, setData, error, loading, reload } = useApi<Item[]>('/items?all=1');
-  const [q, setQ] = useState('');
+  // Suche und Ansicht in der Adresse, damit sie „Zurück“ und Neuladen überstehen (wie bei den Anfragen).
+  const [params, setParams] = useSearchParams();
+  const q = params.get('q') ?? '';
+  const ansicht = leseAnsicht(params.get('ansicht'));
+  const setParam = (key: 'q' | 'ansicht', value: string) => {
+    const next = new URLSearchParams(params);
+    if (value && !(key === 'ansicht' && value === 'alle')) next.set(key, value);
+    else next.delete(key);
+    setParams(next, { replace: true });
+  };
+  const setQ = (value: string) => setParam('q', value);
+  const setAnsicht = (value: Ansicht) => setParam('ansicht', value);
   const [toDelete, setToDelete] = useState<Item>();
   const [deleting, setDeleting] = useState(false);
   const [busyId, setBusyId] = useState<string>();
@@ -75,9 +88,9 @@ export function ItemsAdminPage() {
   const [gewaehlt, setGewaehlt] = useState<Set<string>>(new Set());
   const [einspielen, setEinspielen] = useState(false);
 
-  const filtered = useMemo(() => {
-    return (items ?? []).filter((i) => passtZurSuche([i.name, i.category, i.material, ...i.useAreas], q));
-  }, [items, q]);
+  const filtered = useMemo(() => filtereDruckteile(items ?? [], q, ansicht), [items, q, ansicht]);
+  const zahlen = useMemo(() => zaehleAnsichten(items ?? [], q), [items, q]);
+  const gefiltert = !!q.trim() || ansicht !== 'alle';
 
   // Auswahl für den Export (nur, was es noch gibt)
   const auswahl = (items ?? []).filter((i) => gewaehlt.has(i.id));
@@ -176,19 +189,45 @@ export function ItemsAdminPage() {
 
       {items && items.length > 0 && (
         <>
-          <div className="relative mb-4 max-w-md sm:mb-5">
-            <label htmlFor="admin-item-search" className="sr-only">
-              Druckteile filtern
-            </label>
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-stone-500" aria-hidden />
-            <input
-              id="admin-item-search"
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Name, Kategorie, Material …"
-              className={`${inputClass()} pl-12`}
-            />
+          <div className="mb-4 flex flex-col gap-3 sm:mb-5 lg:flex-row lg:items-center">
+            <div className="relative w-full max-w-md">
+              <label htmlFor="admin-item-search" className="sr-only">
+                Druckteile filtern
+              </label>
+              <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-stone-500" aria-hidden />
+              <input
+                id="admin-item-search"
+                type="search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Name, Kategorie, Material …"
+                className={`${inputClass()} pl-12`}
+              />
+            </div>
+            {/* Handy: eine Reihe über die ganze Breite, Zahl unter der Beschriftung; ab sm Zahl daneben */}
+            <div role="group" aria-label="Druckteile anzeigen" className="flex gap-2 sm:flex-wrap" data-testid="ansicht-filter">
+              {ANSICHTEN.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  aria-pressed={ansicht === a.id}
+                  onClick={() => setAnsicht(a.id)}
+                  data-testid={`ansicht-${a.id}`}
+                  className={cx(
+                    'inline-flex min-h-12 min-w-0 flex-auto flex-col items-center justify-center rounded-xl px-2 py-1 font-bold leading-tight ring-1 sm:min-h-11 sm:flex-none sm:flex-row sm:gap-1.5 sm:px-4',
+                    ansicht === a.id ? 'bg-brand-700 text-white ring-brand-700' : 'bg-white text-stone-700 ring-stone-300 hover:bg-stone-50',
+                  )}
+                >
+                  {a.label}
+                  <span className={cx('text-hinweis', ansicht === a.id ? 'text-white/85' : 'text-stone-500')}>
+                    <span className="sr-only">, Anzahl: </span>
+                    <span aria-hidden>(</span>
+                    {zahlen[a.id]}
+                    <span aria-hidden>)</span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {canExport && (
@@ -201,22 +240,24 @@ export function ItemsAdminPage() {
                   onChange={(e) => waehle(filtered.map((i) => i.id), e.target.checked)}
                   data-testid="auswahl-alle"
                 />
-                {q.trim() ? 'Alle Treffer auswählen' : 'Alle auswählen'}
+                {gefiltert ? `Alle ${filtered.length} Treffer auswählen` : 'Alle auswählen'}
               </label>
               <span className="text-hinweis text-stone-700 sm:text-base" role="status" aria-live="polite" data-testid="auswahl-zahl">
                 {auswahl.length === 0 ? 'Zum Exportieren Druckteile anhaken.' : alleGewaehlt ? `Alle ${items.length} ausgewählt` : `${auswahl.length} ausgewählt`}
               </span>
               <span className="flex-1" />
               {auswahl.length > 0 && (alleGewaehlt || auswahl.length <= MAX_AUSWAHL) ? (
-                <a
-                  href={exportUrl(alleGewaehlt ? undefined : auswahl.map((i) => i.id))}
-                  download
+                // Per fetch statt Link: auf dem iPad (Web-App) führte der Link in eine Dateivorschau ohne Rückweg.
+                <DateiLaden
+                  pfad={exportUrl(alleGewaehlt ? undefined : auswahl.map((i) => i.id))}
+                  ersatzname="mosaik3lab-druckteile.json"
+                  titel="Druckteile-Export"
+                  icon={ArrowDownToLine}
                   className={buttonClass('primary', 'md')}
                   data-testid="export-start"
                 >
-                  <ArrowDownToLine className="size-5 shrink-0" aria-hidden />
                   Exportieren
-                </a>
+                </DateiLaden>
               ) : (
                 <Button icon={ArrowDownToLine} disabled>
                   Exportieren
@@ -312,7 +353,23 @@ export function ItemsAdminPage() {
               </Card>
             ))}
           </ul>
-          {filtered.length === 0 && <p className="text-stone-600">Keine Treffer für „{q}“.</p>}
+          {filtered.length === 0 && (
+            <EmptyState
+              icon={SearchX}
+              title={
+                q.trim()
+                  ? `Keine Treffer für „${q.trim()}“${ansicht === 'entwurf' ? ' unter den Entwürfen' : ansicht === 'veroeffentlicht' ? ' unter den veröffentlichten' : ''}`
+                  : ansicht === 'entwurf'
+                    ? 'Keine Entwürfe – alle Druckteile sind veröffentlicht'
+                    : 'Noch kein Druckteil veröffentlicht'
+              }
+              action={
+                <Button variant="secondary" onClick={() => setParams(new URLSearchParams(), { replace: true })} data-testid="filter-zuruecksetzen">
+                  Alle Druckteile anzeigen
+                </Button>
+              }
+            />
+          )}
         </>
       )}
 
