@@ -103,6 +103,16 @@ export function zustand() {
 
 /** „Jetzt aktualisieren“: herunterladen + prüfen, Auftrag schreiben, Update-Helfer starten. Ein Klick, Rest läuft allein. */
 export async function starten() {
+  log.info(`„Jetzt aktualisieren“ gedrückt (installiert ${installiert()?.version ?? '?'}).`);
+  try {
+    return await startenIntern();
+  } catch (err) {
+    log.warn(`„Jetzt aktualisieren“ abgelehnt: ${err.message}`);
+    throw err;
+  }
+}
+
+async function startenIntern() {
   if (!istPaketInstallation()) throw new InputError('Updates per Knopfdruck gibt es für Installationen aus einem Installer-Paket.');
   const l = lauf();
   if (l?.haengt) throw new InputError(l.meldung, l.hint);
@@ -114,6 +124,7 @@ export async function starten() {
   if (!helfer.installed) throw new InputError('Für Updates per Knopfdruck fehlt der Update-Helfer (kommt mit Version 1.1.0).', 'Einmal das neue Paket per USB-Stick installieren (Installieren.cmd bzw. installieren.sh) – danach geht es hier.');
   download = { version: latest.version, done: 0, total: latest.asset?.size ?? null, startedAt: new Date().toISOString() }; // startedAt = Lauf-Kennung
   fs.mkdirSync(dir(), { recursive: true });
+  log.info(`Update ${latest.version}: Download startet (${latest.asset?.name ?? 'Paket'}).`);
   // im Hintergrund: Herunterladen kann dauern, die Seite zeigt den Fortschritt
   (async () => {
     try {

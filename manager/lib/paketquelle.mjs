@@ -20,6 +20,9 @@ export function systemPaket(plat = process.platform, arch = process.arch) {
   return null;
 }
 
+/** So lange darf ein Download ohne Antwort bzw. ohne neue Daten sein, bevor er abgebrochen wird. */
+export const STILL_MS = 90_000;
+
 const fehler = (text, hint) => Object.assign(new Error(text), { hint, friendly: true });
 
 /** Release-Liste holen (offizielle Quelle). Offline/Fehler → verständliche Meldung. */
@@ -78,16 +81,50 @@ export const sha256File = async (file) => {
 };
 
 /** Paket herunterladen (in dir) und gegen die offizielle Prüfsumme prüfen. → Pfad der Datei. */
-export async function downloadPaket(v, dir, { fetchImpl = fetch, onProgress } = {}) {
+export async function downloadPaket(v, dir, { fetchImpl = fetch, onProgress, stillMs = STILL_MS } = {}) {
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, v.asset.name);
   const part = `${file}.teil`;
-  const res = await fetchImpl(v.asset.url, { headers: { 'User-Agent': HEADERS['User-Agent'] }, signal: AbortSignal.timeout(30 * 60_000) });
-  if (!res.ok || !res.body) throw fehler(`Das Update ließ sich nicht herunterladen (Fehler ${res.status}).`, 'Internetverbindung prüfen und erneut versuchen.');
-  let done = 0;
-  const body = Readable.fromWeb(res.body);
-  body.on('data', (c) => onProgress?.((done += c.length), v.asset.size));
-  await pipeline(body, fs.createWriteStream(part));
+  // Wächter: Kommt so lange gar nichts (keine Antwort, keine Daten), wird abgebrochen – statt bis zu 30 Minuten
+  // „wird heruntergeladen …“ ohne Fortschritt (so geschehen bei 1.5.0 → 1.6.0). Gesamtlimit bleibt 30 Minuten.
+  const ctrl = new AbortController();
+  let still = null;
+  const wache = () => {
+    clearTimeout(still);
+    still = setTimeout(() => ctrl.abort(new Error('still')), stillMs);
+  };
+  const signal = AbortSignal.any([ctrl.signal, AbortSignal.timeout(30 * 60_000)]);
+  const haengt = () =>
+    fehler(
+      `Der Download kommt nicht voran (seit ${Math.round(stillMs / 1000)} Sekunden keine Daten) – es wurde nichts verändert.`,
+      'Erneut „Jetzt aktualisieren“ wählen. Klappt es wieder nicht: Internetzugang des Servers prüfen oder das Paket per USB-Stick installieren.',
+    );
+  wache();
+  try {
+    let res;
+    try {
+      res = await fetchImpl(v.asset.url, { headers: { 'User-Agent': HEADERS['User-Agent'] }, signal });
+    } catch (err) {
+      if (ctrl.signal.aborted) throw haengt();
+      throw fehler(`Das Update ließ sich nicht herunterladen (${err.cause?.code ?? err.name}).`, 'Internetverbindung prüfen und erneut versuchen.');
+    }
+    if (!res.ok || !res.body) throw fehler(`Das Update ließ sich nicht herunterladen (Fehler ${res.status}).`, 'Internetverbindung prüfen und erneut versuchen.');
+    let done = 0;
+    const body = Readable.fromWeb(res.body);
+    body.on('data', (c) => {
+      wache();
+      onProgress?.((done += c.length), v.asset.size);
+    });
+    try {
+      await pipeline(body, fs.createWriteStream(part), { signal });
+    } catch (err) {
+      fs.rmSync(part, { force: true });
+      if (ctrl.signal.aborted) throw haengt();
+      throw err.friendly ? err : fehler('Der Download wurde unterbrochen – es wurde nichts verändert.', 'Erneut „Jetzt aktualisieren“ wählen.');
+    }
+  } finally {
+    clearTimeout(still);
+  }
   const want = await officialSum(v.sums, v.asset.name, fetchImpl);
   if ((await sha256File(part)) !== want) {
     fs.rmSync(part, { force: true });

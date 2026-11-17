@@ -4,12 +4,13 @@ const TOKEN = document.querySelector('meta[name="csrf-token"]').content;
 const $ = (s) => document.querySelector(s);
 
 // ---------- Helfer ----------
-async function api(path, body) {
+async function api(path, body, { timeout } = {}) {
   // relativ zu <base href> – direkt „/api/…“, über die App-Adresse „/<pfad>/manager/api/…“
   // Abfragen enden nach 20 s (hängende Verbindung → Meldung statt ewig „wird geladen“); Aktionen (POST) dürfen dauern.
-  const opts = body === undefined ? { signal: AbortSignal.timeout(20_000) } : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Manager-Token': TOKEN }, body: JSON.stringify(body) };
+  // timeout: auch Aktionen, die sofort antworten müssen (z. B. „Jetzt aktualisieren“), enden mit Meldung statt ewig zu drehen
+  const opts = body === undefined ? { signal: AbortSignal.timeout(timeout ?? 20_000) } : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Manager-Token': TOKEN }, body: JSON.stringify(body), signal: timeout ? AbortSignal.timeout(timeout) : undefined };
   const res = await fetch(`api/${path}`, opts).catch(() => {
-    throw new Error('Der Server-Manager antwortet nicht');
+    throw Object.assign(new Error('Der Server-Manager antwortet nicht – es wurde nichts verändert.'), { hint: 'Seite neu laden und erneut versuchen. Hilft das nicht: den Dienst „Mosaik³LAB Server-Manager“ neu starten.' });
   });
   const data = await res.json().catch(() => ({}));
   if (res.status === 502 || res.status === 504) throw new Error('Der Server-Manager antwortet nicht'); // Portal/Proxy ohne Manager dahinter
@@ -121,7 +122,12 @@ function confirmBox(title, text, yes = 'Ausführen') {
   $('#confirm-title').textContent = title;
   $('#confirm-text').textContent = text;
   $('#confirm-yes').textContent = yes;
-  d.showModal();
+  // Dialog lässt sich nicht öffnen (alter Browser, schon offen): einfache Rückfrage statt still weiterdrehen
+  try {
+    d.showModal();
+  } catch {
+    return Promise.resolve(window.confirm(`${title}\n\n${text}`));
+  }
   // Direkt auf die Knöpfe hören (nicht auf „close“ – das feuert nicht in jeder Umgebung zuverlässig).
   return new Promise((resolve) => {
     const done = (ok) => (e) => {

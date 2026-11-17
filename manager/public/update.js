@@ -173,7 +173,8 @@ action($('#btn-update-now'), async () => {
   if (!ok) return false;
   updWatch = { from: u.installed?.version, restarted: false };
   try {
-    await api('update/install', {});
+    // Antwortet sofort (der Download läuft im Hintergrund) – kommt nach 30 s nichts, Meldung statt endloser Ladeanzeige
+    await api('update/install', {}, { timeout: 30_000 });
   } catch (err) {
     updWatch = null;
     throw err;
