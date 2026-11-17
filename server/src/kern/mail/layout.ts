@@ -67,13 +67,14 @@ export function fieldTable(rows: FieldRow[]) {
  * „Kugelsicherer“ Knopf: Hintergrund an der Zelle (Outlook), Innenabstand am Link (alle anderen, ganze Fläche klickbar).
  * Mindestens 48 px hoch, auf dem Handy volle Breite. Darunter der Link als Text, falls der Knopf nicht geht.
  */
-export function button(label: string, url: string) {
+export function button(label: string, url: string, nurSchulnetz = false) {
   const href = escapeHtml(url);
   return (
     `<table role="presentation" class="btn" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 16px"><tr>` +
     `<td align="center" bgcolor="${C.brand}" style="background-color:${C.brand};border-radius:8px;mso-padding-alt:14px 28px">` +
     `<a href="${href}" target="_blank" style="${FONT};display:block;padding:14px 28px;color:#ffffff;background-color:${C.brand};border-radius:8px;font-size:17px;line-height:20px;font-weight:bold;text-decoration:none;text-align:center">${escapeHtml(label)}</a>` +
     `</td></tr></table>` +
+    (nurSchulnetz ? `<p style="${FONT};margin:0 0 12px;font-size:13px;line-height:1.5;color:${C.muted}">&#9432;&nbsp;${escapeHtml(SCHULNETZ_HINWEIS)}</p>` : '') +
     `<p style="${FONT};margin:0 0 16px;font-size:13px;line-height:1.5;color:${C.muted}">Falls der Knopf nicht geht, diese Adresse im Browser öffnen:<br>` +
     `<a href="${href}" style="color:${C.brand};word-break:break-all;overflow-wrap:anywhere">${escapeHtml(url)}</a></p>`
   );
@@ -150,4 +151,8 @@ export const textFooter = (footer: string) => `--\n${footer}`;
 export const FOOTER_TEAM =
   'Automatische Nachricht von Mosaik³LAB. Sie bekommen sie, weil Ihre Adresse im Server-Manager für Benachrichtigungen eingetragen ist.';
 export const FOOTER_KONTO = 'Automatische Nachricht von Mosaik³LAB. Sie bekommen sie, weil Sie in Mosaik³LAB ein Konto mit Passwort haben.';
+/** Unter dem Knopf, wenn die Links nur im Schulnetz gehen (kern/mail/erreichbarkeit.ts). */
+export const SCHULNETZ_HINWEIS = 'Der Link funktioniert nur im Schulnetz (WLAN/LAN der Schule).';
+/** Für die Text-Fassung: Hinweiszeile oder nichts. */
+export const schulnetzText = (nurSchulnetz: boolean) => (nurSchulnetz ? [`(i) ${SCHULNETZ_HINWEIS}`] : []);
 export const NO_LINK = 'Hinweis: Im Server-Manager ist keine Adresse der App hinterlegt, daher fehlen Links.';

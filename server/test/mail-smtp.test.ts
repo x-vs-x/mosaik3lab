@@ -54,11 +54,19 @@ function smtpServer() {
         buf = buf.slice(nl + 2);
         const cmd = line.slice(0, 4).toUpperCase();
         if (cmd === 'EHLO' || cmd === 'HELO') say('250-faenger.test\r\n250 8BITMIME');
-        else if (cmd === 'MAIL') (cur.from = line), say('250 OK');
-        else if (cmd === 'RCPT') (cur.to.push(/<([^>]*)>/.exec(line)?.[1] ?? ''), say('250 OK'));
-        else if (cmd === 'DATA') (inData = true), say('354 weiter');
-        else if (cmd === 'QUIT') (say('221 Tschüss'), socket.end());
-        else say('250 OK');
+        else if (cmd === 'MAIL') {
+          cur.from = line;
+          say('250 OK');
+        } else if (cmd === 'RCPT') {
+          cur.to.push(/<([^>]*)>/.exec(line)?.[1] ?? '');
+          say('250 OK');
+        } else if (cmd === 'DATA') {
+          inData = true;
+          say('354 weiter');
+        } else if (cmd === 'QUIT') {
+          say('221 Tschüss');
+          socket.end();
+        } else say('250 OK');
       }
     });
   });
@@ -77,6 +85,7 @@ const config = (): MailConfig => ({
   from: 'Mosaik³LAB <mosaik3lab@example.test>',
   recipients: ['team@example.test', 'leitung@example.test'],
   appBaseUrl: 'http://schule.test/mosaik3lab',
+  erreichbarkeit: 'auto',
 });
 
 // --- kleiner MIME-Leser (reicht für nodemailers Ausgabe) ---------------------------------------------
@@ -84,8 +93,10 @@ const decodeQP = (s: string) => {
   const bytes: number[] = [];
   const t = s.replace(/=\r?\n/g, '');
   for (let i = 0; i < t.length; i++) {
-    if (t[i] === '=' && /^[0-9A-F]{2}$/i.test(t.slice(i + 1, i + 3))) (bytes.push(parseInt(t.slice(i + 1, i + 3), 16)), (i += 2));
-    else bytes.push(...Buffer.from(t[i], 'utf8'));
+    if (t[i] === '=' && /^[0-9A-F]{2}$/i.test(t.slice(i + 1, i + 3))) {
+      bytes.push(parseInt(t.slice(i + 1, i + 3), 16));
+      i += 2;
+    } else bytes.push(...Buffer.from(t[i], 'utf8'));
   }
   return Buffer.from(bytes).toString('utf8');
 };

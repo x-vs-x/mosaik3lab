@@ -3,10 +3,11 @@ import path from 'node:path';
 import { z } from 'zod';
 import { getBereich, hatBereich, setBetrieb } from '../betrieb';
 import type { Db } from '../db';
+import { ERREICHBARKEIT } from './erreichbarkeit';
 
 // Mail-Konfiguration in der Datenbank (Tabelle betrieb_einstellung, Bereich „mail“, Migration 006) – gepflegt
 // ausschließlich im Server-Manager. Die App liest sie nur (bei jedem Versand, ohne Neustart).
-// Schlüssel: enabled, smtp { host, port, secure, user, pass }, from, recipients[], appBaseUrl.
+// Schlüssel: enabled, smtp { host, port, secure, user, pass }, from, recipients[], appBaseUrl, erreichbarkeit.
 // Einmalige Übernahme alter Dateien (config/mail.json, settings.json → mail) siehe importLegacyMail.
 
 const isEmail = (v: string) => z.string().email().safeParse(v).success;
@@ -38,6 +39,8 @@ export const mailConfigSchema = z
       .refine((v) => !v || /^https?:\/\/[^\s"'<>]+$/i.test(v), 'appBaseUrl braucht http:// oder https://')
       .transform((v) => v.replace(/\/+$/, ''))
       .default(''),
+    /** Links nur im Schulnetz erreichbar? auto = aus appBaseUrl erkennen (siehe erreichbarkeit.ts). Unbekannte Werte = auto, nie Versand aus. */
+    erreichbarkeit: z.enum(ERREICHBARKEIT).default('auto').catch('auto'),
   })
   .superRefine((m, ctx) => {
     if (!m.enabled) return;

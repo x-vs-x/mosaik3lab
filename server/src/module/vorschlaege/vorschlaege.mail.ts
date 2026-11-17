@@ -1,9 +1,10 @@
 import { PROPOSAL_URGENCY_LABELS, type Proposal } from '../../domain/proposals';
 import type { Storage } from '../../storage';
 import type { Db } from '../../kern/db';
-import { readMailConfig, type MailConfig } from '../../kern/mail/mailConfig';
+import { readMailConfig } from '../../kern/mail/mailConfig';
+import { linksNurImSchulnetz, type MailLinks } from '../../kern/mail/erreichbarkeit';
 import { baseUrl, escapeHtml, formatMailDate, sendMail, type BuiltMail } from '../../kern/mail/mailer';
-import { badge, button, C, fieldTable, FOOTER_TEAM, html, NO_LINK, renderLayout, small, textFooter } from '../../kern/mail/layout';
+import { badge, button, C, fieldTable, FOOTER_TEAM, html, NO_LINK, renderLayout, schulnetzText, small, textFooter } from '../../kern/mail/layout';
 
 // Benachrichtigung über neue Vorschläge – an dieselben Empfänger und über denselben Versand wie neue Anfragen.
 // Links der Lehrkraft stehen nur als Text in der Mail (nicht anklickbar), Fotos werden nicht angehängt.
@@ -13,8 +14,9 @@ export function proposalAdminUrl(p: Proposal, appUrl: string) {
   return base ? `${base}/verwaltung/vorschlaege?offen=${encodeURIComponent(p.id)}` : '';
 }
 
-export function buildProposalMail(p: Proposal, settings: Pick<MailConfig, 'appBaseUrl'>): BuiltMail {
+export function buildProposalMail(p: Proposal, settings: MailLinks): BuiltMail {
   const link = proposalAdminUrl(p, settings.appBaseUrl);
+  const nurSchulnetz = !!link && linksNurImSchulnetz(settings);
   // Leere Angaben fehlen (wie bei Anfragen).
   const fields = (
     [
@@ -41,12 +43,13 @@ export function buildProposalMail(p: Proposal, settings: Pick<MailConfig, 'appBa
     ...fields.map(([l, v]) => (v.includes('\n') ? `${l}:\n${v}` : `${`${l}:`.padEnd(width)}${v}`)),
     '',
     link ? `Vorschlag öffnen: ${link}` : NO_LINK,
+    ...schulnetzText(nurSchulnetz),
     '',
     textFooter(FOOTER_TEAM),
   ].join('\n');
   const content =
     fieldTable(fields.map(([label, v]) => ({ label, valueHtml: html(v) }))) +
-    (link ? `<div style="height:16px;line-height:16px;font-size:0">&nbsp;</div>${button('Vorschlag öffnen', link)}` : small(NO_LINK));
+    (link ? `<div style="height:16px;line-height:16px;font-size:0">&nbsp;</div>${button('Vorschlag öffnen', link, nurSchulnetz)}` : small(NO_LINK));
   const htmlDoc = renderLayout({
     title: subject,
     preheader: [p.title, p.usage, PROPOSAL_URGENCY_LABELS[p.urgency]].filter(Boolean).join(' – ').replace(/[\r\n]+/g, ' '),

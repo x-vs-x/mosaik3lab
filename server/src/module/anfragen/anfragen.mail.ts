@@ -1,9 +1,10 @@
 import { initialStatus, type Filament } from '../../domain/settings';
 import type { Storage } from '../../storage';
 import { openDb, type Db } from '../../kern/db';
-import { readMailConfig, type MailConfig } from '../../kern/mail/mailConfig';
+import { readMailConfig } from '../../kern/mail/mailConfig';
 import { baseUrl, escapeHtml, formatMailDate, sendMail, type BuiltMail } from '../../kern/mail/mailer';
-import { badge, button, C, fieldTable, FONT, FOOTER_TEAM, html, NO_LINK, renderLayout, small, textFooter } from '../../kern/mail/layout';
+import { linksNurImSchulnetz, type MailLinks } from '../../kern/mail/erreichbarkeit';
+import { badge, button, C, fieldTable, FONT, FOOTER_TEAM, html, NO_LINK, renderLayout, schulnetzText, small, textFooter } from '../../kern/mail/layout';
 import type { Item, Order, OrderColorChoice } from '../../domain/types';
 import { EGAL_FARBE } from '@mosaik3lab/shared/anfragen';
 import { filamentRolle } from '@mosaik3lab/shared/stammdaten';
@@ -155,7 +156,7 @@ function orderSummary(order: Order) {
 export function buildOrderMail(
   order: Order,
   item: Item | null,
-  settings: Pick<MailConfig, 'appBaseUrl'>,
+  settings: MailLinks,
   filaments: Filament[] = [],
   options: OrderMailOptions = {},
 ): BuiltMail {
@@ -177,7 +178,8 @@ export function buildOrderMail(
     .join(' – ')
     .replace(/[\r\n]+/g, ' ');
   const replyTo = orderReplyTo(order);
-  const view: MailView = { kind, number: order.number, summary, changes, fields, link, notice: options.notice ?? '', replyTo: !!replyTo };
+  const nurSchulnetz = !!link && linksNurImSchulnetz(settings);
+  const view: MailView = { kind, number: order.number, summary, changes, fields, link, nurSchulnetz, notice: options.notice ?? '', replyTo: !!replyTo };
   return {
     subject,
     text: renderText(view),
@@ -194,6 +196,8 @@ interface MailView {
   changes: MailChange[] | null;
   fields: MailField[];
   link: string;
+  /** Hinweis „Link nur im Schulnetz“ zeigen. */
+  nurSchulnetz: boolean;
   notice: string;
   replyTo: boolean;
 }
@@ -228,7 +232,7 @@ function renderText(v: MailView) {
     const value = f.anyColor ? `${f.value} – Team wählt die Farbe` : f.value;
     lines.push(`${`${f.label}:`.padEnd(width)}${value}${href}${mark}`);
   }
-  lines.push('', v.link ? `Anfrage öffnen: ${v.link}` : NO_LINK);
+  lines.push('', v.link ? `Anfrage öffnen: ${v.link}` : NO_LINK, ...schulnetzText(v.nurSchulnetz));
   if (v.replyTo) lines.push(REPLY_HINT);
   lines.push('', textFooter(FOOTER_TEAM));
   return lines.join('\n').replace(/\n{3,}/g, '\n\n');
@@ -270,7 +274,7 @@ function renderHtml(v: MailView, subject: string, preheader: string) {
       `<div style="font-weight:bold;color:${C.changedText};margin:0 0 6px">Was hat sich geändert?</div><ul style="margin:0;padding:0 0 0 18px">${items}</ul></td></tr></table>`;
   }
 
-  const action = v.link ? spacer(16) + button('Anfrage öffnen', v.link) : spacer(8) + small(NO_LINK);
+  const action = v.link ? spacer(16) + button('Anfrage öffnen', v.link, v.nurSchulnetz) : spacer(8) + small(NO_LINK);
   const kindBadge = v.changes ? badge(v.kind, '#fde68a', C.changedText) : badge(v.kind, C.brandSoft, C.brand);
   return renderLayout({
     title: subject,

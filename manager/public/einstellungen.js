@@ -9,7 +9,7 @@ const backupForm = $('#form-backup');
 const folders = $('#form-folders');
 let loaded = {}; // Stand beim Laden
 const certText = (c) => (!c?.present ? 'Es ist noch kein Zertifikat hinterlegt.' : c.valid ? `Zertifikat: ${c.subject}, gültig bis ${c.notAfter.slice(0, 10)} (noch ${c.daysLeft} Tage)${c.warnings.length ? ` – Hinweis: ${c.warnings.join(' ')}` : ''}` : `Zertifikat nicht verwendbar: ${c.problems.join(' ')}`);
-const mailBody = (f) => ({ enabled: f.mailEnabled.checked, host: f.mailHost.value.trim(), port: Number(f.mailPort.value) || 587, secure: f.mailSecure.value === 'true', user: f.mailUser.value.trim(), from: f.mailFrom.value.trim(), recipients: f.mailRecipients.value, appBaseUrl: f.mailBaseUrl.value.trim() });
+const mailBody = (f) => ({ enabled: f.mailEnabled.checked, host: f.mailHost.value.trim(), port: Number(f.mailPort.value) || 587, secure: f.mailSecure.value === 'true', user: f.mailUser.value.trim(), from: f.mailFrom.value.trim(), recipients: f.mailRecipients.value, appBaseUrl: f.mailBaseUrl.value.trim(), erreichbarkeit: f.mailErreichbarkeit.value });
 // Der Pfad ist fest (/mosaik3lab) und nicht einstellbar – hier nur HTTPS.
 const addressBody = (f) => ({ https: f.portalHttps.checked });
 const portsBody = (f) => ({ enabled: f.portalEnabled.checked, httpPort: Number(f.portalHttpPort.value), httpsPort: Number(f.portalHttpsPort.value) });
@@ -49,6 +49,12 @@ export async function loadSettings() {
   f.mailFrom.value = m.from;
   f.mailRecipients.value = m.recipients.join(', ');
   f.mailBaseUrl.value = m.appBaseUrl;
+  f.mailErreichbarkeit.value = m.erreichbarkeit ?? 'auto';
+  // Ergebnis der Erkennung für die gespeicherte (bzw. automatische) Adresse; Widerspruch als Warnung (manager/lib/erreichbarkeit.mjs)
+  const l = m.links ?? {};
+  $('#mail-erkennung').textContent = l.erkennung ? `Erkannt: ${l.erkennung.schulnetz ? 'nur im Schulnetz' : 'auch von außerhalb'} – ${l.erkennung.grund}${l.hinweis ? ' Unter dem Knopf jeder Mail steht deshalb ein kleiner Hinweis.' : ''} ${l.httpsHinweis}`.trim() : '';
+  $('#mail-link-warnung').textContent = l.warnung ?? '';
+  $('#mail-link-warnung').hidden = !l.warnung;
   f.mailBaseUrl.placeholder = ctx.status?.addresses ? (ctx.status.addresses.network[0] ?? ctx.status.addresses.local) : '';
   $('#mail-state').textContent = m.enabled ? (m.host && m.from ? '– eingeschaltet' : '– bitte ausfüllen') : '– aus';
   $('#mail-fields').hidden = !m.enabled;

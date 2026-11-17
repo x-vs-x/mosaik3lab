@@ -5,6 +5,7 @@
 // Startet immer – auch bei kaputter Konfiguration (Standardwerte + Fehleranzeige) oder fehlenden node_modules der App.
 import http from 'node:http';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -17,6 +18,7 @@ import { transferData, hasData } from './lib/transfer.mjs';
 import { npmAudit, WHAT as RUNTIMES } from './lib/runtime.mjs';
 import { install, proposal, STEPS, ROLLBACK_STEP } from './lib/setup.mjs';
 import { pageStatus, appAddresses } from './lib/status.mjs';
+import { waehleNetzAdresse } from './lib/erreichbarkeit.mjs';
 import { startAutomation, afterChange, checkUpdates, checkRuntime, checkDrift } from './lib/auto.mjs';
 import { reconcile } from './lib/reconcile.mjs';
 import { loadCert, saveCert, removeCert, generateCert, publicCert, inspectCertCached, portalUrls } from './lib/portalcert.mjs';
@@ -241,16 +243,20 @@ const ROUTES = [
   }],
   ['GET', '/api/settings', 'Einstellungen für den Dialog', () => settings()],
   ['POST', '/api/settings', 'Einstellungen speichern { appPort, dataDir, ablageDir, moveAblage?, backupEnabled, backupDir, backupTime, backupKeep }', ({ body }) => saveSettings(body)],
-  ['GET', '/api/mail', 'E-Mail bei neuen Anfragen (ohne Passwort)', () => mailSettings()],
-  ['POST', '/api/mail', 'Mail speichern { enabled, host, port, secure, user, password?, clearPassword?, from, recipients[], appBaseUrl } – appBaseUrl leer = Adresse der App automatisch', ({ body }) => {
-    const auto = appAddresses();
-    return saveMail({ ...body, appBaseUrl: String(body.appBaseUrl ?? '').trim() || (auto.network[0] ?? auto.local).replace(/\/$/, '') });
-  }],
+  ['GET', '/api/mail', 'E-Mail bei neuen Anfragen (ohne Passwort; mit erkannter Erreichbarkeit der Links)', () => mailSettings(autoMailUrl())],
+  ['POST', '/api/mail', 'Mail speichern { enabled, host, port, secure, user, password?, clearPassword?, from, recipients[], appBaseUrl, erreichbarkeit? (auto|schulnetz|oeffentlich) } – appBaseUrl leer = Adresse der App automatisch', ({ body }) =>
+    saveMail({ ...body, appBaseUrl: String(body.appBaseUrl ?? '').trim() || autoMailUrl() })],
   ['POST', '/api/mail/test', 'Testmail senden { to? } – über das Skript der App', ({ body }) => sendTestMail(body.to?.trim() || undefined)],
   ['GET', '/api/setup', 'Vorschlag und Fortschritt der Einrichtung (paket: Text, wie man eine Paket-Installation repariert)', () => ({ proposal: proposal(), job: setupJob, paket: istPaketInstallation() ? PAKET_REPARIEREN : null })],
   ['POST', '/api/setup', 'Einrichten { input, dryRun }', ({ body }) => runSetup(body)],
   ['GET', '/api/logs', 'Letzte 100 Zeilen (?which=app|manager|backup|update|portal|helfer)', ({ query }) => tail(LOGS.includes(query.get('which')) ? query.get('which') : 'app', 100)],
 ];
+
+/** Adresse für Links in Mails, wenn keine eigene eingetragen ist (wie beim Speichern). */
+function autoMailUrl() {
+  const auto = appAddresses();
+  return (auto.network[0] ?? auto.local).replace(/\/$/, '');
+}
 
 function match(method, pathname) {
   for (const [m, pattern, , handler, isPublic] of ROUTES) {

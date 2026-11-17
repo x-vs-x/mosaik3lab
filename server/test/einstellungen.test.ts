@@ -150,7 +150,7 @@ test('Bestellmail enthält alle Angaben, HTML-escaped, mit Links und ohne Anhän
     assert.ok(m.text.includes(part), `Text enthält ${part}`);
   }
   assert.ok(m.text.includes(`http://localhost:5173/verwaltung/bestellungen?offen=${r.json.id}`));
-  assert.ok(m.html.includes(`http://localhost:5173/verwaltung/bestellungen?offen=${r.json.id}`));
+  assert.ok(m.html.includes(`href="http://localhost:5173/verwaltung/bestellungen?offen=${r.json.id}"`), 'Knopf-Link');
   assert.ok(m.html.includes(`http://localhost:5173/verwaltung/hilfsmittel/${publishedItem.id}`));
   assert.ok(m.html.includes('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;<br>Zweite Zeile &amp; mehr'));
   assert.ok(!m.html.includes('<script>'), 'keine ungefilterten Eingaben im HTML');

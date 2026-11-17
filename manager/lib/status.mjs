@@ -108,6 +108,8 @@ export async function pageStatus() {
   else if (!c.backup.encrypt) notes.push({ light: 'info', text: 'Sicherungen sind nicht verschlüsselt, enthalten aber das Mail-Passwort und die Konten.', fix: 'backup-password' });
   for (const d of auto.drift) notes.push({ light: d.status === 'fehler' ? 'error' : 'warn', text: `${d.detail} – „Abgleichen“ behebt das.`, fix: 'reconcile' });
   for (const r of auto.runtime.filter((x) => x.light === 'error')) notes.push({ light: 'error', text: `${r.title}: ${r.label}.`, fix: 'advanced' });
+  const mail = mailState();
+  if (mail.linkWarnung) notes.push({ light: 'warn', text: mail.linkWarnung, fix: 'mail' });
   const polkit = p.mode === 'installation' ? await polkitNote() : null;
   if (polkit) notes.push({ light: 'warn', text: polkit });
   if (p.mode !== 'installation') notes.push({ light: 'info', text: 'Läuft aus der Arbeitskopie – für den Dauerbetrieb unter „System“ → „Einrichten“.' });
@@ -117,7 +119,7 @@ export async function pageStatus() {
     light, label: LABEL[light], summary, services, conflict, notes,
     backups, lastBackup: backups[0] ?? null, nextBackup: bk?.running ? (nextBackupTime()?.toISOString() ?? null) : null, backupAuto: autoBackup, backupDir: p.backupDir, filesMissingNote: filesNote(),
     backupEncrypted: c.backup.encrypt && keyFileExists(), version: installedVersion(), node: process.version, mode: p.mode, network: c.app.network, appPort: c.app.port,
-    mail: mailState(), database: databaseInfo(health), addresses: external ? appAddresses(c, undefined, external) : appExternal ? { local: appExternal, network: [] } : appAddresses(c),
+    mail, database: databaseInfo(health), addresses: external ? appAddresses(c, undefined, external) : appExternal ? { local: appExternal, network: [] } : appAddresses(c),
     updates: { app: auto.update, runtime: auto.runtime.filter((x) => x.light === 'warn'), checkedAt: auto.checkedAt.update ?? auto.checkedAt.runtime ?? null },
     portal: { ...c.portal, openUrl: external ?? appExternal ?? localAppUrl(c), urls: portalUrls(c), certificate: cert },
     // Für die Oberfläche: was es auf diesem System gibt (z. B. Firewall-Hinweise, Windows-Dienstprogramm)
