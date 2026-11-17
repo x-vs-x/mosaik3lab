@@ -23,7 +23,7 @@ export function publicConfigRoutes(storage: Storage, config: AppConfig) {
 }
 
 /** /api/admin/settings – Einstellungen der App; Stammdaten hängen mit eigenem Recht darunter (module/stammdaten). */
-export function adminSettingsRoutes(storage: Storage, auth: Auth, config: AppConfig) {
+export function adminSettingsRoutes(storage: Storage, auth: Auth) {
   const router = Router();
   // Stammdaten (inkl. Bambu-Palette) können auch Druck-Team-Konten freigegeben werden; der Ablauf der Anfragen gehört zu den Einstellungen.
   const settingsRight = auth.requirePermission('settings:manage');
@@ -39,8 +39,7 @@ export function adminSettingsRoutes(storage: Storage, auth: Auth, config: AppCon
       mailStatus: s.mailStatus,
       features: s.features,
       orderForm: s.orderForm,
-      // Nur lesend: Pfade stellt der Server-Manager ein (STORAGE_DIR, ABLAGE_DIR).
-      paths: { storageDir: config.storageDir, dbFile: config.dbFile, ablageDir: config.ablageDir },
+      // Pfade gibt es hier nicht mehr: Sie gehören in den Server-Manager und gehen den Browser nichts an.
     };
   };
 

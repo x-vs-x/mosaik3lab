@@ -28,7 +28,7 @@ test('Bestellformular: erlaubte Domains speichern und anwenden', async () => {
   const r = await admin.req('PUT', '/api/admin/settings/orderform', { allowedEmailDomains: ['@Example.org', SCHOOL, SCHOOL] });
   assert.equal(r.status, 200, JSON.stringify(r.json));
   assert.deepEqual(r.json.orderForm.allowedEmailDomains, ['example.org', SCHOOL]);
-  assert.ok(r.json.masterData && r.json.mail && r.json.paths, 'Antwort wie GET /api/admin/settings');
+  assert.ok(r.json.masterData && r.json.mail, 'Antwort wie GET /api/admin/settings');
   assert.deepEqual((await anon.req('GET', '/api/config')).json.orderForm.allowedEmailDomains, ['example.org', SCHOOL]);
   assert.equal((await anon.req('POST', '/api/orders', { ...orderBody(), requesterEmail: 'gast@example.org' })).status, 201);
   await admin.req('PUT', '/api/admin/settings/orderform', { allowedEmailDomains: [SCHOOL] });
@@ -172,13 +172,10 @@ test('Mailfehler verhindert die Anfrage nicht und wird in den Einstellungen ange
     setFailMail(false);
   }
 });
-test('Pfade werden nur angezeigt (eingestellt im Server-Manager)', async () => {
+test('Pfade stehen nicht in den App-Einstellungen (nur im Server-Manager)', async () => {
   const r = await admin.req('GET', '/api/admin/settings');
-  assert.deepEqual(r.json.paths, {
-    storageDir: srv.storageDir,
-    dbFile: path.join(srv.storageDir, 'mosaik3lab.db'),
-    ablageDir: path.join(srv.storageDir, 'ablage'),
-  });
+  assert.equal(r.json.paths, undefined);
+  assert.ok(!JSON.stringify(r.json).includes(srv.storageDir), 'kein Serverpfad im Browser');
   assert.equal((await admin.req('PUT', '/api/admin/settings/paths', { ablageDir: srv.storageDir })).status, 404);
 });
 type TestStorage = Awaited<ReturnType<typeof storageAt>>['storage'];

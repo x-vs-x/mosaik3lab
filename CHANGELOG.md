@@ -14,6 +14,10 @@ daraus die nächste Version.
   nicht mehr über einen Ordner, den der Dienstbenutzer ändern kann. Deinstallieren übernimmt nur passende Einträge.
 - **Sicherheit (Windows):** Liegt der Programmordner nicht unter „Programme“, setzt die Einrichtung ausdrücklich, dass nur
   Administratoren und System dort schreiben (der Update-Helfer startet Programm und Dienstdateien als System).
+- **Einstellungen aufgeräumt:** Ablagepfade und Mailserver-Status stehen nicht mehr in den App-Einstellungen – das regelt
+  der Server-Manager (Knopf „Server-Manager öffnen“ bleibt). Ist der Mailversand fehlerhaft oder zuletzt gescheitert,
+  erscheint dort ein Hinweis. Serverpfade werden nicht mehr an den Browser geschickt.
+
 - **Anfrage angemeldet:** Wer angemeldet ist (Lehrkraft, Admin, Druck-Team), sieht im Anfrageformular die eigene E-Mail
   fest eingetragen („Ihre Schul-E-Mail (angemeldet)“). Der Server nimmt immer diese Adresse – so landet jede Anfrage
   sicher unter „Meine Anfragen“, auch wenn ein alter Entwurf eine andere Adresse enthielt. Ohne Anmeldung unverändert.

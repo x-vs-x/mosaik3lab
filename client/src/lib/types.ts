@@ -17,7 +17,7 @@ export type { Category, ColorKey, Filament, IconKey, MasterData, SimpleEntry, Ba
 /** Listen der Stammdaten-Seite (inkl. Bestellstatus, die nur an-/ausgeschaltet werden). */
 export type MasterDataList = keyof MasterData;
 
-export type { AdminSettings, Features, MailInfoView, OrderFormSettings, PathSet, PublicConfig } from '@mosaik3lab/shared/einstellungen';
+export type { AdminSettings, Features, MailInfoView, OrderFormSettings, PublicConfig } from '@mosaik3lab/shared/einstellungen';
 
 export { ITEM_KIND_LABELS } from '@mosaik3lab/shared/katalog';
 export type { ColorArea, CustomField, CustomFieldType, ItemInput, ItemKind, ItemVideo, ModelFile, ItemView as Item } from '@mosaik3lab/shared/katalog';
