@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.6.1] – 2026-11-17
+
 - **Update per Knopfdruck hängt nicht mehr endlos:** Kommt beim Herunterladen 90 Sekunden lang nichts an, bricht der
   Server-Manager mit einer klaren Meldung ab (vorher bis zu 30 Minuten Ladeanzeige ohne Hinweis). Der Start des Downloads
   steht jetzt im Protokoll. Der automatische Installer-Test drückt „Jetzt aktualisieren“ jetzt mit dem echten Code des
