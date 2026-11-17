@@ -23,9 +23,9 @@ geht mit der **E-Mail-Adresse**:
   und Druckdateien; „Einspielen …“ zeigt erst eine Vorschau und fragt nur, ob vorhandene Druckteile übersprungen oder ersetzt werden. Alles oder
   nichts, vorher automatische Sicherung, fehlende Kategorien/Materialien/Farben werden angelegt. Ohne Anfragen, Lehrkräfte und Konten. Auch für das
   Druck-Team. Anleitung: [docs/ANLEITUNG-DRUCKTEILE-UND-SICHERUNG.md](docs/ANLEITUNG-DRUCKTEILE-UND-SICHERUNG.md). Größenlimit: `IMPORT_MAX_MB` (Standard 1024).
-- **Einstellungen:** SMTP-Mailserver für eine Benachrichtigung bei jeder neuen Anfrage (mit Testmail),
-  erlaubte E-Mail-Domains fürs Bestellformular, Anzeige der **Ablagepfade** (eingestellt im Server-Manager)
-  sowie Schalter für spätere Funktionen (z. B. Statusanzeige für Lehrkräfte).
+- **Einstellungen:** erlaubte E-Mail-Domains fürs Bestellformular, Ablauf der Anfragen, Schalter für spätere
+  Funktionen (z. B. Statusanzeige für Lehrkräfte) und für Administratoren der Knopf zum Server-Manager. Mailserver,
+  Ordner, Sicherungen und Updates stellt nur der Server-Manager ein.
 
 Architektur und API-Vertrag: [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md).
 
