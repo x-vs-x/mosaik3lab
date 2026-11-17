@@ -6,6 +6,21 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Anfrage stellen:** Fehlt die Farbe oder Größe, springt „Anfrage senden“ jetzt direkt zur Auswahl (vorher blieb der
+  Fokus auf dem Knopf – wichtig für Tastatur und Taster). Angemeldete Lehrkräfte finden immer ihre eigene Adresse im
+  Formular, auch wenn die Seite langsam lädt (vorher konnte am gemeinsamen PC die zuletzt benutzte Adresse einer anderen
+  Person stehen bleiben). „Erneut anfragen“ zeigt die frühere Farbe auch dann ausgewählt, wenn es sie in zwei Rollen gibt.
+- **Vorschläge:** Ein in ein Druckteil umgewandelter Vorschlag bleibt „Umgesetzt“, solange der Entwurf im Katalog steht
+  (vorher ließ er sich auf „Neu“ oder „Abgelehnt“ zurücksetzen). Nach dem Speichern einer Antwort ist „Speichern“ wieder
+  aus. Die Adresse der Lehrkraft verlinkt nur noch auf ihre Anfragen, wenn man Anfragen sehen darf.
+- **Druckteile einspielen:** Neu angelegte Kategorien, Materialien und Farben erscheinen sofort, ohne die Seite neu zu laden.
+- **Farbrollen:** Der Hinweis „können gerade nicht angefragt werden“ nennt auch mehrfarbige Druckteile, bei denen nur ein
+  Farbbereich leer ist.
+- **Anmeldung:** Druck-Team-Mitglieder mit einzelnen Rechten (z. B. nur Farbrollen) kommen nach der Anmeldung auf die
+  vorher aufgerufene Verwaltungsseite statt in den Katalog. Am Handy erscheint „Vorschläge“ unten nicht mehr doppelt.
+- **Bedienung:** Dialoge schließen nicht mehr, wenn man beim Markieren von Text über den Rand hinauszieht. Die Schalter
+  „Veröffentlicht“ in der Druckteil-Liste nennen für Screenreader das Druckteil.
+
 ## [1.3.0] – 2026-11-16
 
 - **Server-Manager:** Bietet bei einer Paket-Installation kein Git-Update mehr an (Git wird dafür nicht gebraucht – vorher

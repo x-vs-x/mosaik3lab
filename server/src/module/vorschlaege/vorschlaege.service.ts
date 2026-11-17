@@ -101,7 +101,15 @@ export async function answerProposal(storage: Storage, id: string, status: Propo
   if (status === 'abgelehnt' && !reply) {
     throw badRequest('Bitte der Lehrkraft kurz erklären, warum der Vorschlag abgelehnt wird.', { reply: 'Bei „Abgelehnt“ bitte eine Antwort schreiben' });
   }
-  const updated = await storage.proposals.update(id, (c) => ({ ...c, status, reply, updatedByUserId: user.id, updatedAt: new Date().toISOString() }));
+  const updated = await storage.proposals.update(id, (c) => {
+    // Umgewandelt = es gibt den Entwurf im Katalog; „Neu“ oder „Abgelehnt“ widerspräche dem. Erst den Entwurf löschen.
+    if (c.itemId && status !== 'umgesetzt') {
+      throw conflict('Dieser Vorschlag ist schon in ein Druckteil umgewandelt. Für einen anderen Status bitte zuerst den Entwurf unter „Druckteile verwalten“ löschen.', {
+        status: 'Bereits umgewandelt',
+      });
+    }
+    return { ...c, status, reply, updatedByUserId: user.id, updatedAt: new Date().toISOString() };
+  });
   if (!updated) throw notFound('Vorschlag nicht gefunden.');
   return updated;
 }

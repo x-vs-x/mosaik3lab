@@ -7,6 +7,7 @@ import { Alert, Button, Field, Input, Email } from '../../components/ui';
 import { api, ApiError } from '../../lib/api';
 import { useConfig } from '../../lib/config';
 import { cookiesWork } from '../../lib/cookies';
+import { zielNachAnmeldung } from '../../lib/anmeldeZiel';
 import { CookieHinweis } from './CookieHinweis';
 import { useDocumentTitle } from '../../lib/useApi';
 
@@ -34,19 +35,7 @@ export function LoginPage() {
   // (bzw. jeweils zurück zur vorher aufgerufenen Seite, sofern sie dafür freigegeben ist).
   if (user) {
     // Druck-Team mit Einzelrechten ohne Übersicht: erste freigegebene Verwaltungsseite.
-    const adminHome = can('dashboard:view')
-      ? '/verwaltung'
-      : can('orders:view')
-        ? '/verwaltung/bestellungen'
-        : can('catalog:view')
-          ? '/verwaltung/hilfsmittel'
-          : undefined;
-    const target = adminHome
-      ? (from ?? adminHome)
-      : from && !from.startsWith('/verwaltung')
-        ? from
-        : '/katalog';
-    return <Navigate to={target} replace />;
+    return <Navigate to={zielNachAnmeldung(from, can)} replace />;
   }
 
   const run = async (action: () => Promise<void>) => {

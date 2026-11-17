@@ -7,7 +7,8 @@ import { EntwurfHinweis } from '../../components/EntwurfHinweis';
 import { Alert, Button, Field, Input, LinkButton, Textarea } from '../../components/ui';
 import { api, ApiError } from '../../lib/api';
 import { useConfig, useMasterData } from '../../lib/config';
-import { initialColorChoice, itemColorAreas } from '../../lib/colors';
+import { aufAngeboteneFarben, initialColorChoice, itemColorAreas } from '../../lib/colors';
+import { ersteFehlerstelle } from '../../lib/fokus';
 import { entwurfSchluessel } from '../../lib/entwurfSpeicher';
 import { getProfile, saveProfile } from '../../lib/guestOrders';
 import type { Item, OrderInput, OrderReceipt, RequestTemplate } from '../../lib/types';
@@ -79,8 +80,8 @@ export function RequestDialog({
   // Zeile 1 = bisherige Anzahl + Farbe; weitere Zeilen = weitere Farben (z. B. 3 × Blau, 4 × Gelb).
   const initialRows = (): ColorRowValue[] =>
     template?.variants?.length
-      ? template.variants.map((v) => ({ quantity: v.quantity, colors: { ...initialColorChoice(areas), ...v.colors } }))
-      : [{ quantity: template?.quantity ?? 1, colors: { ...initialColorChoice(areas), ...template?.colors } }];
+      ? template.variants.map((v) => ({ quantity: v.quantity, colors: { ...initialColorChoice(areas), ...aufAngeboteneFarben(areas, v.colors, md) } }))
+      : [{ quantity: template?.quantity ?? 1, colors: { ...initialColorChoice(areas), ...aufAngeboteneFarben(areas, template?.colors ?? {}, md) } }];
   const [rows, setRows] = useState<ColorRowValue[]>(initialRows);
   const total = rows.reduce((n, r) => n + r.quantity, 0);
   const [locked, setLocked] = useState(false);
@@ -103,6 +104,12 @@ export function RequestDialog({
     setSize(d.size);
     setCustomization(d.customization);
   }, []);
+  // Die Anmeldung kann erst nach dem Druckteil geladen sein: Dann trüge das Feld noch die zuletzt auf diesem Gerät
+  // benutzte Adresse (am gemeinsamen PC die einer anderen Lehrkraft). Ein Entwurf (useEntwurf, danach) hat Vorrang.
+  const teacherEmail = !authLoading && can('orders:own') && user ? user.email : undefined;
+  useEffect(() => {
+    if (teacherEmail) setRequesterEmail(teacherEmail);
+  }, [teacherEmail]);
   const draftKey = template && edit ? `aendern-${template.orderId}` : template?.orderId;
   const entwurf = useEntwurf(anfrageEntwurfSchluessel(item.id, user?.id, draftKey), draftValue, applyDraft, {
     ready: !authLoading,
@@ -171,7 +178,7 @@ export function RequestDialog({
       setFormError('Bitte prüfen Sie die markierten Angaben.');
       // Direkt zum ersten fehlenden Feld (spart Tab-Wege, wichtig mit Tastatur oder Taster)
       const form = e.currentTarget as HTMLFormElement;
-      requestAnimationFrame(() => form.querySelector<HTMLElement>('[aria-invalid="true"], input[type="radio"][required]:invalid')?.focus());
+      requestAnimationFrame(() => ersteFehlerstelle<HTMLElement>(form)?.focus());
       return;
     }
 

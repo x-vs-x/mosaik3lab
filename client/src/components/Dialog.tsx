@@ -23,6 +23,7 @@ export function Dialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const pressedOnBackdrop = useRef(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -46,8 +47,14 @@ export function Dialog({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
+      // Klick auf den Hintergrund schließt – aber nur, wenn er dort auch begann. Sonst schlösse ein Markieren von Text,
+      // das über den Rand hinaus gezogen wird, den Dialog (und Eingaben gingen verloren).
+      onPointerDown={(e) => {
+        pressedOnBackdrop.current = e.target === ref.current;
+      }}
       onClick={(e) => {
-        if (e.target === ref.current) onClose(); // Klick auf den Hintergrund
+        if (e.target === ref.current && pressedOnBackdrop.current) onClose();
+        pressedOnBackdrop.current = false;
       }}
       className={cx(
         'dialog m-auto max-h-[94dvh] w-[calc(100%-1rem)] overflow-visible rounded-2xl bg-transparent p-0 sm:max-h-[92dvh] sm:w-[calc(100%-1.5rem)] sm:rounded-3xl',
