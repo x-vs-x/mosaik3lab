@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.5.0] – 2026-11-17
+
 - **Server-Manager neu gestaltet:** ruhiger und klarer – helle Steinflächen, App-Rot nur für die wichtigsten Knöpfe,
   klare Schriftstufen, runde Knöpfe mit großen Tippflächen, kürzere Texte (Erklärungen zum Aufklappen), Sicherungen als
   übersichtliche Liste, Status als Punkt mit Wort. Reiterleiste auf dem Handy waagrecht wischbar, Dialoge auf dem Handy
