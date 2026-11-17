@@ -79,7 +79,8 @@ export function CatalogPage() {
               type="search"
               value={q}
               onChange={(e) => update('q', e.target.value)}
-              placeholder="Suchen, z. B. „Stift“ oder „Essen“"
+              // Kurz genug für 320 px breite Handys (vorher „… oder „Essen““ abgeschnitten).
+              placeholder="Suchen, z. B. „Stift“"
               className="block min-h-11 w-full rounded-xl border border-stone-300 bg-stone-50/60 pl-12 pr-4 text-base sm:min-h-13 sm:rounded-2xl placeholder:text-stone-500 hover:border-stone-400 focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-600/20"
             />
           </div>

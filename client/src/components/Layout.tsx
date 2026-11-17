@@ -38,6 +38,8 @@ interface NavItem {
   to: string;
   label: string;
   shortLabel?: string;
+  /** Noch kürzer für die untere Leiste unter 390 px (fünf Einträge, z. B. 320–375 px); Screenreader hören weiter den Kurznamen. */
+  tinyLabel?: string;
   icon: LucideIcon;
   permission?: Permission;
   end?: boolean;
@@ -270,7 +272,7 @@ export function Layout() {
     // Ist die erste freigegebene Seite selbst „Vorschläge“, nur einmal zeigen (mit Zahl neuer Vorschläge).
     ...(adminStart && adminStart.to !== '/verwaltung/vorschlaege' ? [{ ...adminStart, shortLabel: 'Verwaltung', icon: Wrench }] : []),
     // Team: Vorschläge direkt erreichbar, mit Zahl neuer Vorschläge.
-    ...ADMIN_NAV.filter((i) => i.to === '/verwaltung/vorschlaege' && teamProposals).map((i) => ({ ...i, shortLabel: 'Vorschläge', badge: newProposals })),
+    ...ADMIN_NAV.filter((i) => i.to === '/verwaltung/vorschlaege' && teamProposals).map((i) => ({ ...i, shortLabel: 'Vorschläge', tinyLabel: 'Ideen', badge: newProposals })),
     ...(user ? [{ to: '/konto', label: 'Mein Konto', shortLabel: 'Konto', icon: UserRound }] : []),
   ];
 
@@ -355,7 +357,13 @@ export function Layout() {
                       <item.icon className="size-6" aria-hidden />
                       <CountBadge count={item.badge} className="absolute -right-0.5 -top-1.5 min-w-5 px-1 text-[0.7rem]" />
                     </span>
-                    <span className="max-w-full wrap-anywhere">{item.shortLabel ?? item.label}</span>
+                    {/* Unter 390 px (bis iPhone SE/mini) ggf. noch kürzer sichtbar; der übliche Name bleibt für Screenreader (sr-only) der Name des Links. */}
+                    <span className={cx('max-w-full wrap-anywhere', item.tinyLabel && 'max-[389px]:sr-only')}>{item.shortLabel ?? item.label}</span>
+                    {item.tinyLabel && (
+                      <span className="hidden max-w-full wrap-anywhere max-[389px]:inline" aria-hidden>
+                        {item.tinyLabel}
+                      </span>
+                    )}
                   </>
                 )}
               </NavLink>

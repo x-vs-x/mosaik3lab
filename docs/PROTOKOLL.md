@@ -10,6 +10,19 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 - **Aufgeräumt:** …
 -->
 
+## 2026-11-17 – Kleinigkeiten Handy (Unter-Session session-2, Branch: fix/kleinigkeiten-handy)
+- **Gebaut:** untere Leiste: neues Feld `tinyLabel` (nur „Vorschläge“ → „Ideen“, sichtbar unter 390 px; „Vorschläge“ bleibt
+  als `sr-only` der Name des Links, die Zahl neuer Vorschläge bleibt im Namen). Katalogsuche: Platzhalter „Suchen, z. B.
+  „Stift““ (Label „Druckteile suchen“ unverändert). Dialog „Rechte ändern“: `Haekchen` als eine `<label>`-Zeile (min. 44 px,
+  Hover, Fokusrahmen per `has-focus-visible` um die ganze Zeile), `input` mit `id`/`htmlFor` und `aria-describedby` wie bisher.
+- **Dateien:** `client/src/components/Layout.tsx`, `client/src/features/katalog/CatalogPage.tsx`,
+  `client/src/features/verwaltung/PersonDialogs.tsx`, `CHANGELOG.md`.
+- **Gemessen (Admin, 5 Einträge):** kleinster Abstand zwischen Beschriftungen bei 320 px 9,3 px (vorher 3,9), 360 px 11 px
+  (vorher 4,9), 375 px 14 px, 820 px 41 px; Links 64–75 px breit, 60 px hoch. Platzhalter bei 320 px 126 von 211 px (vorher
+  215 px, abgeschnitten). Häkchen-Zeilen 75–113 px (320 px) bzw. 57–77 px (820 px) hoch. Kein waagrechtes Scrollen.
+- **Geprüft:** typecheck ✔ · lint ✔ (0 Fehler) · test ✔ · im Browser ✔ (320, 360, 375, 820, 1366 px)
+- **Aufgeräumt:** Dev-Server (5182/3012) gestoppt, `C:\Entwicklung\_testdaten\session-2` gelöscht.
+
 ## 2026-11-17 – Mails neu gestaltet, Hinweis „nur im Schulnetz“ (Unter-Session, Branch: feature/mails-neu)
 - **Gebaut:** gemeinsames Mail-Layout `server/src/kern/mail/layout.ts` (Tabellen, Inline-Styles, max. 600 px, Handy-Regeln,
   kugelsicherer Knopf, Link als Text, Preheader, Fuß mit Grund); alle Mailarten umgestellt (`anfragen.mail.ts`,
@@ -23,6 +36,7 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   kommen an (`smtp-faenger.mjs`, `mail-pruefen.mjs`, `pruefen.sh mail-*`).
 - **Geprüft:** typecheck ✔ · lint ✔ · test ✔ · Vorschau bei 375/768/1280 px ✔
 - **Aufgeräumt:** Vorschau-Ordner `_testdatenmail-vorschau`, Test-Manager-Ordner gelöscht.
+
 ## 2026-11-17 – Ansichten-Prüfung (Unter-Session session-2, Branch: fix/ansichten-pruefung)
 - **Geprüft:** alle Seiten und Dialoge der Web-App in 320×568, 375×812, 667×375, 820×1180, 1180×820 und 1366×900, als
   Besucher, Lehrkraft, Druck-Team und Administrator – inklusive leerer Zustände, Fehler (Pflichtfelder, falsches Passwort,
