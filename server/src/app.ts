@@ -11,6 +11,7 @@ import { RepositorySessionStore } from './kern/auth/sessionStore';
 import { SESSION_COOKIE, sessionCookieGuard } from './kern/auth/sessionCookie';
 import type { AppConfig } from './config';
 import { indexHtmlHandler } from './basePath';
+import { iconRoutes } from './appIcons';
 import { HttpError } from './kern/errors';
 import { authRoutes, personRoutes } from './module/konten/konten.routes';
 import { fileRoutes, itemRoutes } from './module/katalog/katalog.routes';
@@ -132,6 +133,8 @@ export async function createApp(config: AppConfig) {
         },
       }),
     );
+    // Apple-Icon-Varianten (iOS fragt feste Namen ab); fehlende Bild-/Icon-Datei → 404 statt der Startseite
+    app.use(iconRoutes(config.clientDistDir));
     // Fehlende Programmdatei (z. B. alter Tab nach einem Update) → 404 statt der Startseite als „JavaScript“ (leere Seite).
     app.use('/assets', (_req, res) => res.status(404).type('text').send('Datei nicht gefunden – bitte die Seite neu laden.'));
     app.get(/^\/(?!api\/).*/, indexHtmlHandler(config.clientDistDir, config.basePath));

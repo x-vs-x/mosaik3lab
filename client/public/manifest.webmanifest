@@ -3,6 +3,7 @@
   "short_name": "Mosaik³LAB",
   "description": "3D-gedruckte Hilfs- und Lehrmittel für die Schule",
   "lang": "de",
+  "id": "/mosaik3lab/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

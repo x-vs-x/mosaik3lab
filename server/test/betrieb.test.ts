@@ -50,8 +50,10 @@ test('Demo-Regel wie im Server-Manager: Entwicklung erlaubt, installiert nur mit
 
 const fakeDist = await fs.mkdtemp(path.join(os.tmpdir(), 'mosaik3lab-dist-'));
 await fs.mkdir(path.join(fakeDist, 'assets'), { recursive: true });
-await fs.writeFile(path.join(fakeDist, 'index.html'), '<!doctype html><html><head><base href="/" /><link rel="icon" href="./favicon.svg" /></head><body><div id="root"></div><script type="module" src="./assets/a.js"></script></body></html>');
+await fs.writeFile(path.join(fakeDist, 'index.html'), '<!doctype html><html><head><base href="/" /><link rel="icon" href="./favicon.svg" /><link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" /><link rel="manifest" href="./manifest.webmanifest" /></head><body><div id="root"></div><script type="module" src="./assets/a.js"></script></body></html>');
 await fs.writeFile(path.join(fakeDist, 'assets', 'a.js'), 'console.log(1)');
+await fs.copyFile(path.join(import.meta.dirname, '..', '..', 'client', 'public', 'apple-touch-icon.png'), path.join(fakeDist, 'apple-touch-icon.png'));
+await fs.copyFile(path.join(import.meta.dirname, '..', '..', 'client', 'public', 'favicon.ico'), path.join(fakeDist, 'favicon.ico'));
 const noRedirect = (url: string, headers: Record<string, string> = {}) => fetch(url, { redirect: 'manual', headers });
 test('Ohne Basis-Pfad: App unter /, keine HTTPS-Anweisungen im LAN (W1), kein HSTS', async () => {
   const plain = await startServer({ allowDemoAccounts: true, seedDemoData: false, clientDistDir: fakeDist });
@@ -120,6 +122,56 @@ test('Mit Basis-Pfad /mosaik3lab: alles darunter, Cookie-Pfad, Weiterleitungen',
     assert.ok(!/;\s*Secure/i.test(login.headers.get('set-cookie') ?? ''), 'ohne HTTPS kein Secure-Cookie');
   } finally {
     await sub.stop();
+  }
+});
+test('App-Icons (Home-Bildschirm iPhone/iPad, Tab): absolute Pfade, Bilder statt Startseite, fehlende Bilder 404', async () => {
+  const sub = await startServer({ allowDemoAccounts: true, seedDemoData: false, clientDistDir: fakeDist, basePath: '/mosaik3lab' });
+  try {
+    // wie Safari auf dem iPhone beim „Zum Home-Bildschirm“: ohne Cookies, auch von einer tiefen Seite aus
+    const ios = { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' };
+    const html = await (await noRedirect(`${sub.base}/mosaik3lab/katalog/123`, ios)).text();
+    assert.ok(html.includes('<link rel="apple-touch-icon" sizes="180x180" href="/mosaik3lab/apple-touch-icon.png" />'), 'Icon-Pfad absolut mit Basis-Pfad');
+    assert.ok(html.includes('href="/mosaik3lab/manifest.webmanifest"'));
+    assert.ok(html.includes('<script type="module" src="./assets/a.js">'), 'Skripte bleiben relativ (über <base>)');
+    for (const p of ['apple-touch-icon.png', 'apple-touch-icon-precomposed.png', 'apple-touch-icon-180x180-precomposed.png', 'favicon.ico']) {
+      const r = await noRedirect(`${sub.base}/mosaik3lab/${p}`, ios);
+      assert.equal(r.status, 200, p);
+      assert.match(r.headers.get('content-type') ?? '', /^image\//, p);
+    }
+    for (const p of ['fehlt.png', 'katalog/123/apple-touch-icon.png', 'icon-999.png', 'alt.webmanifest']) {
+      assert.equal((await noRedirect(`${sub.base}/mosaik3lab/${p}`, ios)).status, 404, `${p}: fehlende Bilddatei nicht als Startseite`);
+    }
+  } finally {
+    await sub.stop();
+  }
+});
+test('Manifest und Icon-Dateien: gültig, Größen stimmen, Home-Bildschirm-Icons ohne Transparenz', async () => {
+  const pub = path.join(import.meta.dirname, '..', '..', 'client', 'public');
+  const m = JSON.parse(await fs.readFile(path.join(pub, 'manifest.webmanifest'), 'utf8'));
+  assert.equal(m.name, 'Mosaik³LAB');
+  assert.equal(m.id, '/mosaik3lab/', 'wie Chromes Vorgabe aus start_url – bestehende Installationen bleiben dieselbe App');
+  assert.equal(m.start_url, './', 'relativ zur Manifest-Adresse → /mosaik3lab/');
+  assert.equal(m.scope, './');
+  assert.equal(m.display, 'standalone');
+  const png = async (file: string) => {
+    const b = await fs.readFile(path.join(pub, file));
+    assert.equal(b.subarray(1, 4).toString(), 'PNG', file);
+    return { w: b.readUInt32BE(16), h: b.readUInt32BE(20), farbtyp: b[25] };
+  };
+  for (const icon of m.icons as { src: string; sizes: string; purpose: string }[]) {
+    const { w, h } = await png(icon.src);
+    assert.equal(`${w}x${h}`, icon.sizes, icon.src);
+  }
+  assert.ok(m.icons.some((i: { purpose: string }) => i.purpose === 'maskable'));
+  const touch = await png('apple-touch-icon.png');
+  assert.deepEqual([touch.w, touch.h], [180, 180]);
+  const ico = await fs.readFile(path.join(pub, 'favicon.ico'));
+  assert.deepEqual([ico.readUInt16LE(0), ico.readUInt16LE(2)], [0, 1], 'echte .ico-Datei');
+  // Deckend: iOS füllt transparente Flächen schwarz. Prüfung über die Pixel (pngjs), nicht nur den Farbtyp.
+  const { PNG } = await import('pngjs');
+  for (const f of ['apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png']) {
+    const { data } = PNG.sync.read(await fs.readFile(path.join(pub, f)));
+    for (let i = 3; i < data.length; i += 4) if (data[i] !== 255) assert.fail(`${f}: transparenter Bildpunkt`);
   }
 });
 test('Hinter dem Portal über HTTPS: Cookie „Secure“ (X-Forwarded-Proto nur von localhost), HSTS und upgrade-insecure-requests', async () => {
