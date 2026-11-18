@@ -12,7 +12,8 @@ import { badRequest, HttpError } from '../../kern/errors';
 import { param } from '../../kern/http';
 import { rateLimit } from '../../kern/rateLimit';
 import { ImportAblauf } from './datenaustausch.ablauf';
-import { erzeugeExport, MAX_AUSWAHL } from './datenaustausch.export';
+import { importAusfuehrenSchema, MAX_EXPORT_AUSWAHL as MAX_AUSWAHL } from '@mosaik3lab/shared/datenaustausch';
+import { erzeugeExport } from './datenaustausch.export';
 import { ID } from './datenaustausch.paket';
 import type { Storage } from '../../storage';
 
@@ -24,11 +25,6 @@ import type { Storage } from '../../storage';
 //   DELETE /import/:id               Vorschau verwerfen
 // Siehe datenaustausch.export.ts (Format), datenaustausch.paket.ts (Lesen/Prüfen), datenaustausch.ablauf.ts (wartende
 // Vorschauen, Sicherung) und datenaustausch.service.ts (Rechnen in einer Transaktion).
-
-const ausfuehrenSchema = z.object({
-  importId: z.string().regex(/^[a-f0-9]{32}$/, 'Die Vorschau ist abgelaufen. Bitte die Datei erneut auswählen.'),
-  modus: z.enum(['ueberspringen', 'ersetzen']).default('ueberspringen'),
-});
 
 /** `?artikel=id1,id2` – Auswahl für den Teil-Export (Länge begrenzt, damit die Adresse nicht zu lang wird). */
 const artikelQuery = z
@@ -98,7 +94,7 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
   });
 
   router.post('/import/ausfuehren', auth.requirePermission('daten:import'), importLimit, async (req, res) => {
-    const body = ausfuehrenSchema.parse(req.body);
+    const body = importAusfuehrenSchema.parse(req.body);
     res.json(await ablauf.ausfuehren(body.importId, body.modus, req.user!));
   });
 

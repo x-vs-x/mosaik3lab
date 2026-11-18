@@ -9,6 +9,7 @@ import type { Storage } from '../../storage';
 import type { Paket } from './datenaustausch.export';
 import { leseKopf, pruefeDateien, type DateiInfo } from './datenaustausch.paket';
 import { fuehreAus, vorschau, type Bericht, type Modus } from './datenaustausch.service';
+import type { ImportErgebnis, ImportVorschau } from '@mosaik3lab/shared/datenaustausch';
 
 // Ablauf des Einspielens über zwei Anfragen: Datei hochladen → Vorschau (wartet bis zu 30 Minuten) → ausführen oder
 // verwerfen. Hier liegen die wartenden Vorschauen, das Aufräumen, die Sperre „nur ein Import gleichzeitig“ und die
@@ -64,7 +65,7 @@ export class ImportAblauf {
   }
 
   /** Hochgeladene Datei prüfen und für beide Modi durchrechnen; die Datei wartet danach auf „ausführen“. */
-  async vorschauAnlegen(file: { path: string; size: number }, nutzerId: string) {
+  async vorschauAnlegen(file: { path: string; size: number }, nutzerId: string): Promise<ImportVorschau> {
     let behalten = false;
     try {
       await this.aufraeumen();
@@ -107,7 +108,7 @@ export class ImportAblauf {
   }
 
   /** Einspielen: vorher die Datenbank sichern, dann alles oder nichts. */
-  async ausfuehren(importId: string, modus: Modus, nutzer: { id: string; email: string }) {
+  async ausfuehren(importId: string, modus: Modus, nutzer: { id: string; email: string }): Promise<ImportErgebnis> {
     const w = this.wartend.get(importId);
     if (!w || w.nutzerId !== nutzer.id || w.bis < Date.now()) throw notFound('Die Vorschau ist abgelaufen. Bitte die Datei erneut auswählen.');
     if (this.beschaeftigt) throw conflict('Es wird gerade schon eine Datei eingespielt. Bitte kurz warten.');

@@ -87,8 +87,6 @@ export interface Paket {
 
 const sortByNumber = (a: Item, b: Item) => (a.number ?? '').localeCompare(b.number ?? '') || a.id.localeCompare(b.id);
 
-/** Höchstzahl Druckteile im Teil-Export (die IDs stehen in der Adresse). */
-export const MAX_AUSWAHL = 200;
 
 export interface ExportOptionen {
   /** Nur diese Druckteile (IDs) exportieren. Fehlt = alle. */

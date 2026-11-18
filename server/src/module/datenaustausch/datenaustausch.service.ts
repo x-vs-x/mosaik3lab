@@ -10,7 +10,8 @@ import { type DateiInfo } from './datenaustausch.paket';
 import { lc } from './datenaustausch.abgleich';
 import { spieleArtikelEin, type ArtikelKontext } from './datenaustausch.artikel';
 import { ergaenzeStammdaten } from './datenaustausch.stammdaten';
-import { verknuepfe, type VerknuepfungsZaehler } from './datenaustausch.aehnliche';
+import { verknuepfe } from './datenaustausch.aehnliche';
+import type { ImportBericht as Bericht, ImportDetail as Detail, ImportModus as Modus, ImportZaehler as Zaehler } from '@mosaik3lab/shared/datenaustausch';
 
 // Druckteile einspielen (Format siehe datenaustausch.export.ts, Lesen/Prüfen: datenaustausch.paket.ts).
 // Ablauf: 1) Kopf lesen und prüfen, 2) jede Datei einzeln prüfen (SHA-256, Größe, Magic Bytes), 3) „trocken“ durchrechnen
@@ -26,37 +27,8 @@ import { verknuepfe, type VerknuepfungsZaehler } from './datenaustausch.aehnlich
 // und Anfragestatus) werden genauso gelesen – nicht gebrauchte Stammdaten und Status werden ignoriert.
 // Ähnliche Druckteile werden in beiden Modi nur hinzugefügt, nie gelöscht (datenaustausch.aehnliche.ts).
 
-export type Modus = 'ueberspringen' | 'ersetzen';
-
-export interface Zaehler {
-  neu: number;
-  /** Vorhandenes Druckteil durch den Stand der Datei ersetzt. */
-  ersetzt: number;
-  /** Vorhanden und gleich (Stammdaten: schon vorhanden). */
-  unveraendert: number;
-  uebersprungen: number;
-}
-
-export interface Detail {
-  status: 'neu' | 'ersetzt' | 'uebersprungen' | 'hinweis';
-  bereich: string;
-  name: string;
-  text?: string;
-}
-
-export interface Bericht {
-  modus: Modus;
-  /** Druckteile in der Datei. */
-  artikel: number;
-  /** Davon gibt es hier schon. */
-  vorhanden: number;
-  abschnitte: Record<'artikel' | 'kategorien' | 'einsatzbereiche' | 'materialien' | 'filamente' | 'dateien', Zaehler>;
-  /** Ähnliche Druckteile: neu angelegte und vorgemerkte (Partner fehlt hier noch) Verknüpfungen. */
-  verknuepfungen: VerknuepfungsZaehler;
-  details: Detail[];
-  /** Mehr Details, als angezeigt werden. */
-  weitereDetails: number;
-}
+// Antwortformen (Bericht, Zähler, Details) stehen in shared/src/datenaustausch.ts – der Client liest dieselben.
+export type { ImportBericht as Bericht, ImportDetail as Detail, ImportModus as Modus, ImportZaehler as Zaehler } from '@mosaik3lab/shared/datenaustausch';
 
 const MAX_DETAILS = 400;
 
