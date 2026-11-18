@@ -8,7 +8,7 @@ import { api, ApiError } from '../../lib/api';
 import { ROLE_LABELS } from '../../lib/constants';
 import { formatDateTime } from '../../lib/format';
 import { useDocumentTitle } from '../../lib/useApi';
-import { MIN_PASSWORT } from '@mosaik3lab/shared/konten';
+import { MIN_PASSWORT } from '@mosaik3lab/shared/werte/konten';
 
 export function AccountPage() {
   useDocumentTitle('Mein Konto');

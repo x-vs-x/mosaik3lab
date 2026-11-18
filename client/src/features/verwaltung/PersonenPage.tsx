@@ -1,6 +1,6 @@
 import { KeyRound, Search, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { BEREICHE, ROLE_LABELS } from '@mosaik3lab/shared/konten';
+import { BEREICHE, ROLE_LABELS } from '@mosaik3lab/shared/werte/konten';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../components/Toast';
 import { Alert, Badge, Button, Card, cx, EmptyState, inputClass, KurzLang, PageHeader, Spinner, Email } from '../../components/ui';

@@ -46,6 +46,29 @@ function devBasePath(): Plugin {
   };
 }
 
+/**
+ * Die zwei meistgenutzten Schriftschnitte (Atkinson Hyperlegible latin 400 und 700) früh laden: Sonst entdeckt der Browser
+ * sie erst nach dem CSS – auf langsamem WLAN springt der Text sichtbar um. Relative Adressen wie alle Programmdateien
+ * (<base href> setzt der Server, z. B. /mosaik3lab/). Nur im Build (Namen mit Inhalts-Prüfsumme).
+ */
+function schriftenVorladen(): Plugin {
+  const SCHNITTE = [/^assets\/atkinson-hyperlegible-latin-400-normal-[^/]+\.woff2$/, /^assets\/atkinson-hyperlegible-latin-700-normal-[^/]+\.woff2$/];
+  return {
+    name: 'mosaik3lab-schriften-vorladen',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      // Direkt hinter <base href>: Davor würde die relative Adresse ohne Basis-Pfad aufgelöst.
+      handler: (html, ctx) => {
+        const links = SCHNITTE.flatMap((muster) => Object.keys(ctx.bundle ?? {}).filter((datei) => muster.test(datei)))
+          .map((datei) => `\n    <link rel="preload" href="./${datei}" as="font" type="font/woff2" crossorigin />`)
+          .join('');
+        return html.replace(/(<base\s+href="[^"]*"\s*\/?>)/i, `$1${links}`);
+      },
+    },
+  };
+}
+
 // Gebautes Frontend mit relativen Adressen (base './') – der Server setzt beim Ausliefern <base href> auf den eingestellten
 // Basis-Pfad (Standard /, z. B. /mosaik3lab). So braucht ein anderer Pfad keinen neuen Build.
 // Versionsnummer aus der obersten package.json (eine für alles) – in der App als APP_VERSION (src/lib/version.ts)
@@ -54,7 +77,15 @@ const appVersion = (JSON.parse(readFileSync(new URL('../package.json', import.me
 export default defineConfig(({ command }) => ({
   base: command === 'build' ? './' : `${basePath}/`,
   define: { __APP_VERSION__: JSON.stringify(appVersion) },
-  plugins: [react(), tailwindcss(), devBasePath()],
+  plugins: [react(), tailwindcss(), devBasePath(), schriftenVorladen()],
+  build: {
+    rollupOptions: {
+      output: {
+        // React in eigenem Paket: ändert sich bei Updates der App nicht und bleibt im Zwischenspeicher der Geräte.
+        manualChunks: (id) => (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id) ? 'react' : undefined),
+      },
+    },
+  },
   server: {
     // HMR=off (Hauptstand zum Testen): keine Live-Verbindung → kein automatisches Neuladen, wenn der Browser den Tab
     // im Hintergrund drosselt und die Verbindung kurz abreißt (sonst gehen Formulareingaben verloren).
