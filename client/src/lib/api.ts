@@ -88,6 +88,40 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
   return data as T;
 }
 
+/**
+ * Hochladen mit Fortschritt (XMLHttpRequest – fetch meldet keinen Upload-Fortschritt). `onFortschritt(anteil)` mit 0…1;
+ * bei 1 sind alle Bytes beim Server, die Antwort kann danach noch dauern (z. B. Vorschaubilder werden erzeugt).
+ * Fehler wie bei api(): ApiError mit Meldung des Servers.
+ */
+export function apiUpload<T>(path: string, form: FormData, onFortschritt?: (anteil: number) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', withBase(`/api${path}`));
+    xhr.withCredentials = true;
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.setRequestHeader('X-Requested-With', 'mosaik3lab');
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) onFortschritt?.(Math.min(1, e.loaded / e.total));
+    };
+    xhr.upload.onload = () => onFortschritt?.(1);
+    xhr.onerror = () => reject(new ApiError(0, NO_RESPONSE));
+    xhr.onabort = () => reject(new ApiError(0, NO_RESPONSE));
+    xhr.onload = () => {
+      let data: unknown = undefined;
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : undefined;
+      } catch {
+        /* keine JSON-Antwort */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(data as T);
+      if (xhr.status === 401) unauthorizedHandler?.();
+      const payload = (data ?? {}) as { error?: string; fields?: Record<string, string> };
+      reject(new ApiError(xhr.status, payload.error ?? (xhr.status >= 500 ? RESTARTING : `Fehler ${xhr.status}`), payload.fields ?? {}));
+    };
+    xhr.send(form);
+  });
+}
+
 export const imageUrl = (file: string) => withBase(`/api/files/images/${encodeURIComponent(file)}`);
 export const modelUrl = (itemId: string, modelId: string) =>
   withBase(`/api/files/models/${encodeURIComponent(itemId)}/${encodeURIComponent(modelId)}`);

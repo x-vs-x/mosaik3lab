@@ -32,7 +32,7 @@ function AehnlicheKarte({ teil }: { teil: AehnlichesTeil }) {
       className="flex h-full min-h-24 items-center gap-3 rounded-2xl bg-white p-2.5 pr-4 ring-1 ring-stone-200 transition-colors hover:bg-brand-50 hover:ring-brand-300 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
     >
       <span className="size-20 shrink-0 overflow-hidden rounded-xl bg-stone-100">
-        <ItemImage item={{ name: teil.name, category: teil.category, images: teil.image ? [teil.image] : [] }} iconSize="size-7" />
+        <ItemImage item={{ name: teil.name, category: teil.category, images: teil.image ? [teil.image] : [] }} groesse="mini" sizes="80px" iconSize="size-7" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="line-clamp-2 wrap-anywhere font-bold text-stone-900">{teil.name}</span>

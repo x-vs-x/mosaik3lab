@@ -150,7 +150,38 @@ export async function addImages(storage: Storage, id: string, files: Express.Mul
     });
     saved.push(dateiName(d));
   }
-  return change(storage, item.id, (c) => ({ ...c, images: [...new Set([...c.images, ...saved])], updatedAt: touched() }));
+  // Erst eintragen (ein gleichzeitiges Speichern des Formulars darf die neuen Bilder nicht verwerfen), dann verarbeiten.
+  const eingetragen = await change(storage, item.id, (c) => ({ ...c, images: [...new Set([...c.images, ...saved])], updatedAt: touched() }));
+  const geaendert = await bilderVerarbeiten(storage, saved);
+  return geaendert ? ((await storage.items.findById(item.id)) ?? eingetragen) : eingetragen;
+}
+
+/** Gesamtzeit, die ein Upload höchstens auf die Verarbeitung wartet; der Rest läuft in der Bildpflege nach. */
+const UPLOAD_VERARBEITUNG_MS = 120_000;
+
+/**
+ * Neue Bilder gleich fertig verarbeiten (Original ggf. verkleinern, Vorschaubilder „karte“ und „mini“), bevor die Antwort
+ * kommt. Scheitert das, bleibt das Original gespeichert – die Bildpflege bzw. der erste Abruf holt es nach.
+ * → true, wenn sich ein Dateiname geändert hat (z. B. PNG → JPG).
+ */
+async function bilderVerarbeiten(storage: Storage, namen: string[]) {
+  const ende = Date.now() + UPLOAD_VERARBEITUNG_MS;
+  let geaendert = false;
+  for (const name of namen) {
+    const d = storage.files.findByName(name, 'bild');
+    if (!d) continue;
+    if (Date.now() > ende) {
+      void storage.bildpflege.nachholen([d.id]);
+      continue;
+    }
+    try {
+      const r = await storage.bilder.verarbeite(d, 'sofort');
+      if (dateiName(r.datei) !== name) geaendert = true;
+    } catch (err) {
+      console.warn(`[Bilder] ${d.pfad}: Vorschau nicht erzeugt, Original bleibt – ${(err as Error).message}`);
+    }
+  }
+  return geaendert;
 }
 
 export const reorderImages = (storage: Storage, id: string, images: string[]) =>
@@ -247,7 +278,8 @@ export const removeModel = (storage: Storage, itemId: string, modelId: string) =
 
 /** Datei eines Druckteils: veröffentlicht → für alle, Entwurf → nur für das Druck-Team. */
 export async function visibleItemFile(storage: Storage, name: string, rolle: 'bild' | 'video', user: User | undefined) {
-  const datei = storage.files.findByName(name, rolle);
+  // Bild mit geänderter Endung (die Bildpflege hat z. B. PNG → JPG verkleinert): über die ID weiter finden (offene Seiten).
+  const datei = storage.files.findByName(name, rolle) ?? (rolle === 'bild' ? storage.files.findByName(name, rolle, { endungEgal: true }) : undefined);
   if (!datei || datei.objekttyp !== 'artikel') return undefined;
   // nur die Sichtbarkeit lesen – nicht das ganze Druckteil (eine Abfrage je Bild statt rund zehn)
   const row = storage.sqlite.db.prepare('SELECT veroeffentlicht FROM artikel WHERE id = ?').get(datei.objektId) as { veroeffentlicht: number } | undefined;

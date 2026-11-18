@@ -113,7 +113,7 @@ try {
   run('npm', ['ci', '--prefer-offline', '--no-audit', '--no-fund', '--loglevel=error'], src);
   run('npm', ['run', 'build', '-w', 'client', '--silent'], src);
   run('npm', ['run', 'bundle', '-w', 'server', '--silent'], src);
-  for (const f of ['client/dist/index.html', 'server/dist/server.mjs']) if (!fs.existsSync(path.join(src, f))) throw new Error(`Build fehlt: ${f}`);
+  for (const f of ['client/dist/index.html', 'server/dist/server.mjs', 'server/dist/bild-worker.mjs']) if (!fs.existsSync(path.join(src, f))) throw new Error(`Build fehlt: ${f}`);
 
   step('Programmdateien übernehmen (ohne Quellen, Tests, node_modules)');
   for (const rel of KEEP) fs.cpSync(path.join(src, rel), path.join(work, rel), { recursive: true, filter: (p) => !SKIP.some((s) => path.relative(path.join(src, s), p).split(path.sep)[0] !== '..') });

@@ -50,6 +50,8 @@ export async function createApp(config: AppConfig) {
   await migrateProductData(storage);
   // Bambu-Farbrollen mit dem mitgelieferten Katalog abgleichen (wirkt nach Updates; eigene Farbrollen bleiben unberührt).
   bambuAbgleichBeimStart(storage);
+  // Bildpflege einige Minuten nach dem Start (wenn /api/health längst grün ist) – nie im Installer/Update-Schritt.
+  storage.bildpflege.planeStart(config.bildpflegeNachMs);
 
   // Außen: die eigentliche Express-App (hört nur auf 127.0.0.1, dahinter steht der Portal-Dienst des Server-Managers);
   // innen: alle Routen unter dem Basis-Pfad (Standard /, z. B. /mosaik3lab).

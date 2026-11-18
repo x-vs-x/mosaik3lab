@@ -7,7 +7,7 @@
 // Jede Sicherung wird direkt nach dem Schreiben geprüft; vor dem Wiederherstellen ebenfalls. Ältere Sicherungen als
 // Ordner (backup.json) bleiben les- und wiederherstellbar. Es bleiben die neuesten <backup.keep> Sicherungen, ältere werden gelöscht.
 import fs from 'node:fs/promises';
-import { existsSync, readFileSync, realpathSync, createReadStream, createWriteStream } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, createReadStream, createWriteStream, writeFileSync, rmSync } from 'node:fs';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
@@ -29,6 +29,33 @@ const FORMAT = 1; // Aufbau der Sicherungsdatei – ändert ihn eine neuere Vers
 export const KINDS = { komplett: 'Vollständig', daten: 'Nur Datenbank (ältere Art, ohne Bilder)' };
 const NAME = /^mosaik3lab-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(-\d+)?(-(daten|komplett))?$/;
 const SKIP = /(^|[\\/])(\.lock|[^\\/]*\.tmp|sessions\.json(\.bak)?|[^\\/]*\.db(-wal|-shm)?)$/; // Sperrdatei, Sitzungen, Zwischendateien, DB (eigener Schritt)
+// Aus der Ablage nicht gesichert: Vorschaubilder (vorschau/, jederzeit neu berechenbar – die Bildpflege der App erzeugt sie
+// nach dem Wiederherstellen neu) und die Markierung „Sicherung läuft“ (siehe sicherungMarkieren).
+export const ABLAGE_AUSGENOMMEN = new Set(['vorschau', '.sicherung.lock']);
+const ablageAusgenommen = (ablageDir, file) => ABLAGE_AUSGENOMMEN.has(path.relative(ablageDir, file).split(path.sep)[0]);
+
+/**
+ * Während der Sicherung <ablage>/.sicherung.lock anlegen ("<PID> <Systemstart>", wie die Sperrdatei der App): solange
+ * pausiert die Bildpflege der App (server/src/kern/bilder/sperre.ts). Scheitert das, läuft die Sicherung trotzdem.
+ * → Funktion zum Entfernen.
+ */
+function sicherungMarkieren(ablageDir) {
+  const file = path.join(ablageDir, '.sicherung.lock');
+  try {
+    if (!ablageDir || !existsSync(ablageDir)) return () => {};
+    writeFileSync(file, `${process.pid} ${Math.round(Date.now() / 1000 - os.uptime())}`);
+  } catch {
+    return () => {};
+  }
+  return () => {
+    try {
+      rmSync(file, { force: true });
+    } catch {
+      /* verwaist harmlos: die App erkennt eine Markierung eines beendeten Prozesses */
+    }
+  };
+}
+
 const log = () => logger(process.env.MOSAIK3LAB_RUNNER === 'backup' ? 'backup' : 'manager');
 
 const stamp = (d = new Date()) => d.toLocaleString('sv-SE').replace(' ', '_').replace(/:/g, '-');
@@ -264,9 +291,11 @@ export async function createBackup(reason = 'manuell', { kind = 'komplett', prot
   const target = path.join(backupDir, id + EXT);
   const temp = path.join(backupDir, `${id}.unfertig`);
   const part = `${target}.teil`;
+  const markierungEntfernen = sicherungMarkieren(sources(kind).find((s) => s.name === 'ablage')?.dir ?? '');
   try {
     for (const src of sources(kind)) {
-      if (existsSync(src.dir)) await fs.cp(src.dir, path.join(temp, src.name), { recursive: true, filter: (s) => !SKIP.test(s) });
+      const ablage = src.name === 'ablage';
+      if (existsSync(src.dir)) await fs.cp(src.dir, path.join(temp, src.name), { recursive: true, filter: (s) => !SKIP.test(s) && !(ablage && ablageAusgenommen(src.dir, s)) });
     }
     const dbCopy = path.join(temp, 'db', DB_FILE);
     await backupDatabase(path.join(dataDir, DB_FILE), dbCopy);
@@ -293,6 +322,7 @@ export async function createBackup(reason = 'manuell', { kind = 'komplett', prot
     log().error(`Sicherung fehlgeschlagen: ${err.message}`);
     throw err;
   } finally {
+    markierungEntfernen();
     await fs.rm(temp, { recursive: true, force: true });
   }
 }

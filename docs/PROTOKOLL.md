@@ -2,6 +2,49 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Bilder und Vorschaubilder macht der Server (Unter-Session, Branch: feature/bildpflege)
+- **Anlass:** Auftrag `C:\Entwicklung\_konzepte\vorschaubilder\AUFTRAG.md` (Entscheidungen des Nutzers): höchstens drei
+  Größen je Bild, Server rechnet in reinem JS in einem Worker-Thread, Bildpflege nach dem Start statt Knopf.
+- **Gebaut:** `server/src/kern/bilder/` (groessen, format, verarbeitung, worker, rechner, dienst, bildpflege, sperre;
+  Abhängigkeiten `jpeg-js`, `pngjs`, dev `@types/pngjs`). `storage.bilder`/`storage.bildpflege` (`storage/index.ts`,
+  `repositories.ts`), Start in `app.ts` (`config.bildpflegeNachMs`, `BILDPFLEGE_NACH_MIN`, in Tests aus).
+  `kern/files.ts`: `entferneVorschau` bei `unlink`/`replace`, `findByName(…, { endungEgal })`. `katalog.service.ts`:
+  Upload trägt erst ein, verarbeitet dann (höchstens 120 s, Rest in der Bildpflege); `katalog.routes.ts`: `?groesse=`;
+  Endpunkt `PUT /api/items/:id/images/:file` und `bildErsetzen.ts` entfernt (nur vom Dialog benutzt). Import:
+  Bildpflege pausiert (`importLaeuft`), eingespielte Bilder bekommen neue Vorschaubilder. Bündel: `bild-worker.mjs`
+  (`server/scripts/bundle.ts`, Prüfung in `scripts/paket.mjs`). Server-Manager: `backup.mjs` lässt `ablage/vorschau/`
+  aus und legt während der Sicherung `<ablage>/.sicherung.lock` an; `status.mjs` (doctor) zählt `vorschau/` nicht als
+  Waisen. Client: `lib/bildQuellen.ts` (srcset/sizes), `ItemImage` mit `groesse`/`sizes` und Lade-Platzhalter, alle
+  Stellen angepasst; `apiUpload` (XHR mit Fortschritt) und Anzeige „Vorschau wird erzeugt … bitte warten“
+  (`FilePicker.tsx`, role="status"); `BilderVerkleinern.tsx` und der Knopf entfernt.
+  Tests: `server/test/bilder.test.ts` (ersetzt `bildErsetzen.test.ts`), `client/test/bildQuellen.test.ts`,
+  `manager/test/manager.test.mjs` (Backup ohne Vorschaubilder, doctor).
+- **Größen** (Nachtrag Hauptchat, Schärfe auf allen Displays): `karte` 1080 px (iPhone DPR 3: Karte ≈ 343 CSS-px →
+  ≈ 1030 px; iPad 50vw ≈ 1024 px), `mini` 360 px (Ähnliche ≈ 75–100 CSS-px × 3). `srcset` bietet mini, karte und das
+  Original als oberste Stufe; `sizes` rechnet die echte Kartenbreite (Ränder, Seitenleiste, Spalten) – mit „100vw“ lud
+  das iPhone (375 × 3 = 1125 px) das Original statt der Karte.
+- **Gemessen** (22 echte Bilder aus der Ablage, 44,8 MB, direkt per API hochgeladen wie vor der Browser-Verkleinerung;
+  11 Druckteile; headless Chrome, ohne Cache). Katalog beim Öffnen vorher: Handy 375 px **11,9 MB** (6 Bilder), PC 22,6 MB.
+  Nachher, geladene Fassung per `currentSrc` je Breite × Dichte geprüft:
+
+  | Breite | DPR 1 | DPR 2 | DPR 3 |
+  |---|---|---|---|
+  | 375 px | 0,14 MB (Karte: mini) | 0,69 MB (karte) | 0,69 MB (karte) |
+  | 768 px | 0,32 MB (mini) | 1,01 MB (karte) | 1,01 MB (karte) |
+  | 1440 px | 0,39 MB (mini) | 1,41 MB (karte) | 1,41 MB (karte; Galerie: Original) |
+
+  Ähnliche Druckteile laden immer `mini`; die Galerie nimmt karte, bis mehr als 1080 px gebraucht werden. Zoom-Screenshots
+  (scharf): `C:\Entwicklung\_testdaten\bildpflege-bilder\dichte\`. Bildpflege beim ersten Start (noch mit 720/240):
+  22 geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder, 26 s. Upload inkl. Verarbeitung je Bild (PC, 1080/360):
+  0,15–0,45 s (bis 1920 px) · 0,8–1,2 s (12 MP JPEG) · 2,2 s (24 MP JPEG); Pi grob 5–8× länger (nicht gemessen), Zeitgrenze 60 s.
+- **Backup:** `vorschau/` ausgenommen (Filter beim Kopieren der Ablage, kein Risiko für Originale; Wiederherstellen
+  ersetzt die Ablage ohnehin ganz, die Bildpflege erzeugt die Vorschaubilder danach neu).
+- **Geprüft:** typecheck, lint, `npm test`; Klicktest headless Chrome 320/375/1440 px: Upload zeigt „Wird hochgeladen … %“
+  → „Vorschau wird erzeugt … bitte warten“, Bild erscheint danach; Katalog lädt `?groesse=karte`, Ähnliche
+  `?groesse=mini`, Galerie karte/Original (DPR 1/2/3 bei 375/768/1440 px); kein waagrechtes Scrollen, keine JS-Fehler. Gebündelte App
+  (`node server/dist/server.mjs`) mit Bildpflege geprüft. Bilder: `C:\Entwicklung\_testdaten\bildpflege-bilder\`.
+- **Aufgeräumt:** Testserver gestoppt, `_testdaten\bildpflege*` (außer `bildpflege-bilder`) gelöscht, Skripte im Scratchpad gelöscht.
+
 ## 2026-11-18 – Neutrale Vorgaben (Unter-Session, Branch: feature/neutrale-vorgaben)
 - **Anlass:** Das öffentliche Repo enthielt Bezüge zu einer konkreten Schule (Demo-Adressen, Standard-Domain, Texte).
   Mosaik³LAB soll im Standard für jede Schule passen; konkrete Angaben stellt jede Installation selbst ein.

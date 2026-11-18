@@ -188,6 +188,7 @@ export async function ablageOrphans(p) {
     for (const e of fs.readdirSync(p.ablageDir, { recursive: true, withFileTypes: true })) {
       if (!e.isFile() || e.name.startsWith('.')) continue;
       const rel = path.relative(p.ablageDir, path.join(e.parentPath ?? e.path, e.name)).split(path.sep).join('/');
+      if (rel.startsWith('vorschau/')) continue; // Vorschaubilder der App: abgeleitet, stehen nicht in „datei“
       if (!known.has(rel)) extra.push(rel);
     }
   }
