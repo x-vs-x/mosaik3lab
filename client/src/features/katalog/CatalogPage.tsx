@@ -1,6 +1,7 @@
 import { ChevronDown, Clock, Layers, Lightbulb, PackageOpen, Search, SlidersHorizontal, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
+import { ladePosition, merkePosition, sollPositionWiederherstellen } from './katalogScroll';
 import { ItemImage } from '../../components/ItemImage';
 import { useAuth } from '../../auth/AuthContext';
 import { Alert, Badge, Button, Card, cx, DemoBadge, LinkButton, PageHeader, Select, Spinner } from '../../components/ui';
@@ -37,6 +38,7 @@ export function CatalogPage() {
   }, [debouncedQ, category, area, kind]);
 
   const { data: items, error, loading } = useApi<Item[]>(query);
+  useScrollPositionMerken(!!items);
 
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -186,6 +188,50 @@ export function CatalogPage() {
   );
 }
 
+/**
+ * Merkt die Scrollhöhe je Katalog-Adresse (Suche/Filter) und stellt sie wieder her, wenn man vom Druckteil
+ * zurückkommt – per Zurück-Taste/-Geste (POP) oder per Link/Navigation. Erst wenn die Liste geladen ist: Vorher ist
+ * die Seite zu kurz, deshalb klappte das Zurückspringen des Browsers allein nicht.
+ */
+function useScrollPositionMerken(geladen: boolean) {
+  const { search } = useLocation();
+  const navigationType = useNavigationType();
+  // Art des Seitenwechsels beim Öffnen; Filter ändern sie danach (REPLACE).
+  const [navBeimOeffnen] = useState(navigationType);
+  const [bereit, setBereit] = useState(false);
+
+  useEffect(() => {
+    if (!geladen || bereit) return;
+    // Erst hier prüfen: Das Layout meldet den Seitenwechsel nach dem ersten Zeichnen des Katalogs.
+    const y = sollPositionWiederherstellen(navBeimOeffnen) ? ladePosition(search) : null;
+    // Kurz danach, damit die Liste steht (und nach dem „nach oben“ im Layout).
+    const timer = setTimeout(() => {
+      if (y) window.scrollTo({ top: y, behavior: 'instant' });
+      setBereit(true);
+    });
+    return () => clearTimeout(timer);
+  }, [geladen, bereit, navBeimOeffnen, search]);
+
+  useEffect(() => {
+    if (!bereit) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onScroll = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        // Beim Wechsel zum Druckteil wird die Seite kürzer, bevor der Katalog ganz weg ist – das nicht merken.
+        if (window.location.pathname.endsWith('/katalog') && window.location.search === search) {
+          merkePosition(search, window.scrollY);
+        }
+      }, 100);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [bereit, search]);
+}
+
 function CategoryChip({
   label,
   active,
@@ -225,6 +271,8 @@ function ItemCard({ item }: { item: Item }) {
       <Link
         to={`/katalog/${item.id}`}
         state={{ fromCatalog: true }}
+        // Höhe sicher merken, auch wenn kein Scroll-Ereignis mehr kam.
+        onClick={() => merkePosition(window.location.search, window.scrollY)}
         className="group flex h-full flex-col overflow-hidden rounded-2xl border sm:rounded-3xl border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(28,25,23,0.04)] transition-all hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-[0_14px_32px_-16px_rgba(28,25,23,0.25)]"
       >
         <div className="relative aspect-[5/2] overflow-hidden sm:aspect-[4/3]">

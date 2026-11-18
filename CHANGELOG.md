@@ -13,6 +13,12 @@ daraus die nächste Version.
 - **Links in der Beschreibung sind anklickbar:** Adressen mit `https://`, `http://` oder `www.` in der Beschreibung und
   den Materialinformationen öffnen sich in einem neuen Tab.
 
+- **Katalog:** Wer ein Druckteil öffnet und zurückgeht, landet wieder auf derselben Höhe im Katalog statt ganz oben –
+  mit der Zurück-Taste oder -Geste, mit „Zurück zum Katalog“ und über die Navigation, auch mit Suche und Filtern.
+
+- **Bilder eines Druckteils:** Bei mehreren Bildern wechselt man jetzt durch Wischen nach links oder rechts, mit den
+  großen Pfeil-Knöpfen auf dem Bild oder mit den Pfeiltasten. Die kleinen Vorschaubilder bleiben.
+
 - **Anfrageformular:** Der feste Warnhinweis „Bitte keine Namen … und keine Diagnosen eintragen“ über den
   Personalisierungsfeldern entfällt. Eigene Hinweise der einzelnen Felder bleiben.
 
