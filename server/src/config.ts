@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readPathConfig } from './bootstrapConfig';
+import { readPathConfig } from './uebernahme/bootstrapConfig';
 import { normalizeBasePath } from './basePath';
 import { APP_VERSION } from './kern/version';
 

@@ -8,7 +8,7 @@ import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import nodemailer from 'nodemailer';
 import { createApp } from '../src/app';
-import { configFilePath } from '../src/bootstrapConfig';
+import { configFilePath } from '../src/uebernahme/bootstrapConfig';
 import { loadConfig, ROOT_DIR } from '../src/config';
 import { DEMO_USERS } from '../src/seed/demoData';
 import { setTransportFactory } from '../src/kern/mail/mailer';

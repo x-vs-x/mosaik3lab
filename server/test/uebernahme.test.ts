@@ -14,7 +14,7 @@ import { loadConfig } from '../src/config';
 import { uuidv7 } from '../src/kern/ids';
 import { createAdminAccount } from '../src/module/konten/konten.service';
 import { listMigrations, openDb } from '../src/kern/db';
-import { IMPORT_KEY, type ImportReport } from '../src/storage/sqlite/importJson';
+import { IMPORT_KEY, type ImportReport } from '../src/uebernahme/importJson';
 import { baseItem, MP4, PNG, sha, STL, storageAt, tmp } from './helfer';
 /** Legt einen Datenordner im Format der JSON-Zeit an (mit Bildern, Druckdatei, Video). */
 async function legacyFixture(dir: string) {

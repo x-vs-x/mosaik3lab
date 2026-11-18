@@ -1,18 +1,18 @@
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { newId, UUID_PATTERN } from '../../kern/ids';
-import { MIME_BY_EXT } from '../../kern/objekttypen';
-import { isCatalogStatus, LEGACY_STATUS_MAP } from '../../module/stammdaten/orderStatuses';
-import { ANFANGSSTATUS } from '../../module/einstellungen/einstellungen.vorgaben';
-import { productDefaults, type Item } from '../../domain/types';
+import { newId, UUID_PATTERN } from '../kern/ids';
+import { MIME_BY_EXT } from '../kern/objekttypen';
+import { isCatalogStatus, LEGACY_STATUS_MAP } from '../module/stammdaten/orderStatuses';
+import { ANFANGSSTATUS } from '../module/einstellungen/einstellungen.vorgaben';
+import { productDefaults, type Item } from '../domain/types';
 import { type Order } from '@mosaik3lab/shared/anfragen';
 import { STANDARD_BEREICHE, TEAM_BEREICHE } from '@mosaik3lab/shared/konten';
-import { dateiName, SAFE_ID, sha256, type Datei, type FileStore } from '../../kern/files';
-import { hasLegacyData, readLegacyData } from '../json/legacyJson';
-import { transaction, type Db } from '../../kern/db';
-import { nextNumber } from '../../kern/db';
-import type { Storage } from '../repositories';
+import { dateiName, SAFE_ID, sha256, type Datei, type FileStore } from '../kern/files';
+import { hasLegacyData, readLegacyData } from './legacyJson';
+import { transaction, type Db } from '../kern/db';
+import { nextNumber } from '../kern/db';
+import type { Storage } from '../storage/repositories';
 
 // Einmalige Übernahme der bisherigen JSON-Daten und Upload-Ordner in Datenbank und neue Ablagestruktur.
 // Idempotent: das Ergebnis steht in einstellung „json_uebernahme“ – danach läuft sie nie wieder.

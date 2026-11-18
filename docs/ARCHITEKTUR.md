@@ -143,7 +143,7 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
     weiter. Log: „Bildpflege: 22 Bilder geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder erzeugt (…)“.
   - **Client:** `ItemImage` mit `groesse` (`karte` Katalogkarte, `mini` kleine Vorschauen, `original` Galerie) und
     `sizes`; `client/src/lib/bildQuellen.ts` baut `srcset` (mini 360w, karte 1080w, Original 2000w als oberste Stufe; der Browser nimmt die kleinste ausreichende Fassung).
-- **Übernahme JSON → SQLite** (`storage/sqlite/importJson.ts`): einmalig beim Start, Ergebnis in
+- **Übernahme JSON → SQLite** (`uebernahme/importJson.ts`): einmalig beim Start, Ergebnis in
   `einstellung` „json_uebernahme“ (Anzahlen, Dateien, Hinweise). JSON-Dateien und alte Upload-Ordner bleiben liegen.
   Früher in der App eingestellte Ordner (`mosaik3lab.config.json` in der Projektwurzel) gelten dabei als Quelle;
   danach wird die Datei gesichert (`….vor-ablage-umzug-<zeit>.bak`) und entfernt (`retirePathConfig`).
@@ -171,10 +171,12 @@ server/src/
                  mail/ (SMTP-Versand, Mail-Einstellungen, Vorlagen-Hilfen), uploads.ts, rateLimit.ts, errors.ts, http.ts,
                  bilder/ (Bildverarbeitung, siehe „Bilder und Bildpflege“)
   storage/       index.ts (Speicher zusammenbauen, Sperrdatei), repositories.ts (Typ `Storage`),
-                 sqlite/migrations/ (global nummeriert, fester Ort – der Server-Manager liest sie dort),
-                 sqlite/importJson.ts + json/ (einmalige Übernahme der alten JSON-Daten)
-  seed/          Beispieldaten und Start-Migrationen (nutzt Services/Repositories, nie Routen)
-  app.ts, index.ts, config.ts, bootstrapConfig.ts, basePath.ts
+                 sqlite/migrations/ (global nummeriert, fester Ort – der Server-Manager liest sie dort)
+  uebernahme/    alles für Datenstände aus der Zeit vor SQLite (kann mit einer späteren Hauptversion weg): importJson.ts +
+                 legacyJson.ts (einmalige Übernahme der JSON-Daten), betriebsdateien.ts (mail.json, settings.json → mail,
+                 .session-secret), bootstrapConfig.ts (alte mosaik3lab.config.json mit Ablagepfaden)
+  seed/          Beispieldaten und migrateUserEmails (Konten ohne E-Mail; nutzt Services/Repositories, nie Routen)
+  app.ts, index.ts, config.ts, basePath.ts
 server/scripts/  Skripte (tsx); bundle.ts bündelt für das Installer-Paket nach server/dist/ (siehe unten)
 client/src/
   lib/           api.ts, types.ts (Sammel-Export der Typen aus shared/), config.tsx (ConfigProvider/useMasterData), constants.ts (Farben/Symbole/Helfer), format.ts, useApi.ts

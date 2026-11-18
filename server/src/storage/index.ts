@@ -5,7 +5,7 @@ import { BildDienst, Bildpflege } from '../kern/bilder';
 import { lockContent, lockHolder } from '../kern/lock';
 import type { Storage } from './repositories';
 import { backupInto, dbInfo, migrate, openDb } from '../kern/db';
-import { importLegacyJson, type ImportReport, type LegacyPaths } from './sqlite/importJson';
+import { importLegacyJson, type ImportReport, type LegacyPaths } from '../uebernahme/importJson';
 import { ProposalRepository } from '../module/vorschlaege/vorschlaege.repository';
 import { SessionRepository } from '../kern/auth/sitzungen';
 import { RequesterRepository, UserRepository } from '../module/konten/konten.repository';

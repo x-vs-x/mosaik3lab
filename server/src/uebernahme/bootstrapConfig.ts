@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { stamp } from './kern/db';
+import { stamp } from '../kern/db';
 
 /**
  * Früher in der Verwaltung einstellbare Ablagepfade (mosaik3lab.config.json in der Projektwurzel).
