@@ -2,6 +2,29 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Druckteil-Seite nach Konzept A2 (Unter-Session, Branch: feature/druckteil-seite-a2)
+- **Auftrag:** `_konzepte\druckteil-seite\KONZEPT.md`, Variante A2 + mitlaufende rechte Spalte + Auswahl auf der Seite mit
+  vorbelegtem Anfrage-Fenster; Entwurf vom Branch `konzept/druckteil-seite` sauber neu auf `main` (ohne Umschalter).
+- **Gemeinsamer Auswahl-Zustand:** neu `client/src/features/anfragen/anfrageAuswahl.ts` (reine Regeln: Start/Vorbelegung,
+  „Weitere Stückzahl“, Einzelfarben nachträglich, Farben für die Zusammenfassung), `useAnfrageAuswahl.ts` (Hook, gehört der
+  Seite), `AuswahlUebersicht.tsx` (Zusammenfassung mit „Ändern“ im Fenster). `RequestDialog.tsx`: neue Eigenschaft
+  `auswahl` (Zustand von der Seite), sonst wie bisher („Erneut anfragen“/„Bearbeiten“ unverändert); der Entwurf speichert
+  die Auswahl wie bisher mit. `anfragePruefung.ts`: `pruefeAuswahl` abgespalten (dieselbe Regel prüft auf der Seite vor dem
+  Öffnen). `AnfrageFelder.tsx`: `EinfarbigeWahl`, `KeineFarbeHinweis`, `QuantityInput` exportiert.
+- **Seite:** `katalog/ItemDetailPage.tsx` neu aufgeteilt (Raster: Galerie | rechts Kopf + Auswahl, mitlaufend wenn passend |
+  links Eckdaten, Beschreibung, Material, Links, Sicherheit), neu `DruckteilAuswahl.tsx`, `DruckteilFakten.tsx`,
+  `MedienGalerie.tsx` (ersetzt `BildGalerie.tsx`, Logik `medienListe`/`seitenName` in `galerie.ts`), `useMitlaufen.ts`;
+  `ItemLinks.tsx` (schmale Spalte, Umbruch). Keine Server-/Datenbank-Änderung, CSP unverändert.
+- **Nebenbei:** `components/ui.tsx` und `ChoiceGroup`: Mindesthöhe 44 px statt `min-h-11` (bei 15-px-Grundschrift 41 px).
+  Navigation „Vorschläge“ am Handy: nicht nachvollziehbar (unter 390 px steht „Ideen“, nichts läuft über).
+- **Tests:** neu `client/test/druckteilSeite.test.ts` (9 Tests). Klicktest headless Chrome (320, 375, 820×1180, 1024×768,
+  1180×820, 1366×1024, 1440×900, 375 mit 200 %; Besucher, Lehrkraft, Druck-Team): Überlauf-/Abschneide-Skript ohne Befund,
+  Ablauf wählen → anfragen → vorbelegt → Weitere Stückzahl → absenden (Server: 3 Stück, 2 Varianten), Video, YouTube-Kachel,
+  mitlaufende Spalte, Tastaturreihenfolge. Kopie echter Daten (importtest/quelle, 1.6.3 → Migration): alle 23 Druckteile
+  in 5 Größen. Bilder: `C:\Entwicklung\_testdaten\druckteil-a2-bilder\`.
+- **Aufgeräumt:** Testserver und Chrome gestoppt, `_testdaten\druckteil-a2` (inkl. Kopie der echten Daten) gelöscht,
+  Skripte im Scratchpad entfernt, Branch `konzept/druckteil-seite` auf GitHub gelöscht.
+
 ## 2026-11-18 – Farbauswahl für mehrfarbige Druckteile (Unter-Session, Branch: feature/farbauswahl)
 - **Auftrag:** Konzept `_konzepte\mehrfarben\KONZEPT.md` (Variante A inkl. Überarbeitung), alle drei Schritte in einem Update.
 - **Grenze 8 → 20 Teile:** `shared/src/werte/katalog.ts` (`MAX_COLOR_AREAS`), `shared/src/katalog.ts` (`farbeZuordnenSchema`),

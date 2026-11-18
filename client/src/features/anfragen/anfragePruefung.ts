@@ -19,13 +19,17 @@ export function domainHint(domains: string[]) {
   return `Bitte Ihre Adresse ${joined} verwenden.`;
 }
 
-export interface AnfrageEingaben {
+export interface AnfrageEingaben extends AuswahlEingaben {
   /** Gültige E-Mail der Anfrage (angemeldet: die eigene, sonst die eingetippte). */
   email: string;
   /** Angemeldet: E-Mail steht fest, die Domain-Regel gilt nicht. */
   angemeldet: boolean;
   domains: string[];
   classOrTeam: string;
+}
+
+/** Die Auswahl: Stückzahlen mit Farben, Größe, Personalisierung. */
+export interface AuswahlEingaben {
   rows: { quantity: number; colors: Record<string, string> }[];
   /** IDs der Farbbereiche mit vorrätigen Farben bzw. ohne vorrätige Farbe. */
   bereiche: string[];
@@ -45,6 +49,12 @@ export function pruefeAnfrage(e: AnfrageEingaben): Record<string, string> {
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.email)) fehler.requesterEmail = 'Bitte eine gültige E-Mail-Adresse eintragen, z. B. name@schule.example';
   else if (!e.angemeldet && !emailDomainAllowed(e.email, e.domains)) fehler.requesterEmail = domainHint(e.domains);
   if (!e.classOrTeam.trim()) fehler.classOrTeam = 'Bitte Klasse oder Team angeben';
+  return { ...fehler, ...pruefeAuswahl(e) };
+}
+
+/** Fehler der Auswahl je Feld (leer = alles in Ordnung) – auch schon auf der Druckteil-Seite vor dem Öffnen des Fensters. */
+export function pruefeAuswahl(e: AuswahlEingaben): Record<string, string> {
+  const fehler: Record<string, string> = {};
   e.rows.forEach((row, i) => {
     for (const id of e.bereiche) if (!row.colors[id]) fehler[e.farbFehlerSchluessel(id, i)] = 'Bitte eine Farbe wählen';
   });

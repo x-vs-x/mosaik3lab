@@ -7,15 +7,20 @@ import { EntwurfHinweis } from '../../components/EntwurfHinweis';
 import { Alert, Button, Field, Input, LinkButton, Textarea } from '../../components/ui';
 import { api, ApiError, isConnectionProblem } from '../../lib/api';
 import { useConfig, useMasterData } from '../../lib/config';
-import { aufAngeboteneFarben, initialColorChoice, itemColorAreas } from '../../lib/colors';
 import { anfrageEmail } from './anfrageEmail';
 import { ersteFehlerstelle } from '../../lib/fokus';
 import { entwurfSchluessel } from '../../lib/entwurfSpeicher';
 import { getProfile, saveProfile } from './guestOrders';
 import type { Item, OrderInput, OrderReceipt, RequestTemplate } from '../../lib/types';
 import { useEntwurf } from '../../lib/useEntwurf';
-import { ChoiceGroup, ColorRow, CustomFieldInput, type ColorRowValue } from './AnfrageFelder';
+import { ChoiceGroup, ColorRow, CustomFieldInput, KeineFarbeHinweis } from './AnfrageFelder';
 import { domainHint, normalizeDomain, pruefeAnfrage } from './anfragePruefung';
+import { entferneStueckzahl, farbbereiche, farbFehlerSchluessel, gesamtStueck, setzeZeile, startAuswahl, weitereStueckzahl } from './anfrageAuswahl';
+import { AuswahlUebersicht } from './AuswahlUebersicht';
+import { useAnfrageAuswahl, type AuswahlZustand } from './useAnfrageAuswahl';
+
+/** Fehler in Zeile 1, Größe oder Personalisierung (dann klappt das Fenster die Felder der Seiten-Auswahl auf). */
+const istAuswahlFehler = (k: string) => k === 'size' || k === 'quantity' || k === 'color' || k.startsWith('color.') || k.startsWith('custom.');
 
 /** Schlüssel des Anfrage-Entwurfs – auch für die Detailseite, die den Dialog nach einem Neuladen wieder öffnet. */
 export const anfrageEntwurfSchluessel = (itemId: string, userId?: string, templateOrderId?: string) =>
@@ -25,6 +30,8 @@ export const anfrageEntwurfSchluessel = (itemId: string, userId?: string, templa
  * Anfrageformular für Lehrkräfte – ohne Anmeldung.
  * `template`: Vorbelegung aus „Erneut anfragen“ – alle Angaben bleiben vor dem Absenden änderbar.
  * `edit`: dieselbe Anfrage ändern (PUT, nur solange offen); `onSaved` nach dem Speichern.
+ * `auswahl`: von der Druckteil-Seite – Farbe, Größe, Personalisierung und Anzahl sind dort schon gewählt (gemeinsamer
+ * Zustand); das Fenster zeigt sie als Zusammenfassung mit „Ändern“ und fragt nur noch E-Mail, Klasse und Wünsche.
  */
 export function RequestDialog({
   item,
@@ -33,6 +40,7 @@ export function RequestDialog({
   template,
   edit = false,
   onSaved,
+  auswahl: auswahlVonSeite,
 }: {
   item: Item;
   open: boolean;
@@ -40,16 +48,14 @@ export function RequestDialog({
   template?: RequestTemplate;
   edit?: boolean;
   onSaved?: () => void;
+  auswahl?: AuswahlZustand;
 }) {
   const md = useMasterData();
   const { config } = useConfig();
   const domains = (config?.orderForm.allowedEmailDomains ?? []).map(normalizeDomain).filter(Boolean);
   // Bereiche mit hinterlegten Farben; „filaments“ enthält nur vorrätige Rollen (siehe lib/colors.ts).
-  const allAreas = itemColorAreas(item, md).filter((a) => a.area.colors.length > 0);
-  const areas = allAreas.filter((a) => a.filaments.length > 0);
-  const emptyAreas = allAreas.filter((a) => a.filaments.length === 0);
-  const multiColor = allAreas.length > 1;
-  const colorErrorKey = (areaId: string, row = 0) => (row ? `variants.${row}.` : '') + (multiColor ? `color.${areaId}` : 'color');
+  const { areas, emptyAreas, multiColor } = farbbereiche(item, md);
+  const colorErrorKey = farbFehlerSchluessel(multiColor);
   // Weitere Farben: immer möglich, sobald jeder Bereich eine vorrätige Farbe hat (dazu gibt es „Farbe egal“).
   const canAddColors = emptyAreas.length === 0 && areas.length > 0;
   const customFields = item.customFields ?? [];
@@ -63,16 +69,16 @@ export function RequestDialog({
   const [requesterEmail, setRequesterEmail] = useState(profile.requesterEmail);
   const shownEmail = sessionEmail ?? requesterEmail;
   const [classOrTeam, setClassOrTeam] = useState(template?.classOrTeam || profile.classOrTeam);
-  // Zeile 1 = bisherige Anzahl + Farbe; weitere Zeilen = weitere Farben (z. B. 3 × Blau, 4 × Gelb).
-  const initialRows = (): ColorRowValue[] =>
-    template?.variants?.length
-      ? template.variants.map((v) => ({ quantity: v.quantity, colors: { ...initialColorChoice(areas), ...aufAngeboteneFarben(areas, v.colors, md) } }))
-      : [{ quantity: template?.quantity ?? 1, colors: { ...initialColorChoice(areas), ...aufAngeboteneFarben(areas, template?.colors ?? {}, md) } }];
-  const [rows, setRows] = useState<ColorRowValue[]>(initialRows);
-  const total = rows.reduce((n, r) => n + r.quantity, 0);
+  // Auswahl (Zeile 1 = Anzahl + Farbe; weitere Zeilen = weitere Farben, z. B. 3 × Blau, 4 × Gelb) – von der Seite oder eigene.
+  const eigeneAuswahl = useAnfrageAuswahl(item, template);
+  const [auswahl, setAuswahl] = auswahlVonSeite ?? eigeneAuswahl;
+  const { rows, size, custom } = auswahl;
+  const total = gesamtStueck(auswahl);
+  const setSize = (v: string) => setAuswahl((a) => ({ ...a, size: v }));
+  const setCustom = (id: string, v: string) => setAuswahl((a) => ({ ...a, custom: { ...a.custom, [id]: v } }));
+  // Von der Seite: Zeile 1, Größe und Personalisierung nur als Zusammenfassung, bis man „Ändern“ tippt.
+  const [felderOffen, setFelderOffen] = useState(false);
   const [locked, setLocked] = useState(false);
-  const [custom, setCustom] = useState<Record<string, string>>(template?.personalization ?? {});
-  const [size, setSize] = useState(template?.size || (item.sizes.length === 1 ? item.sizes[0] : ''));
   const [customization, setCustomization] = useState(template?.customization ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string>();
@@ -85,11 +91,13 @@ export function RequestDialog({
   const applyDraft = useCallback((d: typeof draftValue & { quantity?: number; colors?: Record<string, string> }) => {
     setRequesterEmail(d.requesterEmail);
     setClassOrTeam(d.classOrTeam);
-    setRows(Array.isArray(d.rows) && d.rows.length ? d.rows : [{ quantity: d.quantity ?? 1, colors: d.colors ?? {} }]);
-    setCustom(d.custom);
-    setSize(d.size);
+    setAuswahl({
+      rows: Array.isArray(d.rows) && d.rows.length ? d.rows : [{ quantity: d.quantity ?? 1, colors: d.colors ?? {} }],
+      custom: d.custom ?? {},
+      size: d.size ?? '',
+    });
     setCustomization(d.customization);
-  }, []);
+  }, [setAuswahl]);
   const draftKey = template && edit ? `aendern-${template.orderId}` : template?.orderId;
   const entwurf = useEntwurf(anfrageEntwurfSchluessel(item.id, user?.id, draftKey), draftValue, applyDraft, {
     ready: !authLoading,
@@ -106,7 +114,7 @@ export function RequestDialog({
     if (!focusAfterRender.current) return;
     document.getElementById(focusAfterRender.current)?.focus();
     focusAfterRender.current = undefined;
-  }, [rows.length]);
+  }, [rows.length, felderOffen]);
   const focusLater = (id: string) => {
     focusAfterRender.current = id;
   };
@@ -114,26 +122,27 @@ export function RequestDialog({
   const [offeneZeile, setOffeneZeile] = useState(0);
   const addRow = () => {
     // Mehrteilig: übernimmt die Farben der letzten Stückzahl – man ändert nur, was abweicht.
-    setRows((all) => [...all, { quantity: 1, colors: multiColor ? { ...all[all.length - 1].colors } : initialColorChoice(areas) }]);
+    setAuswahl((a) => weitereStueckzahl(a, areas, multiColor));
     setOffeneZeile(rows.length);
     focusLater(`farbzeile-${rows.length}`);
   };
   const removeRow = (index: number) => {
-    setRows((all) => all.filter((_, j) => j !== index));
+    setAuswahl((a) => entferneStueckzahl(a, index));
     setOffeneZeile(0);
     setErrors({});
     focusLater('weitere-farbe');
   };
+  // Fehler in Zeile 1, Größe oder Personalisierung: Felder aufklappen, damit man sie sieht und korrigieren kann.
+  const kurz = !!auswahlVonSeite && !felderOffen && !Object.keys(errors).some(istAuswahlFehler);
   const zeileHatFehler = (i: number) => Object.keys(errors).some((k) => (i ? k.startsWith(`variants.${i}.`) : k === 'color' || k.startsWith('color.')));
 
   const close = () => {
     onClose();
     if (receipt) {
       setReceipt(undefined);
-      setRows(initialRows());
+      setAuswahl(startAuswahl(areas, item.sizes, md, template));
+      setFelderOffen(false);
       setCustomization(template?.customization ?? '');
-      setCustom(template?.personalization ?? {});
-      setSize(template?.size || (item.sizes.length === 1 ? item.sizes[0] : ''));
       entwurf.clear();
     }
   };
@@ -156,6 +165,7 @@ export function RequestDialog({
       size,
     });
     setErrors(local);
+    if (Object.keys(local).some(istAuswahlFehler)) setFelderOffen(true);
     setFormError(undefined);
     if (Object.keys(local).length) {
       setFormError('Bitte prüfen Sie die markierten Angaben.');
@@ -206,6 +216,7 @@ export function RequestDialog({
         );
       } else if (err instanceof ApiError) {
         setErrors(err.fields);
+        if (Object.keys(err.fields).some(istAuswahlFehler)) setFelderOffen(true);
         setFormError(err.message);
       } else {
         setFormError('Die Anfrage konnte nicht gesendet werden. Bitte versuchen Sie es erneut.');
@@ -318,14 +329,25 @@ export function RequestDialog({
             )}
           </Field>
 
-          {emptyAreas.length > 0 && (
-            <Alert kind="warning" title="Derzeit keine Farbe vorrätig">
-              {multiColor
-                ? `Für „${emptyAreas.map((a) => a.area.name).join('“, „')}“ ist gerade keine Farbe vorrätig. Bitte versuchen Sie es später noch einmal.`
-                : 'Alle Farben für dieses Druckteil sind gerade leer. Bitte versuchen Sie es später noch einmal.'}
-            </Alert>
-          )}
-          {rows.map((row, i) => (
+          <KeineFarbeHinweis leer={emptyAreas} multiColor={multiColor} />
+          {rows.map((row, i) =>
+            i === 0 && kurz ? (
+              <AuswahlUebersicht
+                key={i}
+                titel={rows.length > 1 ? (multiColor ? 'Stückzahl 1' : 'Farbe 1') : 'Ihre Auswahl'}
+                titelId="auswahl-uebersicht"
+                row={row}
+                areas={areas}
+                multiColor={multiColor}
+                size={size}
+                customFields={customFields}
+                custom={custom}
+                onAendern={() => {
+                  setFelderOffen(true);
+                  focusLater(rows.length > 1 ? 'farbzeile-0' : 'anzahl-0');
+                }}
+              />
+            ) : (
             <ColorRow
               key={i}
               index={i}
@@ -335,13 +357,14 @@ export function RequestDialog({
               multiColor={multiColor}
               max={Math.max(1, MAX_ORDER_QUANTITY - (total - row.quantity))}
               errors={errors}
-              onChange={(r) => setRows((all) => all.map((x, j) => (j === i ? r : x)))}
+              onChange={(r) => setAuswahl((a) => setzeZeile(a, i, r))}
               onRemove={i ? () => removeRow(i) : undefined}
               collapsed={multiColor && rows.length > 1 && i !== Math.min(offeneZeile, rows.length - 1) && !zeileHatFehler(i)}
               onExpand={() => setOffeneZeile(i)}
               compareTo={rows[0].colors}
             />
-          ))}
+            ),
+          )}
           {canAddColors && (
             <div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -388,7 +411,7 @@ export function RequestDialog({
             </div>
           )}
 
-          {item.sizes.length > 0 && (
+          {!kurz && item.sizes.length > 0 && (
             <ChoiceGroup
               legend="Größe"
               name="groesse"
@@ -399,7 +422,7 @@ export function RequestDialog({
             />
           )}
 
-          {customFields.length > 0 && (
+          {!kurz && customFields.length > 0 && (
             <fieldset className="min-w-0 space-y-4 rounded-2xl bg-stone-50 p-3 ring-1 ring-stone-200 sm:space-y-5 sm:p-5">
               <legend className="sr-only">Personalisierung</legend>
               <p className="text-abschnitt font-bold text-stone-900" aria-hidden>
@@ -410,7 +433,7 @@ export function RequestDialog({
                   key={f.id}
                   field={f}
                   value={custom[f.id] ?? ''}
-                  onChange={(v) => setCustom((c) => ({ ...c, [f.id]: v }))}
+                  onChange={(v) => setCustom(f.id, v)}
                   error={errors[`custom.${f.id}`]}
                 />
               ))}

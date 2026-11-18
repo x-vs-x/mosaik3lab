@@ -27,12 +27,13 @@ export function TextMitLinks({ text }: { text: string }) {
 export function LinkKnoepfe({ links }: { links: ItemLink[] }) {
   if (!links.length) return null;
   return (
-    <Card as="section" className="mt-6 p-4 sm:mt-10 sm:p-7">
+    <Card as="section" className="p-4 sm:p-6">
       <h2 className="flex items-center gap-2.5 text-abschnitt font-bold text-stone-900 sm:text-xl">
         <Link2 className="size-6 text-brand-700" aria-hidden />
-        Links und Bestellhinweise
+        <span className="min-w-0 hyphens-auto wrap-break-word">Links und Bestellhinweise</span>
       </h2>
-      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+      {/* Mehrere Spalten nur, wenn je mindestens 16rem frei sind (linke Spalte der Druckteil-Seite ist schmal) */}
+      <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,16rem),1fr))] gap-3">
         {links.map((l) => (
           <li key={l.id}>
             <a
@@ -43,10 +44,10 @@ export function LinkKnoepfe({ links }: { links: ItemLink[] }) {
             >
               <span className="flex items-start gap-2 font-bold">
                 <ExternalLink className="mt-0.5 size-5 shrink-0" aria-hidden />
-                {l.text}
+                <span className="min-w-0 wrap-break-word">{l.text}</span>
                 <span className="sr-only"> (öffnet in neuem Tab)</span>
               </span>
-              {l.beschreibung && <span className="text-hinweis text-stone-700 whitespace-pre-line">{l.beschreibung}</span>}
+              {l.beschreibung && <span className="text-hinweis text-stone-700 whitespace-pre-line wrap-break-word">{l.beschreibung}</span>}
             </a>
           </li>
         ))}

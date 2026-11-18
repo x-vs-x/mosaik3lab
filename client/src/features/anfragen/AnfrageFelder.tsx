@@ -6,17 +6,14 @@ import { ColorSwatch } from '../../components/ColorSwatch';
 import { TeilSchilder } from '../../components/TeilSchilder';
 import { TupferReihe } from '../../components/TupferReihe';
 import { TeileFarbListe } from './TeileFarbListe';
-import { Button, cx, Field, Input, Select } from '../../components/ui';
+import { Alert, Button, cx, Field, Input, Select } from '../../components/ui';
 import type { AreaColors } from '../../lib/colors';
-import type { CustomField } from '../../lib/types';
+import type { CustomField, Filament } from '../../lib/types';
+import type { ColorRowValue } from './anfrageAuswahl';
 
 // Eingabefelder des Anfrageformulars (RequestDialog): Anzahl, Farbwahl je Zeile, Personalisierung.
 
-/** Eine Zeile „Anzahl + Farbe je Farbbereich“ – mehrere Zeilen = mehrere Farben in einer Anfrage. */
-export interface ColorRowValue {
-  quantity: number;
-  colors: Record<string, string>;
-}
+export type { ColorRowValue } from './anfrageAuswahl';
 
 /**
  * Anzahl und Farbwahl einer Zeile. Ab zwei Zeilen nummeriert („Farbe 1“, „Farbe 2“) in einem eigenen Kasten;
@@ -78,34 +75,14 @@ export function ColorRow({
         />
       )}
       {!multiColor && areas.map(({ area, filaments }) => (
-        <ChoiceGroup
+        <EinfarbigeWahl
           key={area.id}
           legend={title}
           name={`farbe-${index}-${area.id}`}
+          filaments={filaments}
           value={row.colors[area.id] ?? ''}
           onChange={(v) => onChange({ ...row, colors: { ...row.colors, [area.id]: v } })}
           error={errors[`${prefix}color`]}
-          options={[
-            ...filaments.map((f) => ({
-              value: f.id,
-              content: (
-                <>
-                  <ColorSwatch hex={f.hex} className="size-6 sm:size-7" />
-                  <span className="text-left leading-tight">{f.colorName}</span>
-                </>
-              ),
-            })),
-            // „Farbe egal“: das Druck-Team wählt die Farbe.
-            {
-              value: EGAL_FARBE,
-              content: (
-                <>
-                  <Shuffle className="size-5 text-stone-600 sm:size-6" aria-hidden />
-                  <span className="text-left leading-tight">{EGAL_FARBE_NAME}</span>
-                </>
-              ),
-            },
-          ]}
         />
       ))}
     </>
@@ -178,8 +155,68 @@ function VarianteKurz({
   );
 }
 
+/** Farbknöpfe eines einfarbigen Druckteils (vorrätige Farben + „Farbe egal“) – im Anfrage-Fenster und auf der Seite. */
+export function EinfarbigeWahl({
+  legend,
+  name,
+  filaments,
+  value,
+  onChange,
+  error,
+}: {
+  legend: string;
+  name: string;
+  filaments: Filament[];
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+}) {
+  return (
+    <ChoiceGroup
+      legend={legend}
+      name={name}
+      value={value}
+      onChange={onChange}
+      error={error}
+      options={[
+        ...filaments.map((f) => ({
+          value: f.id,
+          content: (
+            <>
+              <ColorSwatch hex={f.hex} className="size-6 sm:size-7" />
+              <span className="text-left leading-tight">{f.colorName}</span>
+            </>
+          ),
+        })),
+        // „Farbe egal“: das Druck-Team wählt die Farbe.
+        {
+          value: EGAL_FARBE,
+          content: (
+            <>
+              <Shuffle className="size-5 text-stone-600 sm:size-6" aria-hidden />
+              <span className="text-left leading-tight">{EGAL_FARBE_NAME}</span>
+            </>
+          ),
+        },
+      ]}
+    />
+  );
+}
+
+/** Hinweis, wenn ein Farbbereich gerade keine vorrätige Farbe hat (dann kann nicht angefragt werden). */
+export function KeineFarbeHinweis({ leer, multiColor }: { leer: AreaColors[]; multiColor: boolean }) {
+  if (!leer.length) return null;
+  return (
+    <Alert kind="warning" title="Derzeit keine Farbe vorrätig">
+      {multiColor
+        ? `Für „${leer.map((a) => a.area.name).join('“, „')}“ ist gerade keine Farbe vorrätig. Bitte versuchen Sie es später noch einmal.`
+        : 'Alle Farben für dieses Druckteil sind gerade leer. Bitte versuchen Sie es später noch einmal.'}
+    </Alert>
+  );
+}
+
 /** Anzahl mit Minus/Plus. `context`: ID der Zeilenüberschrift, damit Screenreader „Farbe 2 Anzahl“ vorlesen. */
-function QuantityInput({
+export function QuantityInput({
   id,
   context,
   contextLabel,
@@ -319,7 +356,7 @@ export function ChoiceGroup({
               <span
                 className={cx(
                   // min-w: auch kurze Werte („S“, „M“) sind mindestens so breit wie hoch (Tippfläche)
-                  'inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl px-3 py-1.5 font-bold ring-inset transition-colors sm:min-h-12 sm:min-w-12 sm:gap-2.5 sm:px-4 sm:py-2',
+                  'inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-xl px-3 py-1.5 font-bold ring-inset transition-colors sm:min-h-12 sm:min-w-12 sm:gap-2.5 sm:px-4 sm:py-2',
                   'peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600',
                   selected
                     ? 'bg-brand-50 text-brand-900 ring-2 ring-brand-700'
