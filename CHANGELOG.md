@@ -6,6 +6,16 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Anzeige auf Handy, iPad und bei großer Schrift überarbeitet:** Alle Seiten, Dialoge und Meldungen – auch der
+  Server-Manager und die Portal-Seiten – wurden in sieben Bildschirmgrößen, mit 200 % Schrift, mit Browser-Zoom und mit
+  Bildschirmtastatur durchgesehen. Lange Wörter werden jetzt mit Trennstrich umbrochen statt mitten im Wort, E-Mail-Adressen
+  nur vor @ und Punkt. Bei großer Schrift zerfallen Logo, Menü-Knopf, untere Leiste, Seitentitel, Zahl-Kacheln und
+  Stammdaten-Listen nicht mehr in einzelne Buchstaben; Dialoge scrollen bei wenig Höhe samt Titel, sodass Knöpfe wie
+  „Zuordnen“ und „Importieren“ erreichbar bleiben; bei offener Bildschirmtastatur verschwindet die untere Leiste.
+  Mehrfarbige Anfragen sind in „Meine Anfragen“ und in der Anfragen-Verwaltung ordentlich umbrochen, die Größenwahl „S/M/L“
+  hat größere Tippflächen. Im Server-Manager laufen Statustexte nicht mehr über den Rand; Manager und Portal-Seiten
+  wachsen mit der Grundschrift des Geräts.
+
 - **Stabiler bei schwachem WLAN und nach Updates:** Statt einer weißen Seite erscheint bei einem Fehler „Etwas ist
   schiefgelaufen – Seite neu laden“; ein alter Tab nach einem Update lädt sich einmal selbst neu. Der Katalog erscheint
   schneller (kleineres Programm, Schriften werden früh geladen, keine Wartezeit mehr auf die Prüfung der Ersteinrichtung;

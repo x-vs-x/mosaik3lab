@@ -68,21 +68,24 @@ export function OrderCard({
               </div>
             </div>
 
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 text-base sm:mt-4 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-3">
+            {/* Spalten nach Platz: bei großer Schrift einspaltig statt zwei schmaler Spalten mit Silbenresten */}
+            <dl className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(min(100%,8rem),1fr))] gap-x-4 gap-y-2.5 text-base sm:mt-4 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-3">
               <Detail label="Menge" value={`${order.quantity} Stück`} />
               <Detail label="Klasse / Team" value={order.classOrTeam} />
               {order.size && <Detail label="Größe" value={order.size} />}
               {variants.length > 1 ? (
                 // Mehrere Farben in einer Anfrage: „3 × Blau, 4 × Gelb“
-                <div className="col-span-2 sm:col-span-3">
+                <div className="col-span-full">
                   <dt className="text-hinweis text-stone-600">Farben</dt>
                   <dd>
                     <ul className="flex flex-wrap gap-x-5 gap-y-1 font-bold text-stone-800">
                       {variants.map((v, i) => (
-                        <li key={i} className="flex items-center gap-2">
-                          <span>{v.quantity} ×</span>
+                        // Umbrechen statt Zusammendrücken: Bei mehreren Farbbereichen wurden die Angaben sonst zu
+                        // schmalen Spalten mit einzelnen Silben („Grun|dplat|te“).
+                        <li key={i} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className="whitespace-nowrap">{v.quantity} ×</span>
                           {v.colorChoices.map((c) => (
-                            <span key={c.areaId} className="inline-flex items-center gap-1.5">
+                            <span key={c.areaId} className="inline-flex min-w-0 items-center gap-1.5">
                               {c.colorHex && <ColorSwatch hex={c.colorHex} className="size-5 shrink-0" />}
                               {v.colorChoices.length > 1 ? `${c.area}: ${c.color}` : c.color}
                             </span>
@@ -93,7 +96,7 @@ export function OrderCard({
                   </dd>
                 </div>
               ) : colors.map((c) => (
-                <div key={c.areaId} className="col-span-2 sm:col-span-1">
+                <div key={c.areaId} className="col-span-full sm:col-span-1">
                   <dt className="text-hinweis text-stone-600">{colors.length > 1 ? `Farbe: ${c.area}` : 'Farbe'}</dt>
                   <dd className="flex items-center gap-2 font-bold text-stone-800">
                     {c.colorHex && <ColorSwatch hex={c.colorHex} className="size-5 shrink-0" />}

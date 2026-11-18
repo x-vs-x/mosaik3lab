@@ -244,7 +244,8 @@ export function ChoiceGroup({
               />
               <span
                 className={cx(
-                  'inline-flex min-h-11 items-center gap-2 rounded-xl px-3 py-1.5 font-bold ring-inset transition-colors sm:min-h-12 sm:gap-2.5 sm:px-4 sm:py-2',
+                  // min-w: auch kurze Werte („S“, „M“) sind mindestens so breit wie hoch (Tippfläche)
+                  'inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl px-3 py-1.5 font-bold ring-inset transition-colors sm:min-h-12 sm:min-w-12 sm:gap-2.5 sm:px-4 sm:py-2',
                   'peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600',
                   selected
                     ? 'bg-brand-50 text-brand-900 ring-2 ring-brand-700'

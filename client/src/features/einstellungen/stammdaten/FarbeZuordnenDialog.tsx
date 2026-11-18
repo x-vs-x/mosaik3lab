@@ -290,9 +290,10 @@ export function FarbeZuordnenDialog({
               </ul>
             </>
           )}
-          <div className="sticky -bottom-4 -mx-4 -mb-4 grid grid-cols-2 gap-2 border-t border-stone-100 bg-white px-4 py-3 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:flex sm:gap-3 sm:px-6 sm:py-4 sm:flex-row sm:items-center sm:justify-end">
+          {/* flex-wrap statt zwei fester Spalten: Bei großer Schrift passte „Zuordnen“ nicht mehr in die halbe Breite */}
+          <div className="sticky -bottom-4 -mx-4 -mb-4 flex flex-wrap gap-2 border-t border-stone-100 bg-white px-4 py-3 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:gap-3 sm:px-6 sm:py-4 sm:items-center sm:justify-end [&>button]:grow sm:[&>button]:grow-0">
             <p
-              className="col-span-2 text-hinweis text-stone-600 sm:mr-auto"
+              className="basis-full text-hinweis text-stone-600 sm:mr-auto sm:basis-auto"
               aria-live="polite"
             >
               {wahl.size === 1

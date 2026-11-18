@@ -1,5 +1,6 @@
 import { CircleAlert, Info, LoaderCircle, type LucideIcon } from 'lucide-react';
 import {
+  Fragment,
   forwardRef,
   useId,
   type ButtonHTMLAttributes,
@@ -120,13 +121,15 @@ export function PageHeader({
   title: string;
   description?: ReactNode;
   /** Kurzfassung für schmale Bildschirme; ohne sie entfallen lange Texte (> 90 Zeichen) auf dem Handy. */
-  shortDescription?: string;
+  shortDescription?: ReactNode;
   actions?: ReactNode;
   eyebrow?: string;
 }) {
   return (
-    <header className="mb-4 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:gap-4 sm:items-end sm:justify-between">
-      <div className="max-w-3xl">
+    // Ab sm nebeneinander; reicht der Platz nicht (große Schrift, Tablet hoch), rutschen die Knöpfe unter den Titel,
+    // statt ihn auf wenige Buchstaben je Zeile zusammenzudrücken.
+    <header className="mb-4 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:flex-wrap sm:gap-4 sm:items-end sm:justify-between">
+      <div className="max-w-3xl sm:min-w-0 sm:flex-[1_1_18rem]">
         {eyebrow && <p className="mb-1.5 hidden text-hinweis font-bold uppercase sm:block sm:text-sm tracking-wider text-brand-700">{eyebrow}</p>}
         <h1 className="text-titel font-bold tracking-tight wrap-anywhere text-stone-900 sm:text-[2.2rem]">{title}</h1>
         {description && (
@@ -144,21 +147,28 @@ export function PageHeader({
         )}
       </div>
       {/* Handy: Aktionen teilen sich die volle Breite; ab sm rechts neben dem Titel */}
-      {actions && <div className="flex flex-wrap gap-2 sm:shrink-0 sm:gap-3 [&>*]:grow sm:[&>*]:grow-0">{actions}</div>}
+      {actions && <div className="flex flex-wrap gap-2 sm:ml-auto sm:max-w-full sm:shrink-0 sm:gap-3 [&>*]:grow sm:[&>*]:grow-0">{actions}</div>}
     </header>
   );
 }
 
-/** E-Mail-Adresse, die nur vor dem @ umbricht (statt mitten im Wort wie mit break-all). */
+/**
+ * E-Mail-Adresse, die vor dem @ und vor Punkten umbricht (statt mitten im Wort) – ohne Trennstriche, die wie ein Teil
+ * der Adresse aussähen. Text ohne @ (z. B. ein Name) bleibt unverändert.
+ */
 export function Email({ adresse }: { adresse: string }) {
   const at = adresse.indexOf('@');
   if (at <= 0) return <>{adresse}</>;
+  const teile = [adresse.slice(0, at), ...adresse.slice(at).split(/(?=\.)/)];
   return (
-    <>
-      {adresse.slice(0, at)}
-      <wbr />
-      {adresse.slice(at)}
-    </>
+    <span className="hyphens-manual">
+      {teile.map((teil, i) => (
+        <Fragment key={i}>
+          {i > 0 && <wbr />}
+          {teil}
+        </Fragment>
+      ))}
+    </span>
   );
 }
 

@@ -69,9 +69,41 @@
        „anywhere“ die Mindestbreite). Sonst wird die Seite auf dem Handy breiter als der Bildschirm. */
     overflow-wrap: anywhere;
     overflow-x: clip;
+    /* Silbentrennung (lang="de") vor dem Notumbruch: Lange Wörter brechen auf dem Handy und bei großer Schrift mit
+       Trennstrich statt mitten im Wort („Kommunikationsta|ster“). Kurze Wörter bleiben ganz. */
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    hyphenate-limit-chars: 6 2 2;
     /* iPhone quer: Inhalt nicht unter die Notch (viewport-fit=cover); sonst 0 */
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+  }
+
+  /* Ab sm ist genug Platz: Fließtext ohne Trennstriche (ruhigeres Schriftbild), Überschriften und kurze Beschriftungen
+     trennen weiter – dort sind Spalten schmal und die Schrift groß. */
+  @media (width >= 40rem) {
+    body {
+      hyphens: manual;
+      -webkit-hyphens: manual;
+    }
+    h1,
+    h2,
+    h3,
+    legend,
+    label,
+    dt {
+      hyphens: auto;
+      -webkit-hyphens: auto;
+    }
+  }
+  /* Adressen, Links und Eingaben nie trennen – ein eingefügter Trennstrich sähe aus wie ein Teil der Adresse. */
+  input,
+  textarea,
+  code,
+  a[href^='http'],
+  a[href^='mailto:'] {
+    hyphens: manual;
+    -webkit-hyphens: manual;
   }
 
   /* Deutlich sichtbarer Tastaturfokus (WCAG 2.4.7 / 2.4.11) */
@@ -90,17 +122,19 @@
 .skip-link {
   position: fixed;
   left: 1rem;
-  top: -4rem;
+  top: 1rem;
+  /* Ganz aus dem Bild – auch wenn der Text bei großer Schrift zweizeilig wird (fester Abstand wie -4rem reichte dann nicht). */
+  transform: translateY(calc(-100% - 2rem));
   z-index: 100;
   border-radius: 0.875rem;
   background: var(--color-brand-800);
   color: white;
   font-weight: 700;
   padding: 0.85rem 1.25rem;
-  transition: top 0.15s;
+  transition: transform 0.15s;
 }
 .skip-link:focus {
-  top: 1rem;
+  transform: none;
 }
 
 .select-chevron {

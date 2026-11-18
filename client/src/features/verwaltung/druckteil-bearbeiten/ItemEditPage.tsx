@@ -61,7 +61,7 @@ export function ItemEditPage() {
 
         {formError && <Alert kind="error">{formError}</Alert>}
 
-        <div className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 flex justify-end lg:bottom-4">
+        <div className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 flex justify-end lg:bottom-4 [@media(max-height:28rem)]:bottom-2">
           <div className="rounded-2xl bg-white p-2 shadow-lg ring-1 ring-stone-200">
             <Button type="submit" size="lg" icon={Save} loading={saving}>
               {isNew ? 'Druckteil anlegen' : 'Änderungen speichern'}

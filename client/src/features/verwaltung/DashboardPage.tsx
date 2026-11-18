@@ -141,7 +141,7 @@ function Stat({
         <span className={`grid size-10 shrink-0 place-items-center rounded-2xl sm:size-12 ${tone}`}>
           <Icon className="size-5 sm:size-6" aria-hidden />
         </span>
-        <span className="order-last ml-auto text-[1.6rem] sm:order-none sm:ml-0 sm:mt-5 sm:text-[2.4rem] font-bold leading-none tracking-tight text-stone-900">{value}</span>
+        <span className="order-last ml-auto shrink-0 whitespace-nowrap text-[1.6rem] sm:order-none sm:ml-0 sm:mt-5 sm:text-[2.4rem] font-bold leading-none tracking-tight text-stone-900">{value}</span>
         <span className="flex min-w-0 flex-col sm:contents">
           <span className="font-bold text-stone-800 sm:mt-2">{label}</span>
           <span className="mt-0.5 text-hinweis text-stone-600">{hint}</span>

@@ -51,7 +51,9 @@ export function AccountPage() {
       <PageHeader title="Mein Konto" />
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_1.2fr]">
         <Card className="p-4 sm:p-7">
-          <h2 className="text-abschnitt font-bold text-stone-900 sm:text-xl">{user.displayName}</h2>
+          <h2 className="text-abschnitt font-bold text-stone-900 sm:text-xl">
+            <Email adresse={user.displayName} />
+          </h2>
           <dl className="mt-5 space-y-3">
             <div>
               <dt className="text-hinweis text-stone-500">E-Mail</dt>
