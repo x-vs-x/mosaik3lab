@@ -77,8 +77,8 @@ z. B. C:\Mosaik3LAB\ablage\artikel\0193…\bild\0193…a1.jpg
 
 **Vorschaubilder der Druckteil-Bilder** (seit 2026-11-18, `server/src/kern/bilder/`) – abgeleitet, ohne Datensatz:
 ```
-<ablage>/vorschau/karte-720/<datei-id>.jpg   Katalogkarte, 720 px breit
-<ablage>/vorschau/mini-240/<datei-id>.jpg    kleine Vorschau (Ähnliche Druckteile, Listen), 240 px breit
+<ablage>/vorschau/karte-1080/<datei-id>.jpg  Katalogkarte, 1080 px breit
+<ablage>/vorschau/mini-360/<datei-id>.jpg    kleine Vorschau (Ähnliche Druckteile, Listen), 360 px breit
 ```
 - Höchstens drei Größen je Bild: Original (längste Kante ≤ 2000 px; größere verkleinert der Server, nur bei ≥ 20 %
   Ersparnis), `karte`, `mini`. Vorschaubilder sind immer JPEG (Transparenz auf Weiß), Höhe höchstens 2 × Breite.

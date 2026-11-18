@@ -1,5 +1,5 @@
 // Bildverarbeitung der Druckteil-Bilder – die einzige Stelle, die Bilder umrechnet.
-//   groessen.ts      feste Größen (Original ≤ 2000 px, karte 720, mini 240) und Ablage vorschau/<größe>-<breite>/
+//   groessen.ts      feste Größen (Original ≤ 2000 px, karte 1080, mini 360) und Ablage vorschau/<größe>-<breite>/
 //   format.ts        Kopfdaten (Maße, EXIF-Drehung) ohne Dekodieren
 //   verarbeitung.ts  Dekodieren, Verkleinern, Drehen, Kodieren (jpeg-js, pngjs; reines JavaScript) – austauschbar
 //   worker.ts        Rechen-Thread; rechner.ts verwaltet ihn (Warteschlange, Zeitgrenze, Neustart nach Absturz)

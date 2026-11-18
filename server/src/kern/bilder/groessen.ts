@@ -1,5 +1,7 @@
 // Feste Größen der Druckteil-Bilder (höchstens drei je Bild): Original, „karte“, „mini“.
-// Die Breite steht im Ordnernamen (vorschau/karte-720/): Ändert sich eine Größe, entsteht ein neuer Ordner, die Bildpflege
+// Scharf auch bei dreifacher Pixeldichte: Katalogkarte am Handy ≈ 343 CSS-px × 3 ≈ 1030 px, iPad 50vw ≈ 1024 px → 1080;
+// kleine Karten (Ähnliche Druckteile) ≈ 100 CSS-px × 3 → 360.
+// Die Breite steht im Ordnernamen (vorschau/karte-1080/): Ändert sich eine Größe, entsteht ein neuer Ordner, die Bildpflege
 // füllt ihn und löscht den alten – es bleiben nie veraltete Vorschaubilder liegen.
 
 export type VorschauGroesse = 'karte' | 'mini';
@@ -12,8 +14,8 @@ export const ORIGINAL_ZU_GROSS_BYTES = 1536 * 1024;
 export const MINDEST_ERSPARNIS = 0.2;
 
 export const VORSCHAU: Record<VorschauGroesse, { breite: number; ordner: string }> = {
-  karte: { breite: 720, ordner: 'karte-720' },
-  mini: { breite: 240, ordner: 'mini-240' },
+  karte: { breite: 1080, ordner: 'karte-1080' },
+  mini: { breite: 360, ordner: 'mini-360' },
 };
 export const VORSCHAU_GROESSEN = Object.keys(VORSCHAU) as VorschauGroesse[];
 export const istVorschauGroesse = (v: unknown): v is VorschauGroesse => typeof v === 'string' && v in VORSCHAU;

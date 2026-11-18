@@ -61,24 +61,24 @@ const pixel = (b: Uint8Array, x: number, y: number) => {
   return [r.data[i], r.data[i + 1], r.data[i + 2]];
 };
 const VORSCHAU = [
-  { name: 'karte', breite: 720 },
-  { name: 'mini', breite: 240 },
+  { name: 'karte', breite: 1080 },
+  { name: 'mini', breite: 360 },
 ];
 
 // --- Verarbeitung (ohne Server) ----------------------------------------------------------------------------------------
-test('Größen: Original höchstens 2000 px, karte 720 und mini 240 breit, Seitenverhältnis bleibt', () => {
+test('Größen: Original höchstens 2000 px, karte 1080 und mini 360 breit, Seitenverhältnis bleibt', () => {
   const e = verarbeite({ daten: jpg(3000, 2000), original: true, vorschau: VORSCHAU });
   assert.deepEqual([e.breite, e.hoehe], [3000, 2000]);
   assert.equal(e.original?.ext, 'jpg');
   assert.deepEqual(masse(e.original!.daten), [2000, 1333]);
   const [karte, mini] = e.vorschau;
-  assert.deepEqual(masse(karte.daten), [720, 480]);
-  assert.deepEqual(masse(mini.daten), [240, 160]);
+  assert.deepEqual(masse(karte.daten), [1080, 720]);
+  assert.deepEqual(masse(mini.daten), [360, 240]);
   // kleine Bilder werden nie vergrößert, das Original bleibt
   const klein = verarbeite({ daten: jpg(300, 200), original: true, vorschau: VORSCHAU });
   assert.equal(klein.original, undefined);
   assert.deepEqual(masse(klein.vorschau[0].daten), [300, 200]);
-  assert.deepEqual(masse(klein.vorschau[1].daten), [240, 160]);
+  assert.deepEqual(masse(klein.vorschau[1].daten), [300, 200]);
 });
 
 test('EXIF-Drehung (6 = 90° im Uhrzeigersinn): Vorschau und verkleinertes Original stehen richtig', () => {
@@ -86,10 +86,10 @@ test('EXIF-Drehung (6 = 90° im Uhrzeigersinn): Vorschau und verkleinertes Origi
   assert.deepEqual([e.breite, e.hoehe], [1200, 2400], 'Maße wie angezeigt');
   assert.deepEqual(masse(e.original!.daten), [1000, 2000]);
   const karte = e.vorschau[0].daten;
-  assert.deepEqual(masse(karte), [720, 1440]);
+  assert.deepEqual(masse(karte), [1000, 2000], 'nie größer als das verkleinerte Original');
   // gespeichert links rot / rechts blau → nach der Drehung oben rot, unten blau
-  const oben = pixel(karte, 360, 100);
-  const unten = pixel(karte, 360, 1340);
+  const oben = pixel(karte, 500, 100);
+  const unten = pixel(karte, 500, 1900);
   assert.ok(oben[0] > 180 && oben[2] < 80, `oben rot: ${oben}`);
   assert.ok(unten[2] > 180 && unten[0] < 80, `unten blau: ${unten}`);
 });
@@ -160,8 +160,8 @@ test('Hochladen: großes Bild wird verkleinert, Vorschaubilder liegen sofort ber
   assert.match(name, /\.jpg$/, 'PNG ohne Transparenz → JPG');
   const d = (await fs.readdir(ablage, { recursive: true })).map(String).find((p) => p.endsWith(name) && p.startsWith('artikel'))!;
   assert.deepEqual(masse(await fs.readFile(path.join(ablage, d))), [2000, 1000]);
-  assert.deepEqual(masse(await fs.readFile(vorschauDatei(name, 'karte'))), [720, 360]);
-  assert.deepEqual(masse(await fs.readFile(vorschauDatei(name, 'mini'))), [240, 120]);
+  assert.deepEqual(masse(await fs.readFile(vorschauDatei(name, 'karte'))), [1080, 540]);
+  assert.deepEqual(masse(await fs.readFile(vorschauDatei(name, 'mini'))), [360, 180]);
 
   const karte = await hole(`/api/files/images/${name}?groesse=karte`);
   assert.equal(karte.status, 200);
@@ -243,8 +243,8 @@ test('Ersetzen räumt veraltete Vorschaubilder auf; Bildpflege verkleinert, übe
     const gross = await speichern(jpg(2600, 1300), 'jpg');
     const kaputt = await speichern(KAPUTT, 'jpg');
     // Reste: veraltete Größe und Vorschaubild eines gelöschten Bildes
-    await fs.mkdir(path.join(storage.files.root, 'vorschau', 'karte-600'), { recursive: true });
-    await fs.writeFile(path.join(storage.files.root, 'vorschau', 'karte-600', `${gross.id}.jpg`), 'alt');
+    await fs.mkdir(path.join(storage.files.root, 'vorschau', 'karte-720'), { recursive: true });
+    await fs.writeFile(path.join(storage.files.root, 'vorschau', 'karte-720', `${gross.id}.jpg`), 'alt');
     await fs.mkdir(path.dirname(vorschau('weg', 'mini')), { recursive: true });
     await fs.writeFile(vorschau('weg', 'mini'), 'waise');
 
@@ -259,7 +259,7 @@ test('Ersetzen räumt veraltete Vorschaubilder auf; Bildpflege verkleinert, übe
     assert.equal(b1.fehler, 1, 'kaputtes Bild übersprungen');
     assert.equal(b1.aufgeraeumt, 2);
     assert.match(warnungen[0], /übersprungen, Original bleibt/);
-    assert.ok(!existsSync(path.join(storage.files.root, 'vorschau', 'karte-600')), 'veralteter Größen-Ordner gelöscht');
+    assert.ok(!existsSync(path.join(storage.files.root, 'vorschau', 'karte-720')), 'veralteter Größen-Ordner gelöscht');
     assert.ok(!existsSync(vorschau('weg', 'mini')));
     const neu = storage.files.find(gross.id)!;
     assert.deepEqual(masse(await fs.readFile(storage.files.absPath(neu))), [2000, 1000]);

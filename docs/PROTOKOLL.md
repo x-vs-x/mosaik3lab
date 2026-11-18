@@ -19,17 +19,29 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   (`FilePicker.tsx`, role="status"); `BilderVerkleinern.tsx` und der Knopf entfernt.
   Tests: `server/test/bilder.test.ts` (ersetzt `bildErsetzen.test.ts`), `client/test/bildQuellen.test.ts`,
   `manager/test/manager.test.mjs` (Backup ohne Vorschaubilder, doctor).
+- **Größen** (Nachtrag Hauptchat, Schärfe auf allen Displays): `karte` 1080 px (iPhone DPR 3: Karte ≈ 343 CSS-px →
+  ≈ 1030 px; iPad 50vw ≈ 1024 px), `mini` 360 px (Ähnliche ≈ 75–100 CSS-px × 3). `srcset` bietet mini, karte und das
+  Original als oberste Stufe; `sizes` rechnet die echte Kartenbreite (Ränder, Seitenleiste, Spalten) – mit „100vw“ lud
+  das iPhone (375 × 3 = 1125 px) das Original statt der Karte.
 - **Gemessen** (22 echte Bilder aus der Ablage, 44,8 MB, direkt per API hochgeladen wie vor der Browser-Verkleinerung;
-  11 Druckteile; headless Chrome, ohne Cache): Katalog Handy 375 px (DPR 3) beim Öffnen 6 Bilder **11,9 MB → 0,40 MB**,
-  bis unten gescrollt 11 Bilder **22,6 MB → 0,77 MB**; PC 1440 px 22,6 MB → 0,77 MB. Bildpflege beim ersten Start:
-  22 geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder, 26 s (gebündelte App). Rechenzeit je Bild im
-  Rechen-Thread (PC): 0,1 s (720 px) · 0,25–0,35 s (1080–1920 px PNG) · 0,8–1,2 s (12 MP JPEG) · 2,0 s (24 MP JPEG);
-  auf dem Pi grob 5–8× länger (nicht gemessen), Zeitgrenze 60 s.
+  11 Druckteile; headless Chrome, ohne Cache). Katalog beim Öffnen vorher: Handy 375 px **11,9 MB** (6 Bilder), PC 22,6 MB.
+  Nachher, geladene Fassung per `currentSrc` je Breite × Dichte geprüft:
+
+  | Breite | DPR 1 | DPR 2 | DPR 3 |
+  |---|---|---|---|
+  | 375 px | 0,14 MB (Karte: mini) | 0,69 MB (karte) | 0,69 MB (karte) |
+  | 768 px | 0,32 MB (mini) | 1,01 MB (karte) | 1,01 MB (karte) |
+  | 1440 px | 0,39 MB (mini) | 1,41 MB (karte) | 1,41 MB (karte; Galerie: Original) |
+
+  Ähnliche Druckteile laden immer `mini`; die Galerie nimmt karte, bis mehr als 1080 px gebraucht werden. Zoom-Screenshots
+  (scharf): `C:\Entwicklung\_testdaten\bildpflege-bilder\dichte\`. Bildpflege beim ersten Start (noch mit 720/240):
+  22 geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder, 26 s. Upload inkl. Verarbeitung je Bild (PC, 1080/360):
+  0,15–0,45 s (bis 1920 px) · 0,8–1,2 s (12 MP JPEG) · 2,2 s (24 MP JPEG); Pi grob 5–8× länger (nicht gemessen), Zeitgrenze 60 s.
 - **Backup:** `vorschau/` ausgenommen (Filter beim Kopieren der Ablage, kein Risiko für Originale; Wiederherstellen
   ersetzt die Ablage ohnehin ganz, die Bildpflege erzeugt die Vorschaubilder danach neu).
 - **Geprüft:** typecheck, lint, `npm test`; Klicktest headless Chrome 320/375/1440 px: Upload zeigt „Wird hochgeladen … %“
   → „Vorschau wird erzeugt … bitte warten“, Bild erscheint danach; Katalog lädt `?groesse=karte`, Ähnliche
-  `?groesse=mini`, Galerie am PC karte/Original; kein waagrechtes Scrollen, keine JS-Fehler. Gebündelte App
+  `?groesse=mini`, Galerie karte/Original (DPR 1/2/3 bei 375/768/1440 px); kein waagrechtes Scrollen, keine JS-Fehler. Gebündelte App
   (`node server/dist/server.mjs`) mit Bildpflege geprüft. Bilder: `C:\Entwicklung\_testdaten\bildpflege-bilder\`.
 - **Aufgeräumt:** Testserver gestoppt, `_testdaten\bildpflege*` (außer `bildpflege-bilder`) gelöscht, Skripte im Scratchpad gelöscht.
 

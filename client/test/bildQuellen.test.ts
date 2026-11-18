@@ -11,23 +11,22 @@ test('Adressen: Vorschaubilder per ?groesse=, Original ohne', () => {
   assert.equal(bildUrl(F, 'mini'), `/api/files/images/${F}?groesse=mini`);
 });
 
-test('Katalogkarte: karte als src, Auswahl nur zwischen mini und karte – nie das große Original (auch nicht auf Retina)', () => {
+test('Katalogkarte: karte als src; mini, karte und Original als oberste Stufe', () => {
   const q = bildQuellen(F, 'karte');
   assert.equal(q.src, bildUrl(F, 'karte'));
-  assert.equal(q.srcSet, `${bildUrl(F, 'mini')} 240w, ${bildUrl(F, 'karte')} 720w`);
+  assert.equal(q.srcSet, `${bildUrl(F, 'mini')} 360w, ${bildUrl(F, 'karte')} 1080w, ${bildUrl(F, 'original')} 2000w`);
   assert.equal(q.sizes, STANDARD_SIZES.karte);
-  assert.ok(!q.srcSet.includes(`${F} `), 'Original nicht angeboten');
 });
 
 test('Kleine Vorschau (Ähnliche Druckteile, Listen): mini als src, eigene Anzeigebreite', () => {
   const q = bildQuellen(F, 'mini', '80px');
   assert.equal(q.src, bildUrl(F, 'mini'));
-  assert.match(q.srcSet, /groesse=mini 240w/);
+  assert.match(q.srcSet, /groesse=mini 360w/);
   assert.equal(q.sizes, '80px');
 });
 
 test('Galerie: Original als src, auf kleinen Bildschirmen reicht karte', () => {
   const q = bildQuellen(F, 'original');
   assert.equal(q.src, bildUrl(F, 'original'));
-  assert.equal(q.srcSet, `${bildUrl(F, 'karte')} 720w, ${bildUrl(F, 'original')} 2000w`);
+  assert.equal(q.srcSet, `${bildUrl(F, 'karte')} 1080w, ${bildUrl(F, 'original')} 2000w`);
 });
