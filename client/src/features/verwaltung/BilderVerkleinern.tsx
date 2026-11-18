@@ -76,7 +76,7 @@ export function BilderVerkleinernDialog({ items, open, onClose, onDone }: { item
         {!stand && (
           <>
             <p className="text-stone-700">
-              {plural(bilder.length, 'Bild', 'Bilder')} in {plural(items.length, 'Druckteil', 'Druckteilen')}. Ersetzt wird ein Bild nur, wenn es dadurch deutlich
+              {plural(bilder.length, 'Bild', 'Bilder')} in {plural(items.filter((i) => i.images.length > 0).length, 'Druckteil', 'Druckteilen')}. Ersetzt wird ein Bild nur, wenn es dadurch deutlich
               kleiner wird; Reihenfolge und Titelbild bleiben gleich. Das kann einige Minuten dauern – bitte diese Seite so lange geöffnet lassen.
             </p>
             <Alert kind="info">Tipp: Vorher ein Backup machen. Die ursprünglichen Bilder werden ersetzt.</Alert>

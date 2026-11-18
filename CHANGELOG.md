@@ -6,6 +6,11 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Kleinere Bilder:** Bilder von Druckteilen und Fotos in Vorschlägen werden beim Hochladen im Browser auf höchstens
+  2000 Pixel verkleinert (JPEG, Bilder mit Transparenz bleiben PNG). Große Handyfotos über 5 MB lassen sich so auch
+  hochladen. Neu unter Verwaltung → Druckteile: „Bilder verkleinern …“ verkleinert einmalig alle vorhandenen Bilder –
+  das macht Exporte deutlich kleiner und den Katalog auf dem Handy schneller.
+
 - **Katalog:** Wer ein Druckteil öffnet und zurückgeht, landet wieder auf derselben Höhe im Katalog statt ganz oben –
   mit der Zurück-Taste oder -Geste, mit „Zurück zum Katalog“ und über die Navigation, auch mit Suche und Filtern.
 
