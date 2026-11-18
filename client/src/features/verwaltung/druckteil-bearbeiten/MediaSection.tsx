@@ -2,7 +2,7 @@ import { ImagePlus, Star, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ItemImage } from '../../../components/ItemImage';
 import { useToast } from '../../../components/Toast';
-import { api, ApiError } from '../../../lib/api';
+import { api, fehlerText } from '../../../lib/api';
 import type { Item } from '../../../lib/types';
 import { FilePicker, useUpload } from './FilePicker';
 import { plural } from './itemForm';
@@ -43,7 +43,7 @@ function ImagesEditor({ item, onChange }: { item: Item; onChange: (i: Item) => v
     try {
       onChange(await api<Item>(`/items/${item.id}/images/${file}`, { method: 'DELETE' }));
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Löschen fehlgeschlagen.');
+      toast('error', fehlerText(err, 'Löschen fehlgeschlagen.'));
     } finally {
       setBusyFile(undefined);
     }
@@ -55,7 +55,7 @@ function ImagesEditor({ item, onChange }: { item: Item; onChange: (i: Item) => v
       onChange(await api<Item>(`/items/${item.id}/images/order`, { method: 'PUT', body: { images } }));
       toast('success', 'Titelbild geändert.');
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
+      toast('error', fehlerText(err, 'Speichern fehlgeschlagen.'));
     }
   };
 

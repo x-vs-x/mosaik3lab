@@ -27,12 +27,6 @@ export function normalizeCode(code: string) {
   return code.toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-/** Darstellung „ABCD-EFGH“ – leichter abzulesen und abzuschreiben. */
-export function formatCode(code: string) {
-  const c = normalizeCode(code);
-  return c.length === 8 ? `${c.slice(0, 4)}-${c.slice(4)}` : c;
-}
-
 export function getSavedCodes(): string[] {
   const list = read<unknown>(CODES_KEY, []);
   return Array.isArray(list) ? list.filter((c): c is string => typeof c === 'string').map(normalizeCode) : [];
@@ -42,11 +36,6 @@ export function saveCode(code: string) {
   const c = normalizeCode(code);
   const codes = getSavedCodes().filter((x) => x !== c);
   write(CODES_KEY, [c, ...codes].slice(0, 50));
-}
-
-export function forgetCode(code: string) {
-  const c = normalizeCode(code);
-  write(CODES_KEY, getSavedCodes().filter((x) => x !== c));
 }
 
 /** Zum Vorausfüllen des Bestellformulars beim nächsten Mal. */

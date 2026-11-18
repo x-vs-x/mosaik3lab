@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { AnfrageAblaufSection } from './AnfrageAblaufSection';
 import { ListEditor } from '../../components/ListEditor';
+import { LadeFehler } from '../../components/Listenwerkzeug';
 import { useToast } from '../../components/Toast';
 import { ActionBar, Alert, Button, buttonClass, Field, PageHeader, Panel, Spinner, Stack, Switch } from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { api, fehlerText } from '../../lib/api';
 import { withBase } from '../../lib/basePath';
 import { useConfig } from '../../lib/config';
 import { formatDateTime } from '../../lib/format';
@@ -14,7 +15,7 @@ import { useApi, useDocumentTitle } from '../../lib/useApi';
 
 export function SettingsPage() {
   useDocumentTitle('Einstellungen');
-  const { data, setData, error, loading } = useApi<AdminSettings>('/admin/settings');
+  const { data, setData, error, loading, reload } = useApi<AdminSettings>('/admin/settings');
   const { user } = useAuth();
 
   return (
@@ -24,7 +25,7 @@ export function SettingsPage() {
         title="Einstellungen"
         description="Anfrageformular, Ablauf der Anfragen und Schalter für spätere Funktionen. Betrieb (Mailserver, Sicherungen, Ordner, Updates) regelt der Server-Manager."
       />
-      {error && <Alert kind="error">{error.message}</Alert>}
+      <LadeFehler error={error} onRetry={() => void reload()} loading={loading} />
       {loading && !data && <Spinner />}
       {data && (
         <Stack>
@@ -40,10 +41,6 @@ export function SettingsPage() {
 
 type SectionProps = { settings: AdminSettings; onSaved: (s: AdminSettings) => void };
 
-function errorText(err: unknown, fallback = 'Speichern fehlgeschlagen.') {
-  return err instanceof ApiError ? err.message : fallback;
-}
-
 // ---------------------------------------------------------------------------------
 // Server-Manager (nur Administratoren; gleiche Anmeldung wie hier)
 
@@ -58,10 +55,19 @@ function ManagerSection({ settings }: { settings: AdminSettings }) {
   const [port, setPort] = useState(5190);
   useEffect(() => {
     // Port des Notzugangs vom Manager selbst (über <pfad>/manager); antwortet er nicht, bleibt der Standard.
-    fetch(withBase('/manager/api/auth'), { credentials: 'same-origin', signal: AbortSignal.timeout(5000) })
+    // Bewusst ohne api(): Das ist die API des Server-Managers, nicht die der App (api() hängt /api davor).
+    // Zeitgrenze per AbortController statt AbortSignal.timeout – das fehlt auf älteren iPads (Safari < 16), wie in api.ts.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    fetch(withBase('/manager/api/auth'), { credentials: 'same-origin', headers: { 'X-Requested-With': 'mosaik3lab' }, signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((a: { managerPort?: number } | null) => a?.managerPort && setPort(a.managerPort))
       .catch(() => {});
+    // Der Zeitgeber läuft auch nach der Antwort ab: Er gibt so eine nicht gelesene Antwort (z. B. 403) wieder frei.
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
   }, []);
   return (
     <Panel
@@ -113,7 +119,7 @@ function OrderFormSection({ settings, onSaved }: SectionProps) {
       await reload();
       toast('success', 'Anfrageformular gespeichert.');
     } catch (err) {
-      setFormError(errorText(err));
+      setFormError(fehlerText(err, 'Speichern fehlgeschlagen.'));
     } finally {
       setSaving(false);
     }
@@ -173,7 +179,7 @@ function FeaturesSection({ settings, onSaved }: SectionProps) {
       await reload();
       toast('success', requesterTracking ? 'Statusanzeige für Lehrkräfte eingeschaltet.' : 'Statusanzeige für Lehrkräfte ausgeschaltet.');
     } catch (err) {
-      toast('error', errorText(err));
+      toast('error', fehlerText(err, 'Speichern fehlgeschlagen.'));
     } finally {
       setSaving(false);
     }

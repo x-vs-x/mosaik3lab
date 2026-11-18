@@ -1,4 +1,4 @@
-import { isLightHex } from '../lib/constants';
+import { isLightHex } from '../lib/colors';
 import { cx } from './ui';
 
 /** Runder Farbtupfer für Filament-Farben. Dekorativ – der Name steht immer daneben. */

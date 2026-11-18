@@ -74,7 +74,7 @@ werden als Hilfsmittel importiert. Internes (URLs `/verwaltung/hilfsmittel`, Rec
   (`katalogId: null`) fasst der Abgleich nie an. Anzeige für Team/Admin: `filamentRolle()` in `shared/src/stammdaten.ts`.
 - **Farbrollen leer/vorrätig** (`Filament.available`): Das Druck-Team schaltet unter Verwaltung → **Farbrollen**
   (`/verwaltung/filamente`, Recht `filaments:manage`) um. Katalog, Produktseite und Anfrageformular zeigen nur
-  vorrätige Farben (`client/src/lib/filaments.ts` → `availableFilaments`); Anfragen mit leerer Farbe lehnt der
+  vorrätige Farben (`client/src/lib/colors.ts` → `availableFilaments`); Anfragen mit leerer Farbe lehnt der
   Server ab (400). Im Druckteil-Editor sind leere Rollen weiter wählbar und mit „(leer)“ markiert.
 - **Sicherheitshinweise** werden Lehrkräften derzeit nicht angezeigt (nur im Druckteil-Editor).
 - **E-Mail-Benachrichtigung** bei jeder neuen Anfrage an ein oder mehrere Postfächer. **Eingerichtet nur im
@@ -177,13 +177,17 @@ server/src/
   app.ts, index.ts, config.ts, bootstrapConfig.ts, basePath.ts
 server/scripts/  Skripte (tsx); bundle.ts bündelt für das Installer-Paket nach server/dist/ (siehe unten)
 client/src/
-  lib/           api.ts, types.ts (Sammel-Export der Typen aus shared/), config.tsx (ConfigProvider/useMasterData), constants.ts (Farben/Symbole/Helfer), format.ts, useApi.ts
+  lib/           api.ts (api, apiUpload, fehlerText), types.ts (Sammel-Export der Typen aus shared/), config.tsx (ConfigProvider/useMasterData),
+                 constants.ts (Kategorie-/Status-Darstellung), colors.ts (Farbrollen, Farbauswahl), format.ts, useApi.ts, suchParameter.ts
   auth/          AuthContext.tsx
-  components/    gemeinsame Bausteine: ui.tsx, Layout.tsx, Dialog.tsx, Logo.tsx, ItemImage.tsx, ColorSwatch.tsx, StatusBadge.tsx, ListEditor.tsx, Toast.tsx, StatusPages.tsx
+  components/    gemeinsame Bausteine: ui.tsx, Listenwerkzeug.tsx (FilterKnopf, Suchfeld, LadeFehler), Layout.tsx, Dialog.tsx, Logo.tsx,
+                 ItemImage.tsx, ColorSwatch.tsx, StatusBadge.tsx, ListEditor.tsx, Toast.tsx, StatusPages.tsx
   features/
-    katalog/       CatalogPage, ItemDetailPage, RequestDialog, MyOrdersPage + OrderCard (nur bei requesterTracking)
+    katalog/       CatalogPage, ItemDetailPage
+    anfragen/      RequestDialog + AnfrageFelder + anfragePruefung.ts, MyOrdersPage + OrderCard, AnfrageVerlauf (Fortschritt,
+                   Verlauf), farbAnzeige.ts, zugang.ts („Meine Anfragen“ sichtbar?), guestOrders.ts, anfrageEmail.ts
     konto/         LoginPage, AccountPage
-    verwaltung/    DashboardPage, OrdersAdminPage, RequestersPage, ItemsAdminPage, UsersAdminPage + UserDialogs
+    verwaltung/    DashboardPage, OrdersAdminPage + OrderRow, RequestersPage, ItemsAdminPage, UsersAdminPage + UserDialogs
       druckteil-bearbeiten/  ItemEditPage (Laden/Speichern), useItemForm (Formular-Zustand), itemForm.ts (Leerwerte, Prüfung),
                      Section (aufklappbarer Rahmen), je Abschnitt eine Komponente (Basics, Colors + FilamentPicker, Media +
                      VideosEditor, CustomFields, Material, ModelFiles, Safety, VisibilityPanel), FilePicker (Upload)

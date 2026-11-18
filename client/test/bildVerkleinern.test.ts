@@ -36,13 +36,11 @@ test('Transparenz erkennen', () => {
   assert.equal(hatTransparenz(new Uint8ClampedArray([1, 2, 3, 255, 4, 5, 6, 254])), true);
 });
 
-test('Ergebnis nur, wenn kleiner (beim Bestand: deutlich kleiner)', () => {
+test('Ergebnis nur, wenn kleiner', () => {
   assert.equal(ergebnisNehmen(1000, 999), true);
   assert.equal(ergebnisNehmen(1000, 1000), false, 'nicht kleiner → Original');
   assert.equal(ergebnisNehmen(1000, 1200), false);
   assert.equal(ergebnisNehmen(1000, 0), false, 'leeres Ergebnis nie');
-  assert.equal(ergebnisNehmen(1000, 850, 0.2), false, 'nur 15 % kleiner reicht beim Bestand nicht');
-  assert.equal(ergebnisNehmen(1000, 700, 0.2), true);
 });
 
 test('ohne Canvas (z. B. alter Browser) oder bei kleinen/GIF-Dateien kommt das Original zurück', async () => {

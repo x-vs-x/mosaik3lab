@@ -1,13 +1,11 @@
 import { Undo2 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { formatDateTime, formatTime } from '../lib/format';
 import { Button } from './ui';
 
-const uhrzeit = new Intl.DateTimeFormat('de-DE', { timeStyle: 'short' });
-const datumUhrzeit = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
-
 function wann(savedAt: number) {
-  const d = new Date(savedAt);
-  return d.toDateString() === new Date().toDateString() ? `${uhrzeit.format(d)} Uhr` : datumUhrzeit.format(d);
+  const iso = new Date(savedAt).toISOString();
+  return new Date(savedAt).toDateString() === new Date().toDateString() ? `${formatTime(iso)} Uhr` : formatDateTime(iso);
 }
 
 /** Hinweis-Leiste nach dem Wiederherstellen eines Formular-Entwurfs (siehe lib/useEntwurf.ts). */

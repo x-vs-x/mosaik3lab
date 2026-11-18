@@ -1,4 +1,5 @@
 import { Lightbulb, Plus } from 'lucide-react';
+import { LadeFehler } from '../../components/Listenwerkzeug';
 import { Alert, Card, EmptyState, LinkButton, PageHeader, Spinner } from '../../components/ui';
 import { formatDate } from '../../lib/format';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
@@ -7,7 +8,7 @@ import { PhotoGrid, ProposalStatusBadge, SafeLinks, URGENCY_LABELS, type OwnProp
 /** „Meine Vorschläge“: eigene Vorschläge der angemeldeten Lehrkraft mit Status und Antwort des Teams. */
 export function MyProposalsPage() {
   useDocumentTitle('Meine Vorschläge');
-  const { data, error, loading } = useApi<OwnProposal[]>('/proposals/mine');
+  const { data, error, loading, reload } = useApi<OwnProposal[]>('/proposals/mine');
 
   return (
     <>
@@ -21,7 +22,7 @@ export function MyProposalsPage() {
           </LinkButton>
         }
       />
-      {error && <Alert kind="error">{error.message}</Alert>}
+      <LadeFehler error={error} onRetry={() => void reload()} loading={loading} />
       {loading && !data && <Spinner />}
       {data && data.length === 0 && (
         <EmptyState icon={Lightbulb} title="Noch kein Vorschlag" action={<LinkButton to="/vorschlag/neu" icon={Plus}>Etwas vorschlagen</LinkButton>}>

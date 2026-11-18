@@ -8,7 +8,8 @@ import { ForbiddenPage, NotFoundPage } from './components/StatusPages';
 import { Spinner } from './components/ui';
 import { CatalogPage } from './features/katalog/CatalogPage';
 import { ItemDetailPage } from './features/katalog/ItemDetailPage';
-import { MyOrdersPage } from './features/katalog/MyOrdersPage';
+import { MyOrdersPage } from './features/anfragen/MyOrdersPage';
+import { darfMeineAnfragen } from './features/anfragen/zugang';
 import { MyProposalsPage } from './features/vorschlaege/MyProposalsPage';
 import { ProposalFormPage } from './features/vorschlaege/ProposalFormPage';
 import { AccountPage } from './features/konto/AccountPage';
@@ -53,7 +54,7 @@ function MyOrdersAccess({ children }: { children: ReactNode }) {
   const { user, loading, checkError, can } = useAuth();
   if (loading || (checkError && !user)) return <SessionPending />;
   if (!config) return error ? null : <Spinner />; // Fehler zeigt das Layout (mit „Erneut versuchen“)
-  return can('orders:own') || config.features.requesterTracking ? children : <Navigate to="/katalog" replace />;
+  return darfMeineAnfragen(can, config) ? children : <Navigate to="/katalog" replace />;
 }
 
 /** Startadresse: ohne Anmeldung zur Anmeldeseite, angemeldet in den Katalog. */

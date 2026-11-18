@@ -4,7 +4,7 @@ import { Dialog } from '../../components/Dialog';
 import { ActionBar, Alert, Button, buttonClass, cx } from '../../components/ui';
 import { api, apiUpload, isConnectionProblem, UPLOAD_ABGEBROCHEN } from '../../lib/api';
 import { withBase } from '../../lib/basePath';
-import { formatBytes, plural } from '../../lib/format';
+import { formatBytes, formatDate, plural } from '../../lib/format';
 
 // Druckteile exportieren und einspielen – der eine Weg dafür (Verwaltung → Druckteile).
 // Export: angehakte Druckteile → GET /api/admin/daten/export?artikel=… (ohne Liste: alle) → eine ZIP-Datei mit allen Dateien
@@ -205,7 +205,7 @@ export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onC
             </p>
             <p className="mt-1 text-hinweis text-stone-600">
               {datei?.name} · {formatBytes(vorschau.dateigroesse)}
-              {vorschau.kopf.exportiertAm && ` · exportiert am ${new Date(vorschau.kopf.exportiertAm).toLocaleDateString('de-DE')}`}
+              {vorschau.kopf.exportiertAm && ` · exportiert am ${formatDate(vorschau.kopf.exportiertAm)}`}
               {!vorschau.kopf.mitDateien ? ' · ohne Bilder und Druckdateien (ältere Datei)' : vorschau.kopf.dateien > 0 ? ` · ${plural(vorschau.kopf.dateien, 'Bild/Datei', 'Bilder und Dateien')} geprüft` : ''}
             </p>
             {vorschau.kopf.hinweise.length > 0 && (

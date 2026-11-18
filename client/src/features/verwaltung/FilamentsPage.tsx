@@ -2,9 +2,10 @@ import { Settings } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { ColorSwatch } from '../../components/ColorSwatch';
+import { FilterKnopf } from '../../components/Listenwerkzeug';
 import { useToast } from '../../components/Toast';
 import { Alert, Badge, Card, cx, LinkButton, PageHeader, Spinner, Switch } from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { api, fehlerText } from '../../lib/api';
 import { useConfig, useMasterData } from '../../lib/config';
 import { ohneVorraetigeFarbe } from '../../lib/colors';
 import type { Filament, Item, MasterData } from '../../lib/types';
@@ -48,7 +49,7 @@ export function FilamentsPage() {
       await reload();
       toast('success', `${f.colorName} ist jetzt ${available ? 'vorrätig' : 'als leer markiert'}.`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
+      setError(fehlerText(err, 'Speichern fehlgeschlagen.'));
     } finally {
       setBusy(undefined);
     }
@@ -87,25 +88,8 @@ export function FilamentsPage() {
           )}
 
           <div role="group" aria-label="Anzeige" className="mb-5 flex flex-wrap gap-2">
-            {(
-              [
-                ['alle', `Alle (${md.filaments.length})`],
-                ['leer', `Leer (${empty.length})`],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={view === key}
-                onClick={() => setView(key)}
-                className={cx(
-                  'inline-flex min-h-12 items-center rounded-2xl px-4 font-bold transition-colors',
-                  view === key ? 'bg-stone-900 text-white' : 'bg-white text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-stone-50',
-                )}
-              >
-                {label}
-              </button>
-            ))}
+            <FilterKnopf label="Alle" count={md.filaments.length} active={view === 'alle'} onClick={() => setView('alle')} />
+            <FilterKnopf label="Leer" count={empty.length} active={view === 'leer'} onClick={() => setView('leer')} />
           </div>
 
           {shown.length === 0 ? (

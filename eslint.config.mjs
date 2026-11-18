@@ -19,7 +19,8 @@ export default tseslint.config(
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       // Heute verletzt → vorerst nur Hinweis (Anzahl beim Einführen in Klammern).
-      'jsx-a11y/label-has-associated-control': 'warn', // (5)
+      // Eigene Felder (Input, Select, Textarea) zählen als Steuerelement; Beschriftung darf in verschachtelten <span> stehen.
+      'jsx-a11y/label-has-associated-control': ['warn', { controlComponents: ['Input', 'Select', 'Textarea'], depth: 3 }], // (5)
       'jsx-a11y/media-has-caption': 'warn', // (2)
       'jsx-a11y/no-autofocus': 'warn', // (2)
       'jsx-a11y/click-events-have-key-events': 'warn', // (1)

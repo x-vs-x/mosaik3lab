@@ -1,7 +1,40 @@
-// Zentrale Stelle für die Farbauswahl von Druckteilen (Anfrageformular, Produktseite).
-// Es werden nur vorrätige Farbrollen angeboten (lib/filaments.ts), damit alle Ansichten gleich filtern.
-import { availableFilaments } from './filaments';
+// Zentrale Stelle für Farbrollen und die Farbauswahl von Druckteilen (Anfrageformular, Produktseite, Verwaltung).
+// Es werden nur vorrätige Farbrollen angeboten (availableFilaments), damit alle Ansichten gleich filtern.
 import type { ColorArea, Filament, Item, MasterData } from './types';
+
+export const filamentLabel = (f: Filament) => `${f.colorName} · ${[f.brand, f.line].filter(Boolean).join(' ')}`;
+
+export function findFilament(md: MasterData, id: string): Filament | undefined {
+  return md.filaments.find((f) => f.id === id);
+}
+
+/** Helle Farben brauchen einen Rand, damit der Farbtupfer sichtbar bleibt. */
+export function isLightHex(hex: string) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return 0.299 * r + 0.587 * g + 0.114 * b > 200;
+}
+
+/**
+ * Farbrollen eines Druckteils, die derzeit vorrätig sind (Reihenfolge wie beim Druckteil).
+ * Leere oder gelöschte Rollen fallen weg – für Katalog, Produktseite und Anfrageformular.
+ * Lehrkräfte wählen nur die Farbe: Gleichnamige Rollen (z. B. „Schwarz“ zweier Marken) erscheinen einmal,
+ * die erste Rolle steht für die Farbe.
+ */
+export function availableFilaments(md: MasterData, ids: string[]): Filament[] {
+  const seen = new Set<string>();
+  return ids
+    .map((id) => md.filaments.find((f) => f.id === id))
+    .filter((f): f is Filament => {
+      if (!f || f.available === false) return false;
+      const key = f.colorName.trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
 
 export interface AreaColors {
   area: ColorArea;

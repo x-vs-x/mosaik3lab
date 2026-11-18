@@ -2,7 +2,7 @@ import { LoaderCircle, Upload, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useToast } from '../../../components/Toast';
 import { Button, buttonClass, cx } from '../../../components/ui';
-import { apiUpload, ApiError, UPLOAD_ABGEBROCHEN } from '../../../lib/api';
+import { apiUpload, ApiError, UPLOAD_ABGEBROCHEN, fehlerText } from '../../../lib/api';
 import { bilderVerkleinern } from '../../../lib/bildVerkleinern';
 import type { Item } from '../../../lib/types';
 
@@ -36,7 +36,7 @@ export function useUpload(item: Item, kind: 'images' | 'models', onChange: (i: I
       toast('success', count === 1 ? 'Datei hochgeladen.' : `${count} Dateien hochgeladen.`);
     } catch (err) {
       // Selbst abgebrochen: keine Fehlermeldung.
-      if (!(err instanceof ApiError && err.message === UPLOAD_ABGEBROCHEN)) toast('error', err instanceof ApiError ? err.message : 'Upload fehlgeschlagen.');
+      if (!(err instanceof ApiError && err.message === UPLOAD_ABGEBROCHEN)) toast('error', fehlerText(err, 'Upload fehlgeschlagen.'));
     } finally {
       laufend.current = undefined;
       setUploading(false);

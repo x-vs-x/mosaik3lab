@@ -26,6 +26,7 @@ export type {
   DashboardData,
   Order,
   OrderColorChoice,
+  OrderColorVariant,
   OrderCustomValue,
   OrderInput,
   OrderReceipt,

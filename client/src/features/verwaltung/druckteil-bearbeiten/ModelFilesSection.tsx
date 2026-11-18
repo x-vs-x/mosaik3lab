@@ -2,7 +2,7 @@ import { Download, FileBox, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { DateiLaden } from '../../../components/DateiLaden';
 import { useToast } from '../../../components/Toast';
-import { api, ApiError, modelUrl } from '../../../lib/api';
+import { api, modelUrl, fehlerText } from '../../../lib/api';
 import { formatBytes, formatDate } from '../../../lib/format';
 import type { Item } from '../../../lib/types';
 import { FilePicker, useUpload } from './FilePicker';
@@ -35,7 +35,7 @@ function ModelFilesEditor({ item, onChange }: { item: Item; onChange: (i: Item) 
     try {
       onChange(await api<Item>(`/items/${item.id}/models/${modelId}`, { method: 'DELETE' }));
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Löschen fehlgeschlagen.');
+      toast('error', fehlerText(err, 'Löschen fehlgeschlagen.'));
     } finally {
       setBusyId(undefined);
     }

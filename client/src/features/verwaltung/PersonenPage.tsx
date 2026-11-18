@@ -1,10 +1,11 @@
-import { KeyRound, Search, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
+import { KeyRound, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { BEREICHE, ROLE_LABELS } from '@mosaik3lab/shared/werte/konten';
 import { useAuth } from '../../auth/AuthContext';
+import { FilterKnopf, LadeFehler, Suchfeld } from '../../components/Listenwerkzeug';
 import { useToast } from '../../components/Toast';
-import { Alert, Badge, Button, Card, cx, EmptyState, inputClass, KurzLang, PageHeader, Spinner, Email } from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { Badge, Button, Card, EmptyState, KurzLang, PageHeader, Spinner, Email } from '../../components/ui';
+import { api, fehlerText } from '../../lib/api';
 import { formatRelative } from '../../lib/format';
 import type { PasswortLinkErgebnis, Person, Role } from '../../lib/types';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
@@ -36,7 +37,7 @@ export function PersonenPage() {
   useDocumentTitle('Personen');
   const { user: me } = useAuth();
   const toast = useToast();
-  const { data, setData, error, loading } = useApi<Person[]>('/personen');
+  const { data, setData, error, loading, reload } = useApi<Person[]>('/personen');
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<(typeof FILTER)[number]['id']>('alle');
   const [edit, setEdit] = useState<Person>();
@@ -60,7 +61,7 @@ export function PersonenPage() {
     try {
       linkErgebnis(p.email, await api<PasswortLinkErgebnis>('/personen/passwort-link', { method: 'POST', body: { email: p.email } }));
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Link konnte nicht erzeugt werden.');
+      toast('error', fehlerText(err, 'Link konnte nicht erzeugt werden.'));
     } finally {
       setSending(undefined);
     }
@@ -79,30 +80,16 @@ export function PersonenPage() {
         }
       />
 
-      {error && <Alert kind="error">{error.message}</Alert>}
+      <LadeFehler error={error} onRetry={() => void reload()} loading={loading} />
       {loading && !data && <Spinner />}
 
       {data && (
         <>
           <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center">
-            <div className="relative w-full max-w-md">
-              <label htmlFor="personen-suche" className="sr-only">
-                Personen nach Name oder E-Mail filtern
-              </label>
-              <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-stone-500" aria-hidden />
-              <input id="personen-suche" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name oder E-Mail" className={`${inputClass()} pl-12`} />
-            </div>
+            <Suchfeld id="personen-suche" label="Personen nach Name oder E-Mail filtern" value={q} onChange={setQ} placeholder="Name oder E-Mail" className="w-full max-w-md" />
             <div role="group" aria-label="Anzeigen" className="flex flex-wrap gap-2">
               {FILTER.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  aria-pressed={filter === f.id}
-                  onClick={() => setFilter(f.id)}
-                  className={cx('min-h-11 rounded-xl px-4 font-bold ring-1', filter === f.id ? 'bg-brand-700 text-white ring-brand-700' : 'bg-white text-stone-700 ring-stone-300 hover:bg-stone-50')}
-                >
-                  {'kurz' in f ? <KurzLang kurz={f.kurz} lang={f.label} /> : f.label}
-                </button>
+                <FilterKnopf key={f.id} label={'kurz' in f ? <KurzLang kurz={f.kurz} lang={f.label} /> : f.label} active={filter === f.id} onClick={() => setFilter(f.id)} />
               ))}
             </div>
           </div>
