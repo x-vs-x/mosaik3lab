@@ -14,9 +14,8 @@ class MemoryStorage {
 const storage = new MemoryStorage();
 Object.defineProperty(globalThis, 'sessionStorage', { value: storage, configurable: true, writable: true });
 
-const { kommtVomDruckteil, ladePosition, meldeSeitenwechsel, merkePosition, sollPositionWiederherstellen } = await import(
-  '../src/features/katalog/katalogScroll.ts'
-);
+const { KATALOG_SEITE, kommtVomDruckteil, ladeAnzahl, ladePosition, meldeSeitenwechsel, merkeAnzahl, merkePosition, naechsteAnzahl, sollPositionWiederherstellen } =
+  await import('../src/features/katalog/katalogScroll.ts');
 const { blaettern, wischRichtung } = await import('../src/features/katalog/galerie.ts');
 
 beforeEach(() => storage.clear());
@@ -47,6 +46,30 @@ test('Wiederherstellen bei Zurück und nach dem Druckteil, sonst nicht', () => {
   meldeSeitenwechsel('/konto');
   meldeSeitenwechsel('/katalog');
   assert.equal(sollPositionWiederherstellen('PUSH'), false);
+});
+
+test('Anzahl angezeigter Druckteile je Adresse merken, mindestens eine Seite', () => {
+  assert.equal(KATALOG_SEITE, 50);
+  assert.equal(ladeAnzahl(''), 50); // nichts gemerkt
+  merkeAnzahl('', 150);
+  merkeAnzahl('?kategorie=Alltag', 100);
+  assert.equal(ladeAnzahl(''), 150);
+  assert.equal(ladeAnzahl('?kategorie=Alltag'), 100);
+  assert.equal(ladeAnzahl('?q=Stift'), 50);
+  merkeAnzahl('?wenig', 3);
+  assert.equal(ladeAnzahl('?wenig'), 50);
+  storage.setItem('mosaik3lab:katalog-anzahl:?kaputt', 'abc');
+  assert.equal(ladeAnzahl('?kaputt'), 50);
+  // Position und Anzahl gehören zusammen: Wer weit unten war, bekommt beides zurück.
+  merkePosition('', 18800);
+  assert.deepEqual([ladePosition(''), ladeAnzahl('')], [18800, 150]);
+});
+
+test('Nachladen: je 50 mehr, höchstens alle', () => {
+  assert.equal(naechsteAnzahl(50, 137), 100);
+  assert.equal(naechsteAnzahl(100, 137), 137);
+  assert.equal(naechsteAnzahl(137, 137), 137);
+  assert.equal(naechsteAnzahl(50, 20), 20);
 });
 
 test('Bilder blättern geht am Ende von vorn weiter', () => {

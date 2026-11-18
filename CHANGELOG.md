@@ -11,6 +11,11 @@ daraus die nächste Version.
   Ganz unten auf der Seite des Druckteils erscheinen sie als kleine Karten; ein Tipp öffnet das ähnliche Druckteil.
   Nicht veröffentlichte Teile sieht nur das Druck-Team. Die Verknüpfungen kommen beim Exportieren nicht mit.
 
+- **Katalog lädt schneller:** Die Seite mit den Druckteilen zeigt zuerst 50 Stück. Beim Runterscrollen kommen kurz vor
+  dem Ende automatisch die nächsten 50 dazu – ohne Seitenzahlen. Unter der Liste stehen „50 von 137 Druckteilen“ und der
+  Knopf „Weitere Druckteile laden“ (für Tastatur und Screenreader). Suche und Filter finden weiterhin alle Druckteile.
+  Wer weit unten ein Druckteil öffnet und zurückgeht, landet wieder an derselben Stelle.
+
 - **Kleinere Bilder:** Bilder von Druckteilen und Fotos in Vorschlägen werden beim Hochladen im Browser auf höchstens
   2000 Pixel verkleinert (JPEG, Bilder mit Transparenz bleiben PNG). Große Handyfotos über 5 MB lassen sich so auch
   hochladen. Neu unter Verwaltung → Druckteile: „Bilder verkleinern …“ verkleinert einmalig alle vorhandenen Bilder –
