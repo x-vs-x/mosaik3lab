@@ -43,7 +43,7 @@ function knoten(tag: string, attrs: Record<string, string> = {}, kinder: ReturnT
     querySelector(sel: string): ReturnType<typeof knoten> | null {
       for (const c of kinder) {
         const passt =
-          (sel === '[aria-invalid="true"]' && c.attrs['aria-invalid'] === 'true') ||
+          (sel.startsWith('[aria-invalid="true"]') && (c.attrs['aria-invalid'] === 'true' || (sel.includes('[data-fehler="true"]') && c.attrs['data-fehler'] === 'true'))) ||
           (sel === 'input:checked' && c.tag === 'input' && c.attrs.checked === 'true') ||
           (sel.startsWith('input,') && ['input', 'select', 'textarea', 'button'].includes(c.tag));
         if (passt) return c;

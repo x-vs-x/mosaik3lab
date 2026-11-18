@@ -42,7 +42,8 @@ export function ItemEditPage() {
         description={item?.isDemo ? <DemoBadge /> : undefined}
       />
 
-      <form onSubmit={submit} noValidate className="mx-auto max-w-4xl space-y-4">
+      {/* Unten Platz lassen: Der schwebende Knopf „Speichern“ steht über der Handy-Leiste und deckte sonst die letzte Zeile ab. */}
+      <form onSubmit={submit} noValidate className="mx-auto max-w-4xl space-y-4 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
         {entwurf.restored && <EntwurfHinweis savedAt={entwurf.restored.savedAt} onDiscard={entwurf.discard} />}
         <p className="text-hinweis text-stone-600">
           Abschnitte lassen sich auf- und zuklappen. Pflichtfelder sind mit <span className="font-bold text-rose-700">*</span>{' '}

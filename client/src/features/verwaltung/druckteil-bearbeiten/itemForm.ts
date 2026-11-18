@@ -94,12 +94,16 @@ export function validateLocal(form: ItemInput): FieldErrors {
   const unnamedField = form.customFields.find((f) => !f.label.trim() || (f.type === 'select' && f.options.length === 0));
   const local: FieldErrors = {};
   if (form.categories.length === 0) local.categories = 'Bitte mindestens eine Kategorie wählen.';
+  const namen = form.colorAreas.map((a) => a.name.trim().toLocaleLowerCase('de-DE'));
+  const doppelt = form.colorAreas.find((_, i) => namen[i] && namen.indexOf(namen[i]) !== i);
   if (emptyArea) {
     local.colorAreas = !emptyArea.name.trim()
-      ? 'Bitte jedem Farbbereich einen Namen geben.'
+      ? 'Bitte jedem Teil einen Namen geben.'
       : form.colorAreas.length > 1
         ? `Bitte für „${emptyArea.name}“ mindestens eine Farbe wählen.`
         : 'Bitte mindestens eine Farbe wählen.';
+  } else if (doppelt) {
+    local.colorAreas = `Zwei Teile heißen „${doppelt.name.trim()}“ – bitte jedem Teil einen eigenen Namen geben.`;
   }
   const badLink = (form.links ?? []).find((l) => !l.text.trim() || !/^https?:\/\/\S+\.\S+/i.test(l.url.trim()));
   if (badLink) {

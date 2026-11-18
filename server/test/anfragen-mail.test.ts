@@ -46,10 +46,35 @@ test('„Farbe egal“ wird hervorgehoben – einzeln, je Farbbereich und als Va
   assert.match(single.text, /Farbe: +Farbe egal – Team wählt die Farbe/);
   assert.ok(single.html.includes('>Farbe egal</span> <span style="color:#57534e;font-size:13px">Team wählt die Farbe'));
   const areas = buildOrderMail(order({ colorChoices: [choice('egal', 'Farbe egal', '', 'Lineal'), choice('f-gelb', 'Gelb', '#F4D53F', 'Griff')], colorVariants: [] }), null, settings);
-  assert.match(areas.text, /Farbe Lineal: +Farbe egal – Team wählt/);
-  assert.match(areas.text, /Farbe Griff: +Gelb$/m);
+  // Nach Farbe gebündelt, „Farbe egal“ zuletzt
+  assert.match(areas.text, /Farbe \(1 Teil\): +Gelb – Griff\nFarbe \(1 Teil\): +Farbe egal – Team wählt die Farbe – Lineal$/m);
   const variants = buildOrderMail(sampleOrder(), null, settings);
   assert.match(variants.text, /Farbe \(2 Stück\): +Farbe egal – Team wählt/);
+});
+
+test('20 Teile: Mail nach Farbe gebündelt (eine Zeile je Farbe mit ihren Teilen), Kurzfassung „20 Teile · 3 Farben“', () => {
+  const rot = { id: 'f-rot', colorName: 'Rot', brand: 'Bambu Lab', line: 'PLA Basic', hex: '#C12E1F', herstellerNummer: '10200' };
+  const fil = [...filaments, rot] as any;
+  const farbeVon = (i: number) => (i % 3 === 0 ? ['f-rot', 'Rot', '#C12E1F'] : i % 3 === 1 ? ['f-blau', 'Blau', '#0A2CA5'] : ['f-gelb', 'Gelb', '#F4D53F']);
+  const teile = Array.from({ length: 20 }, (_, i) => {
+    const [id, name, hex] = farbeVon(i);
+    return { areaId: `t${i}`, area: `Teil ${i + 1}`, colorId: id, color: name, colorHex: hex };
+  });
+  const m = buildOrderMail(order({ quantity: 2, color: teile.map((t) => `${t.area}: ${t.color}`).join('; '), colorChoices: teile, colorVariants: [] }), null, settings, fil);
+  assert.match(m.text, /^2 × Kabelhalter\n20 Teile · 3 Farben · Größe M · Klasse 7b\n/m, 'Kurzfassung statt 20 „Teil: Farbe“');
+  assert.match(m.text, /Teile: +20 Teile · 3 Farben/);
+  // Reihenfolge wie das erste Auftreten (Rot, Blau, Gelb), je Farbe alle Teile
+  const rotZeile = m.text.split('\n').find((z) => z.startsWith('Farbe (7 Teile):'));
+  assert.ok(rotZeile?.includes('Rot (') && rotZeile.endsWith('– Teil 1; Teil 4; Teil 7; Teil 10; Teil 13; Teil 16; Teil 19'), rotZeile);
+  assert.ok(m.text.indexOf('Farbe (7 Teile)') < m.text.indexOf('Blau (Bambu Lab PLA Basic) – Teil 2;'));
+  assert.equal(m.text.match(/^Farbe \(/gm)?.length, 3, 'drei Farbzeilen statt 20');
+  assert.ok(m.html.includes('Teil 1; Teil 4; Teil 7') && m.html.includes('background-color:#C12E1F'));
+  // Zwei Stückzahlen mit je 20 Teilen: Überschrift je Variante, darunter nach Farbe
+  const v2 = teile.map((t, i) => (i < 2 ? { ...t, colorId: 'f-gelb', color: 'Gelb', colorHex: '#F4D53F' } : t));
+  const mv = buildOrderMail(order({ quantity: 5, colorChoices: teile, colorVariants: [{ quantity: 3, colorChoices: teile }, { quantity: 2, colorChoices: v2 }] }), null, settings, fil);
+  assert.match(mv.text, /Variante 1: +3 Stück · 20 Teile · 3 Farben/);
+  assert.match(mv.text, /Variante 2: +2 Stück · 20 Teile · 3 Farben/);
+  assert.match(mv.text, /\n3 × 20 Teile · 3 Farben, 2 × 20 Teile · 3 Farben · Größe M/);
 });
 
 test('Leere Angaben fehlen statt „—“', () => {

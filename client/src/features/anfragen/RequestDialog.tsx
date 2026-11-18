@@ -110,15 +110,21 @@ export function RequestDialog({
   const focusLater = (id: string) => {
     focusAfterRender.current = id;
   };
+  // Mehrteilige Druckteile: nur eine Stückzahl ist aufgeklappt, die anderen stehen als kurze Zeile darüber/darunter.
+  const [offeneZeile, setOffeneZeile] = useState(0);
   const addRow = () => {
-    setRows((all) => [...all, { quantity: 1, colors: initialColorChoice(areas) }]);
+    // Mehrteilig: übernimmt die Farben der letzten Stückzahl – man ändert nur, was abweicht.
+    setRows((all) => [...all, { quantity: 1, colors: multiColor ? { ...all[all.length - 1].colors } : initialColorChoice(areas) }]);
+    setOffeneZeile(rows.length);
     focusLater(`farbzeile-${rows.length}`);
   };
   const removeRow = (index: number) => {
     setRows((all) => all.filter((_, j) => j !== index));
+    setOffeneZeile(0);
     setErrors({});
     focusLater('weitere-farbe');
   };
+  const zeileHatFehler = (i: number) => Object.keys(errors).some((k) => (i ? k.startsWith(`variants.${i}.`) : k === 'color' || k.startsWith('color.')));
 
   const close = () => {
     onClose();
@@ -331,31 +337,53 @@ export function RequestDialog({
               errors={errors}
               onChange={(r) => setRows((all) => all.map((x, j) => (j === i ? r : x)))}
               onRemove={i ? () => removeRow(i) : undefined}
+              collapsed={multiColor && rows.length > 1 && i !== Math.min(offeneZeile, rows.length - 1) && !zeileHatFehler(i)}
+              onExpand={() => setOffeneZeile(i)}
+              compareTo={rows[0].colors}
             />
           ))}
           {canAddColors && (
             <div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <Button
-                  id="weitere-farbe"
-                  variant="secondary"
-                  icon={Plus}
-                  onClick={addRow}
-                  disabled={total >= MAX_ORDER_QUANTITY || rows.length >= MAX_ORDER_VARIANTS}
-                >
-                  Weitere Farbe
-                </Button>
+                {multiColor ? (
+                  <Button
+                    id="weitere-farbe"
+                    variant="secondary"
+                    icon={Plus}
+                    onClick={addRow}
+                    disabled={total >= MAX_ORDER_QUANTITY || rows.length >= MAX_ORDER_VARIANTS}
+                    className="justify-start py-2 text-left"
+                  >
+                    {/* Erklärung im Knopf – außerhalb sah sie aus wie ein loser Hinweis. */}
+                    <span>
+                      <span className="block">Weitere Stückzahl in anderen Farben</span>
+                      <span className="block text-hinweis font-normal text-stone-600">übernimmt die Farben von oben – nur Abweichungen ändern</span>
+                    </span>
+                  </Button>
+                ) : (
+                  <Button
+                    id="weitere-farbe"
+                    variant="secondary"
+                    icon={Plus}
+                    onClick={addRow}
+                    disabled={total >= MAX_ORDER_QUANTITY || rows.length >= MAX_ORDER_VARIANTS}
+                  >
+                    Weitere Farbe
+                  </Button>
+                )}
                 {rows.length > 1 && (
                   <p className="font-bold text-stone-900" aria-live="polite">
                     Gesamt: {total} Stück
                   </p>
                 )}
               </div>
-              <p className="mt-1.5 text-hinweis text-stone-600">
-                {total >= MAX_ORDER_QUANTITY
-                  ? `Höchstens ${MAX_ORDER_QUANTITY} Stück je Anfrage.`
-                  : 'Für verschiedene Farben in einer Anfrage, z. B. 3 Stück in Blau und 4 Stück in Gelb.'}
-              </p>
+              {(total >= MAX_ORDER_QUANTITY || !multiColor) && (
+                <p className="mt-1.5 text-hinweis text-stone-600">
+                  {total >= MAX_ORDER_QUANTITY
+                    ? `Höchstens ${MAX_ORDER_QUANTITY} Stück je Anfrage.`
+                    : 'Für verschiedene Farben in einer Anfrage, z. B. 3 Stück in Blau und 4 Stück in Gelb.'}
+                </p>
+              )}
               {rows.length > 1 && errors.quantity && <p className="mt-1.5 text-hinweis font-bold text-rose-700">{errors.quantity}</p>}
             </div>
           )}

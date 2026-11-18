@@ -6,6 +6,23 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Mehrfarbige Druckteile übersichtlich – bis zu 20 Teile:** Ein Druckteil kann jetzt aus bis zu 20 Teilen bestehen
+  (vorher 8), jedes Teil mit eigener Farbe.
+  - **Anfragen:** Die Teile stehen als kurze Liste (Farbtupfer, Teilname, Farbname). Ein Tipp öffnet das Farbwahl-Fenster
+    mit Suche, „Schon in dieser Anfrage“ und allen Farben nach Farbfamilie (Weiß/Grau, Rot, Blau …); nach der Wahl geht
+    es automatisch zum nächsten Teil ohne Farbe. „Eine Farbe für alle Teile“ setzt alles auf einmal, danach ändert man nur
+    die Abweichungen. „Weitere Stückzahl in anderen Farben“ übernimmt die Farben von oben. Einfarbige Druckteile bleiben,
+    wie sie sind.
+  - **Anlegen:** Welche Farben zur Wahl stehen, stellt man einmal für alle Teile ein; einzelne Teile bekommen bei Bedarf
+    eigene Farben. Teile lassen sich verschieben, verdoppeln und mit „Mehrere Teile auf einmal“ als Liste eintippen.
+  - **Anzeige für das Druck-Team:** In der Verwaltung, unter „Meine Anfragen“ und in der Mail steht kurz „10 Teile ·
+    7 Farben“; aufgeklappt sind die Teile nach Farbe gebündelt (eine Farbrolle nach der anderen), umschaltbar auf
+    Teile-Reihenfolge.
+  - **Bitte beachten:** Bestehende Druckteile und Anfragen bleiben unverändert. Eine Export-Datei aus dieser Version lässt
+    sich auch in ältere Versionen (z. B. 1.6.3) einspielen, Druckteile mit mehr als 8 Teilen werden dort aber übersprungen
+    (mit Grund in der Vorschau) – deshalb zuerst die Schule aktualisieren und danach einspielen.
+- **Druckteil bearbeiten mit großer Schrift:** Die Abschnittsköpfe trennen auf dem Handy nicht mehr mitten im Wort (das
+  Symbol fällt bei wenig Platz weg), und der schwebende Knopf „Speichern“ verdeckt die letzte Zeile nicht mehr.
 - **Katalogkarten mit mehreren Kategorien:** Auf dem Handy mit großer Schrift wurde der Kategoriename auf der Karte
   mitten im Wort getrennt oder abgeschnitten; lange Kategorienamen verschwanden teilweise am Bildrand. Jetzt stehen die
   Namen vollständig da, „+1“ rutscht bei Platzmangel in die nächste Zeile.

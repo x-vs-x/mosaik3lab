@@ -36,7 +36,7 @@ export type ColorArea = z.infer<typeof colorAreaSchema>;
 export const farbeZuordnenSchema = z.object({
   filamentId: text(1, 64),
   ziele: z
-    .array(z.object({ itemId: text(1, 64), bereiche: z.array(text(1, 64)).min(1).max(8) }))
+    .array(z.object({ itemId: text(1, 64), bereiche: z.array(text(1, 64)).min(1).max(MAX_COLOR_AREAS) }))
     .min(1)
     .max(1000),
 });

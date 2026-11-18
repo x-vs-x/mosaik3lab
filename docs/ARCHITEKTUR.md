@@ -177,15 +177,23 @@ client/src/
                  constants.ts (Kategorie-/Status-Darstellung), colors.ts (Farbrollen, Farbauswahl), format.ts, useApi.ts, suchParameter.ts
   auth/          AuthContext.tsx
   components/    gemeinsame Bausteine: ui.tsx, Listenwerkzeug.tsx (FilterKnopf, Suchfeld, LadeFehler), Layout.tsx, Dialog.tsx, Logo.tsx,
-                 ItemImage.tsx, ColorSwatch.tsx, StatusBadge.tsx, ListEditor.tsx, Toast.tsx, StatusPages.tsx
+                 ItemImage.tsx, ColorSwatch.tsx, StatusBadge.tsx, ListEditor.tsx, Toast.tsx, StatusPages.tsx,
+                 BlattDialog.tsx (Fenster mit Kopf/Fuß, auf dem Handy von unten), TupferReihe.tsx (höchstens 8 Tupfer + „+n“),
+                 TeilSchilder.tsx (Teilnamen als Schildchen)
   features/
     katalog/       CatalogPage, ItemDetailPage
     anfragen/      RequestDialog + AnfrageFelder + anfragePruefung.ts, MyOrdersPage + OrderCard, AnfrageVerlauf (Fortschritt,
-                   Verlauf), farbAnzeige.ts, zugang.ts („Meine Anfragen“ sichtbar?), guestOrders.ts, anfrageEmail.ts
+                   Verlauf), farbAnzeige.ts, zugang.ts („Meine Anfragen“ sichtbar?), guestOrders.ts, anfrageEmail.ts;
+                   mehrteilige Druckteile (bis 20 Teile): TeileFarbListe (Teile-Liste + „Eine Farbe für alle“ + Fenster) und
+                   FarbwahlFenster (Suche, Farbfamilien aus lib/farbfamilie.ts, Sprung zum nächsten Teil ohne Farbe) – beide
+                   ohne Abhängigkeit vom Anfrage-Fenster, auch für die Druckteil-Seite gedacht; Regeln in teileFarbwahl.ts;
+                   Anzeige FarbZusammenfassung („10 Teile · 7 Farben“, aufgeklappt nach Farbe, shared/werte/farbgruppen.ts)
     konto/         LoginPage, AccountPage
     verwaltung/    DashboardPage, OrdersAdminPage + OrderRow, RequestersPage, ItemsAdminPage, UsersAdminPage + UserDialogs
       druckteil-bearbeiten/  ItemEditPage (Laden/Speichern), useItemForm (Formular-Zustand), itemForm.ts (Leerwerte, Prüfung),
-                     Section (aufklappbarer Rahmen), je Abschnitt eine Komponente (Basics, Colors + FilamentPicker, Media +
+                     Section (aufklappbarer Rahmen), je Abschnitt eine Komponente (Basics, Colors + FilamentPicker – mehrteilig:
+                     GemeinsameFarben (Schritt 1), TeileListe, MehrereTeileDialog, Regeln teileRegeln.ts: gemeinsame Auswahl =
+                     häufigste, wird beim Speichern in jedes Teil ohne eigene geschrieben, keine neuen Daten –, Media +
                      VideosEditor, CustomFields, Material, ModelFiles, Safety, VisibilityPanel), FilePicker (Upload)
     einstellungen/ SettingsPage
       stammdaten/  MasterDataPage (Tabs), ListPanel (generischer Listen-Editor) + listRows.ts, je Liste ein Panel
@@ -277,7 +285,7 @@ Recht je Zeile in Klammern (Standard: Admin und Druck-Team; je Druck-Team-Konto 
 | Methode | Pfad | Hinweis |
 | --- | --- | --- |
 | GET | `/api/items?all=1` | inkl. Entwürfe (`catalog:view`) |
-| POST/PUT/DELETE | `/api/items[/:id]` | (`catalog:manage`) Body `ItemInput`; `category`, `material`, `useAreas` = Namen aus Stammdaten; `colorAreas` = `[{ id, name, colors: Filament-IDs }]` (mind. 1; `Item.colors` = alle Farben aller Bereiche, abgeleitet; älteres `colors` wird als ein Bereich „Farbe“ angenommen); `price` (freier Text, max. 80); `customFields` = `[{ id, label, type: text/number/select, required, maxLength ≤ 200, hint, options }]` (max. 10). Leere IDs vergibt der Server, vorhandene bleiben erhalten. |
+| POST/PUT/DELETE | `/api/items[/:id]` | (`catalog:manage`) Body `ItemInput`; `category`, `material`, `useAreas` = Namen aus Stammdaten; `colorAreas` = `[{ id, name, colors: Filament-IDs }]` (1–20 „Teile“, `MAX_COLOR_AREAS`; JSON-Grenze für `/api/items` 256 kB, sonst 100 kB; `Item.colors` = alle Farben aller Bereiche, abgeleitet; älteres `colors` wird als ein Bereich „Farbe“ angenommen); `price` (freier Text, max. 80); `customFields` = `[{ id, label, type: text/number/select, required, maxLength ≤ 200, hint, options }]` (max. 10). Leere IDs vergibt der Server, vorhandene bleiben erhalten. |
 | PATCH | `/api/items/:id/publish` | `{ published }` |
 | POST/DELETE | `/api/items/:id/images`, `/api/items/:id/models` | Multipart-Feld `files` |
 | POST | `/api/items/:id/videos` | Multipart: `file` (MP4/WebM, max. 50 MB, Inhalt per Magic Bytes geprüft) + `title`; max. 4 Videos je Druckteil. Recht `catalog:manage`. Ablage unter `<ablage>/artikel/<id>/video/`, gespeichert über `FileStore`. |

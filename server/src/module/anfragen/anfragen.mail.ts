@@ -12,6 +12,7 @@ import type { Order, OrderColorChoice } from '@mosaik3lab/shared/anfragen';
 import { EGAL_FARBE } from '@mosaik3lab/shared/anfragen';
 import { filamentRolle } from '@mosaik3lab/shared/stammdaten';
 import { emailSchema } from '@mosaik3lab/shared/basis';
+import { farbZusammenfassung, nachFarbe, teileText } from '@mosaik3lab/shared/werte/farbgruppen';
 
 // Vorlage der Benachrichtigung bei neuen Anfragen (HTML + Text-Alternative, keine Anhänge).
 // Neue Bestellfelder nur in `orderMailFields` ergänzen – Text, HTML und Änderungsvergleich passen sich an.
@@ -29,6 +30,8 @@ export interface MailField {
   multiline?: boolean;
   /** „Farbe egal“: Das Team wählt die Farbe selbst – wird hervorgehoben. */
   anyColor?: boolean;
+  /** Mehrfarbige Drucke: die Teile in dieser Farbe (nach dem Farbnamen, im HTML in einer eigenen Zeile). */
+  parts?: string;
   /** Vergleichsschlüssel für geänderte Anfragen (Zeilen mit gleichem Schlüssel gehören zu einer Angabe). */
   key?: string;
   /** Von der Lehrkraft geändert (nur bei geänderten Anfragen). */
@@ -79,6 +82,13 @@ export function orderMailFields(order: Order, item: Item | null, appUrl: string,
     isAnyColor(c)
       ? { label, value: 'Farbe egal', anyColor: true, key: 'color' }
       : { label, value: withFilament(c.color, c.colorId), swatch: swatchOf(c.colorHex), key: 'color' };
+  // Mehrfarbige Drucke (mehrere Teile): nach Farbe gebündelt – eine Zeile je Farbe mit den Teilen darin, damit das Team
+  // eine Farbrolle nach der anderen drucken kann („Farbe (2 Teile): Rot (…) – Stall; Traktor“).
+  const nachFarben = (teile: OrderColorChoice[]): MailField[] =>
+    nachFarbe(teile).map((g) => ({
+      ...colorField(`Farbe (${teileText(g.teile.length)})`, g),
+      parts: g.teile.map((t) => t.area).join('; '),
+    }));
   const variants = order.colorVariants ?? [];
   const choices = order.colorChoices ?? [];
   const fields: MailField[] = [
@@ -88,22 +98,15 @@ export function orderMailFields(order: Order, item: Item | null, appUrl: string,
       href: base && item ? `${base}/verwaltung/hilfsmittel/${encodeURIComponent(item.id)}` : undefined,
     },
     { label: 'Menge', value: `${order.quantity} Stück`, key: 'quantity' },
-    // Mehrere Farben in einer Anfrage: eine Zeile je Variante („Farbe (3 Stück)“).
+    // Mehrere Farben in einer Anfrage: eine Zeile je Variante („Farbe (3 Stück)“), mehrteilige mit Überschrift je Variante.
     ...(variants.length > 1
-      ? variants.map((v) =>
+      ? variants.flatMap((v, i) =>
           v.colorChoices.length === 1
-            ? colorField(`Farbe (${v.quantity} Stück)`, v.colorChoices[0])
-            : {
-                label: `Farbe (${v.quantity} Stück)`,
-                value: v.colorChoices.map((c) => `${c.area}: ${isAnyColor(c) ? 'Farbe egal' : withFilament(c.color, c.colorId)}`).join('; '),
-                swatch: swatchOf(v.colorChoices[0]?.colorHex),
-                anyColor: v.colorChoices.every(isAnyColor),
-                key: 'color',
-              },
+            ? [colorField(`Farbe (${v.quantity} Stück)`, v.colorChoices[0])]
+            : [{ label: `Variante ${i + 1}`, value: `${v.quantity} Stück · ${farbZusammenfassung(v.colorChoices)}`, key: 'color' }, ...nachFarben(v.colorChoices)],
         )
-      : // Mehrfarbige Drucke: eine Zeile je Farbbereich (mit eigenem Farbtupfer).
-        choices.length > 1
-        ? choices.map((c) => colorField(`Farbe ${c.area}`, c))
+      : choices.length > 1
+        ? [{ label: 'Teile', value: farbZusammenfassung(choices), key: 'color' }, ...nachFarben(choices)]
         : [colorField('Farbe', { color: order.color, colorId: order.colorId, colorHex: order.colorHex })]),
     { label: 'Größe', value: order.size, key: 'size' },
     // Personalisierung (z. B. Beschriftung).
@@ -148,7 +151,16 @@ export function orderChanges(previous: Order, order: Order): MailChange[] {
 /** Kurzfassung für Kopf und Postfach-Vorschau, z. B. „7 × Kabelhalter“ / „3 × Blau, 4 × Gelb · Größe M · Klasse 7b“. */
 function orderSummary(order: Order) {
   const headline = `${order.quantity} × ${order.itemName}`;
-  const details = [order.color, order.size && `Größe ${order.size}`, order.classOrTeam].map((s) => (s ?? '').trim()).filter(Boolean);
+  // Mehrteilige Drucke: statt „Grundplatte: Rot; Stall: Gelb; …“ (bis 20 Teile) nur „10 Teile · 7 Farben“.
+  const variants = order.colorVariants ?? [];
+  const choices = order.colorChoices ?? [];
+  const farbe =
+    variants.length > 1 && variants.some((v) => v.colorChoices.length > 1)
+      ? variants.map((v) => `${v.quantity} × ${farbZusammenfassung(v.colorChoices)}`).join(', ')
+      : variants.length <= 1 && choices.length > 1
+        ? farbZusammenfassung(choices)
+        : order.color;
+  const details = [farbe, order.size && `Größe ${order.size}`, order.classOrTeam].map((s) => (s ?? '').trim()).filter(Boolean);
   return { headline, details };
 }
 
@@ -229,7 +241,7 @@ function renderText(v: MailView) {
       continue;
     }
     const href = f.href && !f.href.startsWith('mailto:') ? ` (${f.href})` : '';
-    const value = f.anyColor ? `${f.value} – Team wählt die Farbe` : f.value;
+    const value = (f.anyColor ? `${f.value} – Team wählt die Farbe` : f.value) + (f.parts ? ` – ${f.parts}` : '');
     lines.push(`${`${f.label}:`.padEnd(width)}${value}${href}${mark}`);
   }
   lines.push('', v.link ? `Anfrage öffnen: ${v.link}` : NO_LINK, ...schulnetzText(v.nurSchulnetz));
@@ -248,6 +260,7 @@ function renderHtml(v: MailView, subject: string, preheader: string) {
     if (f.swatch) {
       value = `<span style="display:inline-block;width:14px;height:14px;line-height:14px;font-size:10px;border:1px solid #888;border-radius:3px;background-color:${f.swatch};vertical-align:middle;margin-right:6px">&nbsp;</span>${value}`;
     }
+    if (f.parts) value += `<br><span style="font-size:14px">${html(f.parts)}</span>`;
     return { label: f.label, valueHtml: value, changed: f.changed };
   });
 

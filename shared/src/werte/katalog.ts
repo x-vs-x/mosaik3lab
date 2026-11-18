@@ -12,8 +12,11 @@ export type CustomFieldType = (typeof CUSTOM_FIELD_TYPES)[number];
 /** Höchstlänge einer Angabe in Personalisierungsfeldern. */
 export const MAX_CUSTOM_VALUE_LENGTH = 200;
 
-/** Höchstzahl Farbbereiche je Druckteil. */
-export const MAX_COLOR_AREAS = 8;
+/**
+ * Höchstzahl Farbbereiche („Teile“) je Druckteil. 20 passt zum Export-Format seit 1.6.3 (bis 20 je Druckteil) und zur
+ * Anfrage (colorMapSchema, bis 20). Versionen bis 1.8.0 überspringen beim Import Druckteile mit mehr als 8 Teilen.
+ */
+export const MAX_COLOR_AREAS = 20;
 /** Schutzgrenze für Kategorien je Druckteil (die erste ist die Hauptkategorie). */
 export const MAX_ITEM_CATEGORIES = 20;
 /** Höchstzahl Personalisierungsfelder je Druckteil. */

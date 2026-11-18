@@ -1,33 +1,34 @@
-import { Palette, Plus, Trash2 } from 'lucide-react';
+import { MAX_COLOR_AREAS } from '@mosaik3lab/shared/werte/katalog';
+import { Palette } from 'lucide-react';
+import { useState } from 'react';
 import { useAuth } from '../../../auth/AuthContext';
 import { ListEditor } from '../../../components/ListEditor';
-import { Button, Field, Input } from '../../../components/ui';
+import { cx, Field } from '../../../components/ui';
 import { useMasterData } from '../../../lib/config';
 import type { ColorArea, Filament } from '../../../lib/types';
 import { FilamentPicker } from './FilamentPicker';
-import { MAX_COLOR_AREAS, newId, ohneGruppen, plural, sectionHasError, type FormSectionProps } from './itemForm';
+import { GemeinsameFarben } from './GemeinsameFarben';
+import { auswahlBeschreibung, auswahlSchluessel, gemeinsameAuswahl, setzeGemeinsame } from './teileRegeln';
+import { newId, ohneGruppen, plural, sectionHasError, type FormSectionProps } from './itemForm';
 import { ListError, Section } from './Section';
+import { TeileListe } from './TeileListe';
 
-/** Farben & Bereiche sowie verfügbare Größen. */
+/** Farben & Teile sowie verfügbare Größen. */
 export function ColorsSection({ form, set, errors }: FormSectionProps) {
   const md = useMasterData();
   const { can } = useAuth();
-  const colorCount = new Set(form.colorAreas.flatMap((a) => a.colors)).size;
-  const gruppenCount = new Set(form.colorAreas.flatMap((a) => (a.alleFarben ? [] : (a.gruppen ?? [])))).size;
-  const alle = form.colorAreas.filter((a) => a.alleFarben).length;
+  const multi = form.colorAreas.length > 1;
+  const eigene = multi ? new Set(form.colorAreas.map((a) => auswahlSchluessel(a, md.filaments))).size - 1 : 0;
+  const farben = auswahlBeschreibung(gemeinsameAuswahl(form.colorAreas, md.filaments), md.filaments).titel;
 
   return (
     <Section
       id="farben"
       icon={Palette}
-      title="Farben & Bereiche"
+      title="Farben & Teile"
       summary={[
-        form.colorAreas.length > 1 ? `Mehrfarbig: ${plural(form.colorAreas.length, 'Bereich', 'Bereiche')}` : 'Einfarbig',
-        alle === form.colorAreas.length
-          ? 'Alle Farben'
-          : [gruppenCount ? plural(gruppenCount, 'ganze Gruppe', 'ganze Gruppen') : '', colorCount || !gruppenCount ? plural(colorCount, 'Farbe', 'Farben') : '']
-              .filter(Boolean)
-              .join(' + ') + (alle ? ' + „Alle Farben“' : ''),
+        multi ? `Mehrere Teile: ${plural(form.colorAreas.length, 'Teil', 'Teile')}` : 'Einfarbig',
+        farben + (eigene > 0 ? ` (${plural(eigene, 'Ausnahme', 'Ausnahmen')})` : ''),
         form.sizes.length ? plural(form.sizes.length, 'Größe', 'Größen') : 'ohne Größen',
       ].join(' · ')}
       defaultOpen
@@ -53,7 +54,12 @@ export function ColorsSection({ form, set, errors }: FormSectionProps) {
   );
 }
 
-/** Farbbereiche: einfarbig = ein Bereich; mehrfarbig = mehrere benannte Bereiche mit eigener Farbauswahl. */
+const automatischerName = (name: string) => /^(Teil|Bereich) \d+$/.test(name) || name === 'Farbe';
+
+/**
+ * Einfarbig = ein Bereich mit einer Farbauswahl direkt im Formular. Mehrere Teile = Schritt 1 „Welche Farben stehen zur
+ * Wahl?“ einmal für alle Teile, Schritt 2 die Teile-Liste mit Ausnahmen. Gespeichert wird wie bisher je Teil (keine neuen Daten).
+ */
 function ColorAreasEditor({
   areas,
   onChange,
@@ -68,68 +74,108 @@ function ColorAreasEditor({
   manageLink: boolean;
 }) {
   const multi = areas.length > 1;
-  const update = (index: number, patch: Partial<ColorArea>) => onChange(areas.map((a, i) => (i === index ? { ...a, ...patch } : a)));
-  const add = () => {
-    const next = areas.map((a) => (a.name === 'Farbe' && !multi ? { ...a, name: 'Bereich 1' } : a));
-    onChange([...next, { id: newId('bereich'), name: `Bereich ${areas.length + 1}`, alleFarben: true, colors: [] }]);
+  // Gemeinsame Auswahl = die häufigste; bei Gleichstand bleibt die bisherige (sonst spränge sie beim ersten Ändern eines Teils um).
+  const [bevorzugt, setBevorzugt] = useState<string>();
+  const gemeinsam = gemeinsameAuswahl(areas, filaments, bevorzugt);
+  const gemeinsamKey = auswahlSchluessel(gemeinsam, filaments);
+  if (multi && gemeinsamKey !== bevorzugt) setBevorzugt(gemeinsamKey);
+
+  const zuMehreren = () => {
+    if (multi) return;
+    const erstes = areas[0];
+    onChange([
+      { ...erstes, name: automatischerName(erstes.name) ? 'Teil 1' : erstes.name },
+      { id: newId('teil'), name: 'Teil 2', ...gemeinsam, colors: [...gemeinsam.colors], gruppen: [...gemeinsam.gruppen] },
+    ]);
   };
-  const remove = (index: number) => {
+  const zuEinfarbig = () => {
+    if (!multi) return;
+    if (!window.confirm(`Die ${areas.length} Teile werden zu einer Farbauswahl zusammengefasst (Farben aus Schritt 1). Fortfahren?`)) return;
+    onChange([{ ...areas[0], name: 'Farbe', ...gemeinsam }]);
+  };
+  const entfernen = (index: number) => {
     const rest = areas.filter((_, i) => i !== index);
-    onChange(rest.length === 1 && /^Bereich \d+$/.test(rest[0].name) ? [{ ...rest[0], name: 'Farbe' }] : rest);
+    onChange(rest.length === 1 ? [{ ...rest[0], name: automatischerName(rest[0].name) ? 'Farbe' : rest[0].name }] : rest);
   };
+  const schritt = (n: number, titel: string, zusatz?: string) => (
+    <h3 className="mb-2 flex items-start gap-2 font-bold text-stone-900">
+      <span className="mt-0.5 inline-grid size-6 shrink-0 place-items-center rounded-full bg-stone-900 text-sm text-white" aria-hidden>
+        {n}
+      </span>
+      <span>
+        <span className="sr-only">Schritt {n}: </span>
+        {titel} {zusatz && <span className="font-normal text-stone-600">{zusatz}</span>}
+      </span>
+    </h3>
+  );
 
   return (
-    <div className="space-y-4">
-      <p className="text-hinweis text-stone-600">
-        Einfarbig: eine Farbauswahl. Mehrfarbig (z. B. Griff und Grundplatte in verschiedenen Farben): weitere Bereiche
-        hinzufügen – Lehrkräfte wählen dann je Bereich eine Farbe.
-      </p>
-      {areas.map((area, i) =>
-        multi ? (
-          <div key={area.id} className="min-w-0 space-y-4 rounded-2xl p-3 ring-1 ring-stone-300 sm:p-5">
-            <div className="flex items-end gap-3">
-              <Field label={`Name von Bereich ${i + 1}`} required className="flex-1">
-                {({ id }) => (
-                  <Input id={id} value={area.name} onChange={(e) => update(i, { name: e.target.value })} maxLength={40} placeholder="z. B. Griff" />
-                )}
-              </Field>
-              <Button variant="secondary" icon={Trash2} onClick={() => remove(i)} aria-label={`Bereich „${area.name}“ entfernen`} className="text-rose-700">
-                <span className="hidden sm:inline">Entfernen</span>
-              </Button>
-            </div>
-            <FilamentPicker
-              legend={`Farben für „${area.name || `Bereich ${i + 1}`}“`}
+    <div className="space-y-5">
+      <fieldset className="min-w-0">
+        <legend className="mb-1.5 font-bold text-stone-800">Wie viele Farben?</legend>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-2">
+          {(
+            [
+              [false, 'Einfarbig', 'Lehrkräfte wählen eine Farbe.', zuEinfarbig],
+              [true, 'Mehrere Teile', 'Jedes Teil eine eigene Farbe, z. B. Steckpuzzle.', zuMehreren],
+            ] as const
+          ).map(([wert, titel, text, waehlen]) => (
+            <label
+              key={titel}
+              className={cx(
+                'flex min-h-[48px] cursor-pointer items-start gap-3 rounded-xl px-3 py-2.5 ring-1 ring-inset has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-600',
+                multi === wert ? 'bg-brand-50 ring-brand-400' : 'bg-white ring-stone-300 hover:bg-stone-50',
+              )}
+            >
+              <input type="radio" name="farb-art" checked={multi === wert} onChange={waehlen} className="mt-1 size-5 shrink-0 accent-brand-700" />
+              <span>
+                <span className="block font-bold text-stone-900">{titel}</span>
+                <span className="block text-hinweis text-stone-600">{text}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {multi ? (
+        <>
+          <div>
+            {schritt(1, 'Welche Farben stehen zur Wahl?', '(gilt für alle Teile)')}
+            <GemeinsameFarben
+              auswahl={gemeinsam}
               filaments={filaments}
-              alleFarben={!!area.alleFarben}
-              onAlleFarben={(on) => update(i, { alleFarben: on, colors: [], gruppen: [] })}
-              selected={area.colors}
-              onChange={(v) => update(i, { colors: v })}
-              gruppen={area.gruppen ?? []}
-              onGruppen={(g) => update(i, { gruppen: g, colors: ohneGruppen(area.colors, [...(area.gruppen ?? []), ...g], filaments) })}
-              manageLink={manageLink && i === 0}
+              manageLink={manageLink}
+              onChange={(neu) => onChange(setzeGemeinsame(areas, gemeinsam, neu, filaments))}
             />
           </div>
-        ) : (
-          <FilamentPicker
-            key={area.id}
-            legend="Welche Farben kann man wählen?"
-            filaments={filaments}
-            alleFarben={!!area.alleFarben}
-            onAlleFarben={(on) => update(i, { alleFarben: on, colors: [], gruppen: [] })}
-            selected={area.colors}
-            onChange={(v) => update(i, { colors: v })}
-            gruppen={area.gruppen ?? []}
-            onGruppen={(g) => update(i, { gruppen: g, colors: ohneGruppen(area.colors, [...(area.gruppen ?? []), ...g], filaments) })}
-            manageLink={manageLink}
-          />
-        ),
+          <div>
+            {schritt(2, 'Teile', `(${areas.length} von höchstens ${MAX_COLOR_AREAS})`)}
+            <p className="mb-2 text-hinweis text-stone-600">In dieser Reihenfolge stehen die Teile im Anfrageformular.</p>
+            <TeileListe
+              areas={areas}
+              gemeinsam={gemeinsam}
+              filaments={filaments}
+              manageLink={manageLink}
+              onChange={onChange}
+              onEntfernen={entfernen}
+              fehlerName={!!error}
+            />
+          </div>
+        </>
+      ) : (
+        <FilamentPicker
+          legend="Welche Farben kann man wählen?"
+          filaments={filaments}
+          alleFarben={!!areas[0].alleFarben}
+          onAlleFarben={(on) => onChange([{ ...areas[0], alleFarben: on, colors: [], gruppen: [] }])}
+          selected={areas[0].colors}
+          onChange={(v) => onChange([{ ...areas[0], colors: v }])}
+          gruppen={areas[0].gruppen ?? []}
+          onGruppen={(g) => onChange([{ ...areas[0], gruppen: g, colors: ohneGruppen(areas[0].colors, [...(areas[0].gruppen ?? []), ...g], filaments) }])}
+          manageLink={manageLink}
+        />
       )}
       <ListError error={error} />
-      {areas.length < MAX_COLOR_AREAS && (
-        <Button variant="soft" icon={Plus} onClick={add}>
-          {multi ? 'Weiteren Farbbereich hinzufügen' : 'Mehrfarbig: Farbbereich hinzufügen'}
-        </Button>
-      )}
     </div>
   );
 }

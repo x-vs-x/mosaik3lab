@@ -15,6 +15,9 @@ import type { Order } from '../../lib/types';
 import { filamentRolle } from '@mosaik3lab/shared/werte/stammdaten';
 import { OrderTimeline } from '../anfragen/AnfrageVerlauf';
 import { farbAnzeige } from '../anfragen/farbAnzeige';
+import { FarbZusammenfassung } from '../anfragen/FarbZusammenfassung';
+import { TupferReihe } from '../../components/TupferReihe';
+import { farbZusammenfassung } from '@mosaik3lab/shared/werte/farbgruppen';
 
 /** Eine Anfrage in der Verwaltung: Kopfzeile zum Aufklappen, Details, Verlauf und „Status bearbeiten“. */
 export function OrderRow({
@@ -46,6 +49,16 @@ export function OrderRow({
   const panelId = `order-${order.id}`;
   const knownStatus = md.orderStatuses.some((s) => s.id === order.status);
   const farben = farbAnzeige(order);
+  const mehrteilig = farben.art === 'bereiche' || (farben.art === 'varianten' && farben.varianten.some((v) => v.colorChoices.length > 1));
+  const kurzFarben =
+    farben.art === 'bereiche'
+      ? farbZusammenfassung(farben.bereiche)
+      : farben.art === 'varianten'
+        ? farben.varianten.map((v) => `${v.quantity} × ${farbZusammenfassung(v.colorChoices)}`).join(', ')
+        : '';
+  const tupfer = mehrteilig
+    ? [...new Set((farben.art === 'bereiche' ? farben.bereiche : farben.art === 'varianten' ? farben.varianten.flatMap((v) => v.colorChoices) : []).map((c) => c.colorHex).filter(Boolean))]
+    : [];
 
   useEffect(() => setStatus(order.status), [order.status]);
 
@@ -94,11 +107,20 @@ export function OrderRow({
           {/* Trennpunkt jeweils mit der folgenden Angabe zusammen – sonst stand er bei langen Farbangaben allein in einer Zeile */}
           <p className="mt-1 flex flex-wrap items-start gap-x-2 gap-y-1 text-hinweis text-stone-600">
             <span>{order.classOrTeam}</span>
-            <span className="inline-flex min-w-0 items-start gap-1.5">
-              <span aria-hidden>·</span>
-              {order.colorHex && <ColorSwatch hex={order.colorHex} className="mt-[0.2em] size-4" />}
-              <span className="min-w-0">{order.color}</span>
-            </span>
+            {mehrteilig ? (
+              // Statt „Grundplatte: Rot; Stall: Gelb; …“ (bis 20 Teile) nur „10 Teile · 7 Farben“ mit Farbtupfern
+              <span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
+                <span aria-hidden>·</span>
+                <span className="min-w-0">{kurzFarben}</span>
+                <TupferReihe farben={tupfer} tupfer="size-4" />
+              </span>
+            ) : (
+              <span className="inline-flex min-w-0 items-start gap-1.5">
+                <span aria-hidden>·</span>
+                {order.colorHex && <ColorSwatch hex={order.colorHex} className="mt-[0.2em] size-4" />}
+                <span className="min-w-0">{order.color}</span>
+              </span>
+            )}
             {order.size && (
               <span className="inline-flex min-w-0 gap-2">
                 <span aria-hidden>·</span>
@@ -126,7 +148,28 @@ export function OrderRow({
                 </Link>
               </Row>
               <Row label="Anzahl">{order.quantity} Stück</Row>
-              {farben.art === 'varianten' ? (
+              {mehrteilig ? (
+                // Mehrteiliger Druck: kompakt „10 Teile · 7 Farben“, aufgeklappt nach Farbe gebündelt (über die volle Spaltenbreite)
+                <div>
+                  <dt className="text-hinweis text-stone-500">Farben</dt>
+                  <dd className="mt-1 space-y-2">
+                    {farben.art === 'bereiche' ? (
+                      <FarbZusammenfassung teile={farben.bereiche} zusatz={rollOf} fuerTeam />
+                    ) : farben.art === 'varianten' ? (
+                      farben.varianten.map((v, i) => (
+                        <FarbZusammenfassung
+                          key={i}
+                          teile={v.colorChoices}
+                          praefix={`${v.quantity} ×`}
+                          vergleich={i ? farben.varianten[0].colorChoices : undefined}
+                          zusatz={rollOf}
+                          fuerTeam
+                        />
+                      ))
+                    ) : null}
+                  </dd>
+                </div>
+              ) : farben.art === 'varianten' ? (
                 // Mehrere Farben in einer Anfrage: Stückzahl je Farbe
                 farben.varianten.map((v, i) => (
                   <Row key={i} label={`Farbe ${i + 1} (${v.quantity} Stück)`}>
@@ -142,17 +185,7 @@ export function OrderRow({
                     </span>
                   </Row>
                 ))
-              ) : farben.art === 'bereiche' ? (
-                // Mehrfarbiger Druck: Farbe je Bereich
-                farben.bereiche.map((c) => (
-                  <Row key={c.areaId} label={`Farbe ${c.area}`}>
-                    <span className="block">
-                      {c.colorHex && <ColorSwatch hex={c.colorHex} className="mr-2 align-[-0.25em]" />}
-                      {c.color} {rollOf(c.colorId)}
-                    </span>
-                  </Row>
-                ))
-              ) : (
+              ) : farben.art === 'eine' ? (
                 <Row label="Farbe">
                   <span className="inline-flex flex-wrap items-center gap-x-2">
                     {farben.farbe.colorHex && <ColorSwatch hex={farben.farbe.colorHex} />}
@@ -160,7 +193,7 @@ export function OrderRow({
                     {rollOf(farben.farbe.colorId)}
                   </span>
                 </Row>
-              )}
+              ) : null}
               <Row label="Größe">{order.size || '—'}</Row>
               {(order.personalization ?? []).map((p) => (
                 <Row key={p.fieldId} label={p.label}>
