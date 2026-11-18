@@ -10,7 +10,9 @@ import type { MasterDataList } from '@mosaik3lab/shared/stammdaten';
 
 /** Wo ein Stammdateneintrag in Druckteilen verwendet wird (Kategorie/Material/Einsatzbereich per Name, Farbrolle per ID). */
 const USAGE_SQL: Record<MasterDataList, string> = {
-  categories: 'SELECT DISTINCT a.id FROM artikel a JOIN kategorie k ON k.id = a.kategorie_id WHERE k.name = ?',
+  // Seit 023 alle Kategorien eines Druckteils (artikel_kategorien); die Hauptkategorie steht dort mit drin.
+  categories:
+    'SELECT DISTINCT ak.artikel_id AS id FROM artikel_kategorien ak JOIN kategorie k ON k.id = ak.kategorie_id WHERE k.name = ?',
   materials: 'SELECT DISTINCT a.id FROM artikel a JOIN material m ON m.id = a.material_id WHERE m.name = ?',
   useAreas:
     'SELECT DISTINCT ae.artikel_id AS id FROM artikel_einsatzbereich ae JOIN einsatzbereich e ON e.id = ae.einsatzbereich_id WHERE e.name = ?',

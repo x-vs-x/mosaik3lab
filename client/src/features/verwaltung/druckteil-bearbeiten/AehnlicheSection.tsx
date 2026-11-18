@@ -127,7 +127,7 @@ function AehnlicheEditor({ item, verknuepft, onChange }: { item: Item; verknuepf
             <ul className="space-y-2" aria-label="Suchergebnisse">
               {treffer.slice(0, MAX_TREFFER).map((t) => (
                 <li key={t.id} className="flex items-center gap-3 rounded-2xl p-2 ring-1 ring-stone-200">
-                  <Vorschau name={t.name} category={t.category} images={t.images} />
+                  <Vorschau name={t.name} category={t.categories[0] ?? ''} images={t.images} />
                   <Name name={t.name} number={t.number} entwurf={!t.published} />
                   <Button variant="soft" icon={Plus} loading={busy === t.id} onClick={() => hinzufuegen(t)} aria-label={`„${t.name}“ hinzufügen`} className="min-h-[44px] min-w-[44px]">
                     <span className="hidden sm:inline">Hinzufügen</span>

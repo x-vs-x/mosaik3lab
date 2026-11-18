@@ -47,11 +47,11 @@ export function presentItem(item: Item, user: User | undefined) {
 
 const touched = () => new Date().toISOString();
 
-/** Kategorie, Einsatzbereiche, Material und Farbrollen müssen in den Stammdaten vorhanden sein. */
+/** Kategorien, Einsatzbereiche, Material und Farbrollen müssen in den Stammdaten vorhanden sein. */
 async function assertMasterData(storage: Storage, input: ItemData) {
   const { masterData: md } = await storage.settings.get();
   const fields: Record<string, string> = {};
-  if (!md.categories.some((c) => c.name === input.category)) fields.category = 'Unbekannte Kategorie';
+  if (input.categories.some((k) => !md.categories.some((c) => c.name === k))) fields.categories = 'Unbekannte Kategorie';
   if (!md.materials.some((m) => m.name === input.material)) fields.material = 'Unbekanntes Material';
   if (input.useAreas.some((a) => !md.useAreas.some((u) => u.name === a))) fields.useAreas = 'Unbekannter Einsatzbereich';
   // Farben werden per Filament-ID referenziert (Item.colors).
@@ -74,12 +74,13 @@ export interface ItemFilter {
 export async function listItems(storage: Storage, user: User | undefined, f: ItemFilter) {
   const includeUnpublished = f.all && siehtEntwuerfe(user);
   const items = (includeUnpublished ? await storage.items.list() : storage.items.listPublished())
-    .filter((i) => !f.category || i.category === f.category)
+    // Ein Druckteil erscheint unter jeder seiner Kategorien.
+    .filter((i) => !f.category || i.categories.includes(f.category))
     .filter((i) => !f.area || i.useAreas.includes(f.area))
     // Art-Filter: „Hilfsmittel“ bzw. „Lehrmittel“ zeigt auch Druckteile der Art „beides“.
     .filter((i) => !f.kind || i.kind === f.kind || (i.kind === 'beides' && (f.kind === 'hilfsmittel' || f.kind === 'lehrmittel')))
     // Suche wie überall in der App (Umlaute, ß, mehrere Wörter): shared/src/suche.ts
-    .filter((i) => passtZurSuche([i.name, i.shortDescription, i.description, i.category, i.material, ...i.useAreas], f.q))
+    .filter((i) => passtZurSuche([i.name, i.shortDescription, i.description, ...i.categories, i.material, ...i.useAreas], f.q))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
   return items.map((i) => presentItem(i, user));
 }

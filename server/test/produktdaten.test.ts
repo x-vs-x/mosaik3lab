@@ -22,7 +22,7 @@ const videoForm = (name: string, content: Buffer, title = '') => {
   return fd;
 };
 const multiBody = {
-  name: 'Mehrfarbiges Lineal', shortDescription: 'Lineal mit Griff in eigener Farbe.', category: 'Sonstiges',
+  name: 'Mehrfarbiges Lineal', shortDescription: 'Lineal mit Griff in eigener Farbe.', categories: ['Sonstiges'],
   useAreas: [], sizes: ['15 cm'], material: 'PLA', printTimeMinutes: 60, published: true, price: 'ca. 2 € Material',
   colorAreas: [
     { id: '', name: 'Lineal', colors: [RED, CYAN] },

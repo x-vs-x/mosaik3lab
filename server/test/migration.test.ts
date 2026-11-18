@@ -1,4 +1,4 @@
-// Migrationen der Datenbank: Session-Geheimnis, Schutz vor älteren Programmversionen, Migrationen 020/021.
+// Migrationen der Datenbank: Session-Geheimnis, Schutz vor älteren Programmversionen, Migrationen 020–023.
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
@@ -95,6 +95,8 @@ test('Update 1.7.0 → Migrationen 021 (nur Indizes) und 022 (benutzer_recht weg
       erlaubt INTEGER NOT NULL, UNIQUE (benutzer_id, recht))`);
     const konto = (alt.prepare('SELECT id FROM benutzer LIMIT 1').get() as { id: string }).id;
     alt.prepare('INSERT INTO benutzer_recht (id, benutzer_id, recht, erlaubt) VALUES (?, ?, ?, 1)').run('r1', konto, 'catalog:view');
+    // 023 (Kategorien-Zuordnung) gehört ebenfalls noch nicht zum Stand 1.7.0.
+    alt.exec('DROP TABLE artikel_kategorien');
     alt.exec('DELETE FROM schema_version WHERE version >= 21');
     alt.close();
     const vorher = dump();
@@ -108,7 +110,7 @@ test('Update 1.7.0 → Migrationen 021 (nur Indizes) und 022 (benutzer_recht weg
       const tabellen = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r) => (r as { name: string }).name);
       const version = (db.prepare('SELECT MAX(version) AS v FROM schema_version').get() as any).v;
       db.close();
-      assert.equal(version, 22);
+      assert.equal(version, 23);
       assert.ok(!tabellen.includes('benutzer_recht'), 'alte Tabelle benutzer_recht entfernt');
       for (const i of INDIZES) assert.ok(da.includes(i), `Index ${i}`);
       const nachher = dump();
@@ -116,12 +118,60 @@ test('Update 1.7.0 → Migrationen 021 (nur Indizes) und 022 (benutzer_recht weg
       const sicherungen = await fs.readdir(path.join(storageDir, 'sicherungen'));
       assert.ok(sicherungen.some((f) => /^mosaik3lab-vor-schema-021-.*\.db$/.test(f)), 'Sicherung vor der Migration');
       // Die App arbeitet normal weiter (Lesen über die Repositories).
-      assert.equal((await neu.storage.items.list()).length, vorher.artikel.length);
+      const items = await neu.storage.items.list();
+      assert.equal(items.length, vorher.artikel.length);
+      // 023: jedes Druckteil hat seine (bisher einzige) Kategorie als Liste.
+      const kategorieName = new Map(vorher.kategorie.map((k: any) => [k.id, k.name]));
+      for (const a of vorher.artikel as any[]) assert.deepEqual(items.find((i) => i.id === a.id)?.categories, [kategorieName.get(a.kategorie_id)], a.name);
       assert.equal((await neu.storage.orders.list()).length, vorher.anfrage.length);
     } finally {
       await neu.close();
     }
   } finally {
     await fs.rm(storageDir, { recursive: true, force: true });
+  }
+});
+
+test('Update 1.6.3 (Schema 017) → 023: jedes Druckteil behält seine Kategorie, alle übrigen Tabellen bleiben Zeile für Zeile gleich', async () => {
+  const { migrate, listMigrations } = await import('../src/kern/db');
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'mosaik3lab-mig023-'));
+  const db = openDb(path.join(dir, 'test.db'));
+  try {
+    const alle = listMigrations();
+    migrate(db, { migrations: alle.filter((m) => m.version <= 17), log: () => {} });
+    const jetzt = new Date().toISOString();
+    for (const [id, name, i] of [['kat-a', 'Alltagshilfen', 0], ['kat-b', 'Feinmotorik', 1], ['kat-c', 'Leer', 2]] as const) {
+      db.prepare("INSERT INTO kategorie (id, name, farbe, symbol, sortierung) VALUES (?, ?, 'blau', 'hand', ?)").run(id, name, i);
+    }
+    db.prepare("INSERT INTO material (id, name, sortierung) VALUES ('mat', 'PLA', 0)").run();
+    db.prepare("INSERT INTO einsatzbereich (id, name, sortierung) VALUES ('ber', 'Unterricht', 0)").run();
+    const teile = [['teil-a', 'ART-0001', 'kat-a'], ['teil-b', 'ART-0002', 'kat-b'], ['teil-c', 'ART-0003', 'kat-a'], ['teil-ohne', 'ART-0004', null]] as const;
+    for (const [id, nr, kat] of teile) {
+      db.prepare("INSERT INTO artikel (id, nummer, name, kategorie_id, material_id, erstellt_am, geaendert_am) VALUES (?, ?, ?, ?, 'mat', ?, ?)").run(id, nr, `Teil ${nr}`, kat, jetzt, jetzt);
+    }
+    db.prepare("INSERT INTO artikel_einsatzbereich (id, artikel_id, einsatzbereich_id, sortierung) VALUES ('ae1', 'teil-a', 'ber', 0)").run();
+    // Alle Tabellen mit ihren Spalten im Stand 017 merken (benutzer_recht entfernt 022 bewusst).
+    const tabellen = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('schema_version', 'benutzer_recht')").all() as { name: string }[]).map((r) => r.name);
+    const spalten = new Map(tabellen.map((t) => [t, (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name)]));
+    const dump = () => Object.fromEntries(tabellen.map((t) => [t, db.prepare(`SELECT ${spalten.get(t)!.join(', ')} FROM ${t} ORDER BY rowid`).all()]));
+    const vorher = dump();
+
+    migrate(db, { migrations: alle, log: () => {} });
+    assert.equal((db.prepare('SELECT MAX(version) AS v FROM schema_version').get() as any).v, 23);
+    const nachher = dump();
+    for (const t of tabellen) assert.deepEqual(nachher[t], vorher[t], `Tabelle ${t} unverändert`);
+    const zuordnung = db.prepare('SELECT artikel_id, kategorie_id, sortierung FROM artikel_kategorien ORDER BY artikel_id').all().map((r) => ({ ...r }));
+    assert.deepEqual(zuordnung, [
+      { artikel_id: 'teil-a', kategorie_id: 'kat-a', sortierung: 0 },
+      { artikel_id: 'teil-b', kategorie_id: 'kat-b', sortierung: 0 },
+      { artikel_id: 'teil-c', kategorie_id: 'kat-a', sortierung: 0 },
+    ], 'jede bisherige Kategorie übernommen, Druckteil ohne Kategorie bleibt ohne');
+    // Löschen eines Druckteils räumt die Zuordnung auf; eine verwendete Kategorie lässt sich nicht löschen.
+    db.prepare("DELETE FROM artikel WHERE id = 'teil-c'").run();
+    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM artikel_kategorien WHERE artikel_id = 'teil-c'").get() as any).n, 0);
+    assert.throws(() => db.prepare("DELETE FROM kategorie WHERE id = 'kat-b'").run(), /FOREIGN KEY/);
+  } finally {
+    db.close();
+    await fs.rm(dir, { recursive: true, force: true });
   }
 });

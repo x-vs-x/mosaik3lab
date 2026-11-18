@@ -1,14 +1,20 @@
-import { PenLine } from 'lucide-react';
+import { CircleAlert, PenLine } from 'lucide-react';
+import { useId } from 'react';
 import { cx, Field, Input, Select, Textarea } from '../../../components/ui';
 import { useMasterData } from '../../../lib/config';
+import { categoryMeta } from '../../../lib/constants';
 import { ITEM_KIND_LABELS, type ItemKind } from '../../../lib/types';
 import { sectionHasError, type FormSectionProps } from './itemForm';
 import { Section } from './Section';
 
-/** Grunddaten: Name, Beschreibungen, Art, Kategorie, Preis, Einsatzbereiche. */
+/** Grunddaten: Name, Beschreibungen, Art, Kategorien, Preis, Einsatzbereiche. */
 export function BasicsSection({ form, set, errors }: FormSectionProps) {
   const md = useMasterData();
-  const categoryNames = md.categories.map((c) => c.name);
+  const katId = useId();
+  // Kategorien aus den Stammdaten plus evtl. noch gespeicherte, nicht mehr vorhandene Werte.
+  const categoryNames = [...md.categories.map((c) => c.name), ...form.categories.filter((c) => !md.categories.some((x) => x.name === c))];
+  // Reihenfolge = Reihenfolge der Auswahl; die erste ist die Hauptkategorie (Symbolbild im Katalog).
+  const toggleCategory = (c: string) => set('categories', form.categories.includes(c) ? form.categories.filter((x) => x !== c) : [...form.categories, c]);
   // Einsatzbereiche aus den Stammdaten plus evtl. noch gespeicherte, nicht mehr vorhandene Werte.
   const areaNames = [...md.useAreas.map((a) => a.name), ...form.useAreas.filter((a) => !md.useAreas.some((x) => x.name === a))];
 
@@ -17,7 +23,7 @@ export function BasicsSection({ form, set, errors }: FormSectionProps) {
       id="grunddaten"
       icon={PenLine}
       title="Grunddaten"
-      summary={[form.category, form.price].filter(Boolean).join(' · ')}
+      summary={[form.categories.join(', '), form.price].filter(Boolean).join(' · ')}
       defaultOpen
       hasError={sectionHasError(errors, 'grunddaten')}
     >
@@ -40,20 +46,50 @@ export function BasicsSection({ form, set, errors }: FormSectionProps) {
           </Select>
         )}
       </Field>
+      <fieldset aria-describedby={`${katId}-hint${errors.categories ? ` ${katId}-error` : ''}`}>
+        <legend className="mb-1.5 font-bold text-stone-800">
+          Kategorien
+          <span className="ml-1 text-rose-700" aria-hidden>
+            *
+          </span>
+        </legend>
+        <p id={`${katId}-hint`} className="mb-2 text-hinweis text-stone-600">
+          Mindestens eine. Das Druckteil erscheint im Katalog unter jeder gewählten Kategorie; die zuerst gewählte gibt das Symbolbild vor.
+        </p>
+        {categoryNames.length === 0 && <p className="text-hinweis text-stone-600">Noch keine Kategorien in den Stammdaten angelegt.</p>}
+        <div className="grid gap-2 sm:grid-cols-2">
+          {categoryNames.map((c) => {
+            const checked = form.categories.includes(c);
+            const haupt = form.categories.length > 1 && form.categories[0] === c;
+            const bekannt = md.categories.some((x) => x.name === c);
+            const Icon = categoryMeta(md, c).icon;
+            return (
+              <label
+                key={c}
+                className={cx(
+                  'flex min-h-12 cursor-pointer items-center gap-3 rounded-xl px-4 py-2 ring-1 ring-inset transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-600',
+                  checked ? 'bg-brand-50 ring-brand-300' : errors.categories ? 'bg-white ring-rose-500' : 'bg-white ring-stone-300 hover:bg-stone-50',
+                )}
+              >
+                <input type="checkbox" checked={checked} onChange={() => toggleCategory(c)} className="size-5 shrink-0 accent-brand-700" />
+                <Icon className="hidden size-5 shrink-0 text-stone-600 sm:block" aria-hidden />
+                <span className="min-w-0 hyphens-auto font-bold text-stone-800">
+                  {c}
+                  {!bekannt && <span className="font-normal text-stone-600"> (nicht mehr in den Stammdaten)</span>}
+                  {haupt && <span className="font-normal text-stone-600"> · Hauptkategorie</span>}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        {errors.categories && (
+          <p id={`${katId}-error`} className="mt-1.5 flex items-center gap-1.5 text-hinweis font-bold text-rose-700">
+            <CircleAlert className="size-4 shrink-0" aria-hidden />
+            {errors.categories}
+          </p>
+        )}
+      </fieldset>
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Kategorie" required error={errors.category}>
-          {({ id, invalid }) => (
-            <Select id={id} value={form.category} onChange={(e) => set('category', e.target.value)} invalid={invalid}>
-              {!form.category && <option value="">Bitte wählen …</option>}
-              {form.category && !categoryNames.includes(form.category) && (
-                <option value={form.category}>{form.category} (nicht mehr in den Stammdaten)</option>
-              )}
-              {categoryNames.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </Select>
-          )}
-        </Field>
         <Field label="Preis" hint="Optional, freier Text – z. B. „ca. 2 € Material“." error={errors.price}>
           {({ id, describedBy, invalid }) => (
             <Input id={id} value={form.price} onChange={(e) => set('price', e.target.value)} maxLength={80} aria-describedby={describedBy} invalid={invalid} placeholder="z. B. ca. 2 € Material" />

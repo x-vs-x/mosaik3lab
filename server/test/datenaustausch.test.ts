@@ -101,7 +101,7 @@ assert.equal((await dst.login('ziel.admin@schule.example', 'Ziel-Admin-Passwort-
 // Quelle: ein Artikel mit Bild, Druckdatei und Video
 const cfg = (await src.req('GET', '/api/config')).json.masterData;
 const created = await src.req('POST', '/api/items', {
-  name: 'Export-Testteil', shortDescription: 'Ein Teil zum Testen des Exports', description: 'Beschreibung', category: cfg.categories[0].name,
+  name: 'Export-Testteil', shortDescription: 'Ein Teil zum Testen des Exports', description: 'Beschreibung', categories: [cfg.categories[0].name],
   useAreas: [cfg.useAreas[0].name], colorAreas: [{ id: 'koerper', name: 'Körper', colors: [cfg.filaments[0].id, cfg.filaments[1].id] }],
   price: 'ca. 2 €', customFields: [{ id: 'name', label: 'Name', type: 'text', required: false, maxLength: 20, hint: '', options: [] }],
   sizes: ['M'], material: cfg.materials[0].name, materialInfo: '', printTimeMinutes: 30, safetyNotes: ['Aufsicht'], published: true,
@@ -205,7 +205,7 @@ test('Export: einer, mehrere, alle – mit Dateien, nur gebrauchte Stammdaten, o
   assert.deepEqual(dateien.get(teilMeta.pfad), PNG, 'Bild unverändert und ohne Base64');
   assert.ok(j.artikel.every((a: any) => Array.isArray(a.aehnliche)), 'ähnliche Druckteile je Druckteil (auch leer)');
   assert.deepEqual(j.stammdaten.statusarten, []);
-  const kategorien = new Set(alle.map((i) => i.category));
+  const kategorien = new Set(alle.flatMap((i) => i.categories));
   assert.deepEqual(new Set(j.stammdaten.kategorien.map((k: any) => k.name)), kategorien, 'nur gebrauchte Kategorien');
   const lower = JSON.stringify(j).toLowerCase();
   for (const verboten of ['passwordhash', 'passwort_hash', 'requesteremail', 'abruf', 'smtp', DEMO_USERS[0].password.toLowerCase()]) {
@@ -221,7 +221,7 @@ test('Export: einer, mehrere, alle – mit Dateien, nur gebrauchte Stammdaten, o
   assert.deepEqual(je.artikel.map((a: any) => a.id), [itemId]);
   assert.equal(dateienEins.size, 4);
   const teil = je.artikel[0];
-  assert.deepEqual(je.stammdaten.kategorien.map((k: any) => k.name), [teil.category]);
+  assert.deepEqual(je.stammdaten.kategorien.map((k: any) => k.name).sort(), [...teil.categories].sort());
   assert.deepEqual(je.stammdaten.materialien.map((m: any) => m.name), [teil.material]);
   assert.deepEqual(je.stammdaten.einsatzbereiche.map((e: any) => e.name).sort(), [...teil.useAreas].sort());
   assert.deepEqual(je.stammdaten.filamente.map((f: any) => f.id).sort(), [...new Set(teil.colorAreas.flatMap((a: any) => a.colors))].sort());
@@ -261,13 +261,13 @@ test('Alle einspielen in leere Installation: gleiche Druckteile, identische Date
 
   const a = (await src.req('GET', '/api/items?all=1')).json as any[];
   const b = (await dst.req('GET', '/api/items?all=1')).json as any[];
-  const norm = (x: any) => ({ id: x.id, number: x.number, name: x.name, category: x.category, material: x.material, useAreas: x.useAreas, colorAreas: x.colorAreas, price: x.price, customFields: x.customFields.map((f: any) => f.label), sizes: x.sizes, safetyNotes: x.safetyNotes, published: x.published, printTimeMinutes: x.printTimeMinutes, links: x.videos.map((v: any) => v.url || (v.file ? 'datei' : '')) });
+  const norm = (x: any) => ({ id: x.id, number: x.number, name: x.name, categories: x.categories, material: x.material, useAreas: x.useAreas, colorAreas: x.colorAreas, price: x.price, customFields: x.customFields.map((f: any) => f.label), sizes: x.sizes, safetyNotes: x.safetyNotes, published: x.published, printTimeMinutes: x.printTimeMinutes, links: x.videos.map((v: any) => v.url || (v.file ? 'datei' : '')) });
   const sortiert = (l: any[]) => [...l].sort((x, y) => x.id.localeCompare(y.id)).map(norm);
   assert.deepEqual(sortiert(b), sortiert(a));
   // Jede Kategorie, jedes Material und jede Farbe der Druckteile gibt es jetzt hier.
   const md = (await dst.req('GET', '/api/config')).json.masterData;
   for (const i of b) {
-    assert.ok(md.categories.some((k: any) => k.name === i.category), i.category);
+    for (const c of i.categories) assert.ok(md.categories.some((k: any) => k.name === c), c);
     assert.ok(md.materials.some((m: any) => m.name === i.material), i.material);
     for (const c of i.colorAreas.flatMap((x: any) => x.colors)) assert.ok(md.filaments.some((f: any) => f.id === c), c);
   }
@@ -311,7 +311,7 @@ test('Ersetzen: vorhandenes Druckteil bekommt Texte und Dateien aus der Datei, b
   const quelle = (await src.req('GET', `/api/items/${itemId}`)).json;
   assert.ok((await src.req('DELETE', `/api/items/${itemId}/images/${quelle.images[1]}`)).status < 300);
   const fremd = await dst.req('POST', '/api/items', {
-    name: 'Fremdes Teil im Ziel', shortDescription: 'Teil mit gleicher Nummer wie in der Datei', category: cfg.categories[0].name, useAreas: [], colorAreas: [{ id: 'a', name: 'Farbe', colors: [cfg.filaments[0].id] }],
+    name: 'Fremdes Teil im Ziel', shortDescription: 'Teil mit gleicher Nummer wie in der Datei', categories: [cfg.categories[0].name], useAreas: [], colorAreas: [{ id: 'a', name: 'Farbe', colors: [cfg.filaments[0].id] }],
     price: '', customFields: [], sizes: ['M'], material: cfg.materials[0].name, materialInfo: '', printTimeMinutes: 5, safetyNotes: [], published: false,
   });
   assert.equal(fremd.status, 201, fremd.text);
@@ -363,7 +363,7 @@ test('Datei von einer anderen Installation: gleicher Name gilt als vorhanden; fe
   // Gleiches Teil mit fremder ID → „gibt es schon“ über den Namen.
   kopf.artikel[0] = { ...kopf.artikel[0], id: newId(), price: 'anderer Preis', dateien: [], videos: [] };
   // Ein zweites Teil mit neuer Kategorie, neuem Material und einer Farbe, die in der Datei fehlt.
-  kopf.artikel.push({ ...kopf.artikel[0], id: newId(), number: '', name: 'Ganz neues Teil', category: 'Neue Kategorie', material: 'Neues Material', useAreas: ['Neuer Bereich'],
+  kopf.artikel.push({ ...kopf.artikel[0], id: newId(), number: '', name: 'Ganz neues Teil', categories: ['Neue Kategorie'], material: 'Neues Material', useAreas: ['Neuer Bereich'],
     colorAreas: [{ id: 'a', name: 'Farbe', colors: [kopf.artikel[0].colorAreas[0].colors[0], 'gibt-es-nicht'] }] });
   kopf.stammdaten.kategorien = [...kopf.stammdaten.kategorien, { id: newId(), name: 'Neue Kategorie', color: 'lila', icon: kat.icon }];
   // Neue Farbrolle (gibt es hier nicht) und eine vorhandene unter fremder ID mit anderer Verfügbarkeit (muss unverändert bleiben).
@@ -376,7 +376,7 @@ test('Datei von einer anderen Installation: gleicher Name gilt als vorhanden; fe
   kopf.stammdaten.filamente = [...kopf.stammdaten.filamente, gelb, fremdeId, nurNummer, perKatalog];
   kopf.artikel[1].colorAreas.push({ id: 'b', name: 'Griff', colors: [gelb.id, fremdeId.id, nurNummer.id, perKatalog.id] });
   // Kategorie in anderer Schreibweise → die vorhandene wird benutzt, nicht neu angelegt.
-  kopf.artikel.push({ ...kopf.artikel[1], id: newId(), name: 'Teil mit Kategorie in Großbuchstaben', category: kat.name.toUpperCase(), colorAreas: [{ id: 'a', name: 'Farbe', colors: [gelb.id] }] });
+  kopf.artikel.push({ ...kopf.artikel[1], id: newId(), name: 'Teil mit Kategorie in Großbuchstaben', categories: [kat.name.toUpperCase()], colorAreas: [{ id: 'a', name: 'Farbe', colors: [gelb.id] }] });
   // Nichts zu retten: keine seiner Farben ist beschrieben.
   kopf.artikel.push({ ...kopf.artikel[1], id: newId(), name: 'Teil ohne beschriebene Farbe', colorAreas: [{ id: 'a', name: 'Farbe', colors: ['unbekannt-1'] }] });
   const text = await packe(kopf);
@@ -615,7 +615,7 @@ test('Rundreise in eine frische Installation: jede Angabe eines Druckteils und j
   }
   const bambu = md0.filaments.find((f: any) => f.katalogId);
   const body = {
-    name: 'Rundreise-Teil', shortDescription: 'Prüft, dass alles ankommt', description: 'Lange Beschreibung', category: 'Rundreise-Kategorie', kind: 'lehrmittel',
+    name: 'Rundreise-Teil', shortDescription: 'Prüft, dass alles ankommt', description: 'Lange Beschreibung', categories: ['Rundreise-Kategorie'], kind: 'lehrmittel',
     useAreas: ['Rundreise-Bereich'],
     colorAreas: [
       { id: 'grund', name: 'Grundplatte', alleFarben: true, colors: [] },
@@ -652,7 +652,7 @@ test('Rundreise in eine frische Installation: jede Angabe eines Druckteils und j
     const { bericht } = await einspielen(sc, await exportZip(src, [quelle.id]), 'ueberspringen');
     assert.equal(bericht.abschnitte.artikel.neu, 1);
     const ziel = (await sc.req('GET', `/api/items/${quelle.id}`)).json;
-    for (const f of ['number', 'name', 'shortDescription', 'description', 'category', 'kind', 'useAreas', 'price', 'sizes', 'customFields', 'material', 'materialInfo', 'printTimeMinutes', 'safetyNotes', 'links', 'published'])
+    for (const f of ['number', 'name', 'shortDescription', 'description', 'categories', 'kind', 'useAreas', 'price', 'sizes', 'customFields', 'material', 'materialInfo', 'printTimeMinutes', 'safetyNotes', 'links', 'published'])
       assert.deepEqual(ziel[f], quelle[f], f);
     const bereiche = (i: any) => i.colorAreas.map((a: any) => [a.id, a.name, !!a.alleFarben, a.gruppen ?? []]);
     assert.deepEqual(bereiche(ziel), bereiche(quelle), 'Farbbereiche samt „Alle Farben“ und Gruppen');
@@ -685,7 +685,7 @@ test('Rundreise in eine frische Installation: jede Angabe eines Druckteils und j
 test('Ähnliche Druckteile: Teilexport → vorgemerkt → späterer Export bringt den Partner (auch unter neuer ID) → verknüpft; nur hinzufügen', async () => {
   const neuesTeil = async (c: Client, name: string) => {
     const r = await c.req('POST', '/api/items', {
-      name, shortDescription: `Kurz ${name}`, category: cfg.categories[0].name, useAreas: [], colorAreas: [{ id: 'a', name: 'Farbe', colors: [cfg.filaments[0].id] }],
+      name, shortDescription: `Kurz ${name}`, categories: [cfg.categories[0].name], useAreas: [], colorAreas: [{ id: 'a', name: 'Farbe', colors: [cfg.filaments[0].id] }],
       price: '', customFields: [], sizes: [], material: cfg.materials[0].name, materialInfo: '', printTimeMinutes: 5, safetyNotes: [], published: true,
     });
     assert.equal(r.status, 201, r.text);
@@ -759,3 +759,45 @@ test('Ähnliche Druckteile: Teilexport → vorgemerkt → späterer Export bring
 
 after(() => sourceSrv.stop());
 after(() => targetSrv.stop());
+
+test('Mehrere Kategorien: Export enthält alle (plus Hauptkategorie für ältere Versionen), Vorschau nennt neue, Rundreise in Reihenfolge; ältere ZIP-Datei mit einer Kategorie', async () => {
+  const md0 = (await src.req('GET', '/api/config')).json.masterData;
+  const neue = [{ name: 'Mehrfach-A', color: 'lila', icon: 'musik' }, { name: 'Mehrfach-B', color: 'gruen', icon: 'stift' }];
+  assert.equal((await src.req('PUT', '/api/admin/settings/masterdata/categories', { entries: [...md0.categories, ...neue] })).status, 200);
+  const vorhanden = md0.categories[0].name;
+  const r = await src.req('POST', '/api/items', {
+    name: 'Teil in drei Kategorien', shortDescription: 'Prüft mehrere Kategorien im Austausch', categories: ['Mehrfach-B', vorhanden, 'Mehrfach-A'],
+    useAreas: [], colorAreas: [{ id: 'a', name: 'Farbe', colors: [cfg.filaments[0].id] }], material: cfg.materials[0].name, printTimeMinutes: 5, published: true,
+  });
+  assert.equal(r.status, 201, r.text);
+  const zip = await exportZip(src, [r.json.id]);
+  const { kopf } = await entpacke(zip);
+  assert.deepEqual(kopf.artikel[0].categories, ['Mehrfach-B', vorhanden, 'Mehrfach-A']);
+  assert.equal(kopf.artikel[0].category, 'Mehrfach-B', 'Hauptkategorie zusätzlich als „category“');
+  assert.deepEqual(kopf.stammdaten.kategorien.map((k: any) => k.name).sort(), ['Mehrfach-A', 'Mehrfach-B', vorhanden].sort(), 'alle gebrauchten Kategorien');
+
+  const { srv, c } = await frischesZiel(); // eigene Instanz: eigenes Import-Limit
+  try {
+    const { vorschau, bericht } = await einspielen(c, zip, 'ueberspringen');
+    const neuIn = vorschau.berichte.ueberspringen.details.filter((d: any) => d.status === 'neu' && d.bereich === 'Kategorie').map((d: any) => d.name).sort();
+    // Die frische Installation hat die Standard-Kategorien, also auch die erste der Quelle.
+    assert.deepEqual(neuIn, ['Mehrfach-A', 'Mehrfach-B'], 'Vorschau nennt jede neue Kategorie, die vorhandene nicht');
+    assert.equal(bericht.abschnitte.kategorien.neu, 2);
+    const ziel = (await c.req('GET', `/api/items/${r.json.id}`)).json;
+    assert.deepEqual(ziel.categories, ['Mehrfach-B', vorhanden, 'Mehrfach-A'], 'alle Kategorien in derselben Reihenfolge');
+    const mdZ = (await c.req('GET', '/api/config')).json.masterData;
+    assert.deepEqual(['Mehrfach-A', 'Mehrfach-B'].map((n) => mdZ.categories.find((k: any) => k.name === n)?.color), ['lila', 'gruen'], 'mit Farbe aus der Datei');
+
+    // Datei wie aus 1.7.0/1.8.0: nur „category“ (eine Kategorie), kein „categories“.
+    const alt = structuredClone(kopf);
+    for (const a of alt.artikel) delete a.categories;
+    alt.artikel[0] = { ...alt.artikel[0], id: newId(), number: '', name: 'Teil aus älterer Datei', category: 'Mehrfach-A', dateien: [], videos: [], aehnliche: [] };
+    const { bericht: b2 } = await einspielen(c, await packe(alt), 'ueberspringen');
+    assert.equal(b2.abschnitte.artikel.neu, 1, JSON.stringify(b2.details));
+    const altTeil = ((await c.req('GET', '/api/items?all=1')).json as any[]).find((i) => i.name === 'Teil aus älterer Datei');
+    assert.deepEqual(altTeil.categories, ['Mehrfach-A'], 'die eine Kategorie bleibt erhalten');
+    assert.equal(b2.abschnitte.kategorien.neu, 0, 'vorhandene Kategorie benutzt');
+  } finally {
+    await srv.stop();
+  }
+});

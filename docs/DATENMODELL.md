@@ -46,6 +46,7 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 | `passwort_link` | Einmal-Links „Passwort festlegen/zurücksetzen“ (SHA-256 des Tokens, benutzer_id, zweck, gueltig_bis – leer = läuft nicht ab) |
 | `lehrkraft` | bekannte Lehrkräfte (E-Mail, angelegt_am, Häkchen `darf_anfragen`, `darf_vorschlagen` (011), `entfernt_am` (016, wie bei `benutzer`)) |
 | `kategorie`, `einsatzbereich`, `material` | Stammdaten |
+| `artikel_kategorien` | seit 023: Kategorien je Druckteil (artikel_id → `artikel` `ON DELETE CASCADE`, kategorie_id → `kategorie` ohne Kaskade, `sortierung` = Reihenfolge der Auswahl, die erste = Hauptkategorie, `UNIQUE (artikel_id, kategorie_id)`, Index auf kategorie_id) |
 | `filament` | Farbrolle (Marke, Linie, Farbname, Hex, verfügbar). Seit 012: `katalog_id` (ID im mitgelieferten Bambu-Lab-Katalog, NULL = eigene Rolle), `hersteller_nummer` (Bambu-Nr. bzw. freiwillige eigene Nummer), `hersteller_name` (Originalname, englisch), `weggefallen` (nicht mehr im Bambu-Katalog). Abgleich beim Start: `module/stammdaten/bambuAbgleich.ts`; Hinweis für den Admin und bekannte Katalog-IDs in `einstellung` (`bambuAbgleichHinweis`, `bambuKatalogBekannt`) |
 | `statusart` | feste Bestellstatus (Schlüssel, aktiv) – Inhalte aus dem Code, nur `aktiv` änderbar |
 | `artikel` | Druckteil (nummer, Name, Beschreibung, Preis-Text, veröffentlicht …; seit 018 `links`: JSON-Liste der Link-Knöpfe `{ id, text, beschreibung, url }`, nur http/https, höchstens 50, bestehende Druckteile `[]`; seit 020 `herkunft_id`: ID des Druckteils in der Quelle eines Imports, wenn es hier eine andere ID hat, sonst leer) |
@@ -185,6 +186,20 @@ Die Repositories lesen Kindzeilen damit nur für die gefundenen Datensätze stat
 Nur Indizes, keine Datenänderung: `artikel_farbbereich_filament (filament_id)`, `artikel_einsatzbereich (einsatzbereich_id)`,
 `artikel (kategorie_id)`, `artikel (material_id)`, `anfrage (erstellt_am, id)` (neueste Anfragen im Dashboard). Beim Löschen
 von Stammdaten prüft SQLite die Kindtabellen damit gezielt statt per vollständigem Durchlauf.
+
+## Migration 023 – Mehrere Kategorien je Druckteil (`artikel_kategorien`)
+Neue Zuordnungstabelle Druckteil ↔ Kategorie (Spalten siehe Tabelle oben). Die Migration übernimmt für jedes Druckteil seine
+bisherige Kategorie (`artikel.kategorie_id`, Sortierung 0); Druckteile ohne Kategorie bleiben ohne. Alle anderen Zeilen bleiben unverändert.
+- **`artikel.kategorie_id` bleibt** und enthält weiter die **Hauptkategorie** (= erste der Liste); das Speichern eines Druckteils hält
+  beide gleich. Gründe: Die Spalte trägt einen Fremdschlüssel – entfernen hieße in SQLite die Tabelle `artikel` samt aller Verweise
+  neu aufbauen (Risiko beim Update der Schule ohne Nutzen); Symbolbild, „Ähnliche Druckteile“ und Bilder zu Anfragen lesen die
+  Hauptkategorie weiter direkt; ältere Sicherungen und Exporte bleiben ohne Umweg lesbar.
+- **API:** `categories: string[]` (Namen, mind. eine, höchstens 20, Doppelte entfallen) statt `category` in `itemInputSchema` und am
+  Druckteil (`shared/src/katalog.ts`). Katalogfilter `?category=` trifft jede Kategorie eines Druckteils, die Suche alle.
+- **Löschen/Umbenennen:** Eine Kategorie, die irgendein Druckteil (auch als zweite) verwendet, lässt sich wie bisher nicht löschen
+  (409 mit Zahl, Zählung über `artikel_kategorien`); so behält jedes Druckteil mindestens eine. Umbenennen wirkt per ID sofort.
+- **Export/Import:** je Druckteil `categories` (alle) und `category` (Hauptkategorie, damit 1.7.0/1.8.0 neue Dateien mit der
+  Hauptkategorie einspielen können). Dateien ohne `categories` (JSON bis 1.6.x, ZIP aus 1.7.0/1.8.0) → `[category]`. Paketformat bleibt 2.
 
 ## Migration 022 – alte Einzelrechte entfernt
 `DROP TABLE IF EXISTS benutzer_recht`. Die Tabelle wurde seit 011 weder gelesen noch geschrieben; 011 läuft immer vorher

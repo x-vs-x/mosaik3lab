@@ -60,7 +60,7 @@ test('Suche und Filter funktionieren', async () => {
   assert.ok(loeffel.length > 0);
   for (const q of ['Loeffel', 'loffel']) assert.deepEqual((await teacher.req('GET', `/api/items?q=${q}`)).json.map((i: any) => i.id), loeffel);
   const c =await teacher.req('GET', `/api/items?category=${encodeURIComponent('Kommunikation')}`);
-  assert.ok(c.json.length > 0 && c.json.every((i: any) => i.category === 'Kommunikation'));
+  assert.ok(c.json.length > 0 && c.json.every((i: any) => i.categories.includes('Kommunikation')));
   const a = await teacher.req('GET', `/api/items?area=${encodeURIComponent('Mahlzeiten')}`);
   assert.ok(a.json.length > 0 && a.json.every((i: any) => i.useAreas.includes('Mahlzeiten')));
 });
@@ -77,16 +77,16 @@ test('Druck-Team legt Druckteil an (mit Validierung)', async () => {
   assert.equal(bad.status, 400);
   assert.ok(bad.json.fields?.name);
   const body = {
-    name: 'Test-Druckteil', shortDescription: 'Eine Kurzbeschreibung für den Test.', category: 'Sonstiges',
+    name: 'Test-Druckteil', shortDescription: 'Eine Kurzbeschreibung für den Test.', categories: ['Sonstiges'],
     useAreas: ['Unterricht'], colors: ['bambu-pla-basic-red', 'bambu-pla-basic-red', 'bambu-pla-basic-cyan'],
     sizes: ['S'], material: 'PLA', printTimeMinutes: 30, published: true,
   };
   const oldColor = await team.req('POST', '/api/items', { ...body, colors: ['Rot'] });
   assert.equal(oldColor.status, 400, 'Farbnamen statt Filament-IDs werden abgelehnt');
   assert.ok(oldColor.json.fields?.colors);
-  const badCat = await team.req('POST', '/api/items', { ...body, category: 'Gibt es nicht' });
+  const badCat = await team.req('POST', '/api/items', { ...body, categories: ['Gibt es nicht'] });
   assert.equal(badCat.status, 400);
-  assert.ok(badCat.json.fields?.category);
+  assert.ok(badCat.json.fields?.categories);
   const r = await team.req('POST', '/api/items', body);
   assert.equal(r.status, 201, JSON.stringify(r.json));
   assert.deepEqual(r.json.colors, ['bambu-pla-basic-red', 'bambu-pla-basic-cyan'], 'doppelte Werte werden entfernt');
@@ -94,7 +94,7 @@ test('Druck-Team legt Druckteil an (mit Validierung)', async () => {
 });
 test('Link-Knöpfe werden gespeichert und gelesen; nur http(s)-Links', async () => {
   const body = {
-    name: 'Teil mit Links', shortDescription: 'Kurzbeschreibung für den Link-Test.', category: 'Sonstiges',
+    name: 'Teil mit Links', shortDescription: 'Kurzbeschreibung für den Link-Test.', categories: ['Sonstiges'],
     colors: ['bambu-pla-basic-red'], material: 'PLA', printTimeMinutes: 20, published: true,
   };
   const ohne = await team.req('POST', '/api/items', body);
@@ -219,7 +219,7 @@ test('Neue Uploads landen in <ablage>/artikel/<id>/bild/<datei-id>.<endung>', as
 
 test('Gleichzeitige Bild-Uploads: Höchstzahl hält, abgelehnte Bilder hinterlassen keine Dateien; gelöschtes Druckteil räumt auf', async () => {
   const body = {
-    name: 'Teil für Upload-Rennen', shortDescription: 'Kurzbeschreibung für den Upload-Test.', category: 'Sonstiges',
+    name: 'Teil für Upload-Rennen', shortDescription: 'Kurzbeschreibung für den Upload-Test.', categories: ['Sonstiges'],
     colors: ['bambu-pla-basic-red'], material: 'PLA', printTimeMinutes: 20, published: false,
   };
   const teil = (await team.req('POST', '/api/items', body)).json;

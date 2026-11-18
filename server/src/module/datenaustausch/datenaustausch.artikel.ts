@@ -55,12 +55,12 @@ export interface ArtikelKontext {
  * Zählten sie mit, würde ein unverändertes Druckteil nur wegen einer neuen Verknüpfung als „ersetzt“ gelten (samt neu
  * geschriebener Dateien), und weil Partner außerhalb des Exports hier fehlen oder andere IDs haben, wäre der Vergleich nie stabil.
  */
-function fingerabdruck(i: Pick<Item, 'name' | 'shortDescription' | 'description' | 'category' | 'kind' | 'useAreas' | 'sizes' | 'colorAreas' | 'price' | 'customFields' | 'material' | 'materialInfo' | 'printTimeMinutes' | 'safetyNotes' | 'links' | 'published'>, videos: { title: string; url: string; sha: string }[], dateien: { rolle: string; sha: string }[] | null, farben: (a: ColorArea) => unknown) {
+function fingerabdruck(i: Pick<Item, 'name' | 'shortDescription' | 'description' | 'categories' | 'kind' | 'useAreas' | 'sizes' | 'colorAreas' | 'price' | 'customFields' | 'material' | 'materialInfo' | 'printTimeMinutes' | 'safetyNotes' | 'links' | 'published'>, videos: { title: string; url: string; sha: string }[], dateien: { rolle: string; sha: string }[] | null, farben: (a: ColorArea) => unknown) {
   return JSON.stringify({
     n: i.name,
     k: i.shortDescription,
     b: i.description,
-    c: i.category,
+    c: i.categories,
     art: i.kind,
     a: [...i.useAreas].sort(),
     g: i.sizes,
@@ -108,7 +108,7 @@ export function spieleArtikelEin(a: PaketArtikel, k: ArtikelKontext): void {
     name: a.name,
     shortDescription: a.shortDescription,
     description: a.description,
-    category: a.category,
+    categories: a.categories,
     kind: a.kind,
     useAreas: a.useAreas,
     colorAreas,
@@ -129,7 +129,7 @@ export function spieleArtikelEin(a: PaketArtikel, k: ArtikelKontext): void {
   }
   const data = normalizeItemInput(parsed.data);
   // Schreibweise der Stammdaten hier übernehmen (Groß/Klein egal).
-  data.category = kategorieVon.get(lc(data.category)) ?? data.category;
+  data.categories = [...new Set(data.categories.map((c) => kategorieVon.get(lc(c)) ?? c))];
   data.material = materialVon.get(lc(data.material)) ?? data.material;
   data.useAreas = data.useAreas.map((u) => bereichVon.get(lc(u)) ?? u);
   const anzahl = (r: string) => a.dateien.filter((d) => d.rolle === r).length;
@@ -241,7 +241,7 @@ export function spieleArtikelEin(a: PaketArtikel, k: ArtikelKontext): void {
     name: data.name,
     shortDescription: data.shortDescription,
     description: data.description,
-    category: data.category,
+    categories: data.categories,
     kind: data.kind,
     useAreas: data.useAreas,
     sizes: data.sizes,

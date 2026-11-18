@@ -58,6 +58,8 @@ export interface PaketVideo {
 }
 
 export type PaketArtikel = Omit<Item, 'images' | 'modelFiles' | 'videos' | 'colors'> & {
+  /** Hauptkategorie (= categories[0]) für ältere Versionen, die nur eine Kategorie kennen. Beim Lesen in categories übernommen. */
+  category?: string;
   dateien: PaketDatei[];
   videos: PaketVideo[];
   /** Ähnliche Druckteile (auch nicht exportierte): ID in der Quelle; Name und Nummer nur als Hilfe. Fehlt in älteren Dateien. */
@@ -102,7 +104,7 @@ function waehleArtikel(items: Item[], ids: string[]): Item[] {
 
 /** Nur die Stammdaten, auf die die gewählten Druckteile verweisen. */
 function benutzteStammdaten(md: MasterData, items: Item[]): MasterData {
-  const kategorien = new Set(items.map((i) => i.category));
+  const kategorien = new Set(items.flatMap((i) => i.categories));
   const materialien = new Set(items.map((i) => i.material));
   const bereiche = new Set(items.flatMap((i) => i.useAreas));
   // „Alle Farben“ braucht keine Farbrollen in der Datei (am Ziel gelten dessen Farbrollen).
@@ -166,7 +168,7 @@ export async function buildPaket(storage: Storage, opts: ExportOptionen) {
       if (v.file && !dateiId) continue; // hochgeladenes Video ohne Datei im Paket
       paketVideos.push({ id: v.id, title: v.title, url: v.url, dateiId, uploadedAt: v.uploadedAt });
     }
-    artikel.push({ ...rest, dateien: list, videos: paketVideos, aehnliche: aehnliche.get(item.id) ?? [] });
+    artikel.push({ ...rest, category: item.categories[0] ?? '', dateien: list, videos: paketVideos, aehnliche: aehnliche.get(item.id) ?? [] });
   }
 
   const md = benutzteStammdaten(settings.masterData, items);

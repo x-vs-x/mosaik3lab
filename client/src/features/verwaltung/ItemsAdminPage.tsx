@@ -289,7 +289,7 @@ export function ItemsAdminPage() {
                         {item.isDemo && <DemoBadge />}
                       </div>
                       <p className="mt-0.5 text-hinweis text-stone-600">
-                        {ITEM_KIND_LABELS[item.kind ?? 'hilfsmittel']} · {item.category || 'Ohne Kategorie'} · {item.material || 'Material offen'} · {formatDuration(item.printTimeMinutes)}
+                        {ITEM_KIND_LABELS[item.kind ?? 'hilfsmittel']} · {item.categories.join(', ') || 'Ohne Kategorie'} · {item.material || 'Material offen'} · {formatDuration(item.printTimeMinutes)}
                       </p>
                       <ItemColors ids={item.colors} md={md} />
                       <p className="mt-1 flex flex-wrap gap-2 text-hinweis text-stone-500">

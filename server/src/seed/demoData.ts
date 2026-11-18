@@ -29,7 +29,8 @@ export interface DemoItem {
   name: string;
   shortDescription: string;
   description: string;
-  category: string;
+  /** Erste = Hauptkategorie. */
+  categories: string[];
   /** Standard: Hilfsmittel. */
   kind?: Item['kind'];
   useAreas: string[];
@@ -74,7 +75,7 @@ export const DEMO_ITEMS: DemoItem[] = [
       'Die Stiftverdickung wird über handelsübliche Stifte geschoben und vergrößert den Griffdurchmesser. ' +
       'Die geriffelte Oberfläche bietet zusätzlichen Halt. Geeignet für Schülerinnen und Schüler mit ' +
       'eingeschränkter Greifkraft oder Schwierigkeiten beim Pinzettengriff.',
-    category: 'Feinmotorik',
+    categories: ['Feinmotorik', 'Lernen und Unterricht'],
     useAreas: ['Unterricht', 'Therapie'],
     colors: [TPU.blue, TPU.gray, TPU.black],
     sizes: ['Ø 20 mm', 'Ø 25 mm', 'Ø 30 mm'],
@@ -91,7 +92,7 @@ export const DEMO_ITEMS: DemoItem[] = [
     description:
       'Der Adapter wird auf den Stiel von Standardbesteck gesteckt und mit einer Klemme gesichert. ' +
       'Durch die ovale Form liegt das Besteck stabil in der Hand und dreht nicht weg.',
-    category: 'Alltagshilfen',
+    categories: ['Alltagshilfen'],
     useAreas: ['Mahlzeiten', 'Pflege und Alltag'],
     colors: [PETG.white, PETG.blue, PETG.black],
     sizes: ['Kinderbesteck', 'Standardbesteck'],
@@ -112,7 +113,7 @@ export const DEMO_ITEMS: DemoItem[] = [
     description:
       'Die Schablone liegt über dem Tablet-Display und gibt nur die Felder der Kommunikations-App frei. ' +
       'So werden gezielte Auswahlen leichter. Bitte bei der Anfrage Tablet-Modell, App und Rastergröße angeben.',
-    category: 'Kommunikation',
+    categories: ['Kommunikation'],
     useAreas: ['Unterricht', 'Therapie', 'Pause und Freizeit'],
     colors: [PETG.black, PETG.white],
     sizes: ['iPad 10,2"', 'iPad 10,9"', 'iPad Pro 11"', 'Individuell'],
@@ -129,7 +130,7 @@ export const DEMO_ITEMS: DemoItem[] = [
     description:
       'Die Halterung nimmt gängige runde Taster (z. B. Ø 6–7 cm) auf und wird mit einer Rohrschelle ' +
       'oder Tischklemme befestigt. Der Neigungswinkel ist in mehreren Stufen einstellbar.',
-    category: 'Kommunikation',
+    categories: ['Kommunikation'],
     useAreas: ['Unterricht', 'Mobilität', 'Therapie'],
     colors: [PETG.black, PETG.white, PETG.blue],
     sizes: ['Rohr Ø 16–22 mm', 'Rohr Ø 22–28 mm', 'Tischklemme'],
@@ -150,7 +151,7 @@ export const DEMO_ITEMS: DemoItem[] = [
     description:
       'Die Clips werden an den Seitenrand geklemmt und erzeugen einen Spalt zwischen den Seiten. ' +
       'So lassen sich Seiten auch mit geringer Fingerbeweglichkeit oder mit der Faust umblättern.',
-    category: 'Lernen und Unterricht',
+    categories: ['Lernen und Unterricht'],
     useAreas: ['Unterricht', 'Pause und Freizeit'],
     colors: [PLA.yellow, PLA.orange, PLA.turquoise, PLA.cyan],
     sizes: ['Set à 10 Stück', 'Set à 20 Stück'],
@@ -168,7 +169,7 @@ export const DEMO_ITEMS: DemoItem[] = [
     description:
       'Das Lineal besitzt einen mittigen Knauf und eine Unterseite mit Aussparungen für Antirutsch-Pads. ' +
       'Markierungen sind kontrastreich und erhaben ausgeführt – auch tastbar.',
-    category: 'Lernen und Unterricht',
+    categories: ['Lernen und Unterricht'],
     useAreas: ['Unterricht'],
     colors: [PLA.white, PLA.yellow, PLA.orange, PLA.turquoise, PLA.cyan],
     colorAreas: [
@@ -195,7 +196,7 @@ export const DEMO_ITEMS: DemoItem[] = [
       'Die Karten zeigen erhabene, klar konturierte Symbole und können mit Klett am Tagesplan befestigt werden. ' +
       'Sie unterstützen Orientierung und Vorhersehbarkeit – besonders für Schülerinnen und Schüler mit ' +
       'Seheinschränkungen. Gewünschte Symbole bitte im Freitext angeben.',
-    category: 'Sensorik und Wahrnehmung',
+    categories: ['Sensorik und Wahrnehmung'],
     useAreas: ['Unterricht', 'Pflege und Alltag', 'Mahlzeiten'],
     colors: [PLA.white, PLA.yellow, PLA.cyan],
     sizes: ['6 × 6 cm', '8 × 8 cm'],
@@ -213,7 +214,7 @@ export const DEMO_ITEMS: DemoItem[] = [
     description:
       'Jede Seite des Würfels hat eine andere Oberfläche (glatt, Noppen, Rillen, Wellen, Waben, Punkte). ' +
       'Für Wahrnehmungsförderung, Ruhephasen oder als Zählwürfel mit Strukturen.',
-    category: 'Sensorik und Wahrnehmung',
+    categories: ['Sensorik und Wahrnehmung'],
     useAreas: ['Therapie', 'Pause und Freizeit', 'Unterricht'],
     colors: [PLA.green, PLA.purple, PLA.red],
     sizes: ['5 cm', '7 cm'],
@@ -230,7 +231,7 @@ export const DEMO_ITEMS: DemoItem[] = [
     description:
       'Der Schlüssel wird in den Griff eingesetzt und verschraubt. Der lange Hebel verringert den Kraftaufwand ' +
       'deutlich. Auch als Variante für Drehverschlüsse von Flaschen erhältlich (bitte im Freitext angeben).',
-    category: 'Alltagshilfen',
+    categories: ['Alltagshilfen'],
     useAreas: ['Pflege und Alltag', 'Mobilität'],
     colors: [PETG.blue, PETG.white, PETG.black],
     sizes: ['Standard', 'Groß'],
@@ -248,7 +249,7 @@ export const DEMO_ITEMS: DemoItem[] = [
       'Der Aufsatz ersetzt den Standardknauf und wird an die Handfunktion angepasst. Mögliche Formen: ' +
       'Kugel, T-Griff, Gabel oder Mulde. Die Anfertigung erfolgt ausschließlich in Absprache mit der ' +
       'Therapie und dem zuständigen Sanitätshaus.',
-    category: 'Individuelle Anpassungen',
+    categories: ['Individuelle Anpassungen'],
     useAreas: ['Mobilität'],
     colors: [TPU.black, TPU.gray, TPU.blue],
     sizes: ['Kugel', 'T-Griff', 'Gabel', 'Mulde'],
@@ -269,7 +270,7 @@ export const DEMO_ITEMS: DemoItem[] = [
     description:
       'Der Ring wird am Zipper befestigt und lässt sich mit einem Finger oder der ganzen Hand greifen. ' +
       'Prototyp – derzeit in Erprobung durch das Druck-Team.',
-    category: 'Sonstiges',
+    categories: ['Sonstiges'],
     useAreas: ['Pflege und Alltag'],
     colors: [TPU.black, TPU.blue],
     sizes: ['Standard'],

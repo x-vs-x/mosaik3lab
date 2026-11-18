@@ -290,7 +290,9 @@ function useScrollPositionMerken(geladen: boolean, anzahl: number, setAnzahl: (n
 
 function ItemCard({ item }: { item: Item }) {
   const md = useMasterData();
-  const meta = categoryMeta(md, item.category);
+  // Hauptkategorie (erste) mit Symbol auf der Karte, weitere als „+N“ (vorgelesen werden alle).
+  const [haupt = '', ...weitere] = item.categories;
+  const meta = categoryMeta(md, haupt);
   const filaments = availableFilaments(md, item.colors);
   const extra = filaments.length - MAX_SWATCHES;
   return (
@@ -305,9 +307,15 @@ function ItemCard({ item }: { item: Item }) {
         <div className="relative aspect-[5/2] overflow-hidden sm:aspect-[4/3]">
           <ItemImage item={item} className="transition-transform duration-300 group-hover:scale-[1.03]" />
           <div className="absolute inset-x-2.5 top-2.5 flex gap-2 sm:inset-x-3 sm:top-3">
-            <Badge className={cx(meta.chip, 'bg-white/95')} icon={meta.icon}>
-              {item.category}
+            <Badge className={cx(meta.chip, 'min-w-0 bg-white/95')} icon={meta.icon}>
+              {haupt}
             </Badge>
+            {weitere.length > 0 && (
+              <Badge className="shrink-0 bg-white/95 text-stone-700 ring-stone-200">
+                <span aria-hidden>+{weitere.length}</span>
+                <span className="sr-only">, auch in: {weitere.join(', ')}</span>
+              </Badge>
+            )}
           </div>
           {item.isDemo && (
             <div className="absolute inset-x-2.5 bottom-2.5 flex justify-end sm:inset-x-3 sm:bottom-3">

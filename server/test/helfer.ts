@@ -209,7 +209,7 @@ export const baseItem = (id: string) => ({
   shortDescription: '',
   kind: 'hilfsmittel' as const,
   description: '',
-  category: 'Sonstiges',
+  categories: ['Sonstiges'],
   useAreas: ['Unterricht'],
   sizes: ['S'],
   colors: [],

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 const { filtereDruckteile, leseAnsicht, zaehleAnsichten } = await import('../src/features/verwaltung/druckteilFilter.ts');
 
-const teil = (name: string, published: boolean, category = 'Feinmotorik') => ({ name, published, category, material: 'PLA', useAreas: ['Unterricht'] });
+const teil = (name: string, published: boolean, category = 'Feinmotorik') => ({ name, published, categories: [category], material: 'PLA', useAreas: ['Unterricht'] });
 const items = [teil('Stifthalter', true), teil('Würfel', false, 'Spiel'), teil('Stiftverdicker', false), teil('Becherhalter', true, 'Alltag')];
 
 test('Ansicht filtert nach veröffentlicht/Entwurf', () => {

@@ -40,7 +40,10 @@ const artikelS = z.object({
   name: z.string().max(300),
   shortDescription: z.string().max(1000).default(''),
   description: z.string().max(10000).default(''),
-  category: z.string().max(200),
+  // Bis 1.8.0 genau eine Kategorie (category); seit Migration 023 alle (categories, erste = Hauptkategorie). Neue Dateien
+  // enthalten beides, damit ältere Versionen sie mit der Hauptkategorie einspielen können.
+  category: z.string().max(200).default(''),
+  categories: z.array(z.string().max(200)).max(100).default([]),
   kind: z.enum(ITEM_KINDS).default('hilfsmittel'),
   useAreas: z.array(z.string().max(200)).max(100).default([]),
   sizes: z.array(z.string().max(200)).max(100).default([]),
@@ -64,7 +67,7 @@ const artikelS = z.object({
     .array(z.object({ id: z.string().max(64), title: z.string().max(300).default(''), url: z.string().max(2000).refine((u) => u === '' || /^https?:\/\//i.test(u), 'Nur Links mit http:// oder https://').default(''), dateiId: z.string().max(64).default(''), uploadedAt: z.string().max(40).default('') }))
     .max(20)
     .default([]),
-});
+}).transform(({ category, ...a }) => ({ ...a, categories: a.categories.length ? a.categories : category ? [category] : [] }));
 
 const kopfS = z.object({
   format: z.string(),

@@ -35,7 +35,9 @@ export class ItemRepository {
       return m;
     };
 
-    const kategorien = new Map(all(this.db, 'SELECT id, name FROM kategorie').map((r) => [str(r.id), str(r.name)]));
+    const kategorien = group(
+      all(this.db, `SELECT ak.artikel_id, k.name FROM artikel_kategorien ak JOIN kategorie k ON k.id = ak.kategorie_id ${nur('ak.artikel_id')} ORDER BY ak.sortierung`, ...p),
+    );
     const materialien = new Map(all(this.db, 'SELECT id, name FROM material').map((r) => [str(r.id), str(r.name)]));
     const bereiche = group(
       all(this.db, `SELECT ae.artikel_id, e.name FROM artikel_einsatzbereich ae JOIN einsatzbereich e ON e.id = ae.einsatzbereich_id ${nur('ae.artikel_id')} ORDER BY ae.sortierung`, ...p),
@@ -113,7 +115,7 @@ export class ItemRepository {
         shortDescription: str(r.kurzbeschreibung),
         kind: ((ITEM_KINDS as readonly string[]).includes(str(r.art)) ? str(r.art) : 'hilfsmittel') as Item['kind'],
         description: str(r.beschreibung),
-        category: kategorien.get(str(r.kategorie_id)) ?? '',
+        categories: (kategorien.get(id) ?? []).map((x) => str(x.name)),
         useAreas: (bereiche.get(id) ?? []).map((x) => str(x.name)),
         sizes: json<string[]>(r.groessen, []),
         colors: allAreaColors(colorAreas),
@@ -170,8 +172,14 @@ export class ItemRepository {
    */
   save(item: Item): Datei[] {
     const warn: string[] = [];
-    const kategorieId = item.category ? this.idByName('kategorie', item.category) : null;
-    if (item.category && !kategorieId) warn.push(`Kategorie „${item.category}“ unbekannt`);
+    // Kategorien in der gewählten Reihenfolge; die erste (Hauptkategorie) steht zusätzlich in artikel.kategorie_id.
+    const kategorieIds: { kategorie_id: string; sortierung: number }[] = [];
+    for (const name of [...new Set(item.categories ?? [])]) {
+      const id = this.idByName('kategorie', name);
+      if (id) kategorieIds.push({ kategorie_id: id, sortierung: kategorieIds.length });
+      else warn.push(`Kategorie „${name}“ unbekannt`);
+    }
+    const kategorieId = kategorieIds[0]?.kategorie_id ?? null;
     const materialId = item.material ? this.idByName('material', item.material) : null;
     if (item.material && !materialId) warn.push(`Material „${item.material}“ unbekannt`);
     run(
@@ -211,6 +219,7 @@ export class ItemRepository {
       else warn.push(`Einsatzbereich „${name}“ unbekannt`);
     }
     syncRows(this.db, 'artikel_einsatzbereich', 'artikel_id', item.id, 'einsatzbereich_id', areaIds);
+    syncRows(this.db, 'artikel_kategorien', 'artikel_id', item.id, 'kategorie_id', kategorieIds);
 
     const rollen = all(this.db, 'SELECT id, marke, linie FROM filament').map((r) => ({ id: str(r.id), brand: str(r.marke), line: str(r.linie) }));
     const filaments = new Map(rollen.map((r) => [r.id, r]));

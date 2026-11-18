@@ -141,6 +141,7 @@ test('„In Produkt umwandeln“: Entwurf mit Titel, Beschreibung und kopierten 
   assert.equal(item.published, false, 'nur Entwurf');
   assert.equal(item.name, proposalBody.title);
   assert.equal(item.description, proposalBody.description);
+  assert.deepEqual(item.categories, ['Sonstiges'], 'Kategorie „Sonstiges“ als Liste');
   assert.equal(item.images.length, 2);
   assert.ok(item.images.every((f: string) => !r.json.proposal.photos.includes(f)), 'Fotos haben neue IDs');
   assert.equal((await propTeam.req('GET', `/api/files/images/${item.images[0]}`)).status, 200, 'Team sieht das Bild des Entwurfs');
