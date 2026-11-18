@@ -264,7 +264,7 @@ export function MyOrdersPage() {
                 ))}
               </div>
             )}
-            <Suchfeld id="orders-search" label="Anfragen durchsuchen" value={query} onChange={setQuery} placeholder="Suchen: Name, Nummer, Klasse, Farbe …" className="lg:w-96" />
+            <Suchfeld id="orders-search" label="Anfragen durchsuchen" value={query} onChange={setQuery} placeholder="Name, Nummer, Klasse …" className="lg:w-96" />
           </div>
 
           <p className="sr-only" role="status">
