@@ -15,6 +15,7 @@ import { ladeEntwurf } from '../../lib/entwurfSpeicher';
 import { anfrageEntwurfSchluessel, RequestDialog } from './RequestDialog';
 import { LinkKnoepfe, TextMitLinks } from './ItemLinks';
 import { BildGalerie } from './BildGalerie';
+import { AehnlicheTeile } from './AehnlicheTeile';
 
 export function ItemDetailPage() {
   const { id } = useParams();
@@ -177,6 +178,9 @@ export function ItemDetailPage() {
       </div>
 
       <LinkKnoepfe links={item.links ?? []} />
+
+      {/* Immer ganz unten, unter allem anderen (Wunsch des Nutzers). */}
+      <AehnlicheTeile key={`aehnliche-${item.id}`} itemId={item.id} />
 
       <RequestDialog key={item.id} item={item} open={requestOpen} onClose={() => setRequestOpen(false)} />
     </>

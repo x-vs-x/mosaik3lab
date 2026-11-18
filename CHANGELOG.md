@@ -6,6 +6,11 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Ähnliche Druckteile:** Beim Bearbeiten eines Druckteils lassen sich im neuen Abschnitt „Ähnliche Druckteile“ andere
+  Druckteile über die Suche (Name oder Nummer) verknüpfen und wieder entfernen. Die Verknüpfung gilt für beide Teile.
+  Ganz unten auf der Seite des Druckteils erscheinen sie als kleine Karten; ein Tipp öffnet das ähnliche Druckteil.
+  Nicht veröffentlichte Teile sieht nur das Druck-Team. Die Verknüpfungen kommen beim Exportieren nicht mit.
+
 - **Kleinere Bilder:** Bilder von Druckteilen und Fotos in Vorschlägen werden beim Hochladen im Browser auf höchstens
   2000 Pixel verkleinert (JPEG, Bilder mit Transparenz bleiben PNG). Große Handyfotos über 5 MB lassen sich so auch
   hochladen. Neu unter Verwaltung → Druckteile: „Bilder verkleinern …“ verkleinert einmalig alle vorhandenen Bilder –
