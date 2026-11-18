@@ -17,6 +17,7 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 - **Bericht:** `C:\Entwicklung\_testdaten\durchsicht-1.8.1\BERICHT.md`, Bilder in `…\durchsicht-1.8.1\bilder`.
 - **Aufgeräumt:** Testserver und headless Chrome gestoppt, Worktrees `mosaik3lab-durchsicht` und `mosaik3lab-v180`
   entfernt, Testdaten `_testdaten\durchsicht` und `_testdaten\durchsicht-1.9` gelöscht.
+
 ## 2026-11-18 – Web-App-Icon auf allen Geräten (Unter-Session, Branch: fix/webapp-icon)
 - **Meldung:** iPhone „Zum Home-Bildschirm“ zeigt nur ein großes „M“ statt des Logos (iPad zeigt das Logo).
 - **Befund (installierte 1.8.0, nur HTTP):** Icons selbst in Ordnung (180×180, deckend weiß). Aber `<link href="./apple-touch-icon.png">`
