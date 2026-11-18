@@ -26,7 +26,8 @@ import {
 } from './katalog.service';
 import { farbeZuordnen } from './farbeZuordnen';
 import { replaceImage } from './bildErsetzen';
-import { farbeZuordnenSchema, imageOrderSchema, itemInputSchema, publishSchema, videoLinkSchema, videoUploadSchema } from '@mosaik3lab/shared/katalog';
+import { addAehnlich, listAehnliche, removeAehnlich } from './aehnliche';
+import { aehnlichSchema, farbeZuordnenSchema, imageOrderSchema, itemInputSchema, publishSchema, videoLinkSchema, videoUploadSchema } from '@mosaik3lab/shared/katalog';
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
 const uploaded = (files: unknown) => (files as Express.Multer.File[] | undefined) ?? [];
@@ -44,8 +45,24 @@ export function itemRoutes(storage: Storage, auth: Auth) {
     res.json(presentItem(await loadVisible(storage, param(req.params.id), req.user), req.user));
   });
 
+  // Ähnliche Druckteile (kleine Karten unten auf der Seite); Besucher sehen nur veröffentlichte.
+  router.get('/:id/aehnliche', async (req, res) => {
+    const item = await loadVisible(storage, param(req.params.id), req.user);
+    res.json(listAehnliche(storage, item.id, req.user));
+  });
+
   // --- Verwaltung (3D-Druck-Team und Administration) ---------------------------
   const manage = auth.requirePermission('catalog:manage');
+
+  // Verknüpfung gilt gegenseitig: einmal angelegt, steht sie bei beiden Druckteilen.
+  router.post('/:id/aehnliche', manage, (req, res) => {
+    const { id } = aehnlichSchema.parse(req.body);
+    res.status(201).json(addAehnlich(storage, param(req.params.id), id, req.user!));
+  });
+
+  router.delete('/:id/aehnliche/:otherId', manage, (req, res) => {
+    res.json(removeAehnlich(storage, param(req.params.id), param(req.params.otherId), req.user!));
+  });
 
   router.post('/', manage, async (req, res) => {
     res.status(201).json(presentItem(await createItem(storage, itemInputSchema.parse(req.body)), req.user!));
