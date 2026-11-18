@@ -295,7 +295,8 @@ function OrderRow({
 
       {open && (
         <div id={panelId} className="grid gap-5 border-t border-stone-100 p-4 sm:gap-6 sm:p-5 lg:grid-cols-[1fr_1fr_1fr]">
-          <div>
+          {/* Container: Bezeichnung neben dem Wert nur, wenn die Spalte breit genug ist (iPad quer: drei schmale Spalten) */}
+          <div className="@container">
             <h3 className="font-bold text-stone-900">Details</h3>
             <dl className="mt-3 space-y-2.5 text-base sm:space-y-2">
               <Row label="Druckteil">
@@ -432,8 +433,8 @@ function OrderRow({
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="sm:flex sm:gap-3">
-      <dt className="text-hinweis text-stone-500 sm:w-32 sm:shrink-0 sm:text-base">{label}</dt>
+    <div className="@xs:flex @xs:gap-3">
+      <dt className="text-hinweis text-stone-500 @xs:w-32 @xs:shrink-0 @xs:text-base">{label}</dt>
       <dd className="min-w-0 wrap-anywhere font-bold text-stone-800">{children}</dd>
     </div>
   );

@@ -10,7 +10,8 @@ export function StatusBadge({ status }: { status: string }) {
   const md = useMasterData();
   const meta = statusMeta(md, status);
   return (
-    <Badge className={meta.chip} icon={meta.icon}>
+    // Kurze Namen bleiben ganz („Off|en“ bei großer Schrift neben der Zeitangabe)
+    <Badge className={cx(meta.chip, 'shrink-0 whitespace-nowrap')} icon={meta.icon}>
       {meta.label}
     </Badge>
   );

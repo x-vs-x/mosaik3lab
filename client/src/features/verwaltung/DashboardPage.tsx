@@ -70,7 +70,7 @@ export function DashboardPage() {
           </ul>
 
           <Card as="section" className="mt-6 sm:mt-8">
-            <div className="flex items-center justify-between gap-4 border-b border-stone-100 px-4 py-2.5 sm:px-6 sm:py-5">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 border-b border-stone-100 px-4 py-2.5 sm:px-6 sm:py-5">
               <h2 className="text-abschnitt font-bold text-stone-900 sm:text-xl">Neueste Anfragen</h2>
               <Link
                 to="/verwaltung/bestellungen?status=alle"
