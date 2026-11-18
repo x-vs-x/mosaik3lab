@@ -2,6 +2,26 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Code-Hygiene Server (Paket A, Unter-Session, Branch: fix/fehler-app → refactor/code-hygiene)
+- **Auftrag:** Funde S1–S20, S22–S25 (`_konzepte/code-hygiene/server.md`), D10–D13, D15–D19 (`shared-daten.md`) und C1
+  (`client.md`) prüfen und beheben; ein Commit je Gruppe, kein PR (Hauptchat führt in `refactor/code-hygiene` zusammen).
+- **Erledigt:** S1 Kontosperre (Zähler im update-Callback), S22 E-Mail klein speichern, S7 Suche mit `passtZurSuche`,
+  D13 Farbgruppen folgen umbenannter Linie/Materialart (`gruppenNachfolger`), S16 Farbrollen löschen + Liste speichern in
+  einer Transaktion (`items.updateMany`, `settings.aendere`), S3/D15a Umbenennungs-Kaskade entfernt, D12 `requirePermission`
+  je Route statt Pfad-Regex, D10/S20 Neuigkeiten über `settings:manage`, S4 SQL aus `aehnliche.ts`/`visibleItemFile`/
+  `farbeZuordnen` ins Repository, S5 `storage.sqlite` nur `{ db }`, Neuigkeiten im Storage, S8 `benachrichtigeImHintergrund`,
+  S9 `SAFE_ID`/`sha256`/`stamp`/`queryText`/`aehnlichPaar`, S10 `bildUpload()`, S11 tote Exporte, S12 `APP_VERSION` im Export,
+  S13 `datenaustausch.ablauf.ts`, S14 `rechne()` geteilt (+ ESLint max-lines 500 für server/src), S15 Upload-Aufräumen und
+  Höchstzahl in der Transaktion, S19/D11 `siehtEntwuerfe`/`siehtAlleAnfragen`/`BetriebBereich`, S23 Rollback-Fehler verdeckt
+  nichts mehr, S2 Start-Migrationen entfernt, S6 `domain/` aufgelöst (bis auf `types.ts` und Bambu-Katalog), S25
+  `server/src/uebernahme/`, D17 Migration 021 (nur Indizes), D18 DATENMODELL.md, C1 `apiUpload` mit Abbrechen, S24 Tests.
+- **Verworfen (Begründung im Bericht):** S17, S18, D15b (UNIQUE-Index), D16 (Server-Manager-Tests lesen `benutzer_recht`),
+  D19 (alte Konten mit Rolle „lehrkraft“ möglich), `byNewest`, `PAKET_ROLLEN` im Katalog-Repository.
+- **Tests:** neu `konten-sperre.test.ts`; ergänzt in anfragen, vorschlaege, rechte, farben, stammdaten, katalog, produktdaten,
+  vorgaben, migration (alte DB mit allen Demo-Daten → 021, jede Tabelle verglichen), speicher, datenaustausch. Klicktest
+  headless Chrome (frisches Profil) PC + Handy: Vorschlag mit Foto senden/abbrechen, Suche mit Umlauten, Farbrolle umbenennen.
+- **Aufgeräumt:** Dev-Server 5181/3011 gestoppt, `_testdaten/paket-a-app` gelöscht.
+
 ## 2026-11-18 – UI-Durchsicht aller Ansichten in allen Größen (Unter-Session, Branch: fix/ui-durchsicht)
 - **Auftrag:** Jedes Fenster, jede Abfrage in unterschiedlichen Größen durchsehen, Anzeigefehler finden und beheben
   (Lehrkräfte und Druck-Team auf Handy, iPad, PC; viele mit motorischen Einschränkungen).
