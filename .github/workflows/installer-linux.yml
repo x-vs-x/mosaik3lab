@@ -162,6 +162,12 @@ jobs:
         if: matrix.runde == 'neu'
         run: .github/installer-test/pruefen.sh marker
 
+      # Rechen-Thread im Paket (server/dist/bild-worker.mjs): Bilder hochladen, Vorschaubilder prüfen, Rechenzeit ins Log
+      - name: Bilder hochladen und Vorschaubilder prüfen
+        if: matrix.runde == 'neu'
+        timeout-minutes: 5
+        run: node .github/installer-test/bilder-pruefen.mjs
+
       - name: Mailversand einrichten (SMTP-Fänger, über den Manager)
         if: matrix.runde == 'neu'
         timeout-minutes: 5
