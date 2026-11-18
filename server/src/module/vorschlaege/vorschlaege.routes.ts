@@ -1,30 +1,16 @@
-import path from 'node:path';
-import multer from 'multer';
 import { Router } from 'express';
 import { MAX_PROPOSAL_PHOTOS, toOwnProposal } from '../../domain/proposals';
 import type { Auth } from '../../kern/auth/middleware';
-import { badRequest } from '../../kern/errors';
-import { param, sendMissingImage } from '../../kern/http';
+import { param, queryText, sendMissingImage } from '../../kern/http';
 import { rateLimit } from '../../kern/rateLimit';
-import { MAX_IMAGE_BYTES } from '../../kern/uploads';
+import { bildUpload } from '../../kern/uploads';
 import type { Storage } from '../../storage';
 import { createRequester } from '../konten/konten.service';
 import { answerProposal, convertProposal, listProposals, loadProposal, myProposals, proposalPhoto, submitProposal } from './vorschlaege.service';
 import { proposalUpdateSchema } from '@mosaik3lab/shared/vorschlaege';
 
-const IMAGE_EXT = /^\.(jpe?g|png|webp)$/i;
-
 /** Fotos eines Vorschlags: gleiche Prüfung wie Artikelbilder (Endung + Magic Bytes, max. 5 MB), höchstens 5 Stück. */
-const photoUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_IMAGE_BYTES, files: MAX_PROPOSAL_PHOTOS, fields: 5 },
-  fileFilter: (_req, file, cb) => {
-    if (!IMAGE_EXT.test(path.extname(file.originalname))) return cb(badRequest('Erlaubt sind nur Fotos im Format JPG, PNG oder WebP.'));
-    cb(null, true);
-  },
-});
-
-const text = (v: unknown) => (typeof v === 'string' ? v : '');
+const photoUpload = bildUpload(MAX_PROPOSAL_PHOTOS, 'Fotos');
 
 /** /api/proposals – Vorschläge der Lehrkräfte; Bearbeitung durch das Druck-Team. */
 export function proposalRoutes(storage: Storage, auth: Auth) {
@@ -52,7 +38,7 @@ export function proposalRoutes(storage: Storage, auth: Auth) {
 
   // Alle Vorschläge (Druck-Team / Admin)
   router.get('/', auth.requirePermission('vorschlaege:sehen'), async (req, res) => {
-    res.json(listProposals(storage, text(req.query.status), text(req.query.q)));
+    res.json(listProposals(storage, queryText(req.query.status), queryText(req.query.q)));
   });
 
   // Nur die Zahl neuer Vorschläge (Zähler in der Seitenleiste, bei jedem Seitenwechsel)

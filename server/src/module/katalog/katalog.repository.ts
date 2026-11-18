@@ -2,7 +2,10 @@ import { allAreaColors, type ColorArea, type CustomField, type Item, type ItemVi
 import { all, b, bool, count, json, marks, nextNumber, one, run, str, syncRows, transaction, type Db, type Row } from '../../kern/db';
 import { conflict } from '../../kern/errors';
 import { dateiFromRow, dateiName, type Datei, type FileStore } from '../../kern/files';
-import { inGruppen, type ItemLink } from '@mosaik3lab/shared/katalog';
+import { inGruppen, ITEM_KINDS, type ItemLink } from '@mosaik3lab/shared/katalog';
+
+/** Ähnliche Druckteile werden als Paar mit a < b gespeichert (Tabelle artikel_aehnlich). */
+export const aehnlichPaar = (x: string, y: string): [string, string] => (x < y ? [x, y] : [y, x]);
 
 // Druckteile (Tabelle artikel mit Einsatzbereichen, Farbbereichen, Feldern, Videos; Dateien in Tabelle datei).
 
@@ -107,7 +110,7 @@ export class ItemRepository {
         number: str(r.nummer),
         name: str(r.name),
         shortDescription: str(r.kurzbeschreibung),
-        kind: (['hilfsmittel', 'lehrmittel', 'beides'].includes(str(r.art)) ? str(r.art) : 'hilfsmittel') as Item['kind'],
+        kind: ((ITEM_KINDS as readonly string[]).includes(str(r.art)) ? str(r.art) : 'hilfsmittel') as Item['kind'],
         description: str(r.beschreibung),
         category: kategorien.get(str(r.kategorie_id)) ?? '',
         useAreas: (bereiche.get(id) ?? []).map((x) => str(x.name)),
@@ -287,6 +290,45 @@ export class ItemRepository {
   }
 
   numberExists = (nummer: string) => !!one(this.db, 'SELECT 1 FROM artikel WHERE nummer = ?', nummer);
+
+  /** Sichtbarkeit eines Druckteils ohne es ganz zu laden (eine Abfrage je Bild); `undefined` = gibt es nicht. */
+  istVeroeffentlicht(id: string): boolean | undefined {
+    const r = one(this.db, 'SELECT veroeffentlicht FROM artikel WHERE id = ?', id);
+    return r ? bool(r.veroeffentlicht) : undefined;
+  }
+
+  /** Mit `id` verknüpfte ähnliche Druckteile (Paar a < b), mit erstem Bild und Kategorie; ohne Entwürfe für Besucher. */
+  aehnliche(id: string, mitEntwuerfen: boolean) {
+    return all(
+      this.db,
+      `SELECT x.id, x.name, x.kurzbeschreibung, x.veroeffentlicht, k.name AS kategorie,
+         (SELECT d.id FROM datei d WHERE d.objekttyp = 'artikel' AND d.objekt_id = x.id AND d.rolle = 'bild' ORDER BY d.sortierung, d.erstellt_am LIMIT 1) AS bild_id,
+         (SELECT d.pfad FROM datei d WHERE d.objekttyp = 'artikel' AND d.objekt_id = x.id AND d.rolle = 'bild' ORDER BY d.sortierung, d.erstellt_am LIMIT 1) AS bild_pfad
+       FROM artikel_aehnlich p
+       JOIN artikel x ON x.id = CASE WHEN p.a = ? THEN p.b ELSE p.a END
+       LEFT JOIN kategorie k ON k.id = x.kategorie_id
+       WHERE (p.a = ? OR p.b = ?) ${mitEntwuerfen ? '' : 'AND x.veroeffentlicht = 1'}`,
+      id,
+      id,
+      id,
+    ).map((r) => ({
+      id: str(r.id),
+      name: str(r.name),
+      kurzbeschreibung: str(r.kurzbeschreibung),
+      kategorie: str(r.kategorie),
+      veroeffentlicht: bool(r.veroeffentlicht),
+      bild: r.bild_id ? { id: str(r.bild_id), pfad: str(r.bild_pfad) } : undefined,
+    }));
+  }
+
+  /** Verknüpft zwei Druckteile (doppelt schadet nicht); liefert 1, wenn neu. */
+  verknuepfe(x: string, y: string) {
+    return Number(run(this.db, 'INSERT OR IGNORE INTO artikel_aehnlich (a, b) VALUES (?, ?)', ...aehnlichPaar(x, y)).changes);
+  }
+
+  trenne(x: string, y: string) {
+    run(this.db, 'DELETE FROM artikel_aehnlich WHERE a = ? AND b = ?', ...aehnlichPaar(x, y));
+  }
 
   /** Video-IDs aller anderen Druckteile (IDs sind global eindeutig; für den Import). */
   videoIdsOfOtherItems(itemId: string) {

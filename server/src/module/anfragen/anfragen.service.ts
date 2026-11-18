@@ -124,7 +124,7 @@ export function createTrackingCode(): string {
   return Array.from(crypto.randomBytes(8), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
 }
 
-export const canManage = (user: User | undefined) => userCan(user, 'orders:view');
+export const siehtAlleAnfragen = (user: User | undefined) => userCan(user, 'orders:view');
 
 /** Anfrage stellen – ohne Anmeldung möglich. Schul-E-Mail und Klasse werden eingetragen. */
 export async function createOrder(storage: Storage, input: OrderInputData, user: User | undefined, loggedIn: Requester | undefined) {
@@ -173,7 +173,7 @@ export async function createOrder(storage: Storage, input: OrderInputData, user:
   notifyNewOrder(storage, storage.sqlite.db, order, item);
 
   // Lehrkräfte reichen nur ein – Status und Code erhalten sie nur, wenn das eingeschaltet ist.
-  if (!settings.features.requesterTracking && !canManage(user)) return { id: order.id, number: order.number, itemName: order.itemName };
+  if (!settings.features.requesterTracking && !siehtAlleAnfragen(user)) return { id: order.id, number: order.number, itemName: order.itemName };
   return order;
 }
 

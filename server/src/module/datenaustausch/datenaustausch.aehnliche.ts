@@ -1,4 +1,5 @@
 import { all, one, run, str, type Db } from '../../kern/db';
+import { aehnlichPaar } from '../katalog/katalog.repository';
 
 // Ähnliche Druckteile (Tabelle artikel_aehnlich, Paar a < b) im Export/Import.
 //
@@ -15,8 +16,6 @@ export interface PaketAehnlich {
   name: string;
   nummer: string;
 }
-
-const paar = (x: string, y: string) => (x < y ? [x, y] : [y, x]);
 
 /** Ähnliche Druckteile der gewählten Druckteile (eine Abfrage für alle). */
 export function aehnlicheFuerExport(db: Db, ids: string[]): Map<string, PaketAehnlich[]> {
@@ -66,7 +65,7 @@ export function verknuepfe(db: Db, artikel: { id: string; aehnliche: PaketAehnli
   const wartend = new Set<string>();
   const verbinde = (x: string, y: string) => {
     if (x === y) return;
-    neu += Number(run(db, 'INSERT OR IGNORE INTO artikel_aehnlich (a, b) VALUES (?, ?)', ...paar(x, y)).changes);
+    neu += Number(run(db, 'INSERT OR IGNORE INTO artikel_aehnlich (a, b) VALUES (?, ?)', ...aehnlichPaar(x, y)).changes);
   };
   // 2) Verknüpfungen der Datei
   for (const a of artikel) {

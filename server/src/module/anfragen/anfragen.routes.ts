@@ -1,13 +1,12 @@
 import { Router } from 'express';
 import type { Auth } from '../../kern/auth/middleware';
 import { notFound } from '../../kern/errors';
-import { param } from '../../kern/http';
+import { param, queryText } from '../../kern/http';
 import { rateLimit } from '../../kern/rateLimit';
 import type { Storage } from '../../storage';
 import { changeStatus, createOrder, dashboard, listOrders, listRequesters, myOrders, orderTemplate, trackOrders, updateOwnOrder } from './anfragen.service';
 import { orderInputSchema, statusUpdateSchema } from '@mosaik3lab/shared/anfragen';
 
-const text = (v: unknown) => (typeof v === 'string' ? v : '');
 
 /** /api/orders – Anfragen stellen (ohne Anmeldung), eigene Anfragen der Lehrkraft, Bearbeitung durch das Druck-Team. */
 export function orderRoutes(storage: Storage, auth: Auth) {
@@ -63,7 +62,7 @@ export function orderRoutes(storage: Storage, auth: Auth) {
 
   // Alle Anfragen (nur Druck-Team / Admin)
   router.get('/', auth.requirePermission('orders:view'), async (req, res) => {
-    res.json(listOrders(storage, text(req.query.status), text(req.query.q)));
+    res.json(listOrders(storage, queryText(req.query.status), queryText(req.query.q)));
   });
 
   router.get('/:id', auth.requirePermission('orders:view'), async (req, res) => {
