@@ -13,7 +13,7 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   `module/datenaustausch/` unberührt). Typ `AehnlichesTeil` + `aehnlichSchema` in `shared/src/katalog.ts`.
   Oberfläche: `features/verwaltung/druckteil-bearbeiten/AehnlicheSection.tsx` (Suche nach Name/Nummer im Browser über
   `/items?all=1`, Hinzufügen/Entfernen, Fokus danach zurück ins Suchfeld, Enter sendet das Formular nicht ab, 44-px-Knöpfe),
-  eingebunden in `ItemEditPage.tsx`; `features/katalog/AehnlicheTeile.tsx` (kleine Karten: Vorschaubild, Name, Nummer;
+  eingebunden in `ItemEditPage.tsx`; `features/katalog/AehnlicheTeile.tsx` (kleine Karten: Vorschaubild, Name, Kurzbeschreibung höchstens 2 Zeilen – ohne Nummer, Wunsch des Nutzers;
   1 Spalte am Handy, 2 ab 480 px, 3 ab xl), in `ItemDetailPage.tsx` als letztes Element nach den Link-Knöpfen.
   `CatalogPage.tsx`/`katalogScroll.ts` nicht geändert. Test: `server/test/aehnliche.test.ts`.
 - **Geprüft:** Port 5183/3013 mit Demo-Daten: Suche „griff“ und „art-0011“, Hinzufügen per Maus und Tastatur, Entfernen,

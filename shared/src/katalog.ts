@@ -198,8 +198,8 @@ export type ItemView = Item & { modelFileCount: number };
 /** Ähnliches Druckteil als kleine Karte (GET /api/items/:id/aehnliche). Verknüpfung gilt gegenseitig. */
 export interface AehnlichesTeil {
   id: string;
-  number: string;
   name: string;
+  shortDescription: string;
   category: string;
   /** Titelbild (gespeicherter Dateiname) – leer, wenn es keins gibt. */
   image: string;

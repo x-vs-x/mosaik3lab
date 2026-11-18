@@ -16,7 +16,7 @@ test('Verknüpfung gilt gegenseitig und liefert kleine Karten', async () => {
   const r = await team.req('POST', `/api/items/${a.id}/aehnliche`, { id: b.id });
   assert.equal(r.status, 201);
   assert.deepEqual(ids(r), [b.id]);
-  assert.deepEqual(Object.keys(r.json[0]).sort(), ['category', 'id', 'image', 'name', 'number', 'published']);
+  assert.deepEqual(Object.keys(r.json[0]).sort(), ['category', 'id', 'image', 'name', 'published', 'shortDescription']);
   // doppelt anlegen (auch andersherum) schadet nicht
   assert.equal((await team.req('POST', `/api/items/${b.id}/aehnliche`, { id: a.id })).status, 201);
   assert.deepEqual(ids(await anon.req('GET', `/api/items/${b.id}/aehnliche`)), [a.id]);

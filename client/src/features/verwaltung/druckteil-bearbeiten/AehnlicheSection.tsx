@@ -76,7 +76,7 @@ function AehnlicheEditor({ item, verknuepft, onChange }: { item: Item; verknuepf
           {verknuepft.map((t) => (
             <li key={t.id} className="flex items-center gap-3 rounded-2xl p-2 ring-1 ring-stone-200">
               <Vorschau name={t.name} category={t.category} images={t.image ? [t.image] : []} />
-              <Name name={t.name} number={t.number} entwurf={!t.published} />
+              <Name name={t.name} entwurf={!t.published} />
               <Button variant="secondary" icon={Trash2} loading={busy === t.id} onClick={() => entfernen(t)} aria-label={`„${t.name}“ entfernen`} className="min-h-[44px] min-w-[44px] text-rose-700">
                 <span className="hidden sm:inline">Entfernen</span>
               </Button>

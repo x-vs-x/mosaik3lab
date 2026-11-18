@@ -17,7 +17,7 @@ export function listAehnliche(storage: Storage, id: string, user: User | undefin
   const mitEntwuerfen = canManage(user);
   const rows = all(
     db,
-    `SELECT x.id, x.nummer, x.name, x.veroeffentlicht, k.name AS kategorie,
+    `SELECT x.id, x.name, x.kurzbeschreibung, x.veroeffentlicht, k.name AS kategorie,
        (SELECT d.id FROM datei d WHERE d.objekttyp = 'artikel' AND d.objekt_id = x.id AND d.rolle = 'bild' ORDER BY d.sortierung, d.erstellt_am LIMIT 1) AS bild_id,
        (SELECT d.pfad FROM datei d WHERE d.objekttyp = 'artikel' AND d.objekt_id = x.id AND d.rolle = 'bild' ORDER BY d.sortierung, d.erstellt_am LIMIT 1) AS bild_pfad
      FROM artikel_aehnlich p
@@ -31,8 +31,8 @@ export function listAehnliche(storage: Storage, id: string, user: User | undefin
   return rows
     .map((r) => ({
       id: str(r.id),
-      number: str(r.nummer),
       name: str(r.name),
+      shortDescription: str(r.kurzbeschreibung),
       category: str(r.kategorie),
       image: r.bild_id ? dateiName({ id: str(r.bild_id), pfad: str(r.bild_pfad) }) : '',
       published: bool(r.veroeffentlicht),

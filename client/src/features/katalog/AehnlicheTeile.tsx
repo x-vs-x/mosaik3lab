@@ -29,19 +29,15 @@ function AehnlicheKarte({ teil }: { teil: AehnlichesTeil }) {
   return (
     <Link
       to={`/katalog/${teil.id}`}
-      className="flex h-full min-h-20 items-center gap-3 rounded-2xl bg-white p-2.5 pr-4 ring-1 ring-stone-200 transition-colors hover:bg-brand-50 hover:ring-brand-300 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+      className="flex h-full min-h-24 items-center gap-3 rounded-2xl bg-white p-2.5 pr-4 ring-1 ring-stone-200 transition-colors hover:bg-brand-50 hover:ring-brand-300 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
     >
-      <span className="size-16 shrink-0 overflow-hidden rounded-xl bg-stone-100">
-        <ItemImage item={{ name: teil.name, category: teil.category, images: teil.image ? [teil.image] : [] }} iconSize="size-6" />
+      <span className="size-20 shrink-0 overflow-hidden rounded-xl bg-stone-100">
+        <ItemImage item={{ name: teil.name, category: teil.category, images: teil.image ? [teil.image] : [] }} iconSize="size-7" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="line-clamp-2 wrap-anywhere font-bold text-stone-900">{teil.name}</span>
-        {(teil.number || !teil.published) && (
-          <span className="mt-0.5 block text-hinweis text-stone-600">
-            {teil.number}
-            {!teil.published && <span className="font-bold text-stone-800">{teil.number ? ' · ' : ''}Nicht veröffentlicht</span>}
-          </span>
-        )}
+        {teil.shortDescription.trim() && <span className="mt-0.5 line-clamp-2 text-hinweis text-stone-600">{teil.shortDescription}</span>}
+        {!teil.published && <span className="mt-0.5 block text-hinweis font-bold text-stone-800">Nicht veröffentlicht</span>}
       </span>
     </Link>
   );
