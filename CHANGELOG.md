@@ -6,6 +6,7 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Druckteil-Seite auf dem Tablet ohne große Lücke:** Steht die Seite zweispaltig (iPad hoch, breite Bildschirme), folgt die Beschreibung jetzt direkt unter den Bildern statt erst nach allen Angaben der rechten Spalte.
 - **Mehrere Kategorien je Druckteil:** Beim Anlegen und Bearbeiten eines Druckteils lassen sich jetzt mehrere Kategorien
   ankreuzen. Im Katalog erscheint das Druckteil unter jeder davon; die zuerst gewählte bestimmt Symbolbild und Farbe der
   Karte, weitere stehen daneben („+1“) und auf der Druckteil-Seite. Bestehende Druckteile behalten beim Update ihre

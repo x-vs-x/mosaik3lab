@@ -2,6 +2,18 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Druckteil-Seite: kein Weißraum unter dem Bild auf dem iPad (Unter-Session, Branch: fix/druckteil-ipad)
+- **Meldung:** Auf dem iPad steht unter dem Vorschaubild eines Druckteils sehr viel leerer Platz, erst dann kommt die Beschreibung.
+- **Ursache:** Zweispaltiges Raster (`md` = iPad hoch 768–1023 px und ab `xl` = iPad Pro quer, PC): links nur die Galerie (4:3),
+  rechts die viel höheren Kerninfos; Beschreibung/Sicherheitshinweise standen erst unter dem ganzen Raster → 400–700 px Lücke.
+- **Geändert:** `client/src/features/katalog/ItemDetailPage.tsx` – Beschreibung + Sicherheitshinweise als dritte Zelle ins Raster
+  (`grid-rows-[auto_1fr]`, Kerninfos `row-span-2`), dadurch zweispaltig links direkt unter den Bildern, einspaltig unverändert
+  untereinander. Nur Layout, keine Inhalte; Videos stehen jetzt nach der Beschreibung. Galerie unverändert.
+- **Gemessen** (headless Chrome, DPR 2, Touch, 7 Testteile hoch/quer/quadratisch, 1–4 Bilder, kurze/lange Beschreibung): Lücke
+  Bild → nächster Inhalt vorher 393–699 px (iPad hoch), 289–532 px (1366×1024), 237–481 px (1440×900); nachher überall 30 px
+  (Handy 19 px, 1024er/1180er einspaltig unverändert 30 px).
+- **Aufgeräumt:** Testserver gestoppt, Testdaten `_testdaten\ipad` gelöscht; Vorher/Nachher-Bilder in `_testdaten\ipad-bilder`.
+
 ## 2026-11-18 – Mehrere Kategorien je Druckteil (Unter-Session, Branch: feature/mehrere-kategorien)
 - **Wunsch:** „es wäre super, wenn man mehrere Kategorien auswählen könnte beim anlegen der Dateien“ (Druckteile).
 - **Gebaut:** Migration `023_artikel_kategorien.sql` (Zuordnung Druckteil ↔ Kategorie, Bestand übernommen);
