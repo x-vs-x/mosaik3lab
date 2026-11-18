@@ -2,15 +2,38 @@
 // Vorher wird automatisch eine Sicherung im Ordner backups/ angelegt (Datenbank, Ablage, JSON-Altdaten).
 // In der Ablage werden nur die Ordner der festen Objekttypen entfernt.
 import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { loadConfig } from '../src/config';
+import { dataRoot, loadConfig, type AppConfig } from '../src/config';
 import { OBJEKTTYPEN } from '../src/kern/objekttypen';
 import { seedIfEmpty } from '../src/seed/seed';
 import { createSqliteStorage } from '../src/storage';
 import { LEGACY_FILES } from '../src/uebernahme/legacyJson';
-import { createBackup } from './backup';
+import { backupDatabase } from './db-backup';
 
 const config = loadConfig();
+
+/**
+ * Sicherung vor dem Zurücksetzen: Datenbank (konsistent per VACUUM INTO), Ablage und bisherige JSON-Daten nach
+ * <Datenwurzel>/backups/storage-<Zeitstempel>/{mosaik3lab.db, ablage, data}. Regelmäßige Sicherungen macht der Server-Manager
+ * (npm run backup → manager/cli.mjs backup run).
+ */
+async function createBackup(config: Pick<AppConfig, 'dbFile' | 'ablageDir' | 'dataDir'>): Promise<string | undefined> {
+  if (!existsSync(config.dbFile) && !existsSync(config.dataDir)) return undefined;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const target = path.join(dataRoot(), 'backups', `storage-${stamp}`);
+  await fs.mkdir(target, { recursive: true });
+  if (existsSync(config.dbFile)) backupDatabase(config.dbFile, path.join(target, 'mosaik3lab.db'));
+  if (existsSync(config.ablageDir)) await fs.cp(config.ablageDir, path.join(target, 'ablage'), { recursive: true });
+  // Bisherige JSON-Dateien (Sicherung der Übernahme) – ohne Sperrdatei, Sitzungen und Zwischendateien.
+  if (existsSync(config.dataDir)) {
+    await fs.cp(config.dataDir, path.join(target, 'data'), {
+      recursive: true,
+      filter: (src) => !/(\.lock|\.tmp|sessions\.json(\.bak)?)$/.test(src),
+    });
+  }
+  return target;
+}
 
 if (!process.argv.includes('--yes')) {
   console.log('Dies löscht ALLE Benutzer, Druckteile, Anfragen, Einstellungen und Dateien und legt die Beispieldaten neu an.');
