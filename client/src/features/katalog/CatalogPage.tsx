@@ -304,10 +304,14 @@ function ItemCard({ item }: { item: Item }) {
         onClick={() => merkePosition(window.location.search, window.scrollY)}
         className="group flex h-full flex-col overflow-hidden rounded-2xl border sm:rounded-3xl border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(28,25,23,0.04)] transition-all hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-[0_14px_32px_-16px_rgba(28,25,23,0.25)]"
       >
-        <div className="relative aspect-[5/2] overflow-hidden sm:aspect-[4/3]">
-          <ItemImage item={item} className="transition-transform duration-300 group-hover:scale-[1.03]" />
-          <div className="absolute inset-x-2.5 top-2.5 flex gap-2 sm:inset-x-3 sm:top-3">
-            <Badge className={cx(meta.chip, 'min-w-0 bg-white/95')} icon={meta.icon}>
+        {/* Kategorien liegen im Fluss über dem Bild: Bei langen Namen oder großer Schrift wächst die Bildfläche mit,
+            statt sie abzuschneiden; „+N“ rutscht notfalls in die nächste Zeile, Wörter bleiben ganz. */}
+        <div className="relative aspect-[5/2] sm:aspect-[4/3]">
+          <div className="absolute inset-0 overflow-hidden">
+            <ItemImage item={item} className="transition-transform duration-300 group-hover:scale-[1.03]" />
+          </div>
+          <div className="relative flex flex-wrap items-start gap-2 p-2.5 sm:p-3">
+            <Badge className={cx(meta.chip, 'max-w-full break-words bg-white/95')} icon={meta.icon}>
               {haupt}
             </Badge>
             {weitere.length > 0 && (

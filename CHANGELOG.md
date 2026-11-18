@@ -6,6 +6,10 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Katalogkarten mit mehreren Kategorien:** Auf dem Handy mit großer Schrift wurde der Kategoriename auf der Karte
+  mitten im Wort getrennt oder abgeschnitten; lange Kategorienamen verschwanden teilweise am Bildrand. Jetzt stehen die
+  Namen vollständig da, „+1“ rutscht bei Platzmangel in die nächste Zeile.
+- **Suchfelder der Anfragen:** Der Hinweistext im Suchfeld passt auch auf schmalen Handys ganz hinein.
 - **Druckteil-Seite auf dem Tablet ohne große Lücke:** Steht die Seite zweispaltig (iPad hoch, breite Bildschirme), folgt die Beschreibung jetzt direkt unter den Bildern statt erst nach allen Angaben der rechten Spalte.
 - **Mehrere Kategorien je Druckteil:** Beim Anlegen und Bearbeiten eines Druckteils lassen sich jetzt mehrere Kategorien
   ankreuzen. Im Katalog erscheint das Druckteil unter jeder davon; die zuerst gewählte bestimmt Symbolbild und Farbe der

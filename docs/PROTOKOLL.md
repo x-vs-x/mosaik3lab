@@ -2,6 +2,22 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Gesamtdurchsicht vor 1.8.1 (Unter-Session, Branch: fix/durchsicht-1.8.1)
+- **Auftrag:** Fenster in allen Größen, Klicktests, abgeschnittene Texte, Update-Sicherheit (neu: mehrere Kategorien,
+  iPad-Druckteil-Seite).
+- **Geprüft:** 387 Aufnahmen (4 Rollen, 9 Größen inkl. 375 px mit 200 % Schrift), per Skript auf abgeschnittene und
+  überstehende Texte; Klicktests (Druckteil mit 3 Kategorien anlegen, Hauptkategorie wechseln, Kategorie umbenennen,
+  Löschschutz, Katalogfilter + Zählung je Kategorie, Anfrage + Status, Vorschlag mit Foto → Druckteil, Bild-Upload,
+  Galerie, Passwort ändern, ZIP-Export → leere Instanz); Update 1.6.3 (Kopie echter Daten) und 1.8.0 → neu: Tabellen
+  zeilengleich, jede Kategorie übernommen.
+- **Behoben:** `client/src/features/katalog/CatalogPage.tsx` – Kategorie-Abzeichen der Katalogkarte im Fluss statt absolut
+  (Bildfläche wächst mit, „+N“ bricht um, keine Trennung mitten im Wort, nichts abgeschnitten).
+  `verwaltung/OrdersAdminPage.tsx`, `anfragen/MyOrdersPage.tsx` – kürzere Platzhalter in den Suchfeldern (bei 320 px
+  abgeschnitten).
+- **Bericht:** `C:\Entwicklung\_testdaten\durchsicht-1.8.1\BERICHT.md`, Bilder in `…\durchsicht-1.8.1\bilder`.
+- **Aufgeräumt:** Testserver und headless Chrome gestoppt, Worktrees `mosaik3lab-durchsicht` und `mosaik3lab-v180`
+  entfernt, Testdaten `_testdaten\durchsicht` und `_testdaten\durchsicht-1.9` gelöscht.
+
 ## 2026-11-18 – Druckteil-Seite: kein Weißraum unter dem Bild auf dem iPad (Unter-Session, Branch: fix/druckteil-ipad)
 - **Meldung:** Auf dem iPad steht unter dem Vorschaubild eines Druckteils sehr viel leerer Platz, erst dann kommt die Beschreibung.
 - **Ursache:** Zweispaltiges Raster (`md` = iPad hoch 768–1023 px und ab `xl` = iPad Pro quer, PC): links nur die Galerie (4:3),
