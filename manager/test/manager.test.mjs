@@ -4,6 +4,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { einrichten } from './helpers/einrichtung.mjs';
 
 // Testdaten liegen fest unter C:\Entwicklung\_testdaten\server-manager (nicht im Temp-Verzeichnis).
 const TESTROOT = path.resolve(import.meta.dirname, '..', '..', '..', '_testdaten', 'server-manager');
@@ -13,7 +14,7 @@ const storage = path.join(tmp, 'storage');
 const backups = path.join(tmp, 'backups');
 process.env.MANAGER_CONFIG = path.join(tmp, 'manager.config.json');
 process.env.MOSAIK3LAB_QUIET = '1';
-fs.writeFileSync(process.env.MANAGER_CONFIG, JSON.stringify({ paths: { dataDir: storage, ablageDir: path.join(tmp, 'ablage'), backupDir: backups, logDir: path.join(tmp, 'logs') }, backup: { keep: 10 } }));
+einrichten(process.env.MANAGER_CONFIG, { paths: { dataDir: storage, ablageDir: path.join(tmp, 'ablage'), backupDir: backups, logDir: path.join(tmp, 'logs') }, backup: { keep: 10 } });
 
 const cfg = await import('../lib/config.mjs');
 const settingsdb = await import('../lib/settingsdb.mjs');
@@ -41,7 +42,6 @@ test('Konfiguration: Prüfregeln, Speicherung in der Datenbank, kaputte Startdat
   const rows = settingsdb.readAll(cfg.resolvePaths().dbFile);
   assert.equal(rows.betrieb['app.port'], 3021, 'Einstellung steht in der Datenbank');
   assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(cfg.CONFIG_FILE, 'utf8'))).sort(), ['dataDir', 'managerPort'], 'Startdatei enthält nur dataDir und managerPort');
-  assert.ok(fs.readdirSync(path.dirname(cfg.CONFIG_FILE)).some((n) => /.vor-datenbank-.*.bak$/.test(n)), 'alte Konfigurationsdatei als .bak');
   const keep = fs.readFileSync(cfg.CONFIG_FILE);
   fs.writeFileSync(cfg.CONFIG_FILE, '{ kaputt');
   cfg.reloadConfig();

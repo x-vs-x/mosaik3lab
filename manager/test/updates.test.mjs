@@ -4,13 +4,14 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { einrichten } from './helpers/einrichtung.mjs';
 
 const TESTROOT = path.resolve(import.meta.dirname, '..', '..', '..', '_testdaten', 'manager-updates');
 const tmp = (fs.mkdirSync(TESTROOT, { recursive: true }), fs.mkdtempSync(path.join(TESTROOT, 'run-')));
 const storage = path.join(tmp, 'storage');
 process.env.MANAGER_CONFIG = path.join(tmp, 'manager.config.json');
 process.env.MOSAIK3LAB_QUIET = '1';
-fs.writeFileSync(process.env.MANAGER_CONFIG, JSON.stringify({ paths: { dataDir: storage, ablageDir: path.join(tmp, 'ablage'), backupDir: path.join(tmp, 'backups'), logDir: path.join(tmp, 'logs') }, backup: { keep: 10 } }));
+einrichten(process.env.MANAGER_CONFIG, { paths: { dataDir: storage, ablageDir: path.join(tmp, 'ablage'), backupDir: path.join(tmp, 'backups'), logDir: path.join(tmp, 'logs') }, backup: { keep: 10 } });
 
 const rt = await import('../lib/runtime.mjs');
 const schema = await import('../lib/schema.mjs');

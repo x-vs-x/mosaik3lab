@@ -49,7 +49,6 @@ function ManagerPost($pfad, $body) {
 
 switch ($Phase) {
   'installiert' {
-    if (Test-Path (Join-Path $Programm 'current\manager\runners\aktualisieren.mjs')) { # ältere Versionen haben keinen Update-Helfer
     $schreib = (Get-Acl $Programm).Access | Where-Object { $_.IdentityReference -match 'LOCAL SERVICE|Lokaler Dienst|S-1-5-19' -and $_.FileSystemRights -match 'Modify|Write|FullControl' }
     Pruefe (-not $schreib) 'Programmordner ist für den Manager-Dienst nicht beschreibbar (Update-Helfer läuft daraus als System)'
     $u = Get-CimInstance Win32_Service -Filter "Name='mosaik3lab-updater'"
@@ -67,7 +66,6 @@ switch ($Phase) {
     Pruefe ($offen.Count -eq 0) "Programm, Dienstdateien und WinSW nur für Administratoren/System beschreibbar ($($dateien.Count) Pfade geprüft)$(if ($offen) { ' – beschreibbar: ' + ($offen -join '; ') })"
     $fremdOrt = @($exes | Where-Object { -not $_.StartsWith("$Programm\", 'OrdinalIgnoreCase') })
     Pruefe ($fremdOrt.Count -eq 0) "alle Dienste starten aus dem Programmordner ($($exes -join ', '))"
-    }
     foreach ($d in $Dienste) {
       $svc = Get-CimInstance Win32_Service -Filter "Name='$d'"
       Pruefe ($svc -and $svc.State -eq 'Running') "Dienst $d läuft ($($svc.State), $($svc.StartMode))"
@@ -82,7 +80,7 @@ switch ($Phase) {
     Pruefe ((Status 'http://127.0.0.1:3001/mosaik3lab/api/health') -eq 200) 'App: http://127.0.0.1:3001/mosaik3lab/api/health → 200'
     $soll = (Get-Content (Join-Path $Programm 'current\package.json') -Raw | ConvertFrom-Json).version
     $ist = try { (Invoke-RestMethod 'http://127.0.0.1:3001/mosaik3lab/api/health' -TimeoutSec 10).version } catch { '?' }
-    if (-not $soll.StartsWith('0.')) { Pruefe ($ist -eq $soll) "App meldet ihre Version ($ist, erwartet $soll) – Grundlage für „Was ist neu“" } # vor 1.0.0 ohne Version
+    Pruefe ($ist -eq $soll) "App meldet ihre Version ($ist, erwartet $soll) – Grundlage für „Was ist neu“"
     Pruefe ((Status 'http://127.0.0.1:5190/api/auth') -eq 200) 'Manager: http://127.0.0.1:5190/api/auth → 200'
     Pruefe (Test-Path "$Programm\current\node\node.exe") 'Programm mit node.exe unter Program Files'
     Pruefe (Test-Path "$Programm\install.json") 'install.json im Programmordner'

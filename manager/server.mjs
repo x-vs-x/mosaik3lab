@@ -334,13 +334,6 @@ async function handle(req, res) {
   }
 }
 
-// Bis 1.1.3 gab es einen Einrichtungscode – eine übrig gebliebene Datei wird nicht mehr gebraucht.
-try {
-  fs.rmSync(path.join(resolvePaths().logDir, 'einrichtungscode.txt'), { force: true });
-} catch {
-  /* ohne Bedeutung */
-}
-
 /** Läuft auf dem Port schon ein Manager? Dann nur dessen Fenster öffnen. Sonst Ausweichport. */
 async function listen() {
   for (let attempt = 0; ; attempt++) {

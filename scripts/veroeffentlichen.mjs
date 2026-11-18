@@ -109,4 +109,4 @@ step(`veröffentlichen: ${OEFFENTLICH} → ${tag}`);
 gh('release', 'create', tag, '--repo', OEFFENTLICH, '--title', `Mosaik³LAB ${version}`, '--notes-file', path.join(dir, 'notes.md'), '--latest', ...namen.map((n) => path.join(dir, n)), path.join(dir, 'SHA256SUMS.txt'));
 fs.rmSync(dir, { recursive: true, force: true });
 console.log(`✔ Version ${version} ist veröffentlicht: https://github.com/${OEFFENTLICH}/releases/tag/${tag}`);
-console.log('  Server-Manager ab 1.1.0 zeigen das Update innerhalb eines Tages an (oder sofort über „Nach Updates suchen“).');
+console.log('  Die Server-Manager zeigen das Update innerhalb eines Tages an (oder sofort über „Nach Updates suchen“).');

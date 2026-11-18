@@ -52,9 +52,7 @@ test('Linux: Unit-Dateien und polkit-Regel schreibt root direkt nach /etc – ni
   assert.deepEqual(files.map((f) => f.path), ['/etc/systemd/system/mosaik3lab-manager.service', '/etc/polkit-1/rules.d/50-mosaik3lab.rules']);
   const script = linux.services.installScript(def);
   assert.doesNotMatch(script, /install -m/, 'kein Kopieren aus einer Zwischendatei');
-  const lines = script.split('\n');
-  assert.match(lines[0], /^rm -f '\/var\/lib\/mosaik3lab\/manager\/dienste\/mosaik3lab-manager\.service'/, 'Reste im Datenordner zuerst entfernen');
-  for (const l of lines.slice(1)) assert.ok(!l.includes(dienste), `danach nichts mehr aus dem Datenordner: ${l}`);
+  for (const l of script.split('\n')) assert.ok(!l.includes(dienste), `nichts aus dem Datenordner: ${l}`);
   assert.ok(script.includes("polkit.addRule"), 'Inhalt steht im Skript');
   const w = rootWrite('/etc/x/y.rules', "a'b");
   assert.match(w, /chown root:root "\$t" && chmod 644 "\$t" && mv -f "\$t" '\/etc\/x\/y\.rules'$/);

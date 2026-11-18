@@ -80,8 +80,8 @@ const copyFilter = (copyDeps, keepDist = false) => (src) => {
  *          admin: { email, name, password } (erstes Administrator-Konto; entfällt bei fromBackup oder wenn schon ein Admin existiert),
  *          dataFrom/ablageFrom (bisherige Daten übernehmen; Standard: Ordner der Arbeitskopie),
  *          systemDryRun (Dienste, Firewall, Verknüpfungen, Start nur anzeigen), skipBuild (npm ci und Build überspringen – Tests),
- *          prebuilt (Installer-Paket: gebündelter Server server/dist und client/dist liegen bei – ältere Pakete stattdessen
- *          mit node_modules – → mitkopieren, kein npm ci, kein Build) }
+ *          prebuilt (Installer-Paket: gebündelter Server server/dist und client/dist liegen bei → mitkopieren, kein npm ci,
+ *          kein Build) }
  * Liegt im Datenordner schon eine Einrichtung (Startdatei + Datenbank), bleiben deren Einstellungen unverändert.
  * report(stepId, status, detail) meldet den Fortschritt.
  */
@@ -190,7 +190,7 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
       // Programmordner unter „Programme“: Nur Installationen aus einer Arbeitskopie (Entwicklung) bekommen Schreibrechte für
       // Benutzer und Dienstkonto. Bei Paket-Installationen darf dort NUR Admin/System schreiben – der Update-Helfer läuft als
       // System aus diesem Ordner; wäre er für den Manager (Lokaler Dienst) beschreibbar, könnte ein übernommener Manager so
-      // Admin-Rechte bekommen. Ältere Installationen (bis 1.1.0) hatten diese Rechte → bei jedem Lauf auf Standard zurücksetzen.
+      // Admin-Rechte bekommen.
       const inProgramFiles = platform.serviceFilesInProgram && isInside(programRoot, path.dirname(platform.defaults().programRoot));
       const paket = !!paketInfo();
       if (inProgramFiles && !paket) missing.add(programRoot);
@@ -214,7 +214,6 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
       const dest = path.join(programRoot, 'releases', id);
       const copyDeps = !!(input.copyDeps || input.prebuilt);
       if (dryRun) return { detail: `${PROGRAM_DIR} → ${dest}${input.prebuilt ? ' (fertig gebaut)' : copyDeps ? ' (mit node_modules)' : ''}; „current“ zeigt darauf` };
-      removeTree(`${dest}.unfertig`); // Rest älterer Versionen (kopierten erst dorthin und benannten dann um)
       removeTree(dest);
       // Verweise (z. B. npm-Workspaces in node_modules) nicht kopieren, sondern danach neu auf die Kopie zeigen lassen.
       const links = [];
@@ -345,7 +344,7 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
         portal = cfg.portal;
         Object.assign(dirs, { ablage: wanted.ablageDir, backups: wanted.backupDir, logs: wanted.logDir });
         // 3. Dateien (nur was die Sicherung enthält: „komplett“ → Ablage; „Daten & Einstellungen“ lässt die Ablage leer)
-        const rest = await applyBackup({ folder, meta, dirs: { dataDir: dirs.storage, ablageDir: wanted.ablageDir }, only: ['ablage', 'data', 'uploads', 'config'] });
+        const rest = await applyBackup({ folder, meta, dirs: { dataDir: dirs.storage, ablageDir: wanted.ablageDir }, only: ['ablage', 'data', 'uploads'] });
         if (rest.length) throw new Error(`Dateien konnten nicht vollständig zurückgespielt werden (${rest[0]}).`);
         if (meta.kind !== 'komplett') settingsdb.writeBereich(settingsdb.dbFileOf(dirs.storage), 'betrieb', { 'restore.ohneDateien': { at: new Date().toISOString(), backup: path.basename(location) } });
         if (cfg.backup.encrypt && header?.encryption && fb.password) saveBackupPassword(fb.password, L.keyFile); // geplante Sicherungen laufen weiter

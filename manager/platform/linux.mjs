@@ -106,9 +106,7 @@ export const linux = {
    * (z. B. Standard-ACLs auf /opt). Der Update-Helfer läuft als root aus diesem Ordner.
    */
   protectProgramScript: (dir) =>
-    `chown -R -h root:root ${shQuote(dir)} && chmod -R go-w ${shQuote(dir)} && { ! command -v setfacl >/dev/null 2>&1 || setfacl -R -b ${shQuote(dir)}; }` +
-    // install.json muss der Manager (mosaik3lab) lesen können – ältere Versionen schrieben sie nur für root lesbar
-    ` && { [ ! -f ${shQuote(path.join(dir, 'install.json'))} ] || chmod 644 ${shQuote(path.join(dir, 'install.json'))}; }`,
+    `chown -R -h root:root ${shQuote(dir)} && chmod -R go-w ${shQuote(dir)} && { ! command -v setfacl >/dev/null 2>&1 || setfacl -R -b ${shQuote(dir)}; }`,
 
   /** Dienstbenutzer anlegen und ihm die Ordner übergeben; wer einrichtet (auch hinter sudo), kommt in seine Gruppe. */
   prepareDirsScript(dirs) {
@@ -165,9 +163,8 @@ export const linux = {
     },
     /**
      * Sicherheit: Unit-Dateien und polkit-Regel entstehen im Setup-Prozess und stehen als Text im Admin-Skript – root schreibt
-     * sie direkt nach /etc (gehört root, 644). Früher lagen sie zuerst in <Datenordner>/manager/dienste (gehört dem
-     * Dienstbenutzer): Ein übernommener Manager hätte sie vor dem Installieren austauschen (→ Code als root) oder dort einen
-     * Verweis anlegen können, dem root beim Schreiben gefolgt wäre. Deshalb schreibt setup.mjs hier nichts selbst.
+     * sie direkt nach /etc (gehört root, 644) – nie über einen Ordner des Dienstbenutzers: Ein übernommener Manager
+     * könnte sie dort vor dem Installieren austauschen (→ Code als root). Deshalb schreibt setup.mjs hier nichts selbst.
      */
     filesInInstallScript: true,
     /** Der Update-Helfer darf seine eigene Unit während eines Laufs erneuern (daemon-reload stoppt ihn nicht) – neue Zeitlimits gelten sofort. */
@@ -192,9 +189,6 @@ export const linux = {
       return files;
     },
     installScript: (def) => [
-      // Reste älterer Versionen im Datenordner zuerst entfernen (rm löscht nur den Eintrag, folgt keinem Verweis) – erst danach
-      // nach /etc schreiben: Zeigte „dienste“ per Verweis auf /etc/systemd/system, träfe rm nur die gleich neu geschriebenen Dateien.
-      `rm -f ${[`${def.id}.service`, ...(def.key === 'manager' ? ['50-mosaik3lab.rules'] : [])].map((n) => shQuote(path.posix.join(def.serviceDir, n))).join(' ')}`,
       ...linux.services.files(def).map((f) => rootWrite(f.path, f.content)),
       `systemctl daemon-reload && systemctl enable ${def.id}`,
     ].join('\n'),

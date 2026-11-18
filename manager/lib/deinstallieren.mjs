@@ -18,7 +18,7 @@ const log = () => logger('manager');
  * keepData (Standard true): Daten, Sicherungen, Einstellungen und Logs bleiben erhalten.
  */
 export async function uninstall({ dataRoot = INSTALL?.dataRoot, managerDir, keepData = true, dryRun = false } = {}) {
-  // Manifest: in der Installation bekannt (Windows neu: Programmordner), sonst <Datenordner>/manager (ältere Installationen, Linux)
+  // Manifest: in der Installation bekannt (install.json), sonst <Datenordner>/manager (Linux-Layout)
   managerDir ??= INSTALL && (!dataRoot || dataRoot === INSTALL.dataRoot) ? INSTALL.managerDir : dataRoot && path.join(dataRoot, 'manager');
   const m = managerDir && readManifest(managerDir);
   if (!m) throw new InputError('Keine Installation gefunden (install-manifest.json fehlt).', 'Den Datenordner der Installation angeben: uninstall --data-root <ordner> (bzw. --manager-dir <Programmordner>)');

@@ -37,8 +37,7 @@ werden als Hilfsmittel importiert. Internes (URLs `/verwaltung/hilfsmittel`, Rec
      unbekannt: eigene Ansicht mit „Jetzt Konto anlegen“ (`/api/auth/register`, legt nur einen `Requester` an,
      nie ein Konto) oder „E-Mail korrigieren“.
   2. Passwort (nur Konten). Konten (Tabelle `benutzer`) gibt es nur für `admin` und `druckteam`; jedes hat eine
-     eindeutige, klein geschriebene `email`. Ältere Konten ohne E-Mail werden beim Start ergänzt
-     (`migrateUserEmails` in `seed/seed.ts`); frühere Konten mit Rolle `lehrkraft` bleiben gespeichert,
+     eindeutige, klein geschriebene `email`. Frühere Konten mit Rolle `lehrkraft` bleiben gespeichert,
      melden sich aber nur noch als Lehrkraft (ohne Passwort) an.
 - **Angemeldet bleiben:** dauerhaftes Session-Cookie (30 Tage, `rolling` – bei jeder Nutzung verlängert,
   HttpOnly, SameSite=Strict); Abmelden zerstört Session und Cookie.
@@ -80,8 +79,7 @@ werden als Hilfsmittel importiert. Internes (URLs `/verwaltung/hilfsmittel`, Rec
 - **E-Mail-Benachrichtigung** bei jeder neuen Anfrage an ein oder mehrere Postfächer. **Eingerichtet nur im
   Server-Manager**; gespeichert in der Datenbank (Tabelle `betrieb_einstellung`, Bereich `mail`, Migration 006):
   `enabled`, `smtp { host, port, secure, user, pass }`, `from`, `recipients[]`, `appBaseUrl`.
-  Die App liest sie bei jedem Versand (kein Neustart), schreibt sie nie (außer einmaliger Übernahme alter Dateien
-  `config/mail.json` und `settings.json`, die als `.bak` umbenannt werden) und zeigt in Verwaltung → Einstellungen nur
+  Die App liest sie bei jedem Versand (kein Neustart), schreibt sie nie und zeigt in Verwaltung → Einstellungen nur
   den Zustand + letzten Versand. Fehlt/ungültig → Versand aus, Logeintrag. Testmail:
   `npm run mail:test -s -w server -- --db <pfad zu mosaik3lab.db> [--to <adresse>]`. Das Session-Geheimnis liegt ebenfalls
   in `betrieb_einstellung` (Bereich `betrieb`); die App erzeugt es beim ersten Start.
@@ -143,10 +141,9 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
     weiter. Log: „Bildpflege: 22 Bilder geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder erzeugt (…)“.
   - **Client:** `ItemImage` mit `groesse` (`karte` Katalogkarte, `mini` kleine Vorschauen, `original` Galerie) und
     `sizes`; `client/src/lib/bildQuellen.ts` baut `srcset` (mini 360w, karte 1080w, Original 2000w als oberste Stufe; der Browser nimmt die kleinste ausreichende Fassung).
-- **Übernahme JSON → SQLite** (`uebernahme/importJson.ts`): einmalig beim Start, Ergebnis in
-  `einstellung` „json_uebernahme“ (Anzahlen, Dateien, Hinweise). JSON-Dateien und alte Upload-Ordner bleiben liegen.
-  Früher in der App eingestellte Ordner (`mosaik3lab.config.json` in der Projektwurzel) gelten dabei als Quelle;
-  danach wird die Datei gesichert (`….vor-ablage-umzug-<zeit>.bak`) und entfernt (`retirePathConfig`).
+- **Updates ab 1.6.3:** Die Übernahme aus der JSON-Zeit (Daten, `mail.json`, `.session-secret`, `mosaik3lab.config.json`)
+  und das Ergänzen von Konten ohne E-Mail sind entfernt – 1.6.3 hat sie erledigt. Ältere Stände zuerst auf 1.6.3 bringen.
+  Ein früherer Eintrag `einstellung` „json_uebernahme“ bleibt als Vermerk stehen.
 - **Für den Server-Manager:** `/api/health` → `{ ok, version, demoAccountsEnabled, db: { vorhanden, schemaVersion, groesseBytes } }`;
   `npm run --silent db:backup -w server -- --ziel <datei> [--quelle <db>]` → eine Zeile `OK …` / `FEHLER: …`, Exit 0/1.
 
@@ -172,10 +169,7 @@ server/src/
                  bilder/ (Bildverarbeitung, siehe „Bilder und Bildpflege“)
   storage/       index.ts (Speicher zusammenbauen, Sperrdatei), repositories.ts (Typ `Storage`),
                  sqlite/migrations/ (global nummeriert, fester Ort – der Server-Manager liest sie dort)
-  uebernahme/    alles für Datenstände aus der Zeit vor SQLite (kann mit einer späteren Hauptversion weg): importJson.ts +
-                 legacyJson.ts (einmalige Übernahme der JSON-Daten), betriebsdateien.ts (mail.json, settings.json → mail,
-                 .session-secret), bootstrapConfig.ts (alte mosaik3lab.config.json mit Ablagepfaden)
-  seed/          Beispieldaten und migrateUserEmails (Konten ohne E-Mail; nutzt Services/Repositories, nie Routen)
+  seed/          Beispieldaten (nutzt Services/Repositories, nie Routen)
   app.ts, index.ts, config.ts, basePath.ts
 server/scripts/  Skripte (tsx); bundle.ts bündelt für das Installer-Paket nach server/dist/ (siehe unten)
 client/src/

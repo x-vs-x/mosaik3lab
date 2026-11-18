@@ -22,9 +22,7 @@ function detectInstall() {
     const real = fs.realpathSync(PROGRAM_DIR);
     if (path.basename(path.dirname(real)) !== 'releases') return null;
     const programRoot = path.dirname(path.dirname(real));
-    const inst = { programRoot, ...JSON.parse(fs.readFileSync(path.join(programRoot, 'install.json'), 'utf8')) };
-    inst.managerDir ??= path.join(inst.dataRoot, 'manager'); // ältere Installationen: Dienstdateien und Manifest im Datenordner
-    return inst;
+    return { programRoot, ...JSON.parse(fs.readFileSync(path.join(programRoot, 'install.json'), 'utf8')) };
   } catch {
     return null;
   }
@@ -41,20 +39,11 @@ export const DEFAULTS = Object.freeze({
   manager: { port: 5190 },
   app: { port: 3001, network: false, demoAccounts: false }, // network: im Netzwerk freigegeben (0.0.0.0 + Firewall-Regel); das Session-Geheimnis verwaltet die App selbst (Datenbank)
   paths: { dataDir: '', ablageDir: '', backupDir: '', logDir: '' }, // leer = Standard der Betriebsart
-  backup: { enabled: true, time: '02:00', keep: 14, encrypt: false }, // enabled/time: automatische tägliche Sicherung (immer vollständig: Datenbank + Ablage); keep: so viele Sicherungen bleiben; encrypt: mit Backup-Passwort (AES-256-GCM). Frühere Schlüssel älterer Datenbanken (backup.full, update.*) werden ignoriert und bleiben für einen Rückfall stehen
+  backup: { enabled: true, time: '02:00', keep: 14, encrypt: false }, // enabled/time: automatische tägliche Sicherung (immer vollständig: Datenbank + Ablage); keep: so viele Sicherungen bleiben; encrypt: mit Backup-Passwort (AES-256-GCM). Unbekannte Schlüssel in der Datenbank werden ignoriert
   // Portal: kleiner Weiterleitungs-Dienst, einziger Zugang von außen (Port 80/443); die App hört dann nur auf 127.0.0.1.
-  // Standard: http://<Server>/mosaik3lab ohne Portnummer. Ältere Einstellungen ohne Portal-Werte behalten ihr Verhalten (keepLegacyPortal).
+  // Standard: http://<Server>/mosaik3lab ohne Portnummer.
   portal: { enabled: true, basePath: FIXED_BASE_PATH, httpPort: 80, httpsPort: 443, https: false },
 });
-
-/**
- * Einstellungen von früher (es gibt schon Betriebswerte, aber noch keine Portal-Werte) behalten ihr Verhalten: Portal aus,
- * App direkt auf ihrem Port. Die neuen Standardwerte (Portal an, /mosaik3lab) gelten nur für neue Einrichtungen.
- */
-export function keepLegacyPortal(raw) {
-  if (raw.app && raw.portal?.enabled === undefined) raw.portal = { ...raw.portal, enabled: false, basePath: raw.portal?.basePath ?? '' };
-  return raw;
-}
 
 export class InputError extends Error {
   constructor(message, hint) {
@@ -183,7 +172,6 @@ function merge(base, extra) {
 // { dataDir, managerPort } bleibt außerhalb, weil man den Ort der Datenbank kennen muss, bevor man sie liest.
 // Fehlt etwas in der Datenbank → Standardwerte.
 const SECTIONS = { manager: 'manager', app: 'betrieb', paths: 'betrieb', backup: 'betrieb', portal: 'betrieb' }; // Abschnitt → Bereich
-const RETIRED_KEYS = ['manager.passwordHash', 'manager.remote']; // früher: eigenes Manager-Passwort, Schalter „Über die App-Adresse“
 const NOT_IN_DB = ['paths.dataDir']; // steht in der Startdatei
 
 /** Konfiguration → Zeilen je Bereich { betrieb: { 'app.port': 3001, … }, manager: { … } } */
@@ -242,75 +230,6 @@ export function saveConfigTo(startFile, cfg) {
 }
 
 /**
- * Alte Betriebsdateien einmalig in die Datenbank übernehmen und als .bak umbenennen:
- *  - die frühere Konfigurationsdatei (manager.config.json im alten Format → Startdatei + Datenbank)
- *  - <Daten>/config/mail.json → Bereich „mail“, <Daten>/data/.session-secret → Bereich „betrieb“
- * Gibt eine Liste der Übernahmen zurück.
- */
-export function migrateLegacy(startFile = CONFIG_FILE) {
-  const done = [];
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const retire = (file) => fs.renameSync(file, `${file}.vor-datenbank-${stamp}.bak`);
-  let start = null;
-  try {
-    start = readStartFile(startFile);
-  } catch {
-    return done; // unlesbar → load() meldet es
-  }
-  let legacyFile = null;
-  if (start && ('manager' in start || 'app' in start || 'paths' in start)) legacyFile = { file: startFile, raw: start };
-  else if (!start && startFile === path.join(PROGRAM_DIR, 'mosaik3lab.json')) {
-    const old = path.join(MANAGER_DIR, 'manager.config.json'); // Entwicklung: früherer Ort
-    try {
-      legacyFile = { file: old, raw: JSON.parse(fs.readFileSync(old, 'utf8').replace(/^\uFEFF/, '')) };
-    } catch {
-      /* nichts zu übernehmen */
-    }
-  }
-  if (legacyFile) {
-    const cfg = validate(merge(DEFAULTS, keepLegacyPortal({ ...legacyFile.raw, app: { ...legacyFile.raw.app, sessionSecret: undefined } })));
-    const dataDir = cfg.paths.dataDir || defaultDataDir();
-    const sessionSecret = legacyFile.raw.app?.sessionSecret;
-    writeDb(dataDir, cfg);
-    if (sessionSecret && sessionSecret.length >= 32) settingsdb.writeIfNew(settingsdb.dbFileOf(dataDir), 'betrieb', 'sessionSecret', sessionSecret, true);
-    if (legacyFile.file === startFile) fs.copyFileSync(startFile, `${startFile}.vor-datenbank-${stamp}.bak`);
-    else retire(legacyFile.file);
-    writeStartFile(startFile, { dataDir: cfg.paths.dataDir, managerPort: cfg.manager.port });
-    done.push(`Konfiguration aus ${legacyFile.file} in die Datenbank übernommen`);
-    start = { dataDir: cfg.paths.dataDir, managerPort: cfg.manager.port };
-  }
-  // Mail und Session-Geheimnis aus den alten Dateien des Datenordners
-  const dataDir = start?.dataDir || defaultDataDir();
-  const dbFile = settingsdb.dbFileOf(dataDir);
-  const mailFile = path.join(dataDir, 'config', 'mail.json');
-  if (fs.existsSync(mailFile) && !Object.keys(settingsdb.readBereich(dbFile, 'mail')).length) {
-    try {
-      settingsdb.writeBereich(dbFile, 'mail', JSON.parse(fs.readFileSync(mailFile, 'utf8').replace(/^\uFEFF/, '')), { secrets: ['smtp'] });
-      retire(mailFile);
-      done.push(`${mailFile} in die Datenbank übernommen`);
-    } catch (err) {
-      done.push(`${mailFile} konnte nicht übernommen werden: ${err.message}`);
-    }
-  }
-  // Eigenes Manager-Passwort und Schalter „Über die App-Adresse“ gibt es nicht mehr (Anmeldung = Admin-Konto der App).
-  const manager = settingsdb.readBereich(dbFile, 'manager');
-  const retired = RETIRED_KEYS.filter((k) => k in manager);
-  if (retired.length) {
-    settingsdb.writeBereich(dbFile, 'manager', Object.fromEntries(retired.map((k) => [k, undefined])));
-    done.push(`Altes Manager-Passwort entfernt – Anmeldung jetzt mit dem Admin-Konto der App (${retired.join(', ')})`);
-  }
-  const secretFile = path.join(dataDir, 'data', '.session-secret');
-  if (fs.existsSync(secretFile)) {
-    const s = fs.readFileSync(secretFile, 'utf8').trim();
-    if (s.length >= 32 && settingsdb.writeIfNew(dbFile, 'betrieb', 'sessionSecret', s, true)) {
-      retire(secretFile);
-      done.push(`${secretFile} in die Datenbank übernommen`);
-    }
-  }
-  return done;
-}
-
-/**
  * Pfad von einem anderen Betriebssystem? (z. B. Sicherung von Windows auf Linux eingespielt: „C:\Mosaik3LAB\ablage“ ist
  * dort kein vollständiger Pfad; umgekehrt würde „/var/backups/mosaik3lab“ unter Windows still zu „C:\var\backups\…“.)
  */
@@ -335,19 +254,17 @@ export function configFromDb(dataDir, managerPort) {
   const raw = unflatten(settingsdb.readAll(settingsdb.dbFileOf(dataDir)));
   raw.paths = { ...ohneFremdePfade(raw.paths), dataDir };
   if (managerPort) raw.manager = { ...raw.manager, port: managerPort };
-  return validate(merge(DEFAULTS, keepLegacyPortal(raw)));
+  return validate(merge(DEFAULTS, raw));
 }
 
 let state = null;
 let stateStamp = '';
 let stateCheckedAt = 0;
-let migrationNotes = [];
 const dbStamp = (c) => settingsdb.stamp(settingsdb.dbFileOf(resolvePaths(c).dataDir));
 
 function load() {
   let start = null;
   try {
-    if (!process.env.MOSAIK3LAB_NO_MIGRATE) migrationNotes = migrateLegacy();
     start = readStartFile();
   } catch (err) {
     return { config: structuredClone(DEFAULTS), errors: [`Startdatei nicht lesbar oder ungültig (${err.message}) – es gelten Standardwerte. Vorige Fassung: ${CONFIG_FILE}.bak`] };
@@ -358,7 +275,7 @@ function load() {
     const raw = unflatten(rows);
     raw.paths = { ...ohneFremdePfade(raw.paths), dataDir };
     if (start?.managerPort) raw.manager = { ...raw.manager, port: start.managerPort };
-    const config = validate(merge(DEFAULTS, keepLegacyPortal(raw)));
+    const config = validate(merge(DEFAULTS, raw));
     return { config, errors: [] };
   } catch (err) {
     const config = structuredClone(DEFAULTS);
@@ -385,7 +302,6 @@ function fresh() {
 }
 
 export const getConfig = () => fresh().config;
-export const migrationLog = () => (fresh(), migrationNotes);
 
 export const configErrors = () => fresh().errors;
 

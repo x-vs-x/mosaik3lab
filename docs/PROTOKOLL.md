@@ -2,6 +2,22 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Altlasten vor 1.6.3 entfernt (Unter-Session, Branch: refactor/altlasten → refactor/code-hygiene)
+- **Auftrag:** Beide Installationen laufen mit 1.6.3 (Schema 017) – alles, was nur für ältere Stände nötig war, entfernen;
+  Updates nur noch von 1.6.3 aus testen. Kein PR (Hauptchat führt zusammen).
+- **Server:** `server/src/uebernahme/` (JSON-Übernahme, mail.json/settings.json/.session-secret, mosaik3lab.config.json)
+  und `migrateUserEmails` entfernt, alte Upload-Pfade aus `config.ts`/`storage/index.ts`; Tests dazu entfernt,
+  db:backup-/Admin-Skript-Tests nach `server/test/skripte.test.ts`. Export/Import (datenaustausch) unverändert.
+- **Manager:** `migrateLegacy`, `keepLegacyPortal`, `RETIRED_KEYS`, `migrationLog` (config.mjs), Fallback `managerDir`,
+  Einrichtungscode-Rest (server.mjs), `.unfertig`-Rest (setup.mjs), Ordner-Sicherungen (`backup.json`) und Teil `config` beim
+  Wiederherstellen (backup.mjs), Linux: Aufräumen alter Unit-Dateien im Datenordner und `chmod 644 install.json`.
+  Tests: `settings-migration.test.mjs` entfernt, Startdatei in Tests über `test/helpers/einrichtung.mjs` (neues Format).
+- **CI:** Runden „altformat“ (Zweig/Commit ALTFORMAT, Cache) und „v100“ ersetzt durch „v163“ (Paket aus Release v1.6.3,
+  Testdaten mit Bildern, `daten-stand.mjs` vergleicht Zeilen je Tabelle und Ablage per SHA-256). Zweig „altformat“ auf
+  GitHub bleibt (Entscheidung des Nutzers). Kompatibilitätszweige in `pruefen.ps1`/`pruefen.sh` entfernt.
+- **Doku:** README, docs/INSTALLATION.md, manager/README.md, docs/ARCHITEKTUR.md gekürzt; CHANGELOG-Zeile.
+- **Aufgeräumt:** keine Server gestartet; Worktree `C:Entwicklungmosaik3lab-hygiene-alt` bleibt für den Merge.
+
 ## 2026-11-18 – Code-Hygiene Server (Paket A, Unter-Session, Branch: fix/fehler-app → refactor/code-hygiene)
 - **Auftrag:** Funde S1–S20, S22–S25 (`_konzepte/code-hygiene/server.md`), D10–D13, D15–D19 (`shared-daten.md`) und C1
   (`client.md`) prüfen und beheben; ein Commit je Gruppe, kein PR (Hauptchat führt in `refactor/code-hygiene` zusammen).
