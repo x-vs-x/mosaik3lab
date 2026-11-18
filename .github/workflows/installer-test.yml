@@ -45,9 +45,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -57,13 +57,13 @@ jobs:
       - name: Paket bauen
         run: npm run paket -- "$env:RUNNER_TEMP\pakete"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Mosaik3LAB-Installer-windows-x64
           path: ${{ runner.temp }}/pakete/Mosaik3LAB-Installer-*-windows-x64.zip
           if-no-files-found: error
           compression-level: 0
-          retention-days: 7 # ältere Läufe räumt der Job „aufraeumen“ sofort weg
+          retention-days: 7 # abgeschlossene Läufe räumt der Job „aufraeumen“ weg
 
   # Das alte Paket kommt immer aus demselben Commit → einmal bauen, danach aus dem Cache (gilt je Branch/PR)
   windows-altpaket:
@@ -71,16 +71,16 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Altes Paketformat aus dem Cache
         id: altformat-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/altformat-paket/Mosaik3LAB-Installer-*.zip
           key: installer-altformat-${{ runner.os }}-${{ runner.arch }}-${{ env.ALTFORMAT }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.altformat-cache.outputs.cache-hit != 'true'
         with:
           node-version: 24
@@ -97,7 +97,7 @@ jobs:
           npm run paket -- "$env:RUNNER_TEMP\altformat-paket"; if ($LASTEXITCODE) { exit 1 }
           Pop-Location
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: altpaket-windows-x64
           path: ${{ runner.temp }}/altformat-paket/Mosaik3LAB-Installer-*.zip
@@ -120,13 +120,13 @@ jobs:
     env:
       PAKETE: ${{ github.workspace }}\..\pakete
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4 # nur für knopfdruck.mjs (reines Node, keine Abhängigkeiten)
+      - uses: actions/setup-node@v7 # nur für knopfdruck.mjs (reines Node, keine Abhängigkeiten)
         with:
           node-version: 24
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: Mosaik3LAB-Installer-windows-x64
           path: ${{ env.PAKETE }}
@@ -256,7 +256,7 @@ jobs:
         run: .github/installer-test/pruefen.ps1 deinstalliert
 
       # ---- Runde „altformat“: altes Paketformat (node_modules, tsx) → gebündelt ----
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: matrix.runde == 'altformat'
         with:
           name: altpaket-windows-x64
@@ -379,7 +379,7 @@ jobs:
           Get-ChildItem (Join-Path $env:ProgramFiles 'Mosaik3LAB') -Recurse -Depth 1 -Include *.log, *.xml, *.json -ErrorAction SilentlyContinue | Copy-Item -Destination "$env:RUNNER_TEMP\logs" -ErrorAction SilentlyContinue
           Get-CimInstance Win32_Service -Filter "Name LIKE 'mosaik3lab-%'" | Format-Table Name, State, StartMode, PathName -AutoSize | Out-String -Width 300 | Set-Content "$env:RUNNER_TEMP\logs\dienste.txt"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure() || cancelled() # auch nach Abbruch (Zeitlimit des Jobs) – sonst fehlen genau dann die Protokolle
         continue-on-error: true # voller Artefakt-Speicher darf den Test nie abbrechen
         with:
@@ -394,9 +394,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -416,9 +416,9 @@ jobs:
     permissions:
       contents: write # getestetes Paket ins Release (.github/installer-test/release.sh; zählt nicht zum Artefakt-Speicher)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: Mosaik3LAB-Installer-windows-x64
           path: ${{ runner.temp }}/pakete
@@ -447,8 +447,10 @@ jobs:
     permissions:
       contents: write
 
-  # Aufräumen nach jedem Lauf (auch nach Fehlern): Artefakte aller älteren Läufe löschen – es bleiben nur die Pakete
-  # (und ggf. Logs) dieses Laufs, damit der Artefakt-Speicher nie volläuft.
+  # Aufräumen nach jedem Lauf (auch nach Fehlern): Artefakte anderer, schon ABGESCHLOSSENER Läufe löschen, damit der
+  # Artefakt-Speicher nie volläuft. Läufe, die noch laufen (z. B. parallel in einem anderen Pull Request), behalten ihre
+  # Artefakte – sonst fehlen ihnen Pakete beim Herunterladen (Lauf 44275682317). Artefakte jünger als eine Stunde bleiben
+  # ebenfalls (Puffer für „Re-run failed jobs“ und Läufe, deren Status gerade wechselt); der nächste Lauf räumt sie weg.
   aufraeumen:
     needs: [windows-paket, windows-altpaket, windows, manager-windows, windows-release, linux-x64, linux-arm64]
     if: always()
@@ -457,10 +459,19 @@ jobs:
     permissions:
       actions: write
     steps:
-      - name: Artefakte älterer Läufe löschen
+      - name: Artefakte abgeschlossener Läufe löschen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          filter=".artifacts[] | select(.workflow_run.id != $GITHUB_RUN_ID) | .id"
+          grenze=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ) # gleiches Format wie created_at → Textvergleich genügt
+          filter=".artifacts[] | select((.expired | not) and .workflow_run.id != $GITHUB_RUN_ID) | \"\(.id) \(.workflow_run.id) \(.created_at) \(.name)\""
+          declare -A status # Status je Lauf nur einmal abfragen
           gh api --paginate "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" -q "$filter" |
-            while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id" && echo "gelöscht: $id"; done
+            while read -r id lauf erstellt name; do
+              if [[ "$erstellt" > "$grenze" ]]; then echo "behalten: $name (Lauf $lauf, jünger als 1 Stunde)"; continue; fi
+              # gelöschter Lauf (404) = verwaistes Artefakt → wie abgeschlossen behandeln
+              [ -n "${status[$lauf]:-}" ] || status[$lauf]=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$lauf" -q .status 2>/dev/null || echo completed)
+              if [ "${status[$lauf]}" != completed ]; then echo "behalten: $name (Lauf $lauf: ${status[$lauf]})"; continue; fi
+              # parallel aufräumende Läufe können dasselbe Artefakt schon gelöscht haben → kein Fehler
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id" >/dev/null 2>&1 && echo "gelöscht: $name (Lauf $lauf)" || echo "nicht gelöscht (schon weg?): $name"
+            done

@@ -17,9 +17,9 @@ jobs:
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -29,29 +29,29 @@ jobs:
       - name: Paket bauen
         run: npm run paket -- "$RUNNER_TEMP/pakete"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Mosaik3LAB-Installer-linux-${{ inputs.arch }}
           path: ${{ runner.temp }}/pakete/Mosaik3LAB-Installer-*-linux-${{ inputs.arch }}.tar.gz
           if-no-files-found: error
           compression-level: 0
-          retention-days: 7 # ältere Läufe räumt der Job „aufraeumen“ sofort weg
+          retention-days: 7 # abgeschlossene Läufe räumt der Job „aufraeumen“ weg
 
   # Das alte Paket kommt immer aus demselben Commit → einmal bauen, danach aus dem Cache (gilt je Branch/PR)
   altpaket:
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Altes Paketformat aus dem Cache
         id: altformat-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/altformat-paket/Mosaik3LAB-Installer-*.tar.gz
           key: installer-altformat-${{ runner.os }}-${{ runner.arch }}-${{ env.ALTFORMAT }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.altformat-cache.outputs.cache-hit != 'true'
         with:
           node-version: 24
@@ -64,7 +64,7 @@ jobs:
           git worktree add "$quelle" FETCH_HEAD
           (cd "$quelle" && npm ci --no-audit --no-fund --loglevel=error && npm run paket -- "$RUNNER_TEMP/altformat-paket")
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: altpaket-linux-${{ inputs.arch }}
           path: ${{ runner.temp }}/altformat-paket/Mosaik3LAB-Installer-*-linux-${{ inputs.arch }}.tar.gz
@@ -82,15 +82,15 @@ jobs:
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - run: echo "PAKETE=$RUNNER_TEMP/pakete" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-node@v4 # für knopfdruck.mjs und pruefen.sh (reines Node, keine Abhängigkeiten)
+      - uses: actions/setup-node@v7 # für knopfdruck.mjs und pruefen.sh (reines Node, keine Abhängigkeiten)
         with:
           node-version: 24
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: Mosaik3LAB-Installer-linux-${{ inputs.arch }}
           path: ${{ runner.temp }}/pakete
@@ -259,7 +259,7 @@ jobs:
         run: .github/installer-test/pruefen.sh deinstalliert
 
       # ---- Runde „altformat“: altes Paketformat (node_modules, tsx) → gebündelt ----
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: matrix.runde == 'altformat'
         with:
           name: altpaket-linux-${{ inputs.arch }}
@@ -397,7 +397,7 @@ jobs:
           sudo cp /opt/mosaik3lab/update-helfer.log /opt/mosaik3lab/update-status.json "$RUNNER_TEMP/logs/" 2>/dev/null || true
           sudo chown -R "$(id -u)" "$RUNNER_TEMP/logs"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure() || cancelled() # auch nach Abbruch (Zeitlimit des Jobs) – sonst fehlen genau dann die Protokolle
         continue-on-error: true # voller Artefakt-Speicher darf den Test nie abbrechen
         with:
@@ -411,9 +411,9 @@ jobs:
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -433,9 +433,9 @@ jobs:
     permissions:
       contents: write # getestetes Paket ins Release (.github/installer-test/release.sh; zählt nicht zum Artefakt-Speicher)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: Mosaik3LAB-Installer-linux-${{ inputs.arch }}
           path: ${{ runner.temp }}/pakete
