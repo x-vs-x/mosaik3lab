@@ -2,6 +2,21 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – CI-Altlasten (Unter-Session, Branch: fix/ci-altlasten)
+- **Anlass:** Installer-Test-Lauf 44275682317 (PR 26) scheiterte mit „Artifact not found“, weil der gleichzeitig endende
+  Lauf von PR 28 im Job `aufraeumen` die Artefakte **aller** anderen Läufe gelöscht hatte. Dazu Warnungen in den Logs
+  (Node.js 20 in Actions, `punycode`/`url.parse`/`Buffer()`-DeprecationWarnings, npm `allowScripts` für esbuild).
+- **Gebaut:** `aufraeumen` (`installer-test.yml`) löscht nur noch Artefakte von Läufen mit Status `completed`
+  (Abfrage `actions/runs/{id}`, einmal je Lauf) und nur, wenn sie älter als eine Stunde sind; abgelaufene Artefakte
+  werden übersprungen, ein schon gelöschtes Artefakt (parallel aufräumender Lauf) bricht den Job nicht mehr ab.
+  Actions auf aktuelle Hauptversionen mit Node-24-Laufzeit: `checkout@v7`, `setup-node@v7`, `cache@v6`,
+  `upload-artifact@v7`, `download-artifact@v8` (Release-Notes geprüft: Download per Name, Uploads gezippt → kein
+  Umbau nötig). `package.json`: `"allowScripts": { "esbuild": true }` (per `npm install-scripts approve esbuild
+  --no-allow-scripts-pin`, gilt auch für künftige esbuild-Versionen).
+- **Geprüft:** `npm ci` lokal ohne install-scripts-Warnung, `npm run paket` lokal, alle PR-Prüfungen inkl. Installer-Test.
+- **Offen (Empfehlung):** ESLint 9 → 10 (npm meldet 9.39.5 als nicht mehr unterstützt), Vite-Chunk-Größe, Lint-Warnungen.
+- **Aufgeräumt:** Scratchpad-Logs gelöscht; Worktree bleibt bis zum Merge.
+
 ## 2026-11-18 – Neutrale Vorgaben (Unter-Session, Branch: feature/neutrale-vorgaben)
 - **Anlass:** Das öffentliche Repo enthielt Bezüge zu einer konkreten Schule (Demo-Adressen, Standard-Domain, Texte).
   Mosaik³LAB soll im Standard für jede Schule passen; konkrete Angaben stellt jede Installation selbst ein.
