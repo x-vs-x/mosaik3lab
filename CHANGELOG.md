@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.7.0] – 2026-11-18
+
 - **Anzeige auf Handy, iPad und bei großer Schrift überarbeitet:** Alle Seiten, Dialoge und Meldungen – auch der
   Server-Manager und die Portal-Seiten – wurden in sieben Bildschirmgrößen, mit 200 % Schrift, mit Browser-Zoom und mit
   Bildschirmtastatur durchgesehen. Lange Wörter werden jetzt mit Trennstrich umbrochen statt mitten im Wort, E-Mail-Adressen
