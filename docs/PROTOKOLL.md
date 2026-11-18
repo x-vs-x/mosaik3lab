@@ -2,6 +2,28 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Katalog: 50 Druckteile, Nachladen beim Scrollen (Unter-Session, Branch: feature/katalog-nachladen)
+- **Anlass:** Wunsch des Nutzers: Die Katalogseite lädt inzwischen lange; auf 50 begrenzen, Suche über alle, beim
+  Runterscrollen kurz vor dem Ende die nächsten laden (keine Seitenzahlen).
+- **Gemessen** (Testserver, 130 Druckteile, 40 davon mit 2,4-MB-Bild, headless Chrome 1440 × 900 und 375 × 812):
+  Listen-Antwort `GET /api/items` 179 KB, 10–25 ms (ohne gzip) – nicht die Ursache. Alle 130 Karten wurden gezeichnet
+  (4.647 DOM-Knoten, Seite 22.000 bzw. 45.000 px hoch). Bilder haben schon `loading="lazy"`, kommen aber als
+  **Original** (bis 2000 px, Altbestände 2–5 MB) für eine Vorschau von 340 × 255 px: schon der erste Bildschirm lädt
+  3–4 Bilder ≈ 7–10 MB, Durchscrollen auf dem Handy 24 Bilder ≈ 58 MB.
+- **Gebaut (nur Client, Liste bleibt vollständig):** Anzeige `items.slice(0, anzahl)` in `CatalogPage.tsx`, neue
+  Suche/neuer Filter → wieder 50. `Nachladen.tsx`: Wächter mit IntersectionObserver (`rootMargin` 600 px unten, nach
+  jedem Nachladen neu beobachtet), darunter „50 von 130 Druckteilen“ (aria-live), Knopf „Weitere Druckteile laden
+  (noch N)“ und Ladeanzeige (`useTransition`). `katalogScroll.ts`: `KATALOG_SEITE`, `merkeAnzahl`/`ladeAnzahl`
+  (sessionStorage je Adresse), `naechsteAnzahl`. `useScrollPositionMerken` stellt erst die Anzahl, dann die Höhe wieder
+  her. Test: `client/test/katalogBedienung.test.ts`. Server unverändert (seitenweise Abfrage nicht nötig).
+- **Geprüft:** 50 → 100 → 130 beim Scrollen (1440 und 375 px), Knopf ohne IntersectionObserver, Suche „Testteil 120“
+  findet ein nicht angezeigtes Teil, Leeren der Suche → wieder 50. Zurück nach Druckteil Nr. 116 (Zurück-Taste und
+  „Zurück zum Katalog“): gleiche Höhe, 130 Karten. Fuß bei 320/375/768/1024/1440 px ohne seitliches Scrollen,
+  „(noch N)“ bricht auf 320 px als Ganzes um. Beim Öffnen nur noch 1.932 statt 4.647 DOM-Knoten.
+- **Später sinnvoll:** kleine Vorschaubilder (z. B. 600 px) für die Karten – laut Messung der größte Hebel; bis dahin
+  hilft „Bilder verkleinern …“ (Verwaltung → Druckteile).
+- **Aufgeräumt:** Testserver und headless Chrome gestoppt, `_testdaten/katalog-nachladen` gelöscht, Hilfsskripte gelöscht.
+
 ## 2026-11-18 – Bilder verkleinern (Unter-Session, Branch: feature/bilder-verkleinern)
 - **Anlass:** Export 130 MB, weil 48 Druckteil-Bilder (2–5 MB je Bild) unverändert gespeichert werden.
 - **Gebaut:** `client/src/lib/bildVerkleinern.ts` (Canvas, kein npm-Modul): längste Kante ≤ 2000 px, JPEG 0,85,
