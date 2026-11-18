@@ -6,6 +6,9 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Sicherung bricht nicht mehr ab, wenn währenddessen eine Datei verschwindet:** Wird beim Sichern z. B. gerade ein
+  Bild in der App gelöscht, überspringt die Sicherung diese Datei (Hinweis im Protokoll) und wird trotzdem fertig.
+
 - **Stabiler nach Updates und auf kleinen Raspberry Pis:** Fehlen nach einem Update oder Wiederherstellen viele
   Vorschaubilder, zeigt der Katalog sofort die Originalbilder statt lange zu laden; die Vorschaubilder entstehen nach
   etwa einer Minute im Hintergrund. Auf Geräten mit wenig Arbeitsspeicher werden sehr große Bilder nicht mehr

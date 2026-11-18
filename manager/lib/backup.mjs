@@ -37,6 +37,39 @@ export const ABLAGE_AUSGENOMMEN = new Set(['vorschau', '.sicherung.lock', '.impo
 const ablageAusgenommen = (ablageDir, file) => ABLAGE_AUSGENOMMEN.has(path.relative(ablageDir, file).split(path.sep)[0]);
 
 /**
+ * Ordner rekursiv kopieren wie fs.cp, aber robust gegen Dateien, die während des Kopierens verschwinden (z. B. ein Bild
+ * wird in der App gelöscht): die werden mit Log-Zeile übersprungen. Jeder andere Fehler – auch ENOENT, wenn die Quelle
+ * noch da ist – bricht weiter ab. filter(quelle) wie bei fs.cp.
+ */
+export async function kopiereOrdner(src, dest, filter = () => true) {
+  const weg = (err, p) => err?.code === 'ENOENT' && !existsSync(p);
+  const ueberspringen = (p) => log().warn(`Sicherung: übersprungen, inzwischen gelöscht: ${p}`);
+  let eintraege;
+  try {
+    eintraege = await fs.readdir(src, { withFileTypes: true });
+  } catch (err) {
+    if (weg(err, src)) return ueberspringen(src);
+    throw err;
+  }
+  await fs.mkdir(dest, { recursive: true });
+  for (const e of eintraege) {
+    const s = path.join(src, e.name);
+    const d = path.join(dest, e.name);
+    if (!filter(s)) continue;
+    if (e.isDirectory()) {
+      await kopiereOrdner(s, d, filter);
+      continue;
+    }
+    try {
+      await fs.cp(s, d); // Datei oder Verweis, wie bisher fs.cp
+    } catch (err) {
+      if (weg(err, s)) ueberspringen(s);
+      else throw err;
+    }
+  }
+}
+
+/**
  * Während der Sicherung <ablage>/.sicherung.lock anlegen ("<PID> <Systemstart>", wie die Sperrdatei der App): solange
  * pausiert die Bildpflege der App (server/src/kern/bilder/sperre.ts). Scheitert das, läuft die Sicherung trotzdem.
  * → Funktion zum Entfernen.
@@ -297,7 +330,7 @@ export async function createBackup(reason = 'manuell', { kind = 'komplett', prot
   try {
     for (const src of sources(kind)) {
       const ablage = src.name === 'ablage';
-      if (existsSync(src.dir)) await fs.cp(src.dir, path.join(temp, src.name), { recursive: true, filter: (s) => !SKIP.test(s) && !(ablage && ablageAusgenommen(src.dir, s)) });
+      if (existsSync(src.dir)) await kopiereOrdner(src.dir, path.join(temp, src.name), (s) => !SKIP.test(s) && !(ablage && ablageAusgenommen(src.dir, s)));
     }
     const dbCopy = path.join(temp, 'db', DB_FILE);
     await backupDatabase(path.join(dataDir, DB_FILE), dbCopy);
