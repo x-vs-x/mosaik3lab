@@ -74,6 +74,18 @@ z. B. C:\Mosaik3LAB\ablage\artikel\0193…\bild\0193…a1.jpg
   im Server-Manager-`doctor`).
 - Auslieferung nur über die API mit Rechteprüfung, nie direkter Ordnerzugriff.
 
+**Vorschaubilder der Druckteil-Bilder** (seit 2026-11-18, `server/src/kern/bilder/`) – abgeleitet, ohne Datensatz:
+```
+<ablage>/vorschau/karte-720/<datei-id>.jpg   Katalogkarte, 720 px breit
+<ablage>/vorschau/mini-240/<datei-id>.jpg    kleine Vorschau (Ähnliche Druckteile, Listen), 240 px breit
+```
+- Höchstens drei Größen je Bild: Original (längste Kante ≤ 2000 px; größere verkleinert der Server, nur bei ≥ 20 %
+  Ersparnis), `karte`, `mini`. Vorschaubilder sind immer JPEG (Transparenz auf Weiß), Höhe höchstens 2 × Breite.
+- Die Breite steht im Ordnernamen: Ändert sich eine Größe, entsteht ein neuer Ordner, die Bildpflege füllt ihn und
+  löscht den alten. Löschen/Ersetzen eines Bildes löscht seine Vorschaubilder mit (`FileStore.entferneVorschau`).
+- Jederzeit neu berechenbar: nicht im Export, nicht im Backup des Server-Managers, keine Waisen im `doctor`.
+- `<ablage>/.sicherung.lock` legt der Server-Manager während einer Sicherung an (Bildpflege pausiert).
+
 ## Umsetzung (Schema 1, `migrations/001_grundschema.sql`) – begründete Abweichungen und Ergänzungen
 - **Bestehende IDs bleiben.** Datensätze aus der JSON-Zeit behalten ihre ID (UUID v4, feste Schlüssel wie
   Status `offen`, Filament-IDs aus der Bambu-Palette), damit Links, Sitzungen und Verweise gültig bleiben. Neue

@@ -2,6 +2,37 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Bilder und Vorschaubilder macht der Server (Unter-Session, Branch: feature/bildpflege)
+- **Anlass:** Auftrag `C:\Entwicklung\_konzepte\vorschaubilder\AUFTRAG.md` (Entscheidungen des Nutzers): höchstens drei
+  Größen je Bild, Server rechnet in reinem JS in einem Worker-Thread, Bildpflege nach dem Start statt Knopf.
+- **Gebaut:** `server/src/kern/bilder/` (groessen, format, verarbeitung, worker, rechner, dienst, bildpflege, sperre;
+  Abhängigkeiten `jpeg-js`, `pngjs`, dev `@types/pngjs`). `storage.bilder`/`storage.bildpflege` (`storage/index.ts`,
+  `repositories.ts`), Start in `app.ts` (`config.bildpflegeNachMs`, `BILDPFLEGE_NACH_MIN`, in Tests aus).
+  `kern/files.ts`: `entferneVorschau` bei `unlink`/`replace`, `findByName(…, { endungEgal })`. `katalog.service.ts`:
+  Upload trägt erst ein, verarbeitet dann (höchstens 120 s, Rest in der Bildpflege); `katalog.routes.ts`: `?groesse=`;
+  Endpunkt `PUT /api/items/:id/images/:file` und `bildErsetzen.ts` entfernt (nur vom Dialog benutzt). Import:
+  Bildpflege pausiert (`importLaeuft`), eingespielte Bilder bekommen neue Vorschaubilder. Bündel: `bild-worker.mjs`
+  (`server/scripts/bundle.ts`, Prüfung in `scripts/paket.mjs`). Server-Manager: `backup.mjs` lässt `ablage/vorschau/`
+  aus und legt während der Sicherung `<ablage>/.sicherung.lock` an; `status.mjs` (doctor) zählt `vorschau/` nicht als
+  Waisen. Client: `lib/bildQuellen.ts` (srcset/sizes), `ItemImage` mit `groesse`/`sizes` und Lade-Platzhalter, alle
+  Stellen angepasst; `apiUpload` (XHR mit Fortschritt) und Anzeige „Vorschau wird erzeugt … bitte warten“
+  (`FilePicker.tsx`, role="status"); `BilderVerkleinern.tsx` und der Knopf entfernt.
+  Tests: `server/test/bilder.test.ts` (ersetzt `bildErsetzen.test.ts`), `client/test/bildQuellen.test.ts`,
+  `manager/test/manager.test.mjs` (Backup ohne Vorschaubilder, doctor).
+- **Gemessen** (22 echte Bilder aus der Ablage, 44,8 MB, direkt per API hochgeladen wie vor der Browser-Verkleinerung;
+  11 Druckteile; headless Chrome, ohne Cache): Katalog Handy 375 px (DPR 3) beim Öffnen 6 Bilder **11,9 MB → 0,40 MB**,
+  bis unten gescrollt 11 Bilder **22,6 MB → 0,77 MB**; PC 1440 px 22,6 MB → 0,77 MB. Bildpflege beim ersten Start:
+  22 geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder, 26 s (gebündelte App). Rechenzeit je Bild im
+  Rechen-Thread (PC): 0,1 s (720 px) · 0,25–0,35 s (1080–1920 px PNG) · 0,8–1,2 s (12 MP JPEG) · 2,0 s (24 MP JPEG);
+  auf dem Pi grob 5–8× länger (nicht gemessen), Zeitgrenze 60 s.
+- **Backup:** `vorschau/` ausgenommen (Filter beim Kopieren der Ablage, kein Risiko für Originale; Wiederherstellen
+  ersetzt die Ablage ohnehin ganz, die Bildpflege erzeugt die Vorschaubilder danach neu).
+- **Geprüft:** typecheck, lint, `npm test`; Klicktest headless Chrome 320/375/1440 px: Upload zeigt „Wird hochgeladen … %“
+  → „Vorschau wird erzeugt … bitte warten“, Bild erscheint danach; Katalog lädt `?groesse=karte`, Ähnliche
+  `?groesse=mini`, Galerie am PC karte/Original; kein waagrechtes Scrollen, keine JS-Fehler. Gebündelte App
+  (`node server/dist/server.mjs`) mit Bildpflege geprüft. Bilder: `C:\Entwicklung\_testdaten\bildpflege-bilder\`.
+- **Aufgeräumt:** Testserver gestoppt, `_testdaten\bildpflege*` (außer `bildpflege-bilder`) gelöscht, Skripte im Scratchpad gelöscht.
+
 ## 2026-11-18 – Ähnliche Druckteile (Unter-Session, Branch: feature/aehnliche-druckteile)
 - **Anlass:** Entscheidung des Nutzers (ersetzt Adapter/Aufsätze): ähnliche Druckteile gegenseitig verknüpfen, Anzeige
   ganz unten auf der Druckteil-Seite als kleine Karten, nicht exportierbar.

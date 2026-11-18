@@ -99,8 +99,8 @@ export function FilePicker({
         {uploading ? 'Wird hochgeladen …' : label}
       </button>
       {/* immer vorhanden, damit Bildschirmleser die Änderungen ansagen */}
-      <p role="status" aria-live="polite" className={cx('flex items-center justify-center gap-2 font-bold text-stone-800', status && 'mt-3')}>
-        {status && <LoaderCircle className="size-5 animate-spin text-brand-700 motion-reduce:animate-none" aria-hidden />}
+      <p role="status" aria-live="polite" className={cx('text-center font-bold text-balance text-stone-800', status && 'mt-3')}>
+        {status && <LoaderCircle className="mr-2 inline size-5 animate-spin align-[-4px] text-brand-700 motion-reduce:animate-none" aria-hidden />}
         {status}
       </p>
       <p className="mt-2 text-hinweis text-stone-600">{hint}</p>

@@ -124,6 +124,25 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
   `modelFiles`, `videos[].file` werden aus `datei` abgeleitet (öffentlicher Name `<datei-id>.<endung>`); was beim
   Speichern eines Artikels nicht mehr darin steht, wird samt Datei gelöscht (erst DB, dann Datei).
   Auslieferung nur über `/api/files/…` mit Rechteprüfung anhand des Datensatzes.
+- **Bilder und Bildpflege** (`kern/bilder/`, `storage.bilder` + `storage.bildpflege`): Die einzige Stelle, die Bilder
+  umrechnet. Reines JavaScript (`jpeg-js`, `pngjs` – kein natives Modul, gleich auf Windows, Linux x64 und Pi) in
+  **einem Rechen-Thread** (`worker.ts`, gebündelt `server/dist/bild-worker.mjs`; `rechner.ts`: Aufträge nacheinander,
+  „sofort“ vor „hintergrund“, Zeitgrenze 60 s je Bild, Thread nach Absturz/Zeitüberschreitung neu, JS-Speicher des
+  Threads begrenzt, nach 30 s Ruhe beendet). Grenzen gegen Speicherüberlauf: höchstens 40 Megapixel (am Dateikopf
+  geprüft, `format.ts`), `maxMemoryUsageInMB` beim Dekodieren; CMYK/12 Bit/arithmetisch/WebP → Original bleibt.
+  Verkleinern mit Flächenmittel zeilenweise, EXIF-Drehung nach dem Verkleinern. Schnittstelle zum Austauschen der
+  Bibliothek: `verarbeitung.ts` (`verkleinere(buffer, maxKante)`, `verarbeite(auftrag)`).
+  - **Hochladen:** `addImages` trägt die Bilder erst ins Druckteil ein, dann verarbeitet `storage.bilder.verarbeite`
+    jedes sofort (Original ggf. verkleinern über `FileStore.replace`: Zwischendatei → umbenennen → Datensatz;
+    Vorschaubilder über Zwischendatei). Scheitert es, bleibt das Original, die Bildpflege holt es nach.
+  - **Bildpflege** (`bildpflege.ts`): einmal einige Minuten nach dem Start der App (`BILDPFLEGE_NACH_MIN`, Standard 5;
+    nie im Installer/Update), zusätzlich für eingespielte Bilder nach einem Import. Räumt veraltete Größen-Ordner und
+    verwaiste Vorschaubilder auf, geht dann alle Druckteil-Bilder einzeln durch (200 ms Pause), überspringt Erledigtes
+    (Vorschaubilder da, Original ≤ 2000 px – nur Dateikopf gelesen), pausiert bei Import (`importLaeuft()`) und
+    Sicherung (`<ablage>/.sicherung.lock` des Server-Managers), bricht beim Beenden ab und macht beim nächsten Start
+    weiter. Log: „Bildpflege: 22 Bilder geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder erzeugt (…)“.
+  - **Client:** `ItemImage` mit `groesse` (`karte` Katalogkarte, `mini` kleine Vorschauen, `original` Galerie) und
+    `sizes`; `client/src/lib/bildQuellen.ts` baut `srcset` (karte/mini bieten nie das große Original an).
 - **Übernahme JSON → SQLite** (`storage/sqlite/importJson.ts`): einmalig beim Start, Ergebnis in
   `einstellung` „json_uebernahme“ (Anzahlen, Dateien, Hinweise). JSON-Dateien und alte Upload-Ordner bleiben liegen.
   Früher in der App eingestellte Ordner (`mosaik3lab.config.json` in der Projektwurzel) gelten dabei als Quelle;
@@ -149,7 +168,8 @@ server/src/
                       nutzt die Repositories von Katalog und Einstellungen (kein eigenes)
   kern/          Technik ohne Fachbegriffe: db.ts (SQLite, Migrationen, SQL-Kurzformen, Nummernkreise), files.ts (Ablage),
                  lock.ts, betrieb.ts (betrieb_einstellung), auth/ (Middleware, Passwort, Sitzungen + Session-Store),
-                 mail/ (SMTP-Versand, Mail-Einstellungen, Vorlagen-Hilfen), uploads.ts, rateLimit.ts, errors.ts, http.ts
+                 mail/ (SMTP-Versand, Mail-Einstellungen, Vorlagen-Hilfen), uploads.ts, rateLimit.ts, errors.ts, http.ts,
+                 bilder/ (Bildverarbeitung, siehe „Bilder und Bildpflege“)
   storage/       index.ts (Speicher zusammenbauen, Sperrdatei), repositories.ts (Typ `Storage`),
                  sqlite/migrations/ (global nummeriert, fester Ort – der Server-Manager liest sie dort),
                  sqlite/importJson.ts + json/ (einmalige Übernahme der alten JSON-Daten)
@@ -217,7 +237,7 @@ Typen und Eingabe-Schemas: `shared/src/*.ts` (maßgeblich, siehe „Gemeinsames 
 | GET | `/api/config` | `PublicConfig` = `{ masterData, features, orderForm, demoAccountsEnabled }` |
 | GET | `/api/items?q=&category=&area=&kind=` | `Item[]` (nur veröffentlichte; `modelFiles` leer) |
 | GET | `/api/items/:id` | `Item` |
-| GET | `/api/files/images/:file` | Bild (nur von veröffentlichten Druckteilen) |
+| GET | `/api/files/images/:file?groesse=karte\|mini` | Bild (nur von veröffentlichten Druckteilen, Entwürfe fürs Druck-Team). Mit `groesse`: Vorschaubild (JPEG, 720 bzw. 240 px), gleiche Rechte; fehlt es, rechnet der Server es sofort (höchstens 15 s warten), sonst/bei Fehler kommt das Original mit `Cache-Control: no-store`. Unbekannte Größe → 400. Alter Name mit anderer Endung (nach Verkleinern PNG → JPG) wird über die ID gefunden. |
 | GET | `/api/files/videos/:file` | Video MP4/WebM (Sichtbarkeit wie Bilder, Range-Anfragen möglich) |
 | POST | `/api/orders` | Body `OrderInput` `{ itemId, quantity, colors: { [Farbbereich-ID]: Filament-ID }, size, requesterEmail, classOrTeam, customization, personalization: { [Feld-ID]: Text } }` → 201 `OrderReceipt` `{ id, number, itemName }`. Ältere Clients dürfen statt `colors` noch `color` (Filament-ID) senden – gilt bei genau einem Farbbereich. Fehlerfelder `color.<Bereich-ID>` bzw. `custom.<Feld-ID>`. Ohne Anmeldung muss die E-Mail zu `orderForm.allowedEmailDomains` passen (leer = alle). Angemeldet (Lehrkraft oder Konto) gilt immer die eigene Adresse der Sitzung – eine andere `requesterEmail` im Body wird still ersetzt (keine Domänenprüfung), die Anfrage erscheint so sicher unter „Meine Anfragen“. Löst Mail-Benachrichtigung aus. Optional `repeatOf` (ID einer eigenen früheren Anfrage, „Erneut anfragen“) wird als `wiederholt_von` gespeichert, bei fremden/unbekannten IDs still ignoriert. Mehrere Farben: optional `variants: [{ quantity, colors }]` (1–10) – dann `quantity` = Summe (≤ 20, sonst 400 mit Feld `quantity`), erste Variante = bisherige Farbe, Aufteilung in `colorVariants`; Fehlerfelder ab der 2. Variante `variants.<n>.color…`. |
 | POST | `/api/orders/track` | nur wenn `features.requesterTracking`, sonst 404 |

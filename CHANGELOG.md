@@ -6,6 +6,15 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Bilder macht der Server selbst – Katalog auf dem Handy viel schneller:** Zu jedem Druckteil-Bild legt der Server
+  zwei kleine Vorschaubilder an (für die Katalogkarte und für kleine Vorschauen wie „Ähnliche Druckteile“); der Browser
+  wählt je nach Bildschirm selbst die passende Größe. Im Test lud der Katalog auf dem Handy statt 11,9 MB nur noch
+  0,4 MB Bilder. Neue Bilder werden beim Hochladen gleich fertig verarbeitet („Vorschau wird erzeugt … bitte warten“).
+  Vorhandene Bilder erledigt die „Bildpflege“ einmal einige Minuten nach dem Start (auch nach diesem Update): zu große
+  Originale (über 2000 Pixel) werden verkleinert, fehlende Vorschaubilder erzeugt – die App bleibt dabei bedienbar.
+  Der Knopf „Bilder verkleinern …“ unter Verwaltung → Druckteile entfällt, er ist nicht mehr nötig.
+  Vorschaubilder kommen nicht in Exporte und nicht ins Backup (sie werden bei Bedarf neu berechnet).
+
 - **Ähnliche Druckteile:** Beim Bearbeiten eines Druckteils lassen sich im neuen Abschnitt „Ähnliche Druckteile“ andere
   Druckteile über die Suche (Name oder Nummer) verknüpfen und wieder entfernen. Die Verknüpfung gilt für beide Teile.
   Ganz unten auf der Seite des Druckteils erscheinen sie als kleine Karten; ein Tipp öffnet das ähnliche Druckteil.
@@ -18,8 +27,7 @@ daraus die nächste Version.
 
 - **Kleinere Bilder:** Bilder von Druckteilen und Fotos in Vorschlägen werden beim Hochladen im Browser auf höchstens
   2000 Pixel verkleinert (JPEG, Bilder mit Transparenz bleiben PNG). Große Handyfotos über 5 MB lassen sich so auch
-  hochladen. Neu unter Verwaltung → Druckteile: „Bilder verkleinern …“ verkleinert einmalig alle vorhandenen Bilder –
-  das macht Exporte deutlich kleiner und den Katalog auf dem Handy schneller.
+  hochladen. Vorhandene große Bilder verkleinert inzwischen der Server selbst (siehe oben, „Bilder macht der Server selbst“).
 
 - **Links am Druckteil:** Beim Anlegen und Bearbeiten eines Druckteils gibt es den neuen Abschnitt „Links und
   Bestellhinweise“. Jeder Link bekommt einen Knopftext und eine kurze Beschreibung und erscheint auf der Seite des

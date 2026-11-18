@@ -23,13 +23,13 @@ export interface BildpflegeBericht {
 const leer = (): BildpflegeBericht => ({ geprueft: 0, verkleinert: 0, vorher: 0, nachher: 0, vorschau: 0, fehler: 0, aufgeraeumt: 0 });
 const mb = (b: number) => `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
 
-export function berichtText(b: BildpflegeBericht) {
+export function berichtText(b: BildpflegeBericht, dauerMs?: number) {
   const teile = [`${b.geprueft} ${b.geprueft === 1 ? 'Bild' : 'Bilder'} geprüft`];
   teile.push(`${b.verkleinert} verkleinert${b.verkleinert ? ` (${mb(b.vorher)} → ${mb(b.nachher)})` : ''}`);
   teile.push(`${b.vorschau} Vorschaubilder erzeugt`);
   if (b.fehler) teile.push(`${b.fehler} übersprungen (siehe oben)`);
   if (b.aufgeraeumt) teile.push(`${b.aufgeraeumt} veraltete Vorschaubilder entfernt`);
-  return `Bildpflege: ${teile.join(', ')}`;
+  return `Bildpflege: ${teile.join(', ')}${dauerMs === undefined ? '' : ` (${Math.round(dauerMs / 1000)} s)`}`;
 }
 
 export class Bildpflege {
@@ -89,6 +89,7 @@ export class Bildpflege {
 
   private async arbeite() {
     const signal = this.abbruch.signal;
+    const t0 = Date.now();
     while (this.schlange.length && !signal.aborted) {
       await this.warteBisFrei();
       if (signal.aborted) break;
@@ -115,8 +116,8 @@ export class Bildpflege {
     const b = this.bericht;
     this.bericht = leer();
     this.letzterBericht = b;
-    if (signal.aborted) this.log(`${berichtText(b)} – unterbrochen (Server wird beendet), geht beim nächsten Start weiter.`);
-    else if (b.geprueft || b.aufgeraeumt) this.log(berichtText(b));
+    if (signal.aborted) this.log(`${berichtText(b, Date.now() - t0)} – unterbrochen (Server wird beendet), geht beim nächsten Start weiter.`);
+    else if (b.geprueft || b.aufgeraeumt) this.log(berichtText(b, Date.now() - t0));
   }
 
   /** Während Import/Sicherung warten (abfragen alle 30 s), beim Beenden sofort zurück. */
