@@ -143,7 +143,7 @@ export function TeileListe({
                   <button
                     type="button"
                     onClick={() => setEigene(i)}
-                    className="inline-flex min-h-11 items-center gap-[6px] rounded-lg bg-amber-50 px-[8px] py-[4px] text-hinweis font-bold text-amber-900 ring-1 ring-inset ring-amber-300"
+                    className="inline-flex min-h-[48px] items-center gap-[6px] rounded-lg bg-amber-50 px-[8px] py-[4px] text-hinweis font-bold text-amber-900 ring-1 ring-inset ring-amber-300"
                   >
                     <Palette className="size-4 shrink-0" aria-hidden />
                     {eigen}

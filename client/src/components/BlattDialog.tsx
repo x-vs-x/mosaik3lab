@@ -39,8 +39,13 @@ export function BlattDialog({
     if (!el) return;
     if (open && !el.open) {
       el.showModal();
-      const ziel = fokus.current?.();
-      if (ziel) ziel.focus();
+      // Ohne Vorgabe das erste Bedienelement – nicht den scrollbaren Inhalt (Chrome macht ihn fokussierbar, dann stand
+      // dort ein dicker Fokusrahmen statt auf einem Knopf).
+      const ziel =
+        fokus.current?.() ??
+        el.querySelector<HTMLElement>('input[type=radio]:checked') ??
+        el.querySelector<HTMLElement>('input:not([type=hidden]), button, textarea, select, a[href]');
+      ziel?.focus();
     }
     if (!open && el.open) el.close();
   }, [open]);

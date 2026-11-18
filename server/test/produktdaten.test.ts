@@ -106,8 +106,9 @@ test('Anfrage: Farbe je Bereich und Personalisierung werden geprüft', async () 
   // Bestell-Mail: Farbe je Bereich und Personalisierung stehen drin; das Team sieht zusätzlich die Rolle.
   const { filaments } = (await pdTeam.req('GET', '/api/config')).json.masterData;
   const mailText = buildOrderMail(order, null, { appBaseUrl: '' }, filaments).text;
-  assert.match(mailText, /Farbe Lineal.*\(Bambu Lab PLA Basic, Nr\. \d{5}\)/, 'Team-Mail nennt Rolle und Bambu-Nummer');
-  for (const t of ['Farbe Lineal', 'Farbe Griff', 'Beschriftung', '2a', 'Buchstabe', 'Höhe in mm']) assert.ok(mailText.includes(t), `Mail enthält ${t}`);
+  // Mehrteilig: nach Farbe gebündelt – je Farbe eine Zeile mit Rolle und den Teilen darin.
+  assert.match(mailText, /Farbe \(1 Teil\): .*\(Bambu Lab PLA Basic, Nr\. \d{5}\) – Lineal/, 'Team-Mail nennt Rolle, Bambu-Nummer und Teil');
+  for (const t of ['Teile:', '2 Teile · 2 Farben', '– Griff', 'Beschriftung', '2a', 'Buchstabe', 'Höhe in mm']) assert.ok(mailText.includes(t), `Mail enthält ${t}`);
 });
 test('Anfrage: leere Farbrolle wird je Farbbereich abgelehnt', async () => {
   const [lineal, griff] = multi.colorAreas;

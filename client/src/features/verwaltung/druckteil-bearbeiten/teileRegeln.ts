@@ -62,7 +62,8 @@ export function auswahlBeschreibung(a: Auswahl, filaments: Filament[]): { titel:
   const b = bereinigt(a, filaments);
   const namen = b.gruppen.map((g) => (g.startsWith('art:') ? `alle ${g.slice(4)}` : g.slice(6)));
   if (!namen.length) return { titel: 'Bestimmte Farben', text: farben };
-  const titel = b.gruppen.length === 1 && b.gruppen[0].startsWith('linie:') ? `Ganze Linie: ${namen[0]}` : namen.join(', ');
+  const liste = namen.join(', ');
+  const titel = b.gruppen.length === 1 && b.gruppen[0].startsWith('linie:') ? `Ganze Linie: ${namen[0]}` : liste.charAt(0).toUpperCase() + liste.slice(1);
   return { titel: b.colors.length ? `${titel} + ${b.colors.length} einzeln` : titel, text: `${farben}, neue kommen automatisch dazu` };
 }
 

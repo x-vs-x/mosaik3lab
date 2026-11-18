@@ -2,6 +2,30 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Farbauswahl für mehrfarbige Druckteile (Unter-Session, Branch: feature/farbauswahl)
+- **Auftrag:** Konzept `_konzepte\mehrfarben\KONZEPT.md` (Variante A inkl. Überarbeitung), alle drei Schritte in einem Update.
+- **Grenze 8 → 20 Teile:** `shared/src/werte/katalog.ts` (`MAX_COLOR_AREAS`), `shared/src/katalog.ts` (`farbeZuordnenSchema`),
+  `server/src/app.ts` (JSON-Grenze `/api/items` 256 kB, sonst 100 kB). Keine Migration, Export-Format unverändert.
+- **Gemeinsame Regeln:** neu `shared/src/werte/farbgruppen.ts` (`nachFarbe`, `farbZusammenfassung`, `abweichendeTeile`) –
+  Mail (`anfragen.mail.ts`: Zeile je Farbe mit Teilen, Kurzfassung „20 Teile · 3 Farben“) und Oberfläche nutzen dieselben.
+- **Anfrage (wiederverwendbar für die Druckteil-Seite A2):** neu `client/src/features/anfragen/TeileFarbListe.tsx`
+  (Liste + Zusammenfassung + „Eine Farbe für alle“ + Fenster), `FarbwahlFenster.tsx` (Suche, Familien, Sprung, Pfeile),
+  `teileFarbwahl.ts` (reine Regeln), `FarbZusammenfassung.tsx` (Anzeige), `client/src/lib/farbfamilie.ts`,
+  `client/src/components/BlattDialog.tsx` (Bottom-Sheet/Fenster), `TupferReihe.tsx`, `TeilSchilder.tsx`;
+  geändert `AnfrageFelder.tsx` (mehrteilig → Teile-Liste, zugeklappte Stückzahlen), `RequestDialog.tsx` („Weitere Stückzahl“
+  übernimmt Farben), `OrderCard.tsx`, `verwaltung/OrderRow.tsx`, `lib/fokus.ts` (`data-fehler`).
+- **Anlegen:** `druckteil-bearbeiten/ColorsSection.tsx` neu aufgeteilt in `GemeinsameFarben.tsx` (Schritt 1 + Farbauswahl im
+  Fenster), `TeileListe.tsx` (Namensfeld wächst mit – `lib/autoHoehe.ts`, Schild, Pfeile, Menü „⋯“), `MehrereTeileDialog.tsx`,
+  `teileRegeln.ts` (gemeinsame Auswahl ableiten/zurückschreiben, „mehrere auf einmal“); `itemForm.ts` (doppelte Teilnamen).
+  Nebenbei (Hinweis Hauptchat): `Section.tsx` (Abschnittskopf bei großer Schrift ohne Symbol), `ItemEditPage.tsx` (Platz unter
+  dem schwebenden Speichern-Knopf).
+- **Tests:** `server/test/grenzen.test.ts` (20/21), `anfragen.test.ts` (20 Teile, 2 Stückzahlen, > 100 kB, Fehler am Teil),
+  `anfragen-mail.test.ts` (nach Farbe), `datenaustausch.test.ts` (Export → Import mit 20 Teilen), neu
+  `client/test/farbauswahl.test.ts`. Klicktest headless Chrome (320/375/820×1180/1180×820/1440, 375 mit 200 %), Kopie echter
+  Daten 1.6.3. Bilder: `C:\Entwicklung\_testdaten\farbauswahl-bilder\`.
+- **Aufgeräumt:** Testserver und Chrome gestoppt, Testdaten `_testdaten\farbauswahl` (inkl. Kopie der echten Daten) gelöscht,
+  Skripte im Scratchpad entfernt.
+
 ## 2026-11-18 – Gesamtdurchsicht vor 1.8.1 (Unter-Session, Branch: fix/durchsicht-1.8.1)
 - **Auftrag:** Fenster in allen Größen, Klicktests, abgeschnittene Texte, Update-Sicherheit (neu: mehrere Kategorien,
   iPad-Druckteil-Seite).

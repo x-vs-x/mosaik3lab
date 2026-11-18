@@ -39,10 +39,10 @@ export function MehrereTeileDialog({
       }
       fuss={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} className="min-h-[48px]">
             Abbrechen
           </Button>
-          <Button onClick={() => onUebernehmen(ergebnis.areas)} disabled={!!ergebnis.fehler}>
+          <Button onClick={() => onUebernehmen(ergebnis.areas)} disabled={!!ergebnis.fehler} className="min-h-[48px]">
             {ergebnis.namen.length} Teile übernehmen
           </Button>
         </div>

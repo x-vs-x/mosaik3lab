@@ -113,7 +113,8 @@ export function TeileFarbListe({
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-stone-200 px-[12px] py-[10px] sm:px-[16px]">
         <span className="font-bold text-stone-900">
-          {teileText(ids.length)} · {farbenText(new Set(gewaehlteIds.filter((c) => c !== EGAL_FARBE)).size)}
+          {teileText(ids.length)}
+          {schon.length > 0 && ` · ${farbenText(new Set(gewaehlteIds.filter((c) => c !== EGAL_FARBE)).size)}`}
           {egal && ` · ${EGAL_FARBE_NAME}`}
         </span>
         <TupferReihe farben={schon.map((f) => f.hex)} />
@@ -122,7 +123,7 @@ export function TeileFarbListe({
             type="button"
             onClick={() => oeffne(ids.indexOf(ersteOffene))}
             className={cx(
-              'inline-flex min-h-11 items-center gap-1 rounded-xl text-left font-bold underline decoration-2 underline-offset-2 hover:bg-brand-50',
+              'inline-flex min-h-[48px] items-center gap-1 rounded-xl text-left font-bold underline decoration-2 underline-offset-2 hover:bg-brand-50',
               fehlerzahl ? 'text-rose-700' : 'text-brand-700',
             )}
           >

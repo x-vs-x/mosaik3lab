@@ -111,7 +111,7 @@ export function FarbZusammenfassung({
                 type="button"
                 aria-pressed={nachTeilen === wert}
                 onClick={() => setNachTeilen(wert)}
-                className={cx('min-h-11 rounded-lg px-3 text-hinweis font-bold', nachTeilen === wert ? 'bg-stone-900 text-white' : 'text-stone-700 hover:bg-stone-100')}
+                className={cx('min-h-[44px] rounded-lg px-3 text-hinweis font-bold', nachTeilen === wert ? 'bg-stone-900 text-white' : 'text-stone-700 hover:bg-stone-100')}
               >
                 {text}
               </button>

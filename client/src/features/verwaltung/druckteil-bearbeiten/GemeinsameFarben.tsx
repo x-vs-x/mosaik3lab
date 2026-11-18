@@ -52,7 +52,7 @@ export function FarbauswahlDialog({
       fuss={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           {zusatzKnopf && (
-            <Button variant="secondary" onClick={zusatzKnopf.onClick}>
+            <Button variant="secondary" onClick={zusatzKnopf.onClick} className="min-h-[48px]">
               {zusatzKnopf.text}
             </Button>
           )}
