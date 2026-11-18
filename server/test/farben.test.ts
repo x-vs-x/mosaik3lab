@@ -80,7 +80,7 @@ test('„Alle Farben“: neue Farbrolle kommt automatisch dazu, nicht vorrätige
   assert.equal(cfg.find((f: any) => f.id === 'bambu-pla-matte-sky-blue').available, false, 'nicht vorrätig');
   const anfrage = await anon.req('POST', '/api/orders', {
     itemId: item.id, quantity: 1, colors: { [item.colorAreas[0].id]: 'bambu-pla-matte-sky-blue' }, size: item.sizes[0],
-    classOrTeam: '1a', requesterName: 'Test', requesterEmail: 'test.lehrkraft@mosaikschule-lu.de',
+    classOrTeam: '1a', requesterName: 'Test', requesterEmail: 'test.lehrkraft@schule.example',
   });
   assert.equal(anfrage.status, 400);
   assert.match(JSON.stringify(anfrage.json), /[Ff]arbe/, 'abgelehnt wegen der leeren Farbe: ' + JSON.stringify(anfrage.json));
@@ -180,7 +180,7 @@ test('Ganze Linie / ganzes Material: später angelegte Rollen kommen dazu, Abwä
   // Gruppen-Farbe ist bestellbar.
   const anfrage = await anon.req('POST', '/api/orders', {
     itemId: item.id, quantity: 1, colors: { farbe: lila }, size: item.sizes[0] ?? '',
-    classOrTeam: '1a', requesterName: 'Test', requesterEmail: 'test.lehrkraft@mosaikschule-lu.de',
+    classOrTeam: '1a', requesterName: 'Test', requesterEmail: 'test.lehrkraft@schule.example',
   });
   assert.equal(anfrage.status, 201, JSON.stringify(anfrage.json));
 });
@@ -193,7 +193,7 @@ test('Größen sind freiwillig: Druckteil ohne Größen speichern und ohne Grö�
   const area = r.json.colorAreas[0];
   const { filaments } = await md();
   const farbe = area.colors.find((id: string) => filaments.find((f: any) => f.id === id)?.available);
-  const body = { itemId: item.id, quantity: 1, colors: { [area.id]: farbe }, classOrTeam: '1a', requesterName: 'Test', requesterEmail: 'test.lehrkraft@mosaikschule-lu.de' };
+  const body = { itemId: item.id, quantity: 1, colors: { [area.id]: farbe }, classOrTeam: '1a', requesterName: 'Test', requesterEmail: 'test.lehrkraft@schule.example' };
   const ok = await anon.req('POST', '/api/orders', body);
   assert.equal(ok.status, 201, JSON.stringify(ok.json));
   assert.equal(ok.json.size ?? '', '');

@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
-import { defaultSettings } from '../../domain/settings';
+import { defaultSettings, ORDERFORM_VORGABE_BIS_1_6 } from '../../domain/settings';
 import type { Storage } from '../../storage';
 
 // Regeln rund um die Einstellungen, die nicht nur Speichern sind.
@@ -20,7 +20,9 @@ export function merkeDomainGesetzt(storage: Storage) {
 export async function schulDomainUebernehmen(storage: Storage, domain: string): Promise<boolean> {
   if (storage.settings.getSetting(ORDERFORM_GESETZT) !== undefined) return false;
   const s = await storage.settings.get();
-  if (!isDeepStrictEqual(s.orderForm, defaultSettings().orderForm)) return false;
+  // „Unverändert“ = heutige Vorgabe oder die bis 1.6.3 gültige (ältere, noch nicht eingerichtete Installationen).
+  const vorgaben = [defaultSettings().orderForm, { ...ORDERFORM_VORGABE_BIS_1_6 }];
+  if (!vorgaben.some((v) => isDeepStrictEqual(s.orderForm, v))) return false;
   await storage.settings.update((cur) => ({ ...cur, orderForm: { allowedEmailDomains: [domain] } }));
   merkeDomainGesetzt(storage);
   return true;

@@ -242,7 +242,7 @@ test('Echte App unter /mosaik3lab hinter dem Portal: Seite, Anmeldung (Cookie-Pf
     const base = `https://127.0.0.1:${httpsPort}/mosaik3lab`;
     const json = { 'Content-Type': 'application/json', 'X-Requested-With': 'mosaik3lab' };
     // Anmeldung über das Portal: Cookie nur unter /mosaik3lab und „Secure“ (App merkt HTTPS am X-Forwarded-Proto des Portals)
-    const login = await req(`${base}/api/auth/login`, { method: 'POST', headers: json, body: JSON.stringify({ email: 'demo.druckteam@mosaikschule-lu.de', password: 'Mosaik-Druck-2026' }) });
+    const login = await req(`${base}/api/auth/login`, { method: 'POST', headers: json, body: JSON.stringify({ email: 'demo.druckteam@schule.example', password: 'Mosaik-Druck-2026' }) });
     assert.equal(login.status, 200, login.body.toString());
     const setCookie = login.headers['set-cookie'][0];
     assert.match(setCookie, /Path=\/mosaik3lab/);

@@ -31,10 +31,10 @@ async function legacyFixture(dir: string) {
   const modelId = crypto.randomUUID();
   const requesterId = crypto.randomUUID();
   await fs.writeFile(path.join(data, 'users.json'), JSON.stringify([
-    { id: 'u1', username: 'chef', email: 'chef@mosaikschule-lu.de', displayName: 'Chef', role: 'admin', passwordHash: 'x', active: true, isDemo: false, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null },
-    { id: 'u2', username: 'team', email: 'team@mosaikschule-lu.de', displayName: 'Team', role: 'druckteam', passwordHash: 'x', active: true, isDemo: false, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, permissionOverrides: { 'orders:manage': false } },
+    { id: 'u1', username: 'chef', email: 'chef@schule.example', displayName: 'Chef', role: 'admin', passwordHash: 'x', active: true, isDemo: false, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null },
+    { id: 'u2', username: 'team', email: 'team@schule.example', displayName: 'Team', role: 'druckteam', passwordHash: 'x', active: true, isDemo: false, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastLoginAt: null, permissionOverrides: { 'orders:manage': false } },
   ]));
-  await fs.writeFile(path.join(data, 'requesters.json'), JSON.stringify([{ id: requesterId, email: 'lehrer@mosaikschule-lu.de', createdAt: '2026-01-02T00:00:00.000Z', lastOrderAt: '2026-01-03T00:00:00.000Z' }]));
+  await fs.writeFile(path.join(data, 'requesters.json'), JSON.stringify([{ id: requesterId, email: 'lehrer@schule.example', createdAt: '2026-01-02T00:00:00.000Z', lastOrderAt: '2026-01-03T00:00:00.000Z' }]));
   await fs.writeFile(path.join(data, 'items.json'), JSON.stringify([{
     ...baseItem(itemId), name: 'Altes Teil', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
     images: [img, 'fehlt-1234.png'],
@@ -43,8 +43,8 @@ async function legacyFixture(dir: string) {
   }]));
   await fs.writeFile(path.join(data, 'orders.json'), JSON.stringify([{
     id: crypto.randomUUID(), number: 'M3L-2026-0001', itemId, itemName: 'Altes Teil', quantity: 2, color: 'Rot', colorId: '', colorHex: '', size: 'S', classOrTeam: '3a', customization: '',
-    status: 'offen', history: [{ status: 'offen', at: '2026-01-03T00:00:00.000Z', byUserId: '', byName: 'x', comment: '' }], requesterId, requesterEmail: 'lehrer@mosaikschule-lu.de',
-    requesterName: 'lehrer@mosaikschule-lu.de', trackingCode: 'ABC', isDemo: false, createdAt: '2026-01-03T00:00:00.000Z', updatedAt: '2026-01-03T00:00:00.000Z',
+    status: 'offen', history: [{ status: 'offen', at: '2026-01-03T00:00:00.000Z', byUserId: '', byName: 'x', comment: '' }], requesterId, requesterEmail: 'lehrer@schule.example',
+    requesterName: 'lehrer@schule.example', trackingCode: 'ABC', isDemo: false, createdAt: '2026-01-03T00:00:00.000Z', updatedAt: '2026-01-03T00:00:00.000Z',
   }]));
   await fs.writeFile(path.join(data, 'sessions.json'), JSON.stringify({ sid1: { data: { cookie: {}, userId: 'u1' }, expiresAt: Date.now() + 86_400_000 }, alt: { data: {}, expiresAt: 1 } }));
   return { img, model, vid, itemId, modelId, requesterId };

@@ -101,7 +101,7 @@ async function pruefeEingespielt(z: Awaited<ReturnType<typeof ziel>>) {
   assert.equal((await z.req('GET', `/api/files/images/${teil.images[0]}`)).status, 200, 'Bild wird ausgeliefert');
   // Anfrage auf das eingespielte Teil mit der eingespielten Farbe
   const anfrage = await z.req('POST', '/api/orders', {
-    itemId: teil.id, quantity: 1, colors: { [teil.colorAreas[0].id]: eigene.id }, size: 'L', classOrTeam: 'Klasse 3a', customization: '', requesterEmail: 'lehrkraft@mosaikschule-lu.de',
+    itemId: teil.id, quantity: 1, colors: { [teil.colorAreas[0].id]: eigene.id }, size: 'L', classOrTeam: 'Klasse 3a', customization: '', requesterEmail: 'lehrkraft@schule.example',
   });
   assert.equal(anfrage.status, 201, anfrage.text);
   return { teil, md };

@@ -40,7 +40,7 @@ const realConfigFile = configFilePath(ROOT_DIR);
 export const realConfigBefore = existsSync(realConfigFile) ? statSync(realConfigFile).mtimeMs : null;
 export const realConfigNow = () => (existsSync(realConfigFile) ? statSync(realConfigFile).mtimeMs : null);
 
-export const SCHOOL = 'mosaikschule-lu.de';
+export const SCHOOL = 'schule.example';
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export const tmp = (name: string) => fs.mkdtemp(path.join(os.tmpdir(), `mosaik3lab-${name}-`));
 export const sha = async (file: string) => crypto.createHash('sha256').update(await fs.readFile(file)).digest('hex');
@@ -57,6 +57,8 @@ export async function startServer(overrides: Parameters<typeof loadConfig>[0]) {
     ...overrides,
   });
   const instance = await createApp(config);
+  // Wie eine eingerichtete Schule: nur Adressen der Schul-Domain (neue Installationen erlauben sonst jede Adresse).
+  await instance.storage.settings.update((s) => ({ ...s, orderForm: { allowedEmailDomains: [SCHOOL] } }));
   const server = instance.app.listen(0, '127.0.0.1');
   await new Promise((r) => server.once('listening', r));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

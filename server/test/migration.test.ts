@@ -7,6 +7,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { createApp } from '../src/app';
 import { loadConfig } from '../src/config';
+import { ORDERFORM_VORGABE_BIS_1_6 } from '../src/domain/settings';
 import { readMailConfig } from '../src/kern/mail/mailConfig';
 import { getBereich, getBetrieb } from '../src/kern/betrieb';
 import { openDb } from '../src/kern/db';
@@ -199,7 +200,8 @@ test('Ältere Konten ohne E-Mail erhalten eine Adresse, Lehrkraft-Konten werden 
     const byName = Object.fromEntries(list.map((u) => [u.username, u]));
     assert.equal(byName.admin.email, mail('admin'));
     assert.equal(byName.lehrkraft.email, `demo.lehrkraft@${SCHOOL}`);
-    assert.equal(byName['frau.mueller'].email, `frau.mueller@${SCHOOL}`);
+    // Alter JSON-Stand ohne settings.json: es gilt die damalige Vorgabe der erlaubten Domain (Update-Sicherheit)
+    assert.equal(byName['frau.mueller'].email, `frau.mueller@${ORDERFORM_VORGABE_BIS_1_6.allowedEmailDomains[0]}`);
     assert.equal(byName.admin.passwordHash, 'x', 'übrige Felder bleiben');
     assert.ok(await instance.storage.requesters.findByEmail(`demo.lehrkraft@${SCHOOL}`), 'Lehrkraft ist bekannt');
   } finally {

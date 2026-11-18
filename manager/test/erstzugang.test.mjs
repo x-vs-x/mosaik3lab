@@ -23,7 +23,7 @@ const tmp = (fs.mkdirSync(TESTROOT, { recursive: true }), fs.mkdtempSync(path.jo
 const STORAGE = path.join(tmp, 'storage');
 const DB = path.join(STORAGE, 'mosaik3lab.db');
 const ALTCODE = path.join(tmp, 'logs', 'einrichtungscode.txt'); // Rest aus Versionen bis 1.1.3
-const ADMIN = { email: 'chefin@schule.de', name: 'Chefin', password: 'Erstzugang-2026' };
+const ADMIN = { email: 'chefin@schule.example', name: 'Chefin', password: 'Erstzugang-2026' };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** cli.mjs erstzugang wie am Ende der Installer → { code (Exit), out } */
 const cli = (...args) => new Promise((resolve) => execFile(process.execPath, [path.join(MANAGER, 'cli.mjs'), 'erstzugang', '--port', String(managerPort), ...args], { env: { ...process.env, MANAGER_CONFIG: path.join(tmp, 'mosaik3lab.json') }, timeout: 90_000, windowsHide: true }, (err, out) => resolve({ code: err?.code ?? 0, out })));
@@ -145,8 +145,8 @@ test('Über das Netz: Administrator angelegt; danach nur noch mit Admin-Sitzung 
   db.close();
   assert.deepEqual({ ...row }, { email: ADMIN.email, rolle: 'admin', aktiv: 1 });
   assert.equal((await direct('GET', '/api/auth/erstzugang')).status, 404);
-  assert.equal((await remotePost('/api/auth/first', { ...ADMIN, email: 'zwei@schule.de' })).status, 403, 'kein zweiter „erster“ Admin');
-  assert.equal((await direct('POST', '/api/auth/first', { body: { ...ADMIN, email: 'drei@schule.de' }, headers: { 'X-Manager-Token': token } })).status, 400, 'auch direkt am Server kein zweiter');
+  assert.equal((await remotePost('/api/auth/first', { ...ADMIN, email: 'zwei@schule.example' })).status, 403, 'kein zweiter „erster“ Admin');
+  assert.equal((await direct('POST', '/api/auth/first', { body: { ...ADMIN, email: 'drei@schule.example' }, headers: { 'X-Manager-Token': token } })).status, 400, 'auch direkt am Server kein zweiter');
   // ab jetzt wie immer: ohne App-Admin-Sitzung kein Zugang, mit ihr alles
   assert.equal((await viaPortal('GET', '/api/auth')).status, 403);
   assert.equal((await viaPortal('GET', '/')).status, 403);

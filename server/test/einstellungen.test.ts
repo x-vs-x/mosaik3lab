@@ -194,10 +194,10 @@ test('Erster Administrator: erlaubte Domain = Schul-Domain, nur bei einer neuen 
   const pw = 'Langes-Passwort-1';
   // Neue Installation ohne Angabe: Domain der Admin-Adresse; ein weiterer Admin ändert nichts mehr
   await neu(async (storage) => {
-    await createAdminAccount(storage, { email: 'Chefin@Meine-Schule.de', name: 'Chefin', password: pw });
-    assert.deepEqual(await domains(storage), ['meine-schule.de']);
+    await createAdminAccount(storage, { email: 'Chefin@Meine-Schule.Example', name: 'Chefin', password: pw });
+    assert.deepEqual(await domains(storage), ['meine-schule.example']);
     await createAdminAccount(storage, { email: 'zwei@anderswo.example', name: 'Zweite', password: pw, schulDomain: 'anderswo.example' });
-    assert.deepEqual(await domains(storage), ['meine-schule.de']);
+    assert.deepEqual(await domains(storage), ['meine-schule.example']);
   });
   // Abweichende Schul-Domain aus dem Willkommen-Dialog („Nein“ → eigenes Feld); ungültig → kein Konto
   await neu(async (storage) => {

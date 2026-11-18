@@ -87,7 +87,7 @@ const dst = new Client(targetSrv.base);
 
 // Zielsystem: eigenes Admin-Konto (keine Demo-Daten)
 await targetSrv.storage.users.create({
-  id: newId(), username: 'zieladmin', email: 'ziel.admin@mosaikschule-lu.de', displayName: 'Ziel Admin', role: 'admin',
+  id: newId(), username: 'zieladmin', email: 'ziel.admin@schule.example', displayName: 'Ziel Admin', role: 'admin',
   passwordHash: await hashPassword('Ziel-Admin-Passwort-1'), active: true, isDemo: false,
   createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), lastLoginAt: null, teamBereiche: [], fehlversuche: 0,
 });
@@ -95,7 +95,7 @@ await targetSrv.storage.users.create({
 
 await src.login(admin.email, admin.password);
 await srcTeam.login(team.email, team.password);
-assert.equal((await dst.login('ziel.admin@mosaikschule-lu.de', 'Ziel-Admin-Passwort-1')).status, 200);
+assert.equal((await dst.login('ziel.admin@schule.example', 'Ziel-Admin-Passwort-1')).status, 200);
 
 // Quelle: ein Artikel mit Bild, Druckdatei und Video
 const cfg = (await src.req('GET', '/api/config')).json.masterData;
@@ -136,11 +136,11 @@ async function frischesZiel() {
   const srv = await start({ demo: false });
   const c = new Client(srv.base);
   await srv.storage.users.create({
-    id: newId(), username: 'frisch', email: 'frisch.admin@mosaikschule-lu.de', displayName: 'Frisch', role: 'admin',
+    id: newId(), username: 'frisch', email: 'frisch.admin@schule.example', displayName: 'Frisch', role: 'admin',
     passwordHash: await hashPassword('Frisch-Admin-Passwort-1'), active: true, isDemo: false,
     createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), lastLoginAt: null, teamBereiche: [], fehlversuche: 0,
   });
-  assert.equal((await c.login('frisch.admin@mosaikschule-lu.de', 'Frisch-Admin-Passwort-1')).status, 200);
+  assert.equal((await c.login('frisch.admin@schule.example', 'Frisch-Admin-Passwort-1')).status, 200);
   return { srv, c };
 }
 const exportZip = async (c: Client, ids?: string[]) => {
@@ -560,11 +560,11 @@ test('Altes Format (vollständiger Export mit allen Stammdaten und Anfragestatus
   try {
     const c = new Client(frisch.base);
     await frisch.storage.users.create({
-      id: newId(), username: 'alt', email: 'alt.admin@mosaikschule-lu.de', displayName: 'Alt', role: 'admin',
+      id: newId(), username: 'alt', email: 'alt.admin@schule.example', displayName: 'Alt', role: 'admin',
       passwordHash: await hashPassword('Alt-Admin-Passwort-1'), active: true, isDemo: false,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), lastLoginAt: null, teamBereiche: [], fehlversuche: 0,
     });
-    assert.equal((await c.login('alt.admin@mosaikschule-lu.de', 'Alt-Admin-Passwort-1')).status, 200);
+    assert.equal((await c.login('alt.admin@schule.example', 'Alt-Admin-Passwort-1')).status, 200);
     // So sahen Exporte bisher aus: kein „auswahl“, alle Stammdaten, Anfragestatus dabei.
     const ms = (await src.req('GET', '/api/config')).json.masterData;
     const kopf = structuredClone(kopfMit);
@@ -636,11 +636,11 @@ test('Rundreise in eine frische Installation: jede Angabe eines Druckteils und j
   try {
     const sc = new Client(schule.base);
     await schule.storage.users.create({
-      id: newId(), username: 'schule', email: 'schule.admin@mosaikschule-lu.de', displayName: 'Schule', role: 'admin',
+      id: newId(), username: 'schule', email: 'schule.admin@schule.example', displayName: 'Schule', role: 'admin',
       passwordHash: await hashPassword('Schule-Admin-Passwort-1'), active: true, isDemo: false,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), lastLoginAt: null, teamBereiche: [], fehlversuche: 0,
     });
-    assert.equal((await sc.login('schule.admin@mosaikschule-lu.de', 'Schule-Admin-Passwort-1')).status, 200);
+    assert.equal((await sc.login('schule.admin@schule.example', 'Schule-Admin-Passwort-1')).status, 200);
 
     const { bericht } = await einspielen(sc, await exportZip(src, [quelle.id]), 'ueberspringen');
     assert.equal(bericht.abschnitte.artikel.neu, 1);

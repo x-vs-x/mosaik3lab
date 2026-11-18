@@ -2,6 +2,28 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Neutrale Vorgaben (Unter-Session, Branch: feature/neutrale-vorgaben)
+- **Anlass:** Das öffentliche Repo enthielt Bezüge zu einer konkreten Schule (Demo-Adressen, Standard-Domain, Texte).
+  Mosaik³LAB soll im Standard für jede Schule passen; konkrete Angaben stellt jede Installation selbst ein.
+- **Gebaut:** Beispiel-, Demo- und Testadressen auf die reservierte Domain `schule.example` (RFC 2606) umgestellt,
+  auch die allgemeinen Beispiele `schule.de` (echte Domain) in Platzhaltern, Fehlermeldungen und Manager-Texten.
+  Standard der erlaubten Domains für neue Installationen: `[]` (= jede Adresse, wie im Schema vorgesehen); die
+  Einrichtung setzt wie bisher die Domain der Schule bzw. des ersten Administrators. Anmeldeseite: Text neutral
+  („Der schulinterne Katalog für den 3D-Druck.“); das Schullogo (`Logo.tsx`) bleibt auf Wunsch des Nutzers.
+- **Update-Sicherheit:** Die bisherige Vorgabe steht als `ORDERFORM_VORGABE_BIS_1_6` in `domain/settings.ts` und gilt nur
+  für Altbestände: `SettingsRepository.init()` trägt sie bei bestehenden Datenbanken ohne gespeicherte Domains fest ein,
+  `legacyJson.ts` nutzt sie für alte JSON-Daten ohne `orderForm`, `schulDomainUebernehmen` behandelt sie weiter als
+  „unverändert“ (eine noch nicht eingerichtete ältere Installation übernimmt beim ersten Admin die Schul-Domain).
+  Keine SQL-Migration (Nummer 020 war parallel belegt). Vorhandene Demo-Konten behalten ihre Adressen (Seed nur bei
+  leerer Datenbank, keine Doppelkonten).
+- **Geprüft:** neuer Test `server/test/vorgaben.test.ts`; der Testserver (`helfer.ts`) stellt die Schul-Domain wie eine
+  eingerichtete Schule ein. Kopie der echten Datenbank (Stand 1.6.3) und ein alter Demo-Stand je einmal mit `main` und
+  mit diesem Branch gestartet (Einstellungen, Konten, Anmeldung, Anfrage, Registrierung): Ergebnisse und Datenstand
+  identisch, Domain unverändert, keine doppelten Konten. Screenshots Start/Anmeldung/Passwort 320–1440 px in
+  `C:\Entwicklung\_testdaten\neutral-bilder\`.
+- **Ausgenommen:** `server/src/kern/files.ts`, `client/src/components/ItemImage.tsx` (Bildpflege; dort keine Fundstellen).
+- **Aufgeräumt:** Testserver gestoppt, Testdaten `_testdaten\neutral` und Scratchpad-Skripte gelöscht; Worktree bleibt.
+
 ## 2026-11-18 – Export als ZIP, ähnliche Druckteile im Austausch (Unter-Session, Branch: feature/zip-export)
 - **Anlass:** Zwei Wünsche des Nutzers: (A) Export als ZIP statt JSON mit Base64 (+33 %), Bilder in der Datei ansehbar;
   (B) Verknüpfungen „Ähnliche Druckteile“ mit exportieren und beim Einspielen anlegen bzw. vormerken.
@@ -589,7 +611,7 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 - **Geprüft:** typecheck ✔ · lint ✔ · test ✔ (keine Tests angepasst) · Funktionsabgleich ohne fehlendes Element · Überbreite bei
   320/360/375/390/393/412/430/768/844/932/1024/1280/1440 px: keine · alle Dialoge und Aufklapper bei 375 px.
 - **Aufgeräumt:** Testserver gestoppt, Basis-Worktree entfernt.
-- **Nachtrag E-Mail-Adressen:** wurden mit `break-all` mitten im Wort zerrissen („frau.beispiel@mosaik / schule-lu.de“). Neuer Baustein
+- **Nachtrag E-Mail-Adressen:** wurden mit `break-all` mitten im Wort zerrissen („frau.beispiel@schule / .example“). Neuer Baustein
   `Email` (`components/ui.tsx`, `<wbr>` vor dem @) statt `break-all` in Übersicht, Anfragen, Vorschläge, Personen, Lehrkräfte, Konto,
   Anmelden, Passwort festlegen; Übersicht: E-Mail in eigener Zeile unter Nummer · Menge · Klasse. Geprüft bei 320/390 px: kein Wortteil
   einer Adresse mehr umbrochen (Umbruch nur am @ oder Bindestrich), mit überlanger Adresse keine Überbreite.
@@ -1719,7 +1741,7 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   Angemeldet bleiben: Session-Cookie 30 Tage, bei Nutzung verlängert (vorher 8 h). Login-Seite mit `data-testid`. Neues `GET /api/orders/mine`
   (Status nur bei eingeschalteter Statusanzeige). `User.email` (Pflicht, eindeutig, klein); Konten nur noch für
   Admin/Druck-Team; Migration ergänzt E-Mails älterer Konten ohne Datenverlust (altes Demo-Konto `lehrkraft` →
-  bekannte Lehrkraft `demo.lehrkraft@mosaikschule-lu.de`). Rate-Limit für beide Schritte, Login-Bremse je E-Mail/IP,
+  bekannte Lehrkraft `demo.lehrkraft@schule.example`). Rate-Limit für beide Schritte, Login-Bremse je E-Mail/IP,
   neue Session-ID, CSRF und Demo-Sperre bleiben. Frontend: Login-Seite (E-Mail → ggf. Passwort), „Meine Anfragen“
   und Konto-Seite für Lehrkräfte, Benutzerverwaltung mit E-Mail (anlegen/ändern), Anfrageformular übernimmt die
   E-Mail der angemeldeten Lehrkraft. Nebenbei: `.gitignore` schloss `server/src/storage/` (Speicher-Code) aus –

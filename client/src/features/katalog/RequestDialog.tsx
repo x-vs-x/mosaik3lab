@@ -154,7 +154,7 @@ export function RequestDialog({
     const email = anfrageEmail(sessionEmail, requesterEmail);
     const local: Record<string, string> = {};
     if (!email) local.requesterEmail = 'Bitte Ihre Schul-E-Mail eintragen';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) local.requesterEmail = 'Bitte eine gültige E-Mail-Adresse eintragen, z. B. name@schule.de';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) local.requesterEmail = 'Bitte eine gültige E-Mail-Adresse eintragen, z. B. name@schule.example';
     else if (!sessionEmail && !emailDomainAllowed(email, domains)) local.requesterEmail = domainHint(domains);
     if (!classOrTeam.trim()) local.classOrTeam = 'Bitte Klasse oder Team angeben';
     rows.forEach((row, i) => {
@@ -306,7 +306,7 @@ export function RequestDialog({
                 aria-required
                 aria-describedby={describedBy}
                 invalid={invalid}
-                placeholder={domains[0] ? `name@${domains[0]}` : 'name@schule.de'}
+                placeholder={domains[0] ? `name@${domains[0]}` : 'name@schule.example'}
               />
             )}
           </Field>
