@@ -416,7 +416,7 @@ function Steuerung({
 }) {
   return (
     // Handy: Schalter links, Herkunft dahinter – so steht der Schalter in jeder Zeile an derselben Stelle.
-    <div className="col-span-2 flex items-center gap-3 md:contents">
+    <div className="col-span-2 flex flex-wrap items-center gap-3 md:contents">
       <div className="order-last min-w-0 md:order-none">{badge}</div>
       <div className="shrink-0">
         <Switch

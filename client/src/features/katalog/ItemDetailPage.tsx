@@ -73,9 +73,10 @@ export function ItemDetailPage() {
           </h1>
           <p className="mt-2 text-base text-stone-700 sm:mt-3 sm:text-[1.15rem]">{item.shortDescription}</p>
 
-          <div className="mt-5 flex flex-col gap-2.5 sm:mt-8 sm:flex-row sm:gap-3">
+          {/* Ab sm nebeneinander; passt „Druckteil anfragen“ nicht einzeilig neben „Bearbeiten“ (Tablet hoch), rutscht „Bearbeiten“ darunter */}
+          <div className="mt-5 flex flex-col gap-2.5 sm:mt-8 sm:flex-row sm:flex-wrap sm:gap-3">
             {item.published && (
-              <Button size="lg" icon={Send} onClick={() => setRequestOpen(true)} className="sm:flex-1">
+              <Button size="lg" icon={Send} onClick={() => setRequestOpen(true)} className="sm:flex-[1_0_auto]">
                 Druckteil anfragen
               </Button>
             )}
@@ -86,7 +87,8 @@ export function ItemDetailPage() {
             )}
           </div>
 
-          <dl className="mt-5 grid grid-cols-2 gap-2.5 sm:mt-8 sm:gap-3">
+          {/* Zwei Spalten nur, wenn je mindestens 9rem frei sind – bei großer Schrift untereinander statt Silbenresten */}
+          <dl className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-2.5 sm:mt-8 sm:gap-3">
             <Fact icon={Clock} label="Geschätzte Druckdauer">
               {formatDuration(item.printTimeMinutes)}
             </Fact>
@@ -222,7 +224,7 @@ function Fact({
   wide?: boolean;
 }) {
   return (
-    <div className={cx('rounded-2xl border border-stone-200/80 bg-white p-3 sm:p-4', wide && 'col-span-2')}>
+    <div className={cx('rounded-2xl border border-stone-200/80 bg-white p-3 sm:p-4', wide && 'col-span-full')}>
       <dt className="flex items-center gap-2 text-hinweis font-bold text-stone-600">
         <Icon className="size-4 shrink-0" aria-hidden />
         {label}

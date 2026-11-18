@@ -65,11 +65,15 @@ export function Wordmark({ className, light }: { className?: string; light?: boo
   const style: CSSProperties = { fontFamily: LOGO_FONT, color: light ? '#fff' : MOSAIC.text };
   return (
     <span className={cx('font-normal uppercase tracking-[0.06em]', className)} style={style}>
+      {/* Umbruch höchstens zwischen „MOSAIK³“ und „LAB“ (große Schrift, schmaler Bildschirm) – nie mitten im Namen */}
       <span aria-hidden>
-        MOSAIK
-        {/* Echtes Hochzahl-Zeichen: Größe und Höhe kommen aus der Schrift, kein <sup> (würde doppelt verkleinern). */}
-        <span className={cx('ml-[0.02em] mr-[0.04em] font-semibold', light ? 'text-white' : 'text-brand-700')}>³</span>
-        <span className={light ? 'text-white' : 'text-brand-700'}>LAB</span>
+        <span className="whitespace-nowrap">
+          MOSAIK
+          {/* Echtes Hochzahl-Zeichen: Größe und Höhe kommen aus der Schrift, kein <sup> (würde doppelt verkleinern). */}
+          <span className={cx('ml-[0.02em] mr-[0.04em] font-semibold', light ? 'text-white' : 'text-brand-700')}>³</span>
+        </span>
+        <wbr />
+        <span className={cx('whitespace-nowrap', light ? 'text-white' : 'text-brand-700')}>LAB</span>
       </span>
       <span className="sr-only">Mosaik³LAB</span>
     </span>

@@ -217,22 +217,25 @@ export function ListPanel<T extends Entry>({
                 key={row._key}
                 data-row={row._key}
                 className={cx(
-                  'flex gap-2 rounded-2xl ring-1 ring-inset sm:gap-3',
+                  // Handy: Pfeile und Löschen in einer Zeile oben, Inhalt darunter in voller Breite (vorher blieben neben
+                  // den beiden Knopfspalten nur ~140 px – Symbolnamen und die Plakette „Bambu-Katalog“ zerfielen in
+                  // einzelne Buchstaben). Ab sm wie gehabt nebeneinander.
+                  'flex flex-wrap gap-2 rounded-2xl ring-1 ring-inset sm:flex-nowrap sm:gap-3',
                   layout === 'cards' ? 'p-2.5 sm:p-5' : 'items-start p-2.5 sm:p-3',
                   err ? 'bg-rose-50/40 ring-rose-300' : !row.id ? 'bg-brand-50/40 ring-brand-200' : 'bg-stone-50/60 ring-stone-200',
                 )}
               >
-                <div className="flex shrink-0 flex-col gap-1">
+                <div className="flex shrink-0 gap-1 sm:flex-col">
                   <IconButton icon={ArrowUp} label={`${label} nach oben`} disabled={i === 0} onClick={() => move(i, -1)} />
                   <IconButton icon={ArrowDown} label={`${label} nach unten`} disabled={i === rows.length - 1} onClick={() => move(i, 1)} />
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="order-last w-full min-w-0 sm:order-none sm:w-auto sm:flex-1">
                   {!row.id && (
                     <p className="mb-2 text-hinweis font-bold uppercase tracking-wide text-brand-700">Neu – noch nicht gespeichert</p>
                   )}
                   {renderRow(row, (patch) => update(row._key, patch), err)}
                 </div>
-                <div className="shrink-0">
+                <div className="ml-auto shrink-0 sm:ml-0">
                   <IconButton icon={Trash2} label={`${label} entfernen`} tone="danger" onClick={() => remove(row._key)} />
                 </div>
               </li>

@@ -6,6 +6,16 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Anzeige auf Handy, iPad und bei großer Schrift überarbeitet:** Alle Seiten, Dialoge und Meldungen – auch der
+  Server-Manager und die Portal-Seiten – wurden in sieben Bildschirmgrößen, mit 200 % Schrift, mit Browser-Zoom und mit
+  Bildschirmtastatur durchgesehen. Lange Wörter werden jetzt mit Trennstrich umbrochen statt mitten im Wort, E-Mail-Adressen
+  nur vor @ und Punkt. Bei großer Schrift zerfallen Logo, Menü-Knopf, untere Leiste, Seitentitel, Zahl-Kacheln und
+  Stammdaten-Listen nicht mehr in einzelne Buchstaben; Dialoge scrollen bei wenig Höhe samt Titel, sodass Knöpfe wie
+  „Zuordnen“ und „Importieren“ erreichbar bleiben; bei offener Bildschirmtastatur verschwindet die untere Leiste.
+  Mehrfarbige Anfragen sind in „Meine Anfragen“ und in der Anfragen-Verwaltung ordentlich umbrochen, die Größenwahl „S/M/L“
+  hat größere Tippflächen. Im Server-Manager laufen Statustexte nicht mehr über den Rand; Manager und Portal-Seiten
+  wachsen mit der Grundschrift des Geräts.
+
 - **Sicherung bricht nicht mehr ab, wenn währenddessen eine Datei verschwindet:** Wird beim Sichern z. B. gerade ein
   Bild in der App gelöscht, überspringt die Sicherung diese Datei (Hinweis im Protokoll) und wird trotzdem fertig.
 
@@ -32,7 +42,8 @@ daraus die nächste Version.
   wählt je nach Bildschirm selbst die passende Größe. Im Test lud der Katalog auf dem Handy statt 11,9 MB nur noch
   0,7 MB Bilder – scharf auch auf Displays mit hoher Pixeldichte. Neue Bilder werden beim Hochladen gleich fertig verarbeitet („Vorschau wird erzeugt … bitte warten“).
   Vorhandene Bilder erledigt die „Bildpflege“ einmal einige Minuten nach dem Start (auch nach diesem Update): zu große
-  Originale (über 2000 Pixel) werden verkleinert, fehlende Vorschaubilder erzeugt – die App bleibt dabei bedienbar.
+  Originale (über 2000 Pixel) werden verkleinert, wenn das mindestens ein Fünftel Speicher spart – sonst bleibt das Original,
+  wie es ist; fehlende Vorschaubilder werden erzeugt – die App bleibt dabei bedienbar.
   Der Knopf „Bilder verkleinern …“ unter Verwaltung → Druckteile entfällt, er ist nicht mehr nötig.
   Vorschaubilder kommen nicht in Exporte und nicht ins Backup (sie werden bei Bedarf neu berechnet).
 

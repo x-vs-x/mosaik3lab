@@ -81,7 +81,10 @@ export function Dialog({
       )}
     >
       {open && (
-        <div className="flex max-h-[94dvh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[92dvh] sm:rounded-3xl">
+        // Wenig Höhe (Bildschirmtastatur, Handy quer, große Schrift – rem im Media-Query wächst mit der Grundschrift):
+        // Dann scrollt der ganze Dialog samt Titel. Sonst blieb unter einem langen Titel kaum Platz, und feste Knopfleisten
+        // (z. B. „Zuordnen“) waren nicht mehr erreichbar.
+        <div className="flex max-h-[94dvh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[92dvh] sm:rounded-3xl [@media(max-height:40rem)]:overflow-y-auto [@media(max-height:40rem)]:overscroll-contain">
           <div className="flex shrink-0 items-start justify-between gap-3 border-b border-stone-100 px-4 pb-3 pt-4 sm:gap-4 sm:px-6 sm:pb-4 sm:pt-6">
             <div className="min-w-0 wrap-anywhere">
               <h2 id={titleId} className="text-abschnitt font-bold text-stone-900 sm:text-xl">
@@ -98,7 +101,7 @@ export function Dialog({
               <X className="size-5 sm:size-6" aria-hidden />
             </button>
           </div>
-          <div className="min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-6">{children}</div>
+          <div className="min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-6 [@media(max-height:40rem)]:shrink-0 [@media(max-height:40rem)]:overflow-visible">{children}</div>
         </div>
       )}
     </dialog>

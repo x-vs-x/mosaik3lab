@@ -17,17 +17,19 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 
 const page = (title, body) =>
   `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title>` +
-  `<style>body{font:18px/1.5 system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem;color:#1c1917}a{color:#8a1d00}h1{font-size:1.5rem}code{background:#f5f5f4;padding:.1em .3em}</style></head><body>${body}</body></html>`;
+  // Schrift in rem (wächst mit der Grundschrift des Geräts), lange Wörter mit Silbentrennung statt über den Rand,
+  // allein stehende Links mit Tippfläche ≥ 44 px.
+  `<style>body{font:1.125rem/1.5 system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem;color:#1c1917;overflow-wrap:anywhere;hyphens:auto;-webkit-hyphens:auto}a{color:#8a1d00}a.knopf{display:inline-block;padding:.6rem 0}h1{font-size:1.5rem}code{background:#f5f5f4;padding:.1em .3em}</style></head><body>${body}</body></html>`;
 
 const CERT_HELP = (cn, base) =>
   page('Zertifikat installieren – Mosaik³LAB',
     `<h1>Zertifikat installieren</h1><p>Damit Ihr Gerät <strong>${esc(cn)}</strong> als sicher anerkennt (kein Warnhinweis mehr), einmalig das Zertifikat laden und als vertrauenswürdig eintragen.</p>` +
-    `<p><a href="/zertifikat.cer" download>Zertifikat herunterladen (.cer)</a></p>` +
+    `<p><a class="knopf" href="/zertifikat.cer" download>Zertifikat herunterladen (.cer)</a></p>` +
     `<ul><li><strong>Windows:</strong> Datei öffnen → „Zertifikat installieren“ → „Lokaler Computer“ → „Alle Zertifikate in folgendem Speicher speichern“ → <em>Vertrauenswürdige Stammzertifizierungsstellen</em>.</li>` +
     `<li><strong>iPad/iPhone:</strong> Datei laden → „Profil geladen“ in den Einstellungen installieren → danach unter Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen <em>vollständiges Vertrauen</em> aktivieren.</li>` +
     `<li><strong>Android:</strong> Einstellungen → Sicherheit → Verschlüsselung &amp; Anmeldedaten → Zertifikat installieren → CA-Zertifikat.</li>` +
     `<li><strong>Mac:</strong> Datei öffnen (Schlüsselbund) → Zertifikat doppelklicken → Vertrauen → „Immer vertrauen“.</li></ul>` +
-    `<p><a href="${esc(base || '/')}">Weiter zu Mosaik³LAB</a></p>`);
+    `<p><a class="knopf" href="${esc(base || '/')}">Weiter zu Mosaik³LAB</a></p>`);
 
 function notFoundPage(basePath) {
   return page('Nicht gefunden', `<h1>Diese Adresse gibt es hier nicht.</h1><p>Mosaik³LAB finden Sie unter <a href="${esc(basePath || '/')}/">${esc(basePath || '/')}/</a>.</p>`);

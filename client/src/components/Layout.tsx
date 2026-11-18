@@ -33,7 +33,7 @@ import { useToast } from './Toast';
 import { NeuigkeitenDialog } from '../features/neuigkeiten/NeuigkeitenDialog';
 import { meldeSeitenwechsel } from '../features/katalog/katalogScroll';
 import { Logo } from './Logo';
-import { Alert, Button, cx } from './ui';
+import { Alert, Button, cx, Email } from './ui';
 
 interface NavItem {
   to: string;
@@ -184,7 +184,9 @@ function UserBox({ onNavigate }: { onNavigate?: () => void }) {
           {initials}
         </span>
         <span className="min-w-0">
-          <span className="block wrap-anywhere font-bold text-stone-900">{user.displayName}</span>
+          <span className="block wrap-anywhere font-bold text-stone-900">
+            <Email adresse={user.displayName} />
+          </span>
           <span className="block wrap-anywhere text-hinweis text-stone-600">{ROLE_LABELS[user.role]}</span>
         </span>
       </NavLink>
@@ -300,14 +302,14 @@ export function Layout() {
       </aside>
 
       {/* Kopfzeile – Mobil & Tablet */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-stone-200/80 bg-canvas px-[max(0.75rem,env(safe-area-inset-left))] py-1.5 sm:px-4 sm:py-3 lg:hidden">
+      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-stone-200/80 bg-canvas px-[max(0.75rem,env(safe-area-inset-left))] py-1.5 sm:px-4 sm:py-3 lg:hidden">
         <NavLink to="/katalog" className="inline-flex min-h-11 items-center rounded-xl" aria-label="Mosaik³LAB – zur Startseite">
           <Logo subtitle={false} />
         </NavLink>
         <button
           type="button"
           onClick={() => setMenuOpen(true)}
-          className="flex min-h-11 items-center gap-2 rounded-xl px-3.5 font-bold text-stone-800 ring-1 ring-stone-300 hover:bg-white sm:min-h-12 sm:px-4"
+          className="ml-auto flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 font-bold text-stone-800 ring-1 ring-stone-300 hover:bg-white sm:min-h-12 sm:px-4"
           aria-haspopup="dialog"
         >
           <Menu className="size-5" aria-hidden />
@@ -338,7 +340,9 @@ export function Layout() {
       <nav
         aria-label="Schnellnavigation"
         // Safe-Area: Home-Balken (unten) und Notch im Querformat (links/rechts) – braucht viewport-fit=cover in index.html.
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:hidden"
+        // Niedriger Bildschirm (Handy quer, Bildschirmtastatur offen): Leiste ausblenden, sonst bleibt kaum Platz für den
+        // Inhalt – das Menü oben ist weiter da.
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:hidden [@media(max-height:28rem)]:hidden"
       >
         <ul className="mx-auto flex max-w-xl">
           {bottomNav.map((item) => (
@@ -349,15 +353,17 @@ export function Layout() {
                 className={({ isActive }) =>
                   cx(
                     // Unter 360 px (iPhone SE 1) etwas kleiner, damit „Verwaltung“ und „Vorschläge“ nicht umbrechen.
-                    'flex min-h-16 flex-col items-center justify-center gap-1 px-0.5 pt-1 text-center text-[0.85rem] font-bold leading-tight max-[359px]:px-0 max-[359px]:text-[0.8rem] max-[359px]:tracking-tight',
+                    // Wie die Tab-Leiste am iPhone: Beschriftung wächst bei großer Schrift nicht mit (höchstens 13 px) –
+                    // sonst zerfallen die Namen in Silben („Katalo|g“); groß lesbar sind sie im Menü.
+                    'flex min-h-[min(4rem,64px)] flex-col items-center justify-center gap-1 px-0.5 pt-1 text-center text-[min(0.85rem,13px)] font-bold leading-tight max-[359px]:px-0 max-[359px]:text-[min(0.8rem,12px)] max-[359px]:tracking-tight',
                     isActive ? 'text-brand-800' : 'text-stone-600 hover:text-stone-900',
                   )
                 }
               >
                 {({ isActive }) => (
                   <>
-                    <span className={cx('relative grid h-8 w-full max-w-15 place-items-center rounded-full transition-colors', isActive && 'bg-brand-100')}>
-                      <item.icon className="size-6" aria-hidden />
+                    <span className={cx('relative grid h-[min(2rem,32px)] w-full max-w-15 place-items-center rounded-full transition-colors', isActive && 'bg-brand-100')}>
+                      <item.icon className="size-[min(1.5rem,24px)]" aria-hidden />
                       <CountBadge count={item.badge} className="absolute -right-0.5 -top-1.5 min-w-5 px-1 text-[0.7rem]" />
                     </span>
                     {/* Unter 390 px (bis iPhone SE/mini) ggf. noch kürzer sichtbar; der übliche Name bleibt für Screenreader (sr-only) der Name des Links. */}

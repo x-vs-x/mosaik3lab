@@ -215,7 +215,8 @@ function OrderRow({
   const rollOf = (colorId: string) => {
     const f = findFilament(md, colorId);
     const roll = f ? filamentRolle(f) : '';
-    return roll && <span className="font-normal text-stone-600">· {roll}</span>;
+    // inline-block: Punkt und Rolle bleiben zusammen (kein einzelner „·“ am Zeilenende)
+    return roll && <span className="inline-block font-normal text-stone-600">· {roll}</span>;
   };
   const [status, setStatus] = useState<string>(order.status);
   const [comment, setComment] = useState('');
@@ -269,18 +270,19 @@ function OrderRow({
           <p className="mt-0.5 text-hinweis font-bold text-stone-700">
             <Email adresse={order.requesterEmail || order.requesterName || 'Ohne E-Mail'} />
           </p>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-hinweis text-stone-600">
+          {/* Trennpunkt jeweils mit der folgenden Angabe zusammen – sonst stand er bei langen Farbangaben allein in einer Zeile */}
+          <p className="mt-1 flex flex-wrap items-start gap-x-2 gap-y-1 text-hinweis text-stone-600">
             <span>{order.classOrTeam}</span>
-            <span aria-hidden>·</span>
-            <span className="inline-flex items-center gap-1.5">
-              {order.colorHex && <ColorSwatch hex={order.colorHex} className="size-4" />}
-              {order.color}
+            <span className="inline-flex min-w-0 items-start gap-1.5">
+              <span aria-hidden>·</span>
+              {order.colorHex && <ColorSwatch hex={order.colorHex} className="mt-[0.2em] size-4" />}
+              <span className="min-w-0">{order.color}</span>
             </span>
             {order.size && (
-              <>
+              <span className="inline-flex min-w-0 gap-2">
                 <span aria-hidden>·</span>
-                <span>{order.size}</span>
-              </>
+                <span className="min-w-0">{order.size}</span>
+              </span>
             )}
           </p>
         </div>
@@ -293,7 +295,8 @@ function OrderRow({
 
       {open && (
         <div id={panelId} className="grid gap-5 border-t border-stone-100 p-4 sm:gap-6 sm:p-5 lg:grid-cols-[1fr_1fr_1fr]">
-          <div>
+          {/* Container: Bezeichnung neben dem Wert nur, wenn die Spalte breit genug ist (iPad quer: drei schmale Spalten) */}
+          <div className="@container">
             <h3 className="font-bold text-stone-900">Details</h3>
             <dl className="mt-3 space-y-2.5 text-base sm:space-y-2">
               <Row label="Druckteil">
@@ -308,11 +311,11 @@ function OrderRow({
                   <Row key={i} label={`Farbe ${i + 1} (${v.quantity} Stück)`}>
                     <span className="flex flex-col gap-1">
                       {v.colorChoices.map((c) => (
-                        <span key={c.areaId} className="flex flex-wrap items-center gap-x-2">
-                          {c.colorHex && <ColorSwatch hex={c.colorHex} />}
+                        // Fließtext statt Flex: Farbtupfer bleibt vor dem Namen, auch wenn der Bereichsname umbricht
+                        <span key={c.areaId} className="block">
+                          {c.colorHex && <ColorSwatch hex={c.colorHex} className="mr-2 align-[-0.25em]" />}
                           {v.colorChoices.length > 1 && `${c.area}: `}
-                          {c.color}
-                          {rollOf(c.colorId)}
+                          {c.color} {rollOf(c.colorId)}
                         </span>
                       ))}
                     </span>
@@ -322,10 +325,9 @@ function OrderRow({
                 // Mehrfarbiger Druck: Farbe je Bereich
                 order.colorChoices.map((c) => (
                   <Row key={c.areaId} label={`Farbe ${c.area}`}>
-                    <span className="inline-flex flex-wrap items-center gap-x-2">
-                      {c.colorHex && <ColorSwatch hex={c.colorHex} />}
-                      {c.color}
-                      {rollOf(c.colorId)}
+                    <span className="block">
+                      {c.colorHex && <ColorSwatch hex={c.colorHex} className="mr-2 align-[-0.25em]" />}
+                      {c.color} {rollOf(c.colorId)}
                     </span>
                   </Row>
                 ))
@@ -431,8 +433,8 @@ function OrderRow({
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="sm:flex sm:gap-3">
-      <dt className="text-hinweis text-stone-500 sm:w-32 sm:shrink-0 sm:text-base">{label}</dt>
+    <div className="@xs:flex @xs:gap-3">
+      <dt className="text-hinweis text-stone-500 @xs:w-32 @xs:shrink-0 @xs:text-base">{label}</dt>
       <dd className="min-w-0 wrap-anywhere font-bold text-stone-800">{children}</dd>
     </div>
   );

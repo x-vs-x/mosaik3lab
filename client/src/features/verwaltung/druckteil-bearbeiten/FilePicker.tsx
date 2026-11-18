@@ -72,6 +72,7 @@ export function FilePicker({
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const statusTeile = status.split(/ (?=bitte warten$)/);
   return (
     <div
       onDragOver={(e) => {
@@ -104,12 +105,15 @@ export function FilePicker({
       />
       <button type="button" onClick={() => ref.current?.click()} className={buttonClass('soft', 'md')} disabled={uploading}>
         <Icon className="size-5" aria-hidden />
-        {uploading ? 'Wird hochgeladen …' : label}
+        {/* Nach der Übertragung (Vorschau/Speichern) nicht mehr „Wird hochgeladen“ – die Zeile darunter sagt, was gerade passiert */}
+        {uploading ? (!status || status.startsWith('Wird hochgeladen') ? 'Wird hochgeladen …' : 'Bitte warten …') : label}
       </button>
       {/* immer vorhanden, damit Bildschirmleser die Änderungen ansagen */}
       <p role="status" aria-live="polite" className={cx('text-center font-bold text-balance text-stone-800', status && 'mt-3')}>
         {status && <LoaderCircle className="mr-2 inline size-5 animate-spin align-[-4px] text-brand-700 motion-reduce:animate-none" aria-hidden />}
-        {status}
+        {/* „… bitte warten“ in eigener Zeile – sonst brach der Satz auf dem Handy eng mitten durch („Vorschau wird / erzeugt …“) */}
+        {statusTeile[0]}
+        {statusTeile[1] && <span className="block text-hinweis font-normal text-stone-600">{statusTeile[1]}</span>}
       </p>
       {uploading && onAbbrechen && (
         <Button variant="secondary" icon={X} className="mt-3" onClick={onAbbrechen}>

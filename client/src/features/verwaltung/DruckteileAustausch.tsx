@@ -342,7 +342,7 @@ function Zusammenfassung({ bericht, titel, fertig = false }: { bericht: Bericht;
       )}
       {bericht.details.length > 0 && (
         <details className="mt-3">
-          <summary className="cursor-pointer font-bold text-brand-800">Einzelheiten anzeigen ({bericht.details.length + bericht.weitereDetails})</summary>
+          <summary className="cursor-pointer py-2.5 font-bold text-brand-800">Einzelheiten anzeigen ({bericht.details.length + bericht.weitereDetails})</summary>
           <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto pr-1 text-hinweis">
             {bericht.details.map((d, i) => (
               <li key={i} className="flex flex-wrap gap-x-2">

@@ -1,7 +1,7 @@
 import { ClipboardList, LayoutGrid, Lightbulb, Search } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useAuth } from '../../auth/AuthContext';
-import { Alert, Button, Card, cx, EmptyState, Input, LinkButton, PageHeader, Spinner } from '../../components/ui';
+import { Alert, Button, Card, cx, Email, EmptyState, Input, LinkButton, PageHeader, Spinner } from '../../components/ui';
 import { api, ApiError } from '../../lib/api';
 import { useMasterData } from '../../lib/config';
 import { statusMeta } from '../../lib/constants';
@@ -170,10 +170,12 @@ export function MyOrdersPage() {
     return tab === 'offen' ? !isDone(o as TrackedOrder) : isDone(o as TrackedOrder);
   });
 
-  const description = teacher
-    ? `Alle Druckteile, die Sie mit ${user?.email} angefragt haben. ${
-        tracked ? 'Den Bearbeitungsstand sehen Sie bei jeder Anfrage.' : 'Fertige Druckteile bringt das 3D-Druck-Team persönlich vorbei.'
-      }`
+  const description = teacher ? (
+    <>
+      Alle Druckteile, die Sie mit <Email adresse={user?.email ?? ''} /> angefragt haben.{' '}
+      {tracked ? 'Den Bearbeitungsstand sehen Sie bei jeder Anfrage.' : 'Fertige Druckteile bringt das 3D-Druck-Team persönlich vorbei.'}
+    </>
+  )
     : 'Hier sehen Sie die Druckteile, die Sie an diesem Gerät angefragt haben, und den aktuellen Bearbeitungsstand.';
 
   return (
@@ -181,7 +183,7 @@ export function MyOrdersPage() {
       <PageHeader
         title="Meine Anfragen"
         description={description}
-        shortDescription={user ? `Ihre Anfragen als ${user.email}` : 'Ihre Anfragen an diesem Gerät.'}
+        shortDescription={user ? <>Ihre Anfragen als <Email adresse={user.email} /></> : 'Ihre Anfragen an diesem Gerät.'}
         actions={
           <>
             <LinkButton to="/katalog" variant="secondary" icon={LayoutGrid}>

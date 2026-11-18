@@ -359,7 +359,7 @@ function ItemCard({ item }: { item: Item }) {
                 <ColorSwatch key={f.id} hex={f.hex} className="size-4" />
               ))}
               {extra > 0 && (
-                <span className="text-hinweis font-bold text-stone-600" aria-hidden>
+                <span className="shrink-0 whitespace-nowrap text-hinweis font-bold text-stone-600" aria-hidden>
                   +{extra}
                 </span>
               )}
