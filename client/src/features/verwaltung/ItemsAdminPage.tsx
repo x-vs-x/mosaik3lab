@@ -1,4 +1,4 @@
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, Eye, Pencil, Plus, Search, SearchX, Trash2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, Eye, ImageDown, Pencil, Plus, Search, SearchX, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
@@ -29,6 +29,7 @@ import { filamentLabel, findFilament } from '../../lib/constants';
 import { formatDuration, formatRelative, plural } from '../../lib/format';
 import { ITEM_KIND_LABELS, type Filament, type Item, type MasterData } from '../../lib/types';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
+import { BilderVerkleinernDialog } from './BilderVerkleinern';
 import { EinspielenDialog, exportUrl, MAX_AUSWAHL } from './DruckteileAustausch';
 import { ANSICHTEN, filtereDruckteile, leseAnsicht, zaehleAnsichten, type Ansicht } from './druckteilFilter';
 
@@ -87,6 +88,7 @@ export function ItemsAdminPage() {
   const canImport = can('daten:import');
   const [gewaehlt, setGewaehlt] = useState<Set<string>>(new Set());
   const [einspielen, setEinspielen] = useState(false);
+  const [verkleinern, setVerkleinern] = useState(false);
 
   const filtered = useMemo(() => filtereDruckteile(items ?? [], q, ansicht), [items, q, ansicht]);
   const zahlen = useMemo(() => zaehleAnsichten(items ?? [], q), [items, q]);
@@ -155,6 +157,11 @@ export function ItemsAdminPage() {
                   Einspielen …
                 </Button>
               )}
+              {canEdit && !!items?.some((i) => i.images.length > 0) && (
+                <Button variant="secondary" icon={ImageDown} onClick={() => setVerkleinern(true)}>
+                  Bilder verkleinern …
+                </Button>
+              )}
               {canEdit && (
                 <LinkButton to="/verwaltung/hilfsmittel/neu" icon={Plus}>
                   Neues Druckteil
@@ -169,6 +176,10 @@ export function ItemsAdminPage() {
             void reload();
             void reloadConfig();
           }} />}
+
+      {canEdit && items && (
+        <BilderVerkleinernDialog items={items} open={verkleinern} onClose={() => setVerkleinern(false)} onDone={() => void reload()} />
+      )}
 
       {error && <Alert kind="error">{error.message}</Alert>}
       {loading && !items && <Spinner />}

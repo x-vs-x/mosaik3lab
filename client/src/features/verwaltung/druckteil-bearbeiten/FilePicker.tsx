@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { useToast } from '../../../components/Toast';
 import { buttonClass, cx } from '../../../components/ui';
 import { api, ApiError } from '../../../lib/api';
+import { bilderVerkleinern } from '../../../lib/bildVerkleinern';
 import type { Item } from '../../../lib/types';
 
 /** Mehrere Bilder oder Druckdateien auf einmal hochladen; liefert das aktualisierte Druckteil. */
@@ -12,10 +13,12 @@ export function useUpload(item: Item, kind: 'images' | 'models', onChange: (i: I
   const upload = async (files: FileList | null) => {
     if (!files?.length) return;
     const count = files.length; // FileList ist „live“ und nach dem Leeren des Felds (onChange) leer
-    const fd = new FormData();
-    Array.from(files).forEach((f) => fd.append('files', f));
+    const liste = Array.from(files);
     setUploading(true);
     try {
+      // Bilder vorher im Browser verkleinern (kleinere Ablage und Exporte, schneller auf dem Handy)
+      const fd = new FormData();
+      (kind === 'images' ? await bilderVerkleinern(liste) : liste).forEach((f) => fd.append('files', f));
       onChange(await api<Item>(`/items/${item.id}/${kind}`, { method: 'POST', form: fd }));
       toast('success', count === 1 ? 'Datei hochgeladen.' : `${count} Dateien hochgeladen.`);
     } catch (err) {
