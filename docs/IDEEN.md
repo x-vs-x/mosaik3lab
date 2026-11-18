@@ -16,9 +16,9 @@ Format (alles freiwillig außer dem Text):
 
 ## In Arbeit
 
-- [ ] 2026-11-18 – „Updatewünsche: es wäre super, wenn man mehrere Kategorien auswählen könnte beim anlegen der Dateien“ → Branch `feature/mehrere-kategorien` (Auftrag des Nutzers: direkt bauen)
-
 ## Erledigt / übernommen
+
+- [x] 2026-11-18 – „Updatewünsche: es wäre super, wenn man mehrere Kategorien auswählen könnte beim anlegen der Dateien“ → umgesetzt in PR 37
 
 **Wellen vom 2026-10-31 – umgesetzt bis Version 1.7.0 (siehe CHANGELOG.md, PROTOKOLL.md)**
 - [x] Statusarten nicht frei konfigurierbar, nur an/aus; weitere Statustypen überlegen → `status-filamente`

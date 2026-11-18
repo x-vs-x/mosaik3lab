@@ -52,18 +52,22 @@ export function ItemDetailPage() {
   const customFields = item.customFields ?? [];
   const videos = item.videos ?? [];
   const hasDescription = !!(item.description.trim() || item.materialInfo.trim());
-  const showSafety = can('catalog:view');
+  // Sicherheitshinweise derzeit nur für das Druck-Team sichtbar – ohne hinterlegte Hinweise ganz weglassen
+  const hasSafety = can('catalog:view') && item.safetyNotes.length > 0;
 
   return (
     <>
       <BackLink />
 
-      <div className="mt-4 grid gap-5 sm:mt-6 sm:gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-1 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:gap-12">
+      {/* Zweispaltig (Tablet hoch, ab xl): Kerninfos rechts über zwei Zeilen, Beschreibung links direkt unter den Bildern –
+          sonst bleibt unter dem Bild bis zum Ende der Kerninfos eine große Lücke (Meldung vom iPad). Einspaltig wie
+          bisher untereinander: Bilder, Kerninfos, Beschreibung (gleiche Reihenfolge für Tastatur und Vorlesen). */}
+      <div className="mt-4 grid gap-5 sm:mt-6 sm:gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-rows-[auto_1fr] lg:grid-cols-1 lg:grid-rows-none xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:grid-rows-[auto_1fr] xl:gap-x-12">
         {/* Bilder */}
         <BildGalerie key={item.id} item={item} />
 
         {/* Kerninfos */}
-        <div>
+        <div className="md:row-span-2 lg:row-span-1 xl:row-span-2">
           <div className="flex flex-wrap items-center gap-2">
             {item.categories.map((c) => {
               const meta = categoryMeta(md, c);
@@ -143,53 +147,55 @@ export function ItemDetailPage() {
             )}
           </dl>
         </div>
+
+        {/* Beschreibung und Sicherheitshinweise – zweispaltig links unter den Bildern */}
+        {(hasDescription || hasSafety) && (
+          <div className="grid content-start gap-4 sm:gap-6">
+            {hasDescription && (
+              <Card as="section" className="p-4 sm:p-7">
+                {item.description.trim() && (
+                  <>
+                    <h2 className="text-abschnitt font-bold text-stone-900 sm:text-xl">Beschreibung</h2>
+                    <p className="mt-3 whitespace-pre-line text-stone-700"><TextMitLinks text={item.description} /></p>
+                  </>
+                )}
+                {item.materialInfo.trim() && (
+                  <>
+                    <h3 className={cx('font-bold text-stone-900', item.description.trim() ? 'mt-6' : 'text-abschnitt sm:text-xl')}>
+                      Materialinformationen
+                    </h3>
+                    <p className="mt-1.5 whitespace-pre-line text-stone-700"><TextMitLinks text={item.materialInfo} /></p>
+                  </>
+                )}
+              </Card>
+            )}
+
+            {hasSafety && (
+            <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 sm:rounded-3xl sm:p-7">
+              <h2 className="flex flex-wrap items-center gap-x-2.5 text-abschnitt font-bold text-amber-950 sm:text-xl">
+                <ShieldAlert className="size-6 text-amber-700" aria-hidden />
+                Sicherheitshinweise
+                <span className="text-hinweis font-normal text-amber-900">(nur für das Druck-Team sichtbar)</span>
+              </h2>
+              <ul className="mt-4 space-y-3">
+                {item.safetyNotes.map((n) => (
+                  <li key={n} className="flex gap-3 text-amber-950">
+                    <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-amber-600" aria-hidden />
+                    {n}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-5 border-t border-amber-200 pt-4 text-hinweis text-amber-900">
+                3D-gedruckte Hilfs- und Lehrmittel sind keine zertifizierten Medizinprodukte. Bitte vor jedem Einsatz auf
+                Beschädigungen prüfen.
+              </p>
+            </section>
+            )}
+          </div>
+        )}
       </div>
 
       {videos.length > 0 && <VideoSection videos={videos} />}
-
-      <div className={cx('mt-6 grid gap-4 sm:mt-10 sm:gap-6', showSafety && hasDescription && 'xl:grid-cols-2')}>
-        {hasDescription && (
-          <Card as="section" className="p-4 sm:p-7">
-            {item.description.trim() && (
-              <>
-                <h2 className="text-abschnitt font-bold text-stone-900 sm:text-xl">Beschreibung</h2>
-                <p className="mt-3 whitespace-pre-line text-stone-700"><TextMitLinks text={item.description} /></p>
-              </>
-            )}
-            {item.materialInfo.trim() && (
-              <>
-                <h3 className={cx('font-bold text-stone-900', item.description.trim() ? 'mt-6' : 'text-abschnitt sm:text-xl')}>
-                  Materialinformationen
-                </h3>
-                <p className="mt-1.5 whitespace-pre-line text-stone-700"><TextMitLinks text={item.materialInfo} /></p>
-              </>
-            )}
-          </Card>
-        )}
-
-        {/* Sicherheitshinweise derzeit nur für das Druck-Team sichtbar – ohne hinterlegte Hinweise ganz weglassen */}
-        {showSafety && item.safetyNotes.length > 0 && (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 sm:rounded-3xl sm:p-7">
-          <h2 className="flex flex-wrap items-center gap-x-2.5 text-abschnitt font-bold text-amber-950 sm:text-xl">
-            <ShieldAlert className="size-6 text-amber-700" aria-hidden />
-            Sicherheitshinweise
-            <span className="text-hinweis font-normal text-amber-900">(nur für das Druck-Team sichtbar)</span>
-          </h2>
-          <ul className="mt-4 space-y-3">
-            {item.safetyNotes.map((n) => (
-              <li key={n} className="flex gap-3 text-amber-950">
-                <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-amber-600" aria-hidden />
-                {n}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-5 border-t border-amber-200 pt-4 text-hinweis text-amber-900">
-            3D-gedruckte Hilfs- und Lehrmittel sind keine zertifizierten Medizinprodukte. Bitte vor jedem Einsatz auf
-            Beschädigungen prüfen.
-          </p>
-        </section>
-        )}
-      </div>
 
       <LinkKnoepfe links={item.links ?? []} />
 
