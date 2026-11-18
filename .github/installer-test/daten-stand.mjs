@@ -14,6 +14,8 @@ const [modus, dbFile, ablage, standFile] = process.argv.slice(2);
 const FLUECHTIG = new Set(['sitzung', 'betrieb_einstellung', 'einstellung', 'schema_version']);
 // Fachliche Daten: Zahl der Zeilen muss genau gleich bleiben (übrige Tabellen dürfen wachsen, z. B. neue Farbrollen)
 const GENAU = new Set(['benutzer', 'lehrkraft', 'artikel', 'artikel_farbbereich', 'artikel_video', 'datei', 'anfrage', 'vorschlag', 'kategorie', 'material']);
+// Von einer Migration bewusst entfernt (022: tote Tabelle, nie beschrieben) – darf fehlen
+const ENTFERNT = new Set(['benutzer_recht']);
 // Aus der Ablage nicht verglichen: Vorschaubilder (jederzeit neu berechnet) und Punkt-Dateien (Markierungen)
 const AUSGENOMMEN = (rel) => rel.split(/[\\/]/)[0] === 'vorschau' || path.basename(rel).startsWith('.');
 
@@ -64,6 +66,7 @@ let fehler = 0;
 const pruefe = (bed, t) => (bed ? console.log(`OK   ${t}`) : (console.log(`FEHLER ${t}`), fehler++));
 for (const [tabelle, n] of Object.entries(vorher.zeilen)) {
   const nach = jetzt.zeilen[tabelle];
+  if (ENTFERNT.has(tabelle) && nach === undefined) { console.log(`OK   Tabelle ${tabelle}: bewusst entfernt (${n} Zeilen vorher)`); continue; }
   if (GENAU.has(tabelle)) pruefe(nach === n, `Tabelle ${tabelle}: ${n} → ${nach ?? 'fehlt'} Zeilen`);
   else if (nach === undefined || nach < n) pruefe(false, `Tabelle ${tabelle}: ${n} → ${nach ?? 'fehlt'} Zeilen (weniger als vorher)`);
 }
