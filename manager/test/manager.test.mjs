@@ -130,6 +130,35 @@ test('Backup: eine Datei, Standard vollständig, ältere Art „daten“ lesbar,
   assert.ok((await bk.listBackups()).some((x) => x.id === alt.id), 'wiederhergestellte Sicherung bleibt');
 });
 
+test('Backup: Dateien, die während des Kopierens verschwinden, werden übersprungen – andere Fehler nicht', async () => {
+  const src = path.join(tmp, 'kopie-quelle');
+  const dest = path.join(tmp, 'kopie-ziel');
+  fs.mkdirSync(path.join(src, 'bilder', 'alt'), { recursive: true });
+  fs.writeFileSync(path.join(src, 'bilder', 'a.jpg'), 'A');
+  fs.writeFileSync(path.join(src, 'bilder', 'weg.jpg'), 'WEG');
+  fs.writeFileSync(path.join(src, 'bilder', 'alt', 'x.jpg'), 'X');
+  fs.writeFileSync(path.join(src, 'bilder', 'b.jpg.123.neu'), 'NEU');
+  // Der Filter läuft direkt vor dem Kopieren jedes Eintrags: hier löschen wir „gleichzeitig“ eine Datei und einen Ordner
+  const filter = (s) => {
+    if (s.endsWith('weg.jpg') || s.endsWith(`${path.sep}alt`)) fs.rmSync(s, { recursive: true, force: true });
+    return !s.endsWith('.neu');
+  };
+  await bk.kopiereOrdner(src, dest, filter);
+  assert.equal(fs.readFileSync(path.join(dest, 'bilder', 'a.jpg'), 'utf8'), 'A');
+  assert.ok(!fs.existsSync(path.join(dest, 'bilder', 'weg.jpg')), 'verschwundene Datei übersprungen');
+  assert.ok(!fs.existsSync(path.join(dest, 'bilder', 'alt', 'x.jpg')), 'verschwundener Ordner übersprungen');
+  assert.ok(!fs.existsSync(path.join(dest, 'bilder', 'b.jpg.123.neu')), 'Filter gilt weiter');
+  const logText = fs.readFileSync(path.join(tmp, 'logs', 'manager.log'), 'utf8');
+  assert.match(logText, /übersprungen, inzwischen gelöscht: .*weg\.jpg/);
+  // Andere Fehler bleiben Fehler: Ziel ist eine Datei statt eines Ordners
+  const blockiert = path.join(tmp, 'kopie-blockiert');
+  fs.writeFileSync(blockiert, 'keine Ordner');
+  await assert.rejects(bk.kopiereOrdner(src, blockiert));
+  fs.rmSync(src, { recursive: true, force: true });
+  fs.rmSync(dest, { recursive: true, force: true });
+  fs.rmSync(blockiert, { force: true });
+});
+
 test('Zeitplan: verpasste Sicherungen werden als fällig erkannt', async () => {
   const noon = new Date(2026, 5, 10, 12, 0, 0); // Mittwoch
   assert.equal(bk.lastSlot('02:00', -1, noon).getHours(), 2);

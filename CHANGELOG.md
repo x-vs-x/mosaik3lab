@@ -6,6 +6,9 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Sicherung bricht nicht mehr ab, wenn währenddessen eine Datei verschwindet:** Wird beim Sichern z. B. gerade ein
+  Bild in der App gelöscht, überspringt die Sicherung diese Datei (Hinweis im Protokoll) und wird trotzdem fertig.
+
 - **Stabiler bei schwachem WLAN und nach Updates:** Statt einer weißen Seite erscheint bei einem Fehler „Etwas ist
   schiefgelaufen – Seite neu laden“; ein alter Tab nach einem Update lädt sich einmal selbst neu. Der Katalog erscheint
   schneller (kleineres Programm, Schriften werden früh geladen, keine Wartezeit mehr auf die Prüfung der Ersteinrichtung;
