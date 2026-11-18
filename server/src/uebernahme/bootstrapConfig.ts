@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { stamp } from '../kern/db';
 
 /**
  * Früher in der Verwaltung einstellbare Ablagepfade (mosaik3lab.config.json in der Projektwurzel).
@@ -35,7 +34,8 @@ export function readPathConfig(rootDir: string): PathConfig {
 export function retirePathConfig(rootDir: string): string | undefined {
   const file = configFilePath(rootDir);
   if (!fs.existsSync(file)) return undefined;
-  const backup = `${file}.vor-ablage-umzug-${stamp()}.bak`;
+  // Zeitstempel hier selbst (stamp() aus kern/db ginge nicht: config.ts lädt diese Datei, kern/db wiederum config.ts).
+  const backup = `${file}.vor-ablage-umzug-${new Date().toISOString().replace(/[:.]/g, '-')}.bak`;
   fs.copyFileSync(file, backup);
   fs.rmSync(file);
   console.log(`[Übernahme] Frühere Ablagepfade aus ${file} entfernt (Pfade stellt jetzt der Server-Manager ein). Sicherung: ${backup}`);
