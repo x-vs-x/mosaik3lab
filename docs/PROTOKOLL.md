@@ -2,6 +2,24 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Code-Hygiene Phase 2: shared/Verträge (Unter-Session, Branch: refactor/shared → refactor/code-hygiene)
+- **Auftrag:** D1–D9, C14–C16, S21 sowie Rest: D16, M14-Rest, DATENMODELL `update.*`, D10-Client, Testkommentar, Suchfeld.
+- **Gebaut:** `shared/src/werte/bilder.ts` (Bildbreiten 2000/1080/360, JPEG 85, Vorschaugrößen), `werte/dateien.ts`
+  (5/50/50 MB, 8/10/4 je Druckteil, `mbText`), benannte Schema-Grenzen in `werte/katalog|anfragen|vorschlaege|stammdaten`
+  (Server-Kern, Schemas und Client-Hinweise lesen sie), `shared/src/datenaustausch.ts` (Bericht/Vorschau/Ergebnis,
+  `importAusfuehrenSchema`, `werte/datenaustausch.ts` mit MAX_EXPORT_AUSWAHL), Antwort- und Eingabetypen in konten/katalog/
+  stammdaten/vorschlaege (Client-Rümpfe mit `satisfies`), `emailEingabeSchema`, `StatusId`, Client-Typ `StammdatenSeite`,
+  S21-Rückgabetypen; Migration `022_benutzer_recht_entfernen.sql`; `server/scripts/backup.ts` entfernt (Sicherung von
+  `seed:reset` steht jetzt in reset-data.ts); NeuigkeitenDialog über `can('settings:manage')`; Suchfeld mit Zwischenstand
+  (`client/src/lib/suchEntwurf.ts`, 300 ms bzw. Katalog 400 ms, `useDebounced` entfernt).
+- **Tests:** neu `server/test/grenzen.test.ts` (alte Zahlen gegen neue Konstanten, Grenzfälle), `client/test/suchEntwurf.test.ts`;
+  ergänzt migration (1.7.0 mit alter Tabelle → 021+022), speicher, datenaustausch (Vertrag der Vorschau), stabilitaet
+  (werte-Paartest). Manager-Test settings-backup nicht lokal ausgeführt (enthält echtes `reconcile` mit Firewall-Schritt) –
+  nur der geänderte Helfer app-db.ts gegen eine Probe-Datenbank; der Rest läuft in der CI. Klicktest headless Chrome
+  (frisches Profil) 375 und 1440: je 31 Prüfungen grün (Suchfelder, Bild-Upload, Anfrage-Dialog, Vorschlag mit Foto,
+  Umwandeln, Export/Import-Vorschau und Einspielen).
+- **Aufgeräumt:** Dev-Server 5181/3011 gestoppt, `_testdaten/hygiene-shared` und Scratchpad-Skripte gelöscht.
+
 ## 2026-11-18 – Code-Hygiene Server (Paket A, Unter-Session, Branch: fix/fehler-app → refactor/code-hygiene)
 - **Auftrag:** Funde S1–S20, S22–S25 (`_konzepte/code-hygiene/server.md`), D10–D13, D15–D19 (`shared-daten.md`) und C1
   (`client.md`) prüfen und beheben; ein Commit je Gruppe, kein PR (Hauptchat führt in `refactor/code-hygiene` zusammen).
