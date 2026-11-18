@@ -4,19 +4,20 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
 ## 2026-11-18 – Bilder verkleinern (Unter-Session, Branch: feature/bilder-verkleinern)
 - **Anlass:** Export 130 MB, weil 48 Druckteil-Bilder (2–5 MB je Bild) unverändert gespeichert werden.
-- **Gebaut:**  (Canvas, kein npm-Modul): längste Kante ≤ 2000 px, JPEG 0,85,
-  Transparenz → PNG, EXIF-Drehung über ; GIF, Bilder ≤ 300 KB,
-  Fehler oder kein kleineres Ergebnis → Original. Eingebunden in  (, nur Bilder) und in
-   (Fotos vor der 5-MB-Prüfung). Neuer Dialog   (Knopf „Bilder verkleinern …“ in , nur mit ): lädt jedes Bild, ersetzt es nur bei
+- **Gebaut:** `client/src/lib/bildVerkleinern.ts` (Canvas, kein npm-Modul): längste Kante ≤ 2000 px, JPEG 0,85,
+  Transparenz → PNG, EXIF-Drehung über `createImageBitmap(…, { imageOrientation: 'from-image' })`; GIF, Bilder ≤ 300 KB,
+  Fehler oder kein kleineres Ergebnis → Original. Eingebunden in `FilePicker.tsx` (`useUpload`, nur Bilder) und in
+  `ProposalFormPage.tsx` (Fotos vor der 5-MB-Prüfung). Neuer Dialog `features/verwaltung/BilderVerkleinern.tsx`
+  (Knopf „Bilder verkleinern …“ in `ItemsAdminPage.tsx`, nur mit `catalog:manage`): lädt jedes Bild, ersetzt es nur bei
   ≥ 20 % Ersparnis, Fortschritt und Zusammenfassung „N Bilder, X MB → Y MB“.
-  Server:  (, Route in ): Recht
-  , gleiche Prüfung wie beim Hochladen (Endung + Magic Bytes, 5 MB), Rate-Limit 300 / 10 min.
-   () behält Datei-ID und Sortierung, schreibt erst eine Zwischendatei, ändert dann
+  Server: `PUT /api/items/:id/images/:file` (`module/katalog/bildErsetzen.ts`, Route in `katalog.routes.ts`): Recht
+  `catalog:manage`, gleiche Prüfung wie beim Hochladen (Endung + Magic Bytes, 5 MB), Rate-Limit 300 / 10 min.
+  `FileStore.replace` (`kern/files.ts`) behält Datei-ID und Sortierung, schreibt erst eine Zwischendatei, ändert dann
   den Datensatz und löscht zuletzt die alte Datei (bei PNG → JPG ändert sich nur die Endung des Bildnamens).
-  Tests: , .
+  Tests: `server/test/bildErsetzen.test.ts`, `client/test/bildVerkleinern.test.ts`.
 - **Geprüft:** session-2 bei 1440 und 375 px: 3 Testbilder 9,3 MB → 3,0 MB (Transparenz-PNG blieb PNG), zweiter Lauf
   ersetzt nichts; Upload per Drag & Drop 4,8 MB → 0,76 MB (2000 × 1500).
-- **Aufgeräumt:** Testserver gestoppt, Testbilder in  wieder gelöscht.
+- **Aufgeräumt:** Testserver gestoppt, Testbilder in `_testdaten/session-2` wieder gelöscht.
 
 ## 2026-11-18 – Katalog: Scrollhöhe und Bilder wischen (Unter-Session, Branch: feature/katalog-bedienung)
 - **Anlass:** Zurück aus einem Druckteil sprang der Katalog nach oben; auf der Detailseite ließen sich Bilder nicht wischen.
