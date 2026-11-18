@@ -6,6 +6,7 @@ import { EntwurfHinweis } from '../../components/EntwurfHinweis';
 import { ActionBar, Alert, Button, EmptyState, Field, Input, LinkButton, PageHeader, Panel, Select, Textarea } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 import { api, ApiError } from '../../lib/api';
+import { bildVerkleinern } from '../../lib/bildVerkleinern';
 import { entwurfSchluessel } from '../../lib/entwurfSpeicher';
 import { useDocumentTitle } from '../../lib/useApi';
 import { useEntwurf } from '../../lib/useEntwurf';
@@ -45,12 +46,15 @@ export function ProposalFormPage() {
   const previews = useMemo(() => photos.map((f) => URL.createObjectURL(f)), [photos]);
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
-  const addPhotos = (list: FileList | null) => {
+  const addPhotos = async (list: FileList | null) => {
     if (!list) return;
+    const istBild = (f: File) => /\.(jpe?g|png|webp)$/i.test(f.name);
+    // Fotos im Browser verkleinern – so passen auch große Handyfotos unter 5 MB
+    const auswahl = await Promise.all(Array.from(list).map((f) => (istBild(f) ? bildVerkleinern(f) : f)));
     const next = [...photos];
     const problems: string[] = [];
-    for (const f of Array.from(list)) {
-      if (!/\.(jpe?g|png|webp)$/i.test(f.name)) problems.push(`„${f.name}“: nur JPG, PNG oder WebP`);
+    for (const f of auswahl) {
+      if (!istBild(f)) problems.push(`„${f.name}“: nur JPG, PNG oder WebP`);
       else if (f.size > MAX_PHOTO_BYTES) problems.push(`„${f.name}“: größer als 5 MB`);
       else if (next.length >= MAX_PHOTOS) problems.push(`Höchstens ${MAX_PHOTOS} Fotos`);
       else next.push(f);
@@ -183,7 +187,7 @@ export function ProposalFormPage() {
                   multiple
                   className="sr-only"
                   onChange={(e) => {
-                    addPhotos(e.target.files);
+                    void addPhotos(e.target.files);
                     e.target.value = '';
                   }}
                 />

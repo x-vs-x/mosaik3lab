@@ -3,6 +3,7 @@ import type { Auth } from '../../kern/auth/middleware';
 import { badRequest, notFound } from '../../kern/errors';
 import { dateiName } from '../../kern/files';
 import { param, sendMissingImage } from '../../kern/http';
+import { rateLimit } from '../../kern/rateLimit';
 import { imageUpload, MAX_IMAGES_PER_ITEM, modelUpload, videoUpload } from '../../kern/uploads';
 import type { Storage } from '../../storage';
 import {
@@ -24,6 +25,7 @@ import {
   visibleItemFile,
 } from './katalog.service';
 import { farbeZuordnen } from './farbeZuordnen';
+import { replaceImage } from './bildErsetzen';
 import { farbeZuordnenSchema, imageOrderSchema, itemInputSchema, publishSchema, videoLinkSchema, videoUploadSchema } from '@mosaik3lab/shared/katalog';
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
@@ -79,6 +81,12 @@ export function itemRoutes(storage: Storage, auth: Auth) {
   router.put('/:id/images/order', manage, async (req, res) => {
     const { images } = imageOrderSchema.parse(req.body);
     res.json(presentItem(await reorderImages(storage, param(req.params.id), images), req.user!));
+  });
+
+  // Bildinhalt ersetzen (z. B. „Vorhandene Bilder verkleinern“): gleiche ID und Reihenfolge, gleiche Prüfungen.
+  const ersetzenLimit = rateLimit({ windowMs: 10 * 60_000, max: 300, message: 'Zu viele Bilder auf einmal ersetzt. Bitte in einigen Minuten erneut versuchen.' });
+  router.put('/:id/images/:file', manage, ersetzenLimit, imageUpload.single('file'), async (req, res) => {
+    res.json(presentItem(await replaceImage(storage, param(req.params.id), param(req.params.file), req.file), req.user!));
   });
 
   router.delete('/:id/images/:file', manage, async (req, res) => {

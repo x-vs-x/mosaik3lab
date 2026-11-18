@@ -6,6 +6,11 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Kleinere Bilder:** Bilder von Druckteilen und Fotos in Vorschlägen werden beim Hochladen im Browser auf höchstens
+  2000 Pixel verkleinert (JPEG, Bilder mit Transparenz bleiben PNG). Große Handyfotos über 5 MB lassen sich so auch
+  hochladen. Neu unter Verwaltung → Druckteile: „Bilder verkleinern …“ verkleinert einmalig alle vorhandenen Bilder –
+  das macht Exporte deutlich kleiner und den Katalog auf dem Handy schneller.
+
 - **Links am Druckteil:** Beim Anlegen und Bearbeiten eines Druckteils gibt es den neuen Abschnitt „Links und
   Bestellhinweise“. Jeder Link bekommt einen Knopftext und eine kurze Beschreibung und erscheint auf der Seite des
   Druckteils als Knopf, z. B. „Taster-Beispiel“ mit dem Link zu einem Elektroteil, das man dazu bestellen muss. Die Links
