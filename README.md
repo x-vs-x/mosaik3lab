@@ -129,8 +129,8 @@ Beide Ports lauschen nur auf `127.0.0.1`. Beenden mit Strg+C.
 > `M3L_ADMIN_PASSWORD=<passwort> npm run --silent user:create-admin -w server -- --email <adresse> --name <name>`
 > (Passwort mindestens 8 Zeichen; alternativ eine Zeile über stdin). Der `doctor` warnt, solange es keinen aktiven Administrator gibt.
 
-| Rolle          | E-Mail (Anmeldung)                   | Passwort            |
-| -------------- | ------------------------------------ | ------------------- |
+| Rolle          | E-Mail (Anmeldung)               | Passwort            |
+| -------------- | -------------------------------- | ------------------- |
 | Administrator  | `demo.admin@schule.example`      | `Mosaik-Admin-2026` |
 | 3D-Druck-Team  | `demo.druckteam@schule.example`  | `Mosaik-Druck-2026` |
 | Lehrkraft      | `frau.beispiel@schule.example`   | – (kein Passwort)   |
@@ -138,7 +138,8 @@ Beide Ports lauschen nur auf `127.0.0.1`. Beenden mit Strg+C.
 Weitere bekannte Lehrkräfte aus den Beispiel-Anfragen: `herr.muster@…`, `frau.sonnenschein@schule.example`.
 Ältere Datenstände werden beim Start automatisch ergänzt: Konten ohne E-Mail erhalten ihre Demo-Adresse bzw.
 `<benutzername>@<erste erlaubte Domain>` (in „Personen“ sichtbar); das frühere Demo-Konto `lehrkraft`
-wird zur bekannten Lehrkraft `demo.lehrkraft@schule.example` (ohne Passwort).
+wird zur bekannten Lehrkraft `demo.lehrkraft@schule.example` (ohne Passwort). Demo-Konten, die schon vorher
+angelegt waren, behalten ihre bisherigen Adressen (es entstehen keine zweiten Demo-Konten).
 
 ## Rollen und Rechte
 

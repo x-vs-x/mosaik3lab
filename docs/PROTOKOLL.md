@@ -2,6 +2,28 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Neutrale Vorgaben (Unter-Session, Branch: feature/neutrale-vorgaben)
+- **Anlass:** Das öffentliche Repo enthielt Bezüge zu einer konkreten Schule (Demo-Adressen, Standard-Domain, Texte).
+  Mosaik³LAB soll im Standard für jede Schule passen; konkrete Angaben stellt jede Installation selbst ein.
+- **Gebaut:** Beispiel-, Demo- und Testadressen auf die reservierte Domain `schule.example` (RFC 2606) umgestellt,
+  auch die allgemeinen Beispiele `schule.de` (echte Domain) in Platzhaltern, Fehlermeldungen und Manager-Texten.
+  Standard der erlaubten Domains für neue Installationen: `[]` (= jede Adresse, wie im Schema vorgesehen); die
+  Einrichtung setzt wie bisher die Domain der Schule bzw. des ersten Administrators. Anmeldeseite: Text neutral
+  („Der schulinterne Katalog für den 3D-Druck.“); das Schullogo (`Logo.tsx`) bleibt auf Wunsch des Nutzers.
+- **Update-Sicherheit:** Die bisherige Vorgabe steht als `ORDERFORM_VORGABE_BIS_1_6` in `domain/settings.ts` und gilt nur
+  für Altbestände: `SettingsRepository.init()` trägt sie bei bestehenden Datenbanken ohne gespeicherte Domains fest ein,
+  `legacyJson.ts` nutzt sie für alte JSON-Daten ohne `orderForm`, `schulDomainUebernehmen` behandelt sie weiter als
+  „unverändert“ (eine noch nicht eingerichtete ältere Installation übernimmt beim ersten Admin die Schul-Domain).
+  Keine SQL-Migration (Nummer 020 war parallel belegt). Vorhandene Demo-Konten behalten ihre Adressen (Seed nur bei
+  leerer Datenbank, keine Doppelkonten).
+- **Geprüft:** neuer Test `server/test/vorgaben.test.ts`; der Testserver (`helfer.ts`) stellt die Schul-Domain wie eine
+  eingerichtete Schule ein. Kopie der echten Datenbank (Stand 1.6.3) und ein alter Demo-Stand je einmal mit `main` und
+  mit diesem Branch gestartet (Einstellungen, Konten, Anmeldung, Anfrage, Registrierung): Ergebnisse und Datenstand
+  identisch, Domain unverändert, keine doppelten Konten. Screenshots Start/Anmeldung/Passwort 320–1440 px in
+  `C:\Entwicklung\_testdaten\neutral-bilder\`.
+- **Ausgenommen:** `server/src/kern/files.ts`, `client/src/components/ItemImage.tsx` (Bildpflege; dort keine Fundstellen).
+- **Aufgeräumt:** Testserver gestoppt, Testdaten `_testdaten\neutral` und Scratchpad-Skripte gelöscht; Worktree bleibt.
+
 ## 2026-11-18 – Export als ZIP, ähnliche Druckteile im Austausch (Unter-Session, Branch: feature/zip-export)
 - **Anlass:** Zwei Wünsche des Nutzers: (A) Export als ZIP statt JSON mit Base64 (+33 %), Bilder in der Datei ansehbar;
   (B) Verknüpfungen „Ähnliche Druckteile“ mit exportieren und beim Einspielen anlegen bzw. vormerken.
