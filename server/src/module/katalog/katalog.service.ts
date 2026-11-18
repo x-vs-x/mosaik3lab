@@ -140,8 +140,10 @@ export async function addImages(storage: Storage, id: string, files: Express.Mul
     }
     const namen = gespeichert.map(dateiName);
     return change(storage, item.id, (c) => {
-      if (c.images.length + namen.length > MAX_IMAGES_PER_ITEM) throw badRequest(`Pro Druckteil sind höchstens ${MAX_IMAGES_PER_ITEM} Bilder möglich.`);
-      return { ...c, images: [...new Set([...c.images, ...namen])], updatedAt: touched() };
+      // c.images enthält schon alle gespeicherten Bilder (auch die eines gleichzeitigen Uploads) – zusammen zählen.
+      const images = [...new Set([...c.images, ...namen])];
+      if (images.length > MAX_IMAGES_PER_ITEM) throw badRequest(`Pro Druckteil sind höchstens ${MAX_IMAGES_PER_ITEM} Bilder möglich.`);
+      return { ...c, images, updatedAt: touched() };
     });
   });
   const saved = gespeichert.map(dateiName);
@@ -259,8 +261,9 @@ export async function addModels(storage: Storage, id: string, files: Express.Mul
       added.push({ id: d.id, storedName: dateiName(d), originalName: d.originalname, format: formats[i], sizeBytes: d.groesse, uploadedAt: d.erstelltAm });
     }
     return change(storage, item.id, (c) => {
-      if (c.modelFiles.length + added.length > MAX_MODELS_PER_ITEM) throw badRequest(`Pro Druckteil sind höchstens ${MAX_MODELS_PER_ITEM} Druckdateien möglich.`);
-      return { ...c, modelFiles: [...c.modelFiles.filter((m) => !added.some((a) => a.id === m.id)), ...added], updatedAt: touched() };
+      const modelFiles = [...c.modelFiles.filter((m) => !added.some((a) => a.id === m.id)), ...added];
+      if (modelFiles.length > MAX_MODELS_PER_ITEM) throw badRequest(`Pro Druckteil sind höchstens ${MAX_MODELS_PER_ITEM} Druckdateien möglich.`);
+      return { ...c, modelFiles, updatedAt: touched() };
     });
   });
 }

@@ -1,6 +1,7 @@
 // Druckteile exportieren/einspielen: Rechte, einer/mehrere/alle, Rundreise in leere Datenbank mit identischen Dateien (SHA-256),
 // vorhandene überspringen oder ersetzen, Zuordnung über den Namen, Bezüge ergänzen, kaputte Dateien, Rückabwicklung, altes Format,
 // ZIP (Format 2) samt Sicherheitsregeln, ähnliche Druckteile (anlegen, vormerken, später auflösen).
+import { APP_VERSION } from '../src/kern/version';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -186,7 +187,8 @@ test('Export: einer, mehrere, alle – mit Dateien, nur gebrauchte Stammdaten, o
   dateienMit = dateien;
   assert.equal(j.format, 'mosaik3lab-stammdaten');
   assert.equal(j.version, 2);
-  assert.ok(j.exportiertAm && j.appVersion && j.schemaVersion >= 1);
+  assert.ok(j.exportiertAm && j.schemaVersion >= 1);
+  assert.equal(j.appVersion, APP_VERSION, 'Version aus kern/version.ts (wie /api/health)');
   assert.equal(j.mitDateien, true);
   assert.equal(j.auswahl, true);
   assert.equal(j.artikel.length, alle.length);

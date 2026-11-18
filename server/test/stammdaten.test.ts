@@ -29,14 +29,20 @@ test('Verwendete Kategorie kann nicht gelöscht werden (409)', async () => {
   assert.equal(r.status, 409);
   assert.ok((await md()).categories.some((c: any) => c.name === 'Kommunikation'));
 });
-test('Umbenennen einer Kategorie zieht Druckteile nach', async () => {
+test('Umbenennen einer Kategorie zieht Druckteile nach (Bezug per ID, ohne die Druckteile neu zu schreiben)', async () => {
   const { categories } = await md();
+  const stand = new Map(((await team.req('GET', '/api/items?all=1')).json as any[]).map((i) => [i.id, i.updatedAt]));
   const next = categories.map((c: any) => (c.name === 'Sonstiges' ? { ...c, name: 'Sonstiges & Weiteres' } : c));
   const r = await putList(admin, 'categories', next);
   assert.equal(r.status, 200, JSON.stringify(r.json));
   const items = (await team.req('GET', '/api/items?all=1')).json;
   assert.ok(!items.some((i: any) => i.category === 'Sonstiges'));
   assert.ok(items.some((i: any) => i.category === 'Sonstiges & Weiteres'));
+  assert.ok(items.every((i: any) => i.updatedAt === stand.get(i.id)), 'kein Druckteil neu geschrieben');
+  const material = (await md()).materials.map((m: any) => (m.name === 'PLA' ? { ...m, name: 'PLA (Standard)' } : m));
+  assert.equal((await putList(admin, 'materials', material)).status, 200);
+  assert.ok((await team.req('GET', '/api/items?all=1')).json.some((i: any) => i.material === 'PLA (Standard)'));
+  assert.equal((await putList(admin, 'materials', material.map((m: any) => (m.name === 'PLA (Standard)' ? { ...m, name: 'PLA' } : m)))).status, 200);
   await putList(admin, 'categories', categories);
   const back = (await team.req('GET', '/api/items?all=1')).json;
   assert.ok(back.some((i: any) => i.category === 'Sonstiges'));

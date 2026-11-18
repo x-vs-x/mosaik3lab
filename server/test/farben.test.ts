@@ -199,3 +199,96 @@ test('Größen sind freiwillig: Druckteil ohne Größen speichern und ohne Grö�
   assert.equal(ok.json.size ?? '', '');
   assert.equal((await anon.req('POST', '/api/orders', { ...body, size: 'XL' })).status, 400, 'Größe, die es nicht gibt');
 });
+
+test('Eigene Linie umbenennen: gewählte Gruppen der Druckteile ziehen mit; mehrdeutig oder gelöscht bleibt die Gruppe', async () => {
+  const alle = await items();
+  const [item, unbeteiligt] = alle.filter((i: any) => i.colorAreas.length === 1);
+  const { filaments } = await md();
+  const neu = await admin.req('PUT', '/api/admin/settings/masterdata/filaments', {
+    entries: [...filaments, { brand: 'Werkstatt', line: 'ZZX Matt', colorName: 'Rot', hex: '#cc0000' }, { brand: 'Werkstatt', line: 'ZZX Matt', colorName: 'Blau', hex: '#0000cc' }],
+  });
+  assert.equal(neu.status, 200, JSON.stringify(neu.json));
+  const eigene = (l: any[]) => l.filter((f: any) => f.brand === 'Werkstatt' || f.brand === 'Labor');
+  const [rot, blau] = eigene(neu.json.filaments).map((f: any) => f.id);
+  const setze = async (gruppen: string[]) => {
+    const r = await team.req('PUT', `/api/items/${item.id}`, itemBody(item, [{ id: 'farbe', name: 'Farbe', colors: [], gruppen }]));
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+  };
+  const bereich = async () => (await items()).find((i: any) => i.id === item.id).colorAreas[0];
+  const speichere = async (aendern: (f: any) => any) => {
+    const { filaments: jetzt } = await md();
+    const r = await admin.req('PUT', '/api/admin/settings/masterdata/filaments', { entries: jetzt.map((f: any) => (f.id === rot || f.id === blau ? aendern(f) : f)) });
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+  };
+  await setze(['linie:Werkstatt ZZX Matt', 'art:ZZX']);
+  assert.deepEqual((await bereich()).colors.sort(), [rot, blau].sort());
+  const unbeteiligtVorher = (await items()).find((i: any) => i.id === unbeteiligt.id).updatedAt;
+
+  // 1) Linie (und damit die Materialart) eindeutig umbenannt → beide Gruppen folgen, die Farben bleiben gewählt.
+  await speichere((f) => ({ ...f, line: 'QQY Seide' }));
+  let b = await bereich();
+  assert.deepEqual(b.gruppen, ['linie:Werkstatt QQY Seide', 'art:QQY']);
+  assert.deepEqual(b.colors.sort(), [rot, blau].sort());
+  assert.equal((await items()).find((i: any) => i.id === unbeteiligt.id).updatedAt, unbeteiligtVorher, 'andere Druckteile bleiben unberührt');
+
+  // 2) Marke umbenannt → Linie folgt, Materialart bleibt.
+  await speichere((f) => ({ ...f, brand: 'Labor' }));
+  b = await bereich();
+  assert.deepEqual(b.gruppen, ['linie:Labor QQY Seide', 'art:QQY']);
+  assert.deepEqual(b.colors.sort(), [rot, blau].sort());
+
+  // 3) Auf zwei Linien verteilt → mehrdeutig: Gruppen bleiben stehen (kein Raten).
+  await speichere((f) => ({ ...f, line: f.id === rot ? 'QQA Matt' : 'QQB Matt' }));
+  b = await bereich();
+  assert.deepEqual(b.gruppen, ['linie:Labor QQY Seide', 'art:QQY']);
+
+  // 4) Rollen gelöscht → Gruppe bleibt, das Druckteil bleibt gültig und speicherbar.
+  await setze(['linie:Labor QQA Matt']);
+  assert.deepEqual((await bereich()).colors, [rot]);
+  const { filaments: vorLoeschen } = await md();
+  const del = await admin.req('PUT', '/api/admin/settings/masterdata/filaments', { entries: vorLoeschen.filter((f: any) => f.id !== rot && f.id !== blau) });
+  assert.equal(del.status, 200, JSON.stringify(del.json));
+  b = await bereich();
+  assert.deepEqual(b.gruppen, ['linie:Labor QQA Matt']);
+  assert.deepEqual(b.colors, []);
+  const nachher = (await items()).find((i: any) => i.id === item.id);
+  assert.equal((await team.req('PUT', `/api/items/${item.id}`, itemBody(nachher, nachher.colorAreas))).status, 200);
+  await setze(['art:PLA']); // aufräumen für die folgenden Tests
+});
+
+test('Farbrolle löschen und Liste speichern in einem Schritt: scheitert das Speichern, bleibt auch das Druckteil unverändert', async () => {
+  const [item] = (await items()).filter((i: any) => i.colorAreas.length === 1);
+  const { filaments } = await md();
+  const neu = await admin.req('PUT', '/api/admin/settings/masterdata/filaments', { entries: [...filaments, { brand: 'Test', line: 'PLA', colorName: 'Weg', hex: '#123456' }] });
+  const weg = neu.json.filaments.find((f: any) => f.colorName === 'Weg').id;
+  assert.equal((await team.req('PUT', `/api/items/${item.id}`, itemBody(item, [{ id: 'farbe', name: 'Farbe', colors: [weg, filaments[0].id] }]))).status, 200);
+  const vorher = (await items()).find((i: any) => i.id === item.id);
+  // Ungültige Liste (doppelter Eintrag) → 400, nichts geändert – weder Farbrollen noch Druckteil.
+  const ohne = neu.json.filaments.filter((f: any) => f.id !== weg);
+  const kaputt = await admin.req('PUT', '/api/admin/settings/masterdata/filaments', { entries: [...ohne, { ...ohne.at(-1), id: undefined, katalogId: undefined }] });
+  assert.equal(kaputt.status, 400);
+  assert.deepEqual((await items()).find((i: any) => i.id === item.id).colorAreas, vorher.colorAreas);
+  assert.ok((await md()).filaments.some((f: any) => f.id === weg));
+  // Gültig → Rolle weg, im Druckteil entfernt.
+  assert.equal((await admin.req('PUT', '/api/admin/settings/masterdata/filaments', { entries: ohne })).status, 200);
+  assert.deepEqual((await items()).find((i: any) => i.id === item.id).colorAreas[0].colors, [filaments[0].id]);
+});
+
+test('items.updateMany: wirft der Schritt danach (z. B. Farbrollen speichern), bleiben alle Druckteile unverändert', async () => {
+  const zwei = (await items()).slice(0, 2);
+  const vorher = await Promise.all(zwei.map((i: any) => srv.storage.items.findById(i.id)));
+  await assert.rejects(
+    srv.storage.items.updateMany(
+      zwei.map((i: any) => i.id),
+      (c) => ({ ...c, name: `${c.name} (geändert)` }),
+      { danach: () => { throw new Error('Speichern der Liste gescheitert'); } },
+    ),
+    /Speichern der Liste gescheitert/,
+  );
+  assert.deepEqual(await Promise.all(zwei.map((i: any) => srv.storage.items.findById(i.id))), vorher);
+  // Ohne Fehler: beide geändert, undefined = nichts zu tun.
+  const r = await srv.storage.items.updateMany([zwei[0].id, zwei[1].id], (c) => (c.id === zwei[0].id ? { ...c, price: '1 €' } : undefined));
+  assert.deepEqual(r.geaendert, [zwei[0].id]);
+  assert.equal((await srv.storage.items.findById(zwei[0].id))?.price, '1 €');
+  assert.deepEqual(await srv.storage.items.findById(zwei[1].id), vorher[1]);
+});
