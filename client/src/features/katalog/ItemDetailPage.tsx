@@ -73,7 +73,7 @@ function DruckteilSeite({ item, requestOpen, setRequestOpen }: { item: Item; req
 
   return (
     <>
-      <div className="mt-4 grid gap-5 sm:mt-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:gap-x-6 lg:gap-x-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:gap-x-12">
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-5 sm:mt-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:gap-x-6 lg:gap-x-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:gap-x-12">
         <div className="min-w-0 md:col-start-1 md:row-start-1">
           <MedienGalerie item={item} />
         </div>
@@ -84,7 +84,7 @@ function DruckteilSeite({ item, requestOpen, setRequestOpen }: { item: Item; req
           <Kopf item={item} />
           <DruckteilAuswahl item={item} zustand={auswahl} onAnfragen={() => setRequestOpen(true)} />
         </div>
-        <div className="grid min-w-0 content-start gap-5 md:col-start-1 md:row-start-2">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-5 md:col-start-1 md:row-start-2">
           <Eckdaten item={item} />
           <TextAbschnitt titel="Beschreibung" text={item.description} />
           <TextAbschnitt titel="Materialinformationen" text={item.materialInfo} />
@@ -132,7 +132,7 @@ function BackLink() {
         e.preventDefault();
         navigate(-1);
       }}
-      className="inline-flex min-h-11 items-center gap-2 rounded-xl pr-3 font-bold text-stone-700 hover:text-brand-800"
+      className="inline-flex min-h-[44px] items-center gap-2 rounded-xl pr-3 font-bold text-stone-700 hover:text-brand-800"
     >
       <ArrowLeft className="size-5" aria-hidden />
       Zurück zum Katalog

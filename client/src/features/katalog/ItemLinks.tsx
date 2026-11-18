@@ -30,7 +30,7 @@ export function LinkKnoepfe({ links }: { links: ItemLink[] }) {
     <Card as="section" className="p-4 sm:p-6">
       <h2 className="flex items-center gap-2.5 text-abschnitt font-bold text-stone-900 sm:text-xl">
         <Link2 className="size-6 text-brand-700" aria-hidden />
-        Links und Bestellhinweise
+        <span className="min-w-0 hyphens-auto wrap-break-word">Links und Bestellhinweise</span>
       </h2>
       {/* Mehrere Spalten nur, wenn je mindestens 16rem frei sind (linke Spalte der Druckteil-Seite ist schmal) */}
       <ul className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,16rem),1fr))] gap-3">

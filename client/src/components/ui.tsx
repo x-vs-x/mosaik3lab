@@ -24,8 +24,8 @@ const variants: Record<Variant, string> = {
   danger: 'bg-rose-700 text-white shadow-sm hover:bg-rose-800',
 };
 const sizes: Record<Size, string> = {
-  sm: 'min-h-11 px-3.5 text-hinweis gap-1.5 rounded-xl',
-  md: 'min-h-11 px-4 text-base gap-2 rounded-xl sm:min-h-12 sm:px-5',
+  sm: 'min-h-[44px] px-3.5 text-hinweis gap-1.5 rounded-xl',
+  md: 'min-h-[44px] px-4 text-base gap-2 rounded-xl sm:min-h-12 sm:px-5',
   lg: 'min-h-12 px-5 text-base gap-2.5 rounded-xl sm:min-h-14 sm:px-6 sm:rounded-2xl',
 };
 
@@ -289,7 +289,7 @@ export function Field({ label, hint, error, required, children, className }: Fie
 
 export const inputClass = (invalid?: boolean) =>
   cx(
-    'block w-full min-h-11 rounded-xl border bg-white px-4 py-2 text-base sm:min-h-12 sm:py-2.5 text-stone-900 placeholder:text-stone-500',
+    'block w-full min-h-[44px] rounded-xl border bg-white px-4 py-2 text-base sm:min-h-12 sm:py-2.5 text-stone-900 placeholder:text-stone-500',
     'transition-colors focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/20',
     invalid ? 'border-rose-500' : 'border-stone-300 hover:border-stone-400',
   );

@@ -100,7 +100,7 @@ export function DruckteilAuswahl({ item, zustand, onAnfragen }: { item: Item; zu
       )}
       {customFields.length > 0 && (
         <fieldset className="min-w-0 space-y-4">
-          <legend className="mb-3 text-abschnitt font-bold text-stone-900">Personalisierung</legend>
+          <legend className="mb-3 text-abschnitt font-bold text-stone-900 hyphens-auto wrap-break-word">Personalisierung</legend>
           {customFields.map((f) => (
             <CustomFieldInput
               key={f.id}

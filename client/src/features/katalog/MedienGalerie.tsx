@@ -23,6 +23,7 @@ export function MedienGalerie({ item }: { item: Item }) {
   const mehrere = anzahl > 1;
   const index = Math.min(aktiv, anzahl - 1);
   const m = medien[index];
+  const link = m.art === 'video' && !m.video.file;
   const gehe = (r: -1 | 1) => setAktiv((i) => blaettern(i, anzahl, r));
   const beschriftung = (x: Medium<ItemVideo>, i: number) =>
     x.art === 'bild' ? `Bild ${i + 1} von ${anzahl}` : `Video ${i + 1} von ${anzahl}: ${x.video.title || 'ohne Titel'}`;
@@ -49,10 +50,17 @@ export function MedienGalerie({ item }: { item: Item }) {
   const pfeil =
     'absolute top-1/2 z-10 grid size-12 -translate-y-1/2 place-items-center rounded-full bg-white/95 text-stone-900 shadow-md ring-1 ring-stone-300 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-600';
 
+  // Video-Link auf dem Handy: Pfeile unten, damit sie Titel und Knopf nicht verdecken
+  const pfeilUnten = 'top-auto bottom-2 translate-y-0 sm:top-1/2 sm:bottom-auto sm:-translate-y-1/2';
+
   return (
     <div>
       <div
-        className="relative aspect-[2/1] touch-pan-y select-none overflow-hidden rounded-2xl border border-stone-200/80 bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-600 sm:aspect-[4/3] sm:rounded-3xl"
+        className={cx(
+          'relative touch-pan-y select-none rounded-2xl border border-stone-200/80 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-600 sm:aspect-[4/3] sm:rounded-3xl',
+          // Video-Link auf dem Handy ohne festes Seitenverhältnis: Die Kachel wächst mit Titel und Knopf (große Schrift).
+          link ? 'bg-stone-800' : 'aspect-[2/1] overflow-hidden bg-white',
+        )}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerCancel={() => (start.current = null)}
@@ -74,9 +82,9 @@ export function MedienGalerie({ item }: { item: Item }) {
             Ihr Browser kann dieses Video nicht abspielen.
           </video>
         ) : (
-          <div className="grid size-full place-items-center overflow-y-auto bg-stone-800 px-16 py-4 text-center text-white">
+          <div className="grid min-h-40 place-items-center px-4 pb-16 pt-12 text-center text-white sm:h-full sm:px-14 sm:py-4">
             <div className="min-w-0 max-w-sm">
-              <Play className="mx-auto size-12 rounded-full bg-white/15 p-3" aria-hidden />
+              <Play className="mx-auto size-10 rounded-full bg-white/15 p-2.5 sm:size-12 sm:p-3" aria-hidden />
               <p className="mt-2 font-bold wrap-break-word">{m.video.title || 'Video'}</p>
               <a
                 href={m.video.url}
@@ -93,10 +101,10 @@ export function MedienGalerie({ item }: { item: Item }) {
         )}
         {mehrere && (
           <>
-            <button type="button" onClick={() => gehe(-1)} aria-label="Vorheriges Bild oder Video" className={cx(pfeil, 'left-2 sm:left-3')}>
+            <button type="button" onClick={() => gehe(-1)} aria-label="Vorheriges Bild oder Video" className={cx(pfeil, 'left-2 sm:left-3', link && pfeilUnten)}>
               <ChevronLeft className="size-7" aria-hidden />
             </button>
-            <button type="button" onClick={() => gehe(1)} aria-label="Nächstes Bild oder Video" className={cx(pfeil, 'right-2 sm:right-3')}>
+            <button type="button" onClick={() => gehe(1)} aria-label="Nächstes Bild oder Video" className={cx(pfeil, 'right-2 sm:right-3', link && pfeilUnten)}>
               <ChevronRight className="size-7" aria-hidden />
             </button>
             {/* Beim Video oben, damit die Steuerleiste frei bleibt */}
@@ -114,7 +122,7 @@ export function MedienGalerie({ item }: { item: Item }) {
       </div>
       {m.art === 'video' && m.video.file && m.video.title && <p className="mt-2 font-bold text-stone-800 wrap-break-word">{m.video.title}</p>}
       {mehrere && (
-        <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(3.5rem,1fr))] gap-2 sm:gap-3" aria-label="Alle Bilder und Videos">
+        <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(3rem,1fr))] gap-2" aria-label="Alle Bilder und Videos">
           {medien.map((x, i) => (
             <li key={x.art === 'bild' ? `b${x.index}` : x.video.id}>
               <button

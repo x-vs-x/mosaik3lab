@@ -55,7 +55,7 @@ export function TextAbschnitt({ titel, text }: { titel: string; text: string }) 
   if (!text.trim()) return null;
   return (
     <Card as="section" className="p-4 sm:p-6">
-      <h2 className="text-abschnitt font-bold text-stone-900 sm:text-xl">{titel}</h2>
+      <h2 className="text-abschnitt font-bold text-stone-900 hyphens-auto wrap-break-word sm:text-xl">{titel}</h2>
       <p className="mt-2 whitespace-pre-line text-stone-700 wrap-break-word">
         <TextMitLinks text={text} />
       </p>
@@ -69,7 +69,7 @@ export function Sicherheitshinweise({ notes }: { notes: string[] }) {
     <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 sm:rounded-3xl sm:p-6">
       <h2 className="flex flex-wrap items-center gap-x-2.5 text-abschnitt font-bold text-amber-950 sm:text-xl">
         <ShieldAlert className="size-6 text-amber-700" aria-hidden />
-        Sicherheitshinweise
+        <span className="min-w-0 hyphens-auto wrap-break-word">Sicherheitshinweise</span>
         <span className="text-hinweis font-normal text-amber-900">(nur für das Druck-Team sichtbar)</span>
       </h2>
       <ul className="mt-3 space-y-2">
