@@ -60,16 +60,21 @@ const datum = (s?: string) => {
   return Number.isNaN(d.getTime()) || d.getFullYear() < 1980 ? new Date() : d;
 };
 
-/** ZIP als Strom: paket.json zuerst, danach die Dateien nacheinander von der Platte. */
-export function zipStrom(paketJson: string, dateien: ZipDatei[]): Readable {
+/**
+ * ZIP als Strom: paket.json zuerst, danach die Dateien nacheinander von der Platte. Bricht der Download ab (Strom
+ * geschlossen), wird auch die gerade gelesene Datei geschlossen (sonst bleibt sie offen – unter Windows gesperrt).
+ */
+export function zipStrom(paketJson: string, dateien: ZipDatei[], oeffne: (datei: string) => Readable = (d) => fs.createReadStream(d)): Readable {
   const zip = new yazl.ZipFile();
   const out = zip.outputStream as Readable;
+  let aktuell: Readable | undefined;
+  out.once('close', () => aktuell?.destroy());
   // Fehler (z. B. Datei während des Exports gelöscht oder geändert) brechen den Download ab, statt still eine kaputte Datei zu liefern.
   zip.on('error', (err: Error) => out.destroy(err));
   zip.addBuffer(Buffer.from(paketJson, 'utf8'), PAKET_JSON, { compress: true, mtime: new Date() });
   for (const d of dateien) {
     const endung = d.pfad.slice(d.pfad.lastIndexOf('.') + 1);
-    zip.addReadStreamLazy(d.pfad, { size: d.groesse, compress: !UNKOMPRIMIERT.has(endung), mtime: datum(d.mtime) }, (cb) => cb(null, fs.createReadStream(d.quelle)));
+    zip.addReadStreamLazy(d.pfad, { size: d.groesse, compress: !UNKOMPRIMIERT.has(endung), mtime: datum(d.mtime) }, (cb) => cb(null, (aktuell = oeffne(d.quelle))));
   }
   zip.end();
   return out;

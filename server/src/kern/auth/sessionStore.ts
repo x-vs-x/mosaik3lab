@@ -12,7 +12,7 @@ export class RepositorySessionStore extends session.Store {
     private readonly defaultMaxAgeMs: number,
   ) {
     super();
-    this.pruneTimer = setInterval(() => void repo.pruneExpired(), 15 * 60 * 1000);
+    this.pruneTimer = setInterval(() => repo.pruneExpired().catch((err: Error) => console.warn(`[Sitzungen] Aufräumen fehlgeschlagen: ${err.message}`)), 15 * 60 * 1000);
     this.pruneTimer.unref();
   }
 

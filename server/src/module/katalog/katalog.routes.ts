@@ -29,7 +29,9 @@ import { addAehnlich, listAehnliche, removeAehnlich } from './aehnliche';
 import { aehnlichSchema, farbeZuordnenSchema, imageOrderSchema, itemInputSchema, publishSchema, videoLinkSchema, videoUploadSchema } from '@mosaik3lab/shared/katalog';
 
 /** So lange wartet ein Abruf höchstens auf ein noch fehlendes Vorschaubild (danach: Original). */
-const VORSCHAU_WARTEN_MS = 15_000;
+const VORSCHAU_WARTEN_MS = 2_500;
+/** Original als Ersatz für ein fehlendes Vorschaubild: kurz zwischenspeichern (kein Abruf-Sturm), bald neu fragen. */
+const ERSATZ_CACHE = 'private, max-age=60';
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
 const uploaded = (files: unknown) => (files as Express.Multer.File[] | undefined) ?? [];
@@ -141,15 +143,18 @@ export function fileRoutes(storage: Storage, auth: Auth) {
   const router = Router();
 
   // Bilder veröffentlichter Druckteile sind ohne Anmeldung abrufbar, Bilder von Entwürfen nur für das Druck-Team.
-  // ?groesse=karte|mini: Vorschaubild (JPEG) mit denselben Rechten; fehlt es, rechnet der Server es sofort (kurz warten),
-  // sonst – oder bei Fehler – kommt das Original (nicht zwischenspeichern, damit der nächste Abruf das Vorschaubild holt).
+  // ?groesse=karte|mini: Vorschaubild (JPEG) mit denselben Rechten; fehlt es, rechnet der Server es sofort (höchstens
+  // 2,5 s warten). Ist der Rechen-Thread schon belegt (z. B. nach Update/Wiederherstellen fehlen viele), wird nicht gewartet:
+  // sofort das Original (nur kurz zwischengespeichert), das Bild kommt in die Bildpflege. Bei Fehler ebenso das Original.
   router.get('/images/:file', async (req, res, next) => {
     const datei = await visibleItemFile(storage, param(req.params.file), 'bild', req.user);
     if (!datei) return next(notFound('Bild nicht gefunden.'));
     const groesse = req.query.groesse;
     if (groesse !== undefined && !istVorschauGroesse(groesse)) return next(badRequest('Unbekannte Bildgröße (karte oder mini).'));
     if (groesse) {
-      const vorschau = await storage.bilder.vorschau(datei, groesse, VORSCHAU_WARTEN_MS);
+      const vorschau = await storage.bilder.vorschau(datei, groesse, VORSCHAU_WARTEN_MS, (id) =>
+        storage.bildpflege.nachholen([id]).catch((err: Error) => console.warn(`[Bilder] Bildpflege: ${err.message}`)),
+      );
       if (vorschau) {
         res.setHeader('Cache-Control', 'private, max-age=86400');
         res.type('image/jpeg');
@@ -158,7 +163,7 @@ export function fileRoutes(storage: Storage, auth: Auth) {
         });
       }
     }
-    res.setHeader('Cache-Control', groesse ? 'no-store' : 'private, max-age=86400');
+    res.setHeader('Cache-Control', groesse ? ERSATZ_CACHE : 'private, max-age=86400');
     res.type(datei.mime);
     res.sendFile(storage.files.absPath(datei), (err) => {
       if (err && !res.headersSent) sendMissingImage(res); // Datensatz da, Datei fehlt (z. B. Backup ohne Dateien)

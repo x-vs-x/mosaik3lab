@@ -19,6 +19,7 @@
   "dependencies": {
     "@mosaik3lab/shared": "*",
     "bcryptjs": "^3.0.2",
+    "compression": "^1.8.2",
     "express": "^5.1.0",
     "express-session": "^1.18.1",
     "helmet": "^8.1.0",
@@ -31,6 +32,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/compression": "^1.8.1",
     "@types/express": "^5.0.3",
     "@types/express-session": "^1.18.2",
     "@types/multer": "^1.4.13",

@@ -1,6 +1,7 @@
 // Bildverarbeitung in reinem JavaScript (jpeg-js, pngjs – keine nativen Module, läuft gleich auf Windows, Linux und Pi).
 // Läuft im Rechen-Thread (worker.ts), nie im Haupt-Thread. Nur dieses Modul kennt die Bibliotheken: Sollen sie später
 // ersetzt werden (z. B. WebAssembly, WebP), ändert sich nur diese Datei.
+import { readFileSync } from 'node:fs';
 import jpeg from 'jpeg-js';
 import { PNG } from 'pngjs';
 import { istQuer, leseKopf, type BildKopf } from './format';
@@ -29,6 +30,11 @@ export function dekodiere(daten: Uint8Array): { bild: Rgba; kopf: BildKopf; tran
     const r = jpeg.decode(daten, { useTArray: true, formatAsRGBA: true, maxResolutionInMP: MAX_MEGAPIXEL, maxMemoryUsageInMB: MAX_SPEICHER_MB });
     return { bild: { breite: r.width, hoehe: r.height, daten: r.data }, kopf, transparent: false };
   }
+  // pngjs entpackt alle Bilddaten auf einmal (bis 4 Kanäle × 16 Bit), entfiltert sie in eine Kopie und legt daneben RGBA
+  // an – den Bedarf vorher aus dem Kopf abschätzen (16-Bit-PNG brauchen das Vielfache eines Fotos).
+  const pixel = kopf.breite * kopf.hoehe;
+  const bedarfMb = (pixel * (2 * 4 * Math.max(1, kopf.bits / 8) + 4)) / 1024 / 1024;
+  if (bedarfMb > MAX_SPEICHER_MB) throw new NichtUnterstuetzt(`Bild zu groß (${kopf.breite} × ${kopf.hoehe} px, ${kopf.bits} Bit).`);
   const png = PNG.sync.read(Buffer.from(daten.buffer, daten.byteOffset, daten.byteLength));
   const d = new Uint8Array(png.data.buffer, png.data.byteOffset, png.data.byteLength);
   let transparent = false;
@@ -181,7 +187,9 @@ export function verkleinere(daten: Uint8Array, maxKante: number): { daten: Uint8
 }
 
 export interface Auftrag {
-  daten: Uint8Array;
+  /** Bilddaten – oder `datei`: dann liest erst der Rechen-Thread die Datei (kein Puffer in der Warteschlange). */
+  daten?: Uint8Array;
+  datei?: string;
   /** Prüfen, ob das Original zu groß ist, und ggf. eine kleinere Fassung liefern. */
   original: boolean;
   /** Gewünschte Vorschaubilder (immer JPEG, Transparenz auf Weiß). `breite` gilt im gedrehten Zustand. */
@@ -195,21 +203,27 @@ export interface Ergebnis {
   /** Nur wenn das Original zu groß war: neue Fassung (ob sie genommen wird, entscheidet der Aufrufer, ≥ 20 % kleiner). */
   original?: { daten: Uint8Array; ext: BildExt };
   vorschau: { name: string; daten: Uint8Array }[];
+  /** Größe der Eingangsdaten in Bytes. */
+  bytes: number;
+  /** Original ist zu groß (Maße oder Datei) – auch wenn `original` nicht angefordert war. */
+  originalZuGross: boolean;
 }
 
 /** Ein Bild einmal dekodieren und alle Fassungen daraus berechnen (Vorschau aus der jeweils nächstgrößeren Stufe). */
 export function verarbeite(a: Auftrag): Ergebnis {
-  const { bild, kopf, transparent } = dekodiere(a.daten);
+  const daten = a.daten ?? readFileSync(a.datei ?? '');
+  const { bild, kopf, transparent } = dekodiere(daten);
   const o = kopf.orientierung;
   const quer = istQuer(o);
   const ow = quer ? bild.hoehe : bild.breite;
   const oh = quer ? bild.breite : bild.hoehe;
-  const ergebnis: Ergebnis = { breite: ow, hoehe: oh, vorschau: [] };
+  const ergebnis: Ergebnis = { breite: ow, hoehe: oh, vorschau: [], bytes: daten.length, originalZuGross: false };
 
   let basis = bild;
   const zuGross = Math.max(ow, oh) > ORIGINAL_MAX_KANTE;
   // Deutlich zu große Datei bei passenden Maßen: neu als JPEG speichern lohnt nur ohne Transparenz.
-  const zuSchwer = !zuGross && a.daten.length > ORIGINAL_ZU_GROSS_BYTES && !transparent;
+  const zuSchwer = !zuGross && daten.length > ORIGINAL_ZU_GROSS_BYTES && !transparent;
+  ergebnis.originalZuGross = zuGross || zuSchwer;
   if (a.original && (zuGross || zuSchwer)) {
     const f = Math.min(1, ORIGINAL_MAX_KANTE / Math.max(ow, oh));
     basis = f < 1 ? skaliere(bild, Math.round(bild.breite * f), Math.round(bild.hoehe * f), !transparent) : bild;

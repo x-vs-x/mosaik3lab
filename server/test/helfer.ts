@@ -65,6 +65,7 @@ export async function startServer(overrides: Parameters<typeof loadConfig>[0]) {
   return {
     base,
     storageDir,
+    storage: instance.storage,
     async stop() {
       await new Promise((r) => server.close(r));
       await instance.close();
@@ -105,6 +106,11 @@ export class Client {
       json = text;
     }
     return { status: res.status, json, headers: res.headers };
+  }
+
+  /** Rohe Antwort (z. B. Binärdaten, Ströme) mit der Anmeldung dieses Clients. */
+  roh(url: string, headers: Record<string, string> = {}) {
+    return fetch(this.base + url, { headers: { 'X-Requested-With': 'mosaik3lab', ...(this.cookie ? { Cookie: this.cookie } : {}), ...headers } });
   }
 
   /** Schritt 1 der Anmeldung: E-Mail prüfen (Lehrkräfte sind danach direkt angemeldet). */

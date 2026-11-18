@@ -478,6 +478,6 @@ export async function fuehreAus(storage: Storage, paket: Paket, modus: Modus, in
   // Eingespielte Bilder: alte Vorschaubilder (gleiche ID, anderer Inhalt) weg, neue im Hintergrund erzeugen.
   const bilder = ergebnis.verschiebe.flatMap((m) => (m.bildId ? [m.bildId] : []));
   for (const id of bilder) await storage.files.entferneVorschau(id);
-  if (bilder.length) void storage.bildpflege.nachholen(bilder);
+  if (bilder.length) storage.bildpflege.nachholen(bilder).catch((err: Error) => console.warn(`[Import] Bildpflege: ${err.message}`));
   return ergebnis.bericht;
 }

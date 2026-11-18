@@ -6,6 +6,15 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Stabiler nach Updates und auf kleinen Raspberry Pis:** Fehlen nach einem Update oder Wiederherstellen viele
+  Vorschaubilder, zeigt der Katalog sofort die Originalbilder statt lange zu laden; die Vorschaubilder entstehen nach
+  etwa einer Minute im Hintergrund. Auf Geräten mit wenig Arbeitsspeicher werden sehr große Bilder nicht mehr
+  verarbeitet (sie bleiben unverändert erhalten), ein Bild, das die Verarbeitung stört, wird nicht nach jedem Neustart
+  erneut versucht. Seiten und Listen werden komprimiert übertragen (im WLAN rund 70 % weniger Daten). Export und
+  Sicherung brechen nicht mehr ab, wenn währenddessen Bilder verkleinert würden; Stoppen und Updates warten nicht mehr
+  auf ein gerade verarbeitetes Bild. Abgebrochene Import-Vorschauen werden zuverlässig aufgeräumt, und Sortieren oder
+  Löschen von Bildern im Druckteil-Editor klappt auch, wenn ein Bild inzwischen von PNG zu JPG verkleinert wurde.
+
 - **Bilder macht der Server selbst – Katalog auf dem Handy viel schneller:** Zu jedem Druckteil-Bild legt der Server
   zwei kleine Vorschaubilder an (für die Katalogkarte und für kleine Vorschauen wie „Ähnliche Druckteile“); der Browser
   wählt je nach Bildschirm selbst die passende Größe. Im Test lud der Katalog auf dem Handy statt 11,9 MB nur noch

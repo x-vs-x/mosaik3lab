@@ -28,10 +28,12 @@ const MAGIC = Buffer.from('M3LBAK1\n', 'latin1');
 const FORMAT = 1; // Aufbau der Sicherungsdatei – ändert ihn eine neuere Version, erhöht sie die Zahl; ältere lehnen dann klar ab
 export const KINDS = { komplett: 'Vollständig', daten: 'Nur Datenbank (ältere Art, ohne Bilder)' };
 const NAME = /^mosaik3lab-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(-\d+)?(-(daten|komplett))?$/;
-const SKIP = /(^|[\\/])(\.lock|[^\\/]*\.tmp|sessions\.json(\.bak)?|[^\\/]*\.db(-wal|-shm)?)$/; // Sperrdatei, Sitzungen, Zwischendateien, DB (eigener Schritt)
+// Sperrdatei, Sitzungen, Zwischendateien (auch *.neu der App beim Ersetzen eines Bildes), DB (eigener Schritt)
+const SKIP = /(^|[\\/])(\.lock|[^\\/]*\.tmp|[^\\/]*\.neu|sessions\.json(\.bak)?|[^\\/]*\.db(-wal|-shm)?)$/;
 // Aus der Ablage nicht gesichert: Vorschaubilder (vorschau/, jederzeit neu berechenbar – die Bildpflege der App erzeugt sie
-// nach dem Wiederherstellen neu) und die Markierung „Sicherung läuft“ (siehe sicherungMarkieren).
-export const ABLAGE_AUSGENOMMEN = new Set(['vorschau', '.sicherung.lock']);
+// nach dem Wiederherstellen neu), die Markierung „Sicherung läuft“ (siehe sicherungMarkieren) und der Zwischenordner eines
+// laufenden Imports (.import-tmp – Dateien verschwinden dort jederzeit; die App räumt ihn beim Start auf).
+export const ABLAGE_AUSGENOMMEN = new Set(['vorschau', '.sicherung.lock', '.import-tmp']);
 const ablageAusgenommen = (ablageDir, file) => ABLAGE_AUSGENOMMEN.has(path.relative(ablageDir, file).split(path.sep)[0]);
 
 /**

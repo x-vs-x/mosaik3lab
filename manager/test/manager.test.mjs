@@ -65,6 +65,10 @@ test('Backup: eine Datei, Standard vollständig, ältere Art „daten“ lesbar,
   fs.writeFileSync(path.join(tmp, 'ablage', 'bilder', 'b.jpg'), 'ablage');
   fs.mkdirSync(path.join(tmp, 'ablage', 'vorschau', 'karte-720'), { recursive: true });
   fs.writeFileSync(path.join(tmp, 'ablage', 'vorschau', 'karte-720', 'b.jpg'), 'VORSCHAUBILD-NICHT-SICHERN');
+  // Zwischendateien der App verschwinden jederzeit (Bild ersetzen, Import) – nicht sichern, sonst scheitert die Sicherung
+  fs.writeFileSync(path.join(tmp, 'ablage', 'bilder', 'b.jpg.abc123.neu'), 'ZWISCHENDATEI-NICHT-SICHERN');
+  fs.mkdirSync(path.join(tmp, 'ablage', '.import-tmp', 'x'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, 'ablage', '.import-tmp', 'x', 'c.jpg'), 'IMPORTREST-NICHT-SICHERN');
   const full = await bk.createBackup('test'); // Standard: vollständig (Datenbank + Ablage)
   const small = await bk.createBackup('klein', { kind: 'daten' }); // ältere Art, wie bisherige tägliche Sicherungen
   assert.equal(full.kind, 'komplett');
@@ -76,6 +80,10 @@ test('Backup: eine Datei, Standard vollständig, ältere Art „daten“ lesbar,
   assert.ok(list.find((x) => x.id === full.id).files > list.find((x) => x.id === small.id).files, 'komplett enthält mehr (Ablage)');
   assert.ok(!fs.readFileSync(file).includes('999999'), 'Sperrdatei nicht gesichert');
   assert.ok(!fs.readFileSync(file).includes('VORSCHAUBILD-NICHT-SICHERN'), 'Vorschaubilder (abgeleitet) nicht gesichert');
+  assert.ok(!fs.readFileSync(file).includes('ZWISCHENDATEI-NICHT-SICHERN'), '*.neu nicht gesichert');
+  assert.ok(!fs.readFileSync(file).includes('IMPORTREST-NICHT-SICHERN'), '.import-tmp nicht gesichert');
+  fs.rmSync(path.join(tmp, 'ablage', 'bilder', 'b.jpg.abc123.neu'));
+  fs.rmSync(path.join(tmp, 'ablage', '.import-tmp'), { recursive: true });
   assert.ok(!fs.existsSync(path.join(tmp, 'ablage', '.sicherung.lock')), 'Markierung „Sicherung läuft“ wieder entfernt');
   await assert.rejects(bk.restoreBackup(full.id, 'falsch'), /bestätigen/);
   await assert.rejects(bk.restoreBackup('../x', '../x'), /nicht gefunden/);
