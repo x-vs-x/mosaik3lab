@@ -1,9 +1,11 @@
 // Bilder vor dem Hochladen im Browser verkleinern (Canvas, keine Zusatzbibliothek – läuft auf Handy, Tablet und PC).
 // Längste Kante höchstens 2000 px, ohne Transparenz als JPEG (Qualität 0,85), mit Transparenz als PNG.
 // Grundsatz: Im Zweifel das Original nehmen (Fehler, GIF, schon klein, Ergebnis nicht kleiner).
+// Kante und Qualität wie beim Server (shared/src/werte/bilder.ts).
+import { BILD_BREITE, JPEG_QUALITAET_ORIGINAL } from '@mosaik3lab/shared/werte/bilder';
 
-export const MAX_KANTE = 2000;
-export const JPEG_QUALITAET = 0.85;
+export const MAX_KANTE = BILD_BREITE.original;
+export const JPEG_QUALITAET = JPEG_QUALITAET_ORIGINAL / 100;
 /** Bis zu dieser Größe gilt ein Bild als „schon klein“ und wird nicht angefasst. */
 export const KLEIN_BYTES = 300 * 1024;
 

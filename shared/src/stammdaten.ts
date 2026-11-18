@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { text, type MitId } from './basis';
 import type { OrderStatusDef } from './anfragen';
-import { COLOR_KEYS, ICON_KEYS } from './werte/stammdaten';
+import { COLOR_KEYS, HEX_FARBE, ICON_KEYS } from './werte/stammdaten';
 
 // Stammdaten, die die Administration pflegt: Kategorien, Einsatzbereiche, Materialien, Farbrollen (Filamente).
 // Die feste Statusliste steht in anfragen.ts. Listen und Hilfen ohne zod: werte/stammdaten.ts (hier wieder exportiert).
@@ -19,7 +19,7 @@ const filamentInput = z.object({
   line: z.string().trim().max(60).default(''),
   colorName: text(1, 60),
   /** Farbwert für die Anzeige, z. B. #00B1B7 */
-  hex: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, 'Farbwert im Format #RRGGBB').transform((h) => h.toUpperCase()),
+  hex: z.string().trim().regex(HEX_FARBE, 'Farbwert im Format #RRGGBB').transform((h) => h.toUpperCase()),
   /** Artikel- bzw. Farbnummer des Herstellers (Bambu Lab: 5-stellig, z. B. 10101) – bei eigenen Rollen freiwillig. */
   herstellerNummer: z.string().trim().max(20).default(''),
   /** Fehlt der Wert, bleibt der gespeicherte erhalten (neue Rollen: verfügbar). */

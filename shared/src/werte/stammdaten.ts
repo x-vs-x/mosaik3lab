@@ -4,6 +4,9 @@
 export const COLOR_KEYS = ['blau', 'rot', 'gelb', 'orange', 'lila', 'gruen', 'grau'] as const;
 export type ColorKey = (typeof COLOR_KEYS)[number];
 
+/** Farbwert einer Farbrolle im Format #RRGGBB. */
+export const HEX_FARBE = /^#[0-9a-fA-F]{6}$/;
+
 /** Symbole, die für Kategorien gewählt werden können (Namen aus dem Symbolsatz des Clients). */
 export const ICON_KEYS = [
   'kommunikation',

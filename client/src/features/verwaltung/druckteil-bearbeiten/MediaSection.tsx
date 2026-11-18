@@ -1,3 +1,4 @@
+import { MAX_IMAGES_PER_ITEM } from '@mosaik3lab/shared/werte/dateien';
 import { ImagePlus, Star, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ItemImage } from '../../../components/ItemImage';
@@ -103,7 +104,7 @@ function ImagesEditor({ item, onChange }: { item: Item; onChange: (i: Item) => v
       <FilePicker
         accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
         label="Bilder auswählen"
-        hint="JPG, PNG oder WebP · große Bilder werden automatisch verkleinert · max. 8 Bilder · auch per Drag & Drop"
+        hint={`JPG, PNG oder WebP · große Bilder werden automatisch verkleinert · max. ${MAX_IMAGES_PER_ITEM} Bilder · auch per Drag & Drop`}
         uploading={uploading}
         status={status}
         onFiles={upload}

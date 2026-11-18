@@ -12,6 +12,11 @@ export type CustomFieldType = (typeof CUSTOM_FIELD_TYPES)[number];
 /** Höchstlänge einer Angabe in Personalisierungsfeldern. */
 export const MAX_CUSTOM_VALUE_LENGTH = 200;
 
+/** Höchstzahl Farbbereiche je Druckteil. */
+export const MAX_COLOR_AREAS = 8;
+/** Höchstzahl Personalisierungsfelder je Druckteil. */
+export const MAX_CUSTOM_FIELDS = 10;
+
 /** Schutzgrenze für Link-Knöpfe je Druckteil (praktisch beliebig viele). */
 export const MAX_ITEM_LINKS = 50;
 

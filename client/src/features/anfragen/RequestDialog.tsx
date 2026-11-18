@@ -1,4 +1,4 @@
-import { MAX_ORDER_QUANTITY } from '@mosaik3lab/shared/werte/anfragen';
+import { MAX_ORDER_QUANTITY, MAX_ORDER_VARIANTS, ORDER_CLASS_MAX, ORDER_CUSTOMIZATION_MAX } from '@mosaik3lab/shared/werte/anfragen';
 import { CircleCheck, LayoutGrid, Plus, Save, Send } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAuth } from '../../auth/AuthContext';
@@ -20,9 +20,6 @@ import { domainHint, normalizeDomain, pruefeAnfrage } from './anfragePruefung';
 /** Schlüssel des Anfrage-Entwurfs – auch für die Detailseite, die den Dialog nach einem Neuladen wieder öffnet. */
 export const anfrageEntwurfSchluessel = (itemId: string, userId?: string, templateOrderId?: string) =>
   entwurfSchluessel(`anfrage-${itemId}`, userId, templateOrderId);
-
-/** Höchstzahl Farben (Zeilen) je Anfrage – wie `variants` im Server-Schema. */
-const MAX_ROWS = 10;
 
 /**
  * Anfrageformular für Lehrkräfte – ohne Anmeldung.
@@ -305,7 +302,7 @@ export function RequestDialog({
                 id={id}
                 value={classOrTeam}
                 onChange={(e) => setClassOrTeam(e.target.value)}
-                maxLength={60}
+                maxLength={ORDER_CLASS_MAX}
                 required
                 aria-required
                 aria-describedby={describedBy}
@@ -344,7 +341,7 @@ export function RequestDialog({
                   variant="secondary"
                   icon={Plus}
                   onClick={addRow}
-                  disabled={total >= MAX_ORDER_QUANTITY || rows.length >= MAX_ROWS}
+                  disabled={total >= MAX_ORDER_QUANTITY || rows.length >= MAX_ORDER_VARIANTS}
                 >
                   Weitere Farbe
                 </Button>
@@ -402,7 +399,7 @@ export function RequestDialog({
                 id={id}
                 value={customization}
                 onChange={(e) => setCustomization(e.target.value)}
-                maxLength={1000}
+                maxLength={ORDER_CUSTOMIZATION_MAX}
                 rows={4}
                 aria-describedby={describedBy}
                 invalid={invalid}

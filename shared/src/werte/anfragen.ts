@@ -34,6 +34,11 @@ export const STATUS_CATALOG: readonly StatusTemplate[] = [
 
 /** Höchstzahl Stück je Anfrage (auch die Summe aller Farbvarianten). */
 export const MAX_ORDER_QUANTITY = 20;
+/** Höchstzahl Farbvarianten (Zeilen „Stück × Farbe“) je Anfrage. */
+export const MAX_ORDER_VARIANTS = 10;
+/** Höchstlängen der freien Angaben einer Anfrage. */
+export const ORDER_CLASS_MAX = 60;
+export const ORDER_CUSTOMIZATION_MAX = 1000;
 
 /** Sonderwert statt Filament-ID: Der Lehrkraft ist die Farbe dieses Bereichs egal (bei jedem Druckteil wählbar). */
 export const EGAL_FARBE = 'egal';

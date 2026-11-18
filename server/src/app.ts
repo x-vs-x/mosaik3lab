@@ -27,7 +27,7 @@ import { importLegacyMail, importLegacySessionSecret } from './uebernahme/betrie
 import { sessionGeheimnis, setBetriebWennNeu } from './kern/betrieb';
 import { retirePathConfig } from './uebernahme/bootstrapConfig';
 import { createSqliteStorage } from './storage';
-import { MAX_IMAGE_BYTES, MAX_MODEL_BYTES, MAX_VIDEO_BYTES } from './kern/uploads';
+import { MAX_IMAGE_BYTES, MAX_MODEL_BYTES, MAX_VIDEO_BYTES, mbText } from '@mosaik3lab/shared/werte/dateien';
 import { zodFieldErrors } from '@mosaik3lab/shared/basis';
 
 
@@ -178,7 +178,7 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof multer.MulterError) {
     const message =
       err.code === 'LIMIT_FILE_SIZE'
-        ? `Die Datei ist zu groß (Bilder max. ${MAX_IMAGE_BYTES / 1024 / 1024} MB, Druckdateien max. ${MAX_MODEL_BYTES / 1024 / 1024} MB, Videos max. ${MAX_VIDEO_BYTES / 1024 / 1024} MB).`
+        ? `Die Datei ist zu groß (Bilder max. ${mbText(MAX_IMAGE_BYTES)}, Druckdateien max. ${mbText(MAX_MODEL_BYTES)}, Videos max. ${mbText(MAX_VIDEO_BYTES)}).`
         : err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE'
           ? 'Zu viele Dateien oder unerwartetes Feld.'
           : 'Der Upload ist fehlgeschlagen.';

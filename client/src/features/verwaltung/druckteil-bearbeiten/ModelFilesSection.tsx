@@ -1,3 +1,4 @@
+import { MAX_MODEL_BYTES, MAX_MODELS_PER_ITEM, mbText } from '@mosaik3lab/shared/werte/dateien';
 import { Download, FileBox, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { DateiLaden } from '../../../components/DateiLaden';
@@ -84,7 +85,7 @@ function ModelFilesEditor({ item, onChange }: { item: Item; onChange: (i: Item) 
       <FilePicker
         accept=".stl,.3mf"
         label="STL / 3MF auswählen"
-        hint="STL oder 3MF · max. 50 MB pro Datei · max. 10 Dateien"
+        hint={`STL oder 3MF · max. ${mbText(MAX_MODEL_BYTES)} pro Datei · max. ${MAX_MODELS_PER_ITEM} Dateien`}
         uploading={uploading}
         status={status}
         onFiles={upload}
