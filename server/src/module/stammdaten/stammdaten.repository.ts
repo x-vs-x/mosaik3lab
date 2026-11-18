@@ -1,5 +1,6 @@
-import { defaultOrderStatuses, STATUS_CATALOG } from '../../domain/orderStatuses';
-import type { MasterData } from '../../domain/settings';
+import { defaultOrderStatuses } from './orderStatuses';
+import { STATUS_CATALOG } from '@mosaik3lab/shared/anfragen';
+import type { MasterData } from '@mosaik3lab/shared/stammdaten';
 import { all, b, bool, count, run, str, type Db } from '../../kern/db';
 import { conflict } from '../../kern/errors';
 import type { MasterDataList } from '@mosaik3lab/shared/stammdaten';

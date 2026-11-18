@@ -11,7 +11,7 @@ import { after, test } from 'node:test';
 import { createApp } from '../src/app';
 import { hashPassword } from '../src/kern/auth/password';
 import { loadConfig } from '../src/config';
-import { newId } from '../src/domain/ids';
+import { newId } from '../src/kern/ids';
 import { DEMO_USERS } from '../src/seed/demoData';
 import { rechteFuer } from '@mosaik3lab/shared/konten';
 import { leseKopf, pruefeDateien } from '../src/module/datenaustausch/datenaustausch.paket';

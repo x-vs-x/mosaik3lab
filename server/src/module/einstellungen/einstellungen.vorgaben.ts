@@ -1,14 +1,10 @@
 import type { Features, MailStatus, OrderFormSettings } from '@mosaik3lab/shared/einstellungen';
 import type { Filament, MasterData } from '@mosaik3lab/shared/stammdaten';
-import { DEFAULT_FILAMENT_IDS, filamentAusKatalog, katalogEintrag } from './bambuKatalog';
-import { defaultOrderStatuses, normalizeOrderStatuses } from './orderStatuses';
+import { DEFAULT_FILAMENT_IDS, filamentAusKatalog, katalogEintrag } from '../../domain/bambuKatalog';
+import { defaultOrderStatuses, normalizeOrderStatuses } from '../stammdaten/orderStatuses';
 
 // Einstellungen und Stammdaten, die die Administration in der Oberfläche pflegt (Tabellen siehe docs/DATENMODELL.md).
 // Die gemeinsamen Typen und Schemas stehen in shared/src/stammdaten.ts, einstellungen.ts und anfragen.ts.
-
-export { COLOR_KEYS, ICON_KEYS, type Category, type ColorKey, type Filament, type IconKey, type MasterData, type SimpleEntry } from '@mosaik3lab/shared/stammdaten';
-export { STATUS_PHASES, type OrderStatusDef, type StatusPhase } from '@mosaik3lab/shared/anfragen';
-export type { Features, OrderFormSettings } from '@mosaik3lab/shared/einstellungen';
 
 export const filamentLabel = (f: Pick<Filament, 'colorName' | 'brand' | 'line'>) => `${f.colorName} · ${f.brand} ${f.line}`.trim();
 
@@ -30,8 +26,7 @@ export interface AppSettings {
  */
 export const ORDERFORM_VORGABE_BIS_1_6: Readonly<OrderFormSettings> = Object.freeze({ allowedEmailDomains: ['mosaikschule-lu.de'] });
 
-export { newId } from './ids';
-import { newId } from './ids';
+import { newId } from '../../kern/ids';
 
 const entries = (names: string[]) => names.map((name) => ({ id: newId(), name }));
 

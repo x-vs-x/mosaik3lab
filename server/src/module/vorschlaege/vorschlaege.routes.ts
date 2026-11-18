@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { MAX_PROPOSAL_PHOTOS, toOwnProposal } from '../../domain/proposals';
+import { MAX_PROPOSAL_PHOTOS } from '@mosaik3lab/shared/vorschlaege';
+import { toOwnProposal } from './vorschlaege.sicht';
 import type { Auth } from '../../kern/auth/middleware';
 import { param, queryText, sendMissingImage } from '../../kern/http';
 import { rateLimit } from '../../kern/rateLimit';

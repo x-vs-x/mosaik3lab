@@ -6,24 +6,7 @@ import { istVorschauGroesse } from '../../kern/bilder';
 import { param, queryText, sendMissingImage } from '../../kern/http';
 import { imageUpload, MAX_IMAGES_PER_ITEM, MAX_MODELS_PER_REQUEST, modelUpload, videoUpload } from '../../kern/uploads';
 import type { Storage } from '../../storage';
-import {
-  addImages,
-  addModels,
-  addVideoLink,
-  createItem,
-  deleteItem,
-  listItems,
-  loadVisible,
-  presentItem,
-  removeImage,
-  removeModel,
-  removeVideo,
-  reorderImages,
-  setPublished,
-  updateItem,
-  uploadVideo,
-  visibleItemFile,
-} from './katalog.service';
+import { addImages, addModels, addVideoLink, createItem, deleteItem, listItems, loadVisible, presentItem, removeImage, removeModel, removeVideo, reorderImages, setPublished, updateItem, uploadVideo, visibleItemFile } from './katalog.service';
 import { farbeZuordnen } from './farbeZuordnen';
 import { addAehnlich, listAehnliche, removeAehnlich } from './aehnliche';
 import { aehnlichSchema, farbeZuordnenSchema, imageOrderSchema, itemInputSchema, publishSchema, videoLinkSchema, videoUploadSchema } from '@mosaik3lab/shared/katalog';

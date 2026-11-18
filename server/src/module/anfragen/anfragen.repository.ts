@@ -1,4 +1,4 @@
-import type { Order } from '../../domain/types';
+import type { Order } from '@mosaik3lab/shared/anfragen';
 import { conflict } from '../../kern/errors';
 import { all, b, bool, count, json, marks, nextNumber, one, run, str, syncRows, transaction, type Db, type Row } from '../../kern/db';
 

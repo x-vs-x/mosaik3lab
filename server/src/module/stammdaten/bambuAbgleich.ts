@@ -1,5 +1,5 @@
 import { BAMBU_KATALOG, katalogFelder } from '../../domain/bambuKatalog';
-import type { Filament } from '../../domain/settings';
+import type { Filament } from '@mosaik3lab/shared/stammdaten';
 import { transaction } from '../../kern/db';
 import type { Storage } from '../../storage';
 import type { BambuAbgleichHinweis, BambuKatalogEintrag } from '@mosaik3lab/shared/stammdaten';

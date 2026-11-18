@@ -1,6 +1,7 @@
 import fsp from 'node:fs/promises';
-import type { Category, Filament, MasterData, SimpleEntry } from '../../domain/settings';
-import type { ColorArea, CustomField, Item } from '../../domain/types';
+import type { Category, Filament, MasterData, SimpleEntry } from '@mosaik3lab/shared/stammdaten';
+import type { ColorArea, CustomField } from '@mosaik3lab/shared/katalog';
+import type { Item } from '../../domain/types';
 import { dateiName, type Datei } from '../../kern/files';
 import type { Storage } from '../../storage';
 import { schemaVersion } from '../../kern/db';

@@ -11,7 +11,7 @@ import { after, test } from 'node:test';
 import { createApp } from '../src/app';
 import { hashPassword } from '../src/kern/auth/password';
 import { loadConfig } from '../src/config';
-import { newId } from '../src/domain/ids';
+import { newId } from '../src/kern/ids';
 
 const FIXTURE = await fs.readFile(path.join(import.meta.dirname, 'fixtures', 'export-windows.json'), 'utf8');
 const kopf = JSON.parse(FIXTURE.split('\n')[0].slice(0, -',"dateiinhalte":['.length) + '}');

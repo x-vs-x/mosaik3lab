@@ -1,9 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { newId } from '../../domain/ids';
-import { userCan } from '../../domain/permissions';
-import type { Proposal } from '../../domain/proposals';
-import type { Item, Requester, User } from '../../domain/types';
+import { newId } from '../../kern/ids';
+import { userCan } from '../konten/rechte';
+import type { Proposal } from '@mosaik3lab/shared/vorschlaege';
+import type { Item, User } from '../../domain/types';
+import type { Requester } from '@mosaik3lab/shared/anfragen';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../../kern/errors';
 import { dateiName } from '../../kern/files';
 import { detectImage, originalName } from '../../kern/uploads';

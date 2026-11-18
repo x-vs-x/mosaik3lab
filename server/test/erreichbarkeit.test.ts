@@ -13,7 +13,7 @@ import { SCHULNETZ_HINWEIS } from '../src/kern/mail/layout';
 import { buildOrderMail, sampleOrder } from '../src/module/anfragen/anfragen.mail';
 import { buildProposalMail } from '../src/module/vorschlaege/vorschlaege.mail';
 import { buildPasswortMail } from '../src/module/konten/passwortlink';
-import type { Proposal } from '../src/domain/proposals';
+import type { Proposal } from '@mosaik3lab/shared/vorschlaege';
 import type { User } from '../src/domain/types';
 
 const SCHULNETZ = [

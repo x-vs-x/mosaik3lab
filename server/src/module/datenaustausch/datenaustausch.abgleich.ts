@@ -1,4 +1,4 @@
-import { newId } from '../../domain/ids';
+import { newId } from '../../kern/ids';
 import { ID } from './datenaustausch.paket';
 import type { Detail, Zaehler } from './datenaustausch.service';
 

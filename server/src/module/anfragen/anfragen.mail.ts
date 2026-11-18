@@ -1,4 +1,5 @@
-import { ANFANGSSTATUS, type Filament } from '../../domain/settings';
+import { ANFANGSSTATUS } from '../einstellungen/einstellungen.vorgaben';
+import { type Filament } from '@mosaik3lab/shared/stammdaten';
 import type { Storage } from '../../storage';
 import { openDb } from '../../kern/db';
 import { benachrichtigeImHintergrund } from '../../kern/mail/hintergrund';
@@ -6,7 +7,8 @@ import { readMailConfig } from '../../kern/mail/mailConfig';
 import { adminLink, baseUrl, escapeHtml, formatMailDate, sendMail, type BuiltMail } from '../../kern/mail/mailer';
 import { linksNurImSchulnetz, type MailLinks } from '../../kern/mail/erreichbarkeit';
 import { badge, button, C, fieldTable, FONT, FOOTER_TEAM, html, NO_LINK, renderLayout, schulnetzText, small, textFooter } from '../../kern/mail/layout';
-import type { Item, Order, OrderColorChoice } from '../../domain/types';
+import type { Item } from '../../domain/types';
+import type { Order, OrderColorChoice } from '@mosaik3lab/shared/anfragen';
 import { EGAL_FARBE } from '@mosaik3lab/shared/anfragen';
 import { filamentRolle } from '@mosaik3lab/shared/stammdaten';
 import { emailSchema } from '@mosaik3lab/shared/basis';

@@ -6,9 +6,6 @@ import type { Account, SessionUser } from '@mosaik3lab/shared/konten';
 import type { ColorArea, CustomField, ItemVideo, Item as SharedItem, ModelFile as SharedModelFile } from '@mosaik3lab/shared/katalog';
 import type { Requester } from '@mosaik3lab/shared/anfragen';
 
-export { ACCOUNT_ROLES, ROLES, ROLE_LABELS, type Role, type SessionUser } from '@mosaik3lab/shared/konten';
-export { CUSTOM_FIELD_TYPES, ITEM_KINDS, type ColorArea, type CustomField, type CustomFieldType, type ItemKind, type ItemVideo } from '@mosaik3lab/shared/katalog';
-export type { Order, OrderColorChoice, OrderCustomValue, Requester, StatusEntry } from '@mosaik3lab/shared/anfragen';
 
 export interface User extends Account {
   passwordHash: string;

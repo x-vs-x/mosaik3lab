@@ -1,6 +1,8 @@
 import { BAMBU_KATALOG, filamentAusKatalog, katalogEintrag } from '../../domain/bambuKatalog';
-import { isRequiredStatus } from '../../domain/orderStatuses';
-import { filamentLabel, newId, type Filament, type MasterData } from '../../domain/settings';
+import { isRequiredStatus } from './orderStatuses';
+import { filamentLabel } from '../einstellungen/einstellungen.vorgaben';
+import { newId } from '../../kern/ids';
+import { type Filament, type MasterData } from '@mosaik3lab/shared/stammdaten';
 import type { Item } from '../../domain/types';
 import { linieVon, materialartVon } from '@mosaik3lab/shared/werte/katalog';
 import { badRequest, conflict, notFound } from '../../kern/errors';

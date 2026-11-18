@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { test } from 'node:test';
-import { defaultSettings, isAllowedEmail, ORDERFORM_VORGABE_BIS_1_6 } from '../src/domain/settings';
+import { defaultSettings, isAllowedEmail, ORDERFORM_VORGABE_BIS_1_6 } from '../src/module/einstellungen/einstellungen.vorgaben';
 import { createAdminAccount } from '../src/module/konten/konten.service';
 import { readLegacyData } from '../src/storage/json/legacyJson';
 import { storageAt, tmp } from './helfer';

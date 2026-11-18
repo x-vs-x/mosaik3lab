@@ -1,7 +1,8 @@
-import { newId } from '../../domain/ids';
-import { type Permission } from '../../domain/permissions';
-import { isAllowedEmail } from '../../domain/settings';
-import { type SessionUser, type User } from '../../domain/types';
+import { newId } from '../../kern/ids';
+import { type Permission } from '@mosaik3lab/shared/konten';
+import { isAllowedEmail } from '../einstellungen/einstellungen.vorgaben';
+import { type SessionUser } from '@mosaik3lab/shared/konten';
+import { type User } from '../../domain/types';
 import { canUseAccount, type AuthOptions } from '../../kern/auth/middleware';
 import { hashPassword, verifyPassword } from '../../kern/auth/password';
 import { badRequest, conflict, forbidden, unauthorized } from '../../kern/errors';

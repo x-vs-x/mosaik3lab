@@ -7,7 +7,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { createApp } from '../src/app';
 import { loadConfig } from '../src/config';
-import { ORDERFORM_VORGABE_BIS_1_6 } from '../src/domain/settings';
+import { ORDERFORM_VORGABE_BIS_1_6 } from '../src/module/einstellungen/einstellungen.vorgaben';
 import { readMailConfig } from '../src/kern/mail/mailConfig';
 import { getBereich, getBetrieb } from '../src/kern/betrieb';
 import { openDb } from '../src/kern/db';

@@ -144,7 +144,7 @@ angelegt waren, behalten ihre bisherigen Adressen (es entstehen keine zweiten De
 ## Rollen und Rechte
 
 Drei Rollen, wenige Häkchen – vergeben in **Verwaltung → Personen** mit „Rechte ändern“. Die Rechte prüft das
-**Backend** bei jeder Anfrage (`shared/src/konten.ts` → `BEREICHE`, `server/src/domain/permissions.ts`); das Frontend
+**Backend** bei jeder Anfrage (`shared/src/konten.ts` → `BEREICHE`, `server/src/module/konten/rechte.ts`); das Frontend
 blendet Bedienelemente nur zusätzlich aus.
 
 | Rolle / Häkchen | darf … |

@@ -4,7 +4,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { loadConfig } from '../src/config';
-import { OBJEKTTYPEN } from '../src/domain/objekttypen';
+import { OBJEKTTYPEN } from '../src/kern/objekttypen';
 import { seedIfEmpty } from '../src/seed/seed';
 import { createSqliteStorage } from '../src/storage';
 import { LEGACY_FILES } from '../src/storage/json/legacyJson';

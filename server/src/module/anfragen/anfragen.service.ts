@@ -1,8 +1,11 @@
 import crypto from 'node:crypto';
-import { newId } from '../../domain/ids';
-import { userCan } from '../../domain/permissions';
-import { ANFANGSSTATUS, isAllowedEmail, type Filament, type StatusPhase } from '../../domain/settings';
-import { singleColorArea, type Item, type Order, type OrderColorChoice, type OrderCustomValue, type Requester, type User } from '../../domain/types';
+import { newId } from '../../kern/ids';
+import { userCan } from '../konten/rechte';
+import { ANFANGSSTATUS, isAllowedEmail } from '../einstellungen/einstellungen.vorgaben';
+import { type Filament } from '@mosaik3lab/shared/stammdaten';
+import { type StatusPhase } from '@mosaik3lab/shared/anfragen';
+import { singleColorArea, type Item, type User } from '../../domain/types';
+import { type Order, type OrderColorChoice, type OrderCustomValue, type Requester } from '@mosaik3lab/shared/anfragen';
 import { badRequest, conflict, forbidden, notFound } from '../../kern/errors';
 import type { Storage } from '../../storage';
 import { passtZurSuche } from '@mosaik3lab/shared/suche';

@@ -35,7 +35,7 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 | `vorschlag` | `VOR` | `VOR-2026-0003` |
 | `datei` | – | nur technische ID |
 
-## Objekttypen (fest im Code, `server/src/domain/objekttypen.ts`)
+## Objekttypen (fest im Code, `server/src/kern/objekttypen.ts`)
 `artikel`, `anfrage`, `vorschlag`, `benutzer`, `lehrkraft`. Neue Typen nur dort ergänzen.
 
 ## Tabellen (Kern)

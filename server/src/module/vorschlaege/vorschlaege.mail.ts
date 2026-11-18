@@ -1,4 +1,4 @@
-import { PROPOSAL_URGENCY_LABELS, type Proposal } from '../../domain/proposals';
+import { PROPOSAL_URGENCY_LABELS, type Proposal } from '@mosaik3lab/shared/vorschlaege';
 import type { Storage } from '../../storage';
 import { benachrichtigeImHintergrund } from '../../kern/mail/hintergrund';
 import { linksNurImSchulnetz, type MailLinks } from '../../kern/mail/erreichbarkeit';

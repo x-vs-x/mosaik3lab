@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { newId } from '../domain/ids';
-import { MIME_BY_EXT, type DateiRolle, type Objekttyp } from '../domain/objekttypen';
+import { newId } from './ids';
+import { MIME_BY_EXT, type DateiRolle, type Objekttyp } from './objekttypen';
 import type { Db, Row } from './db';
 import { str } from './db';
 import { gescheitertRel, VORSCHAU_GROESSEN, vorschauRel } from './bilder/groessen';

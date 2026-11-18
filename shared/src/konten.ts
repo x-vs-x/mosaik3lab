@@ -7,7 +7,7 @@ export * from './werte/konten';
 
 // Personen, Rollen und Rechte. Für die Verwaltung gibt es nur drei Rollen und wenige Häkchen („Bereiche“);
 // jeder Bereich schaltet intern feste Prüfpunkte frei (Permission), gegen die der Server prüft.
-// Die Prüf-Logik steht nur im Server: server/src/domain/permissions.ts.
+// Die Prüf-Logik steht nur im Server: server/src/module/konten/rechte.ts.
 
 // --- Konten und Anmeldung -----------------------------------------------------------
 

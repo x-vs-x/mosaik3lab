@@ -1,4 +1,5 @@
-import { allAreaColors, type ColorArea, type CustomField, type Item, type ItemVideo, type ModelFile } from '../../domain/types';
+import { allAreaColors, type Item, type ModelFile } from '../../domain/types';
+import { type ColorArea, type CustomField, type ItemVideo } from '@mosaik3lab/shared/katalog';
 import { all, b, bool, count, json, marks, nextNumber, one, run, str, syncRows, transaction, type Db, type Row } from '../../kern/db';
 import { conflict } from '../../kern/errors';
 import { dateiFromRow, dateiName, type Datei, type FileStore } from '../../kern/files';

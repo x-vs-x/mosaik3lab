@@ -11,7 +11,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { createApp } from '../src/app';
 import { loadConfig } from '../src/config';
-import { uuidv7 } from '../src/domain/ids';
+import { uuidv7 } from '../src/kern/ids';
 import { createAdminAccount } from '../src/module/konten/konten.service';
 import { listMigrations, openDb } from '../src/kern/db';
 import { IMPORT_KEY, type ImportReport } from '../src/storage/sqlite/importJson';

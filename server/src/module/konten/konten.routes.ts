@@ -1,5 +1,5 @@
 import { Router, type Request } from 'express';
-import { permissionsForRequester, permissionsForUser } from '../../domain/permissions';
+import { permissionsForRequester, permissionsForUser } from './rechte';
 import { accountSessionUser, teacherSessionUser } from '../../domain/types';
 import { permissionsOf, type Auth, type AuthOptions } from '../../kern/auth/middleware';
 import { rateLimit } from '../../kern/rateLimit';

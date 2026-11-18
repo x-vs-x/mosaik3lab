@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { after, test } from 'node:test';
-import { newId } from '../src/domain/ids';
+import { newId } from '../src/kern/ids';
 import { hashPassword } from '../src/kern/auth/password';
 import { openDb } from '../src/kern/db';
 import { Client, mail, mailConfig, personMitRechten, pw, SCHOOL, sentMails, startServer, TEST_PASSWORT, writeMailFile } from './helfer';

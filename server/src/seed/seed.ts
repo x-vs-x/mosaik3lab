@@ -1,8 +1,9 @@
 import { hashPassword } from '../kern/auth/password';
-import { newId } from '../domain/ids';
+import { newId } from '../kern/ids';
 import { STANDARD_BEREICHE, TEAM_BEREICHE } from '@mosaik3lab/shared/konten';
-import { ANFANGSSTATUS } from '../domain/settings';
-import { productDefaults, type Item, type StatusEntry } from '../domain/types';
+import { ANFANGSSTATUS } from '../module/einstellungen/einstellungen.vorgaben';
+import { productDefaults, type Item } from '../domain/types';
+import { type StatusEntry } from '@mosaik3lab/shared/anfragen';
 import { createTrackingCode } from '../module/anfragen/anfragen.service';
 import type { Storage } from '../storage';
 import { DEMO_ITEMS, DEMO_ORDERS, DEMO_USERS, LEGACY_DEMO_EMAILS } from './demoData';

@@ -1,5 +1,5 @@
-import { newId } from '../../domain/ids';
-import { defaultSettings, ORDERFORM_VORGABE_BIS_1_6, withDefaults, type AppSettings } from '../../domain/settings';
+import { newId } from '../../kern/ids';
+import { defaultSettings, ORDERFORM_VORGABE_BIS_1_6, withDefaults, type AppSettings } from './einstellungen.vorgaben';
 import { json, one, run, transaction, type Db } from '../../kern/db';
 import type { MasterDataRepository } from '../stammdaten/stammdaten.repository';
 
