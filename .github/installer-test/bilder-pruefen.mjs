@@ -88,6 +88,8 @@ try {
     await api('POST', '/api/items', {
       name: 'CI Bildtest',
       shortDescription: 'Rauchtest der Bildverarbeitung im Installer-Test',
+      // Läuft auch gegen 1.6.3 (vor dem Update, Feld „category“) – unbekannte Felder ignoriert die jeweils andere Version.
+      category: kategorie,
       categories: [kategorie],
       material,
       printTimeMinutes: 10,
