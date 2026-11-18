@@ -5,9 +5,9 @@ import type { Db } from './db';
 // Die App liest hier Mail-Konfiguration und Session-Geheimnis; Ports/Pfade bekommt sie als Umgebungsvariablen
 // vom Server-Manager, der dieselbe Tabelle direkt pflegt (docs/DATENMODELL.md).
 
-export type Bereich = 'betrieb' | 'mail' | 'manager';
+export type BetriebBereich = 'betrieb' | 'mail' | 'manager';
 
-export function getBetrieb(db: Db, bereich: Bereich, schluessel: string): unknown {
+export function getBetrieb(db: Db, bereich: BetriebBereich, schluessel: string): unknown {
   const row = db.prepare('SELECT wert FROM betrieb_einstellung WHERE bereich = ? AND schluessel = ?').get(bereich, schluessel) as
     | { wert: string }
     | undefined;
@@ -19,7 +19,7 @@ export function getBetrieb(db: Db, bereich: Bereich, schluessel: string): unknow
   }
 }
 
-export function getBereich(db: Db, bereich: Bereich): Record<string, unknown> {
+export function getBereich(db: Db, bereich: BetriebBereich): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const r of db.prepare('SELECT schluessel, wert FROM betrieb_einstellung WHERE bereich = ?').all(bereich) as { schluessel: string; wert: string }[]) {
     try {
@@ -31,7 +31,7 @@ export function getBereich(db: Db, bereich: Bereich): Record<string, unknown> {
   return out;
 }
 
-export function setBetrieb(db: Db, bereich: Bereich, schluessel: string, wert: unknown, geheim = false) {
+export function setBetrieb(db: Db, bereich: BetriebBereich, schluessel: string, wert: unknown, geheim = false) {
   db.prepare(
     `INSERT INTO betrieb_einstellung (bereich, schluessel, wert, geheim, geaendert_am) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (bereich, schluessel) DO UPDATE SET wert = excluded.wert, geheim = excluded.geheim, geaendert_am = excluded.geaendert_am`,
@@ -39,14 +39,14 @@ export function setBetrieb(db: Db, bereich: Bereich, schluessel: string, wert: u
 }
 
 /** Nur anlegen, wenn es den Schlüssel noch nicht gibt (Rennen zwischen zwei Prozessen bleibt harmlos). */
-export function setBetriebWennNeu(db: Db, bereich: Bereich, schluessel: string, wert: unknown, geheim = false): boolean {
+export function setBetriebWennNeu(db: Db, bereich: BetriebBereich, schluessel: string, wert: unknown, geheim = false): boolean {
   const r = db
     .prepare('INSERT OR IGNORE INTO betrieb_einstellung (bereich, schluessel, wert, geheim, geaendert_am) VALUES (?, ?, ?, ?, ?)')
     .run(bereich, schluessel, JSON.stringify(wert), geheim ? 1 : 0, new Date().toISOString());
   return Number(r.changes) > 0;
 }
 
-export function hatBereich(db: Db, bereich: Bereich): boolean {
+export function hatBereich(db: Db, bereich: BetriebBereich): boolean {
   return !!db.prepare('SELECT 1 FROM betrieb_einstellung WHERE bereich = ? LIMIT 1').get(bereich);
 }
 

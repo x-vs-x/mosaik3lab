@@ -2,7 +2,7 @@ import { newId } from '../../domain/ids';
 import { userCan } from '../../domain/permissions';
 import { allAreaColors, singleColorArea, type ColorArea, type CustomField, type Item, type ItemVideo, type ModelFile, type User } from '../../domain/types';
 import { badRequest, notFound } from '../../kern/errors';
-import { dateiName, type Datei } from '../../kern/files';
+import { dateiName, SAFE_ID, type Datei } from '../../kern/files';
 import {
   detectImage,
   detectModel,
@@ -25,13 +25,11 @@ type ItemData = Omit<ParsedItemInput, 'colors' | 'colorAreas' | 'customFields'> 
   customFields: CustomField[];
 };
 
-const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-
 /** Behält gültige, eindeutige IDs (damit Anfragen zuordenbar bleiben), vergibt sonst neue. */
 function withIds<T extends { id: string }>(list: T[]): T[] {
   const seen = new Set<string>();
   return list.map((entry) => {
-    const id = ID_PATTERN.test(entry.id) && !seen.has(entry.id) ? entry.id : newId();
+    const id = SAFE_ID.test(entry.id) && !seen.has(entry.id) ? entry.id : newId();
     seen.add(id);
     return { ...entry, id };
   });

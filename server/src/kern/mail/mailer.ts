@@ -64,6 +64,12 @@ export function baseUrl(appUrl: string) {
   return /^https?:\/\/[^\s"'<>]+$/i.test(url) ? url : '';
 }
 
+/** Link in die Verwaltung, der den Eintrag gleich öffnet (`<app>/verwaltung/<pfad>?offen=<id>`); leer ohne gültige App-Adresse. */
+export function adminLink(appUrl: string, pfad: string, id: string) {
+  const base = baseUrl(appUrl);
+  return base ? `${base}/verwaltung/${pfad}?offen=${encodeURIComponent(id)}` : '';
+}
+
 export function formatMailDate(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;

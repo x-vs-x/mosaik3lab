@@ -8,9 +8,6 @@ export type Objekttyp = (typeof OBJEKTTYPEN)[number];
 export const DATEI_ROLLEN = ['bild', 'video', 'druckdatei', 'foto', 'anhang'] as const;
 export type DateiRolle = (typeof DATEI_ROLLEN)[number];
 
-export const isObjekttyp = (v: string): v is Objekttyp => (OBJEKTTYPEN as readonly string[]).includes(v);
-export const isDateiRolle = (v: string): v is DateiRolle => (DATEI_ROLLEN as readonly string[]).includes(v);
-
 /** Lesbare Nummern je Objekttyp (Tabelle `nummernkreis`, je Typ – und ggf. Jahr – ein eigener Zähler). */
 export const NUMMERNKREISE = {
   anfrage: { praefix: 'ANF', jaehrlich: true, stellen: 4 }, // ANF-2026-0007 (alte M3L-2026-0001 bleiben gültig)

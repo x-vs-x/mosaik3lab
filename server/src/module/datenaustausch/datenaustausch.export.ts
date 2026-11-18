@@ -1,12 +1,10 @@
-import fs from 'node:fs';
 import fsp from 'node:fs/promises';
-import path from 'node:path';
 import type { Category, Filament, MasterData, SimpleEntry } from '../../domain/settings';
 import type { ColorArea, CustomField, Item } from '../../domain/types';
 import { dateiName, type Datei } from '../../kern/files';
 import type { Storage } from '../../storage';
 import { schemaVersion } from '../../kern/db';
-import { ROOT_DIR } from '../../config';
+import { APP_VERSION } from '../../kern/version';
 import { notFound } from '../../kern/errors';
 import { aehnlicheFuerExport, type PaketAehnlich } from './datenaustausch.aehnliche';
 import { ORDNER, zipStrom } from './datenaustausch.zip';
@@ -84,15 +82,6 @@ export interface Paket {
     statusarten: { id: string; aktiv: boolean }[];
   };
   artikel: PaketArtikel[];
-}
-
-export function appVersion(): string {
-  try {
-    const file = path.join(ROOT_DIR, 'package.json');
-    return String(JSON.parse(fs.readFileSync(file, 'utf8')).version ?? '0');
-  } catch {
-    return '0';
-  }
 }
 
 const sortByNumber = (a: Item, b: Item) => (a.number ?? '').localeCompare(b.number ?? '') || a.id.localeCompare(b.id);
@@ -186,7 +175,7 @@ export async function buildPaket(storage: Storage, opts: ExportOptionen) {
     format: PAKET_FORMAT,
     version: PAKET_VERSION,
     exportiertAm: new Date().toISOString(),
-    appVersion: appVersion(),
+    appVersion: APP_VERSION,
     schemaVersion: schemaVersion(storage.sqlite.db),
     mitDateien: true,
     auswahl: true,

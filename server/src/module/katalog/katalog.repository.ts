@@ -335,11 +335,6 @@ export class ItemRepository {
     return new Set(all(this.db, 'SELECT id FROM artikel_video WHERE artikel_id <> ?', itemId).map((r) => str(r.id)));
   }
 
-  /** Nur die Zeile löschen (innerhalb einer Transaktion; Dateien räumt der Aufrufer ab). */
-  deleteRow(id: string) {
-    run(this.db, 'DELETE FROM artikel WHERE id = ?', id);
-  }
-
   async create(entity: Item) {
     const removed = transaction(this.db, () => {
       if (one(this.db, 'SELECT 1 FROM artikel WHERE id = ?', entity.id)) throw conflict('ID bereits vergeben.');

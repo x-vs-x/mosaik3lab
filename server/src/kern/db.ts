@@ -59,7 +59,11 @@ export function transaction<T>(db: Db, fn: () => T): T {
     db.exec(nested ? `RELEASE ${sp}` : 'COMMIT');
     return result;
   } catch (err) {
-    db.exec(nested ? `ROLLBACK TO ${sp}; RELEASE ${sp}` : 'ROLLBACK');
+    try {
+      db.exec(nested ? `ROLLBACK TO ${sp}; RELEASE ${sp}` : 'ROLLBACK');
+    } catch {
+      // SQLite hat schon selbst zurückgerollt (z. B. Platte voll) – der ursprüngliche Fehler zählt.
+    }
     throw err;
   }
 }

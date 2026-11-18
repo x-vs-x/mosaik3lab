@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { MIME_BY_EXT } from '../../domain/objekttypen';
 import { ITEM_KINDS } from '../../domain/types';
 import { badRequest } from '../../kern/errors';
+import { SAFE_ID, sha256 } from '../../kern/files';
 import { detectImage, detectModel, detectVideo, MAX_IMAGE_BYTES, MAX_MODEL_BYTES, MAX_VIDEO_BYTES } from '../../kern/uploads';
 import { KOPF_ENDE, PAKET_FORMAT, PAKET_ROLLEN, PAKET_VERSION, PAKET_ENDE, type Paket, type PaketArtikel } from './datenaustausch.export';
 import { masterDataSchemas } from '@mosaik3lab/shared/stammdaten';
@@ -17,7 +18,7 @@ import { istZip, leseEintrag, MAX_PAKET_JSON, oeffneZip, ORDNER, PAKET_JSON, ZIP
 
 const MAX_ARTIKEL = 5000;
 const MAX_DATEIEN_JE_ARTIKEL = 40;
-export const ID = /^[A-Za-z0-9_-]{1,64}$/;
+export const ID = SAFE_ID;
 
 // --- Lesen -------------------------------------------------------------------------------------------------
 export const dateiS = z.object({
@@ -213,18 +214,13 @@ function pruefeInhalt(meta: { rolle: keyof typeof GRENZE; originalname: string; 
   }
 }
 
-async function sha256Hex(buffer: Buffer) {
-  const { createHash } = await import('node:crypto');
-  return createHash('sha256').update(buffer).digest('hex');
-}
-
 type Meta = PaketArtikel['dateien'][number];
 
 /** Prüft eine Datei (Größe, SHA-256, Inhalt) und legt sie bei Bedarf in `tmpDir` ab. */
 async function pruefeEine(meta: Meta, buffer: Buffer, tmpDir: string | undefined): Promise<DateiInfo> {
   const name = meta.originalname || meta.id;
   if (buffer.length !== meta.groesse) throw badRequest(`„${name}“: Größe stimmt nicht (${buffer.length} statt ${meta.groesse} Bytes) – Datei beschädigt.`);
-  if ((await sha256Hex(buffer)) !== meta.sha256) throw badRequest(`„${name}“: Prüfsumme (SHA-256) stimmt nicht – die Datei wurde verändert oder ist beschädigt.`);
+  if (sha256(buffer) !== meta.sha256) throw badRequest(`„${name}“: Prüfsumme (SHA-256) stimmt nicht – die Datei wurde verändert oder ist beschädigt.`);
   let ext: string;
   try {
     ext = pruefeInhalt(meta, buffer);

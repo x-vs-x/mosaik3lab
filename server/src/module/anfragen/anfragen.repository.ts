@@ -1,15 +1,11 @@
 import type { Order } from '../../domain/types';
 import { conflict } from '../../kern/errors';
-import type { FileStore } from '../../kern/files';
 import { all, b, bool, count, json, marks, nextNumber, one, run, str, syncRows, transaction, type Db, type Row } from '../../kern/db';
 
 // Anfragen (Tabelle anfrage mit Farben, Feldwerten und Statusverlauf; Tabellen siehe docs/DATENMODELL.md).
 
 export class OrderRepository {
-  constructor(
-    private readonly db: Db,
-    private readonly files: FileStore,
-  ) {}
+  constructor(private readonly db: Db) {}
 
   load(where = '', ...params: unknown[]): Order[] {
     const rows = all(this.db, `SELECT * FROM anfrage ${where} ORDER BY erstellt_am, id`, ...params);
@@ -198,18 +194,6 @@ export class OrderRepository {
       return true;
     });
     return done ? this.findById(id) : undefined;
-  }
-
-  async delete(id: string) {
-    const order = await this.findById(id);
-    if (!order) return undefined;
-    const removed = transaction(this.db, () => {
-      const files = this.files.removeRowsFor('anfrage', id);
-      run(this.db, 'DELETE FROM anfrage WHERE id = ?', id);
-      return files;
-    });
-    await this.files.unlink(removed);
-    return order;
   }
 }
 

@@ -46,10 +46,10 @@ export async function createSqliteStorage(paths: StoragePaths): Promise<Storage 
     await files.init();
     const masterData = new MasterDataRepository(db);
     const repos = {
-      users: new UserRepository(db, files),
+      users: new UserRepository(db),
       items: new ItemRepository(db, files),
-      orders: new OrderRepository(db, files),
-      requesters: new RequesterRepository(db, files),
+      orders: new OrderRepository(db),
+      requesters: new RequesterRepository(db),
       proposals: new ProposalRepository(db, files),
       sessions: new SessionRepository(db),
       masterData,

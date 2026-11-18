@@ -2,7 +2,7 @@ import { hashPassword } from '../kern/auth/password';
 import { newId } from '../domain/ids';
 import { STANDARD_BEREICHE, TEAM_BEREICHE } from '@mosaik3lab/shared/konten';
 import { isCatalogStatus, LEGACY_STATUS_MAP } from '../domain/orderStatuses';
-import { initialStatus } from '../domain/settings';
+import { ANFANGSSTATUS } from '../domain/settings';
 import type { Item, StatusEntry } from '../domain/types';
 import { createTrackingCode } from '../module/anfragen/anfragen.service';
 import type { Storage } from '../storage';
@@ -66,7 +66,7 @@ export async function seedIfEmpty(storage: Storage): Promise<boolean> {
   }
 
   const { masterData } = await storage.settings.get();
-  const start = initialStatus(masterData);
+  const start = ANFANGSSTATUS;
 
   // Älteste Anfrage zuerst, damit Nummern und „letzte Anfrage“ der Lehrkräfte stimmen.
   for (const d of [...DEMO_ORDERS].sort((a, b) => b.daysAgo - a.daysAgo)) {
@@ -129,7 +129,7 @@ export async function seedIfEmpty(storage: Storage): Promise<boolean> {
  */
 export async function migrateLegacyStatuses(storage: Storage) {
   const settings = await storage.settings.get();
-  const fallback = initialStatus(settings.masterData);
+  const fallback = ANFANGSSTATUS;
   const fix = (s: string) => (isCatalogStatus(s) ? s : (settings.statusAliases[s] ?? LEGACY_STATUS_MAP[s] ?? fallback));
   const missing = (v: unknown) => typeof v !== 'string';
   let changed = 0;

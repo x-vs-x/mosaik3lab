@@ -16,7 +16,7 @@ export interface AppSettings {
   masterData: MasterData;
   orderForm: OrderFormSettings;
   features: Features;
-  /** Letztes Ergebnis des Mailversands – zur Fehlersuche in der Verwaltung. SMTP-Daten liegen in mail.json (Server-Manager). */
+  /** Letztes Ergebnis des Mailversands – zur Fehlersuche in der Verwaltung. SMTP-Daten liegen in der Datenbank (betrieb_einstellung, gepflegt vom Server-Manager). */
   mailStatus: MailStatus;
   /** Frühere, frei angelegte Status-IDs → feste Status (für die Migration der Anfragen). */
   statusAliases: Record<string, string>;
@@ -94,6 +94,4 @@ export function withDefaults(data: Partial<AppSettings>): AppSettings {
 }
 
 /** Statusvorgabe für neue Anfragen: immer „Offen“ (kann nicht ausgeschaltet werden). */
-export function initialStatus(_md?: MasterData): string {
-  return 'offen';
-}
+export const ANFANGSSTATUS = 'offen';

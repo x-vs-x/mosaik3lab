@@ -70,7 +70,7 @@ export async function submitProposal(storage: Storage, requester: Requester | un
     throw err;
   }
   const created = await loadProposal(storage, id);
-  notifyNewProposal(storage, storage.sqlite.db, created);
+  notifyNewProposal(storage, created);
   return created;
 }
 

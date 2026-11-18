@@ -14,8 +14,6 @@ export interface User extends Account {
   passwordHash: string;
 }
 
-export type PublicUser = Account;
-
 export interface ModelFile extends SharedModelFile {
   /** Gespeicherter (zufälliger) Dateiname im Upload-Ordner. */
   storedName: string;
@@ -31,11 +29,6 @@ export function singleColorArea(colors: string[]): ColorArea[] {
 /** Alle Farbrollen über alle Bereiche (ohne Doppelte) – wird als Item.colors gespeichert. */
 export function allAreaColors(areas: ColorArea[]): string[] {
   return [...new Set(areas.flatMap((a) => a.colors))];
-}
-
-export function toPublicUser(user: User): PublicUser {
-  const { passwordHash: _ignored, ...rest } = user;
-  return rest;
 }
 
 export function accountSessionUser(user: User): SessionUser {

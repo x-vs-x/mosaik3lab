@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import { getBereich, hatBereich, setBetrieb } from '../betrieb';
-import type { Db } from '../db';
+import { stamp as zeitstempel, type Db } from '../db';
 import { ERREICHBARKEIT } from './erreichbarkeit';
 
 // Mail-Konfiguration in der Datenbank (Tabelle betrieb_einstellung, Bereich „mail“, Migration 006) – gepflegt
@@ -107,7 +107,7 @@ export function writeMailConfig(db: Db, m: Record<string, unknown>) {
  * Läuft nach den Migrationen beim Start der App.
  */
 export function importLegacyMail(db: Db, opts: { storageDir: string; dataDir: string }) {
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const stamp = zeitstempel();
   const mailFile = path.join(opts.storageDir, 'config', 'mail.json');
   const settingsFile = path.join(opts.dataDir, 'settings.json');
 
@@ -169,7 +169,7 @@ export function importLegacySessionSecret(dataDir: string, setIfNew: (secret: st
   try {
     const secret = fs.readFileSync(file, 'utf8').trim();
     if (secret.length >= 32 && setIfNew(secret)) {
-      fs.renameSync(file, `${file}.vor-datenbank-${new Date().toISOString().replace(/[:.]/g, '-')}.bak`);
+      fs.renameSync(file, `${file}.vor-datenbank-${zeitstempel()}.bak`);
       console.log('[Übernahme] Session-Geheimnis in die Datenbank übernommen (Datei als .bak umbenannt).');
     }
   } catch {

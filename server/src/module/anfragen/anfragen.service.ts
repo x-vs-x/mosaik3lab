@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { newId } from '../../domain/ids';
 import { userCan } from '../../domain/permissions';
-import { initialStatus, isAllowedEmail, type Filament, type StatusPhase } from '../../domain/settings';
+import { ANFANGSSTATUS, isAllowedEmail, type Filament, type StatusPhase } from '../../domain/settings';
 import { singleColorArea, type Item, type Order, type OrderColorChoice, type OrderCustomValue, type Requester, type User } from '../../domain/types';
 import { badRequest, conflict, forbidden, notFound } from '../../kern/errors';
 import type { Storage } from '../../storage';
@@ -153,7 +153,7 @@ export async function createOrder(storage: Storage, input: OrderInputData, user:
   }
   // Unbekannte Adresse → Lehrkraft wird automatisch neu angelegt (ohne Passwort/Profil).
   const requester = await storage.requesters.upsertByEmail(email, now);
-  const status = initialStatus(settings.masterData);
+  const status = ANFANGSSTATUS;
   const order = await storage.orders.create({
     id: newId(),
     itemId: item.id,
@@ -170,7 +170,7 @@ export async function createOrder(storage: Storage, input: OrderInputData, user:
     createdAt: now,
     updatedAt: now,
   });
-  notifyNewOrder(storage, storage.sqlite.db, order, item);
+  notifyNewOrder(storage, order, item);
 
   // Lehrkräfte reichen nur ein – Status und Code erhalten sie nur, wenn das eingeschaltet ist.
   if (!settings.features.requesterTracking && !siehtAlleAnfragen(user)) return { id: order.id, number: order.number, itemName: order.itemName };
@@ -178,7 +178,7 @@ export async function createOrder(storage: Storage, input: OrderInputData, user:
 }
 
 /** Nur offene Anfragen (vom Team noch nicht angesehen) darf die Lehrkraft selbst ändern. */
-const isEditable = (o: Order) => o.status === initialStatus();
+const isEditable = (o: Order) => o.status === ANFANGSSTATUS;
 
 /**
  * Eigene Anfrage ändern, solange sie offen ist. Gleiche Prüfung wie beim Anlegen; Druckteil, E-Mail und
@@ -201,7 +201,7 @@ export async function updateOwnOrder(storage: Storage, id: string, input: OrderI
     return { ...current, ...values, history: [...current.history, entry], updatedAt: at };
   });
   if (!updated) throw notFound('Anfrage nicht gefunden.');
-  notifyNewOrder(storage, storage.sqlite.db, updated, item, order);
+  notifyNewOrder(storage, updated, item, order);
   return toOwnOrder(updated, features.requesterTracking);
 }
 
