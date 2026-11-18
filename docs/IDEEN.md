@@ -12,6 +12,7 @@ Format (alles freiwillig außer dem Text):
 
 ## Neu
 
+- [ ] 2026-11-18 – „Updatewünsche: es wäre super, wenn man mehrere Kategorien auswählen könnte beim anlegen der Dateien“
 - [ ] 2026-10-31 – Beim Anlegen einen MakerWorld-/Bambu-Lab-Link einfügen: Name, Beschreibung und Bilder werden übernommen, Bilder händisch entfernbar. (Machbarkeit geprüft: inoffizielle Schnittstelle `api.bambulab.com/v1/design-service/design/<id>` liefert Titel, Beschreibung, Bilder, Ersteller, Lizenz; Webseite selbst blockt mit 403. Quelle + Lizenz mitspeichern, nur `makerworld.com` erlauben.)
 
 ## In Arbeit (verteilt am 2026-10-31 durch den Hauptchat)
