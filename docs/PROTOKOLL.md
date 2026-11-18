@@ -2,6 +2,26 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Ähnliche Druckteile (Unter-Session, Branch: feature/aehnliche-druckteile)
+- **Anlass:** Entscheidung des Nutzers (ersetzt Adapter/Aufsätze): ähnliche Druckteile gegenseitig verknüpfen, Anzeige
+  ganz unten auf der Druckteil-Seite als kleine Karten, nicht exportierbar.
+- **Gebaut:** Migration `019_artikel_aehnlich.sql` (Paar `a < b`, `ON DELETE CASCADE`, Index auf `b`).
+  `server/src/module/katalog/aehnliche.ts` (Liste als kleine Karten, Hinzufügen, Entfernen; Besucher nur veröffentlichte),
+  Routen in `katalog.routes.ts`: `GET /api/items/:id/aehnliche` (sichtbar wie das Druckteil), `POST …/aehnliche { id }`
+  und `DELETE …/aehnliche/:andereId` mit `catalog:manage`; das Teil selbst und unbekannte IDs → 400.
+  Eigener Endpunkt statt Speichern mit dem Formular (einfacher, sofort gespeichert wie Bilder; `itemInputSchema` und
+  `module/datenaustausch/` unberührt). Typ `AehnlichesTeil` + `aehnlichSchema` in `shared/src/katalog.ts`.
+  Oberfläche: `features/verwaltung/druckteil-bearbeiten/AehnlicheSection.tsx` (Suche nach Name/Nummer im Browser über
+  `/items?all=1`, Hinzufügen/Entfernen, Fokus danach zurück ins Suchfeld, Enter sendet das Formular nicht ab, 44-px-Knöpfe),
+  eingebunden in `ItemEditPage.tsx`; `features/katalog/AehnlicheTeile.tsx` (kleine Karten: Vorschaubild, Name, Kurzbeschreibung höchstens 2 Zeilen – ohne Nummer, Wunsch des Nutzers;
+  1 Spalte am Handy, 2 ab 480 px, 3 ab xl), in `ItemDetailPage.tsx` als letztes Element nach den Link-Knöpfen.
+  `CatalogPage.tsx`/`katalogScroll.ts` nicht geändert. Test: `server/test/aehnliche.test.ts`.
+- **Geprüft:** Port 5183/3013 mit Demo-Daten: Suche „griff“ und „art-0011“, Hinzufügen per Maus und Tastatur, Entfernen,
+  Gegenseite zeigt die Verknüpfung, Klick/Enter auf Karte öffnet das Teil; Besucher sehen den Entwurf nicht; 320, 375,
+  768, 1024, 1440 px ohne waagrechtes Scrollen. Dabei behoben: doppelter React-Schlüssel mit `RequestDialog` (Abschnitt
+  blieb beim Wechsel stehen). Bilder: `C:\Entwicklung\_testdaten\aehnliche-bilder\`.
+- **Aufgeräumt:** Testserver gestoppt, `_testdaten\aehnliche` gelöscht (Bilder bleiben).
+
 ## 2026-11-18 – Katalog: 50 Druckteile, Nachladen beim Scrollen (Unter-Session, Branch: feature/katalog-nachladen)
 - **Anlass:** Wunsch des Nutzers: Die Katalogseite lädt inzwischen lange; auf 50 begrenzen, Suche über alle, beim
   Runterscrollen kurz vor dem Ende die nächsten laden (keine Seitenzahlen).

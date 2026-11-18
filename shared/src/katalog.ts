@@ -194,3 +194,17 @@ export type Item<M extends ModelFile = ModelFile> = Omit<ParsedItemInput, 'color
 
 /** Druckteil in API-Antworten (GET /api/items…): mit Anzahl der Druckdateien. */
 export type ItemView = Item & { modelFileCount: number };
+
+/** Ähnliches Druckteil als kleine Karte (GET /api/items/:id/aehnliche). Verknüpfung gilt gegenseitig. */
+export interface AehnlichesTeil {
+  id: string;
+  name: string;
+  shortDescription: string;
+  category: string;
+  /** Titelbild (gespeicherter Dateiname) – leer, wenn es keins gibt. */
+  image: string;
+  published: boolean;
+}
+
+/** Ähnliches Druckteil hinzufügen: ID des anderen Druckteils. */
+export const aehnlichSchema = z.object({ id: z.string().trim().min(1).max(64) });

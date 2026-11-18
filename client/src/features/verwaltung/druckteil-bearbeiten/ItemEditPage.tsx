@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { EntwurfHinweis } from '../../../components/EntwurfHinweis';
 import { Alert, Button, DemoBadge, PageHeader, Spinner } from '../../../components/ui';
 import { useDocumentTitle } from '../../../lib/useApi';
+import { AehnlicheSection } from './AehnlicheSection';
 import { BasicsSection } from './BasicsSection';
 import { ColorsSection } from './ColorsSection';
 import { CustomFieldsSection } from './CustomFieldsSection';
@@ -55,6 +56,7 @@ export function ItemEditPage() {
         <MaterialSection {...sectionProps} />
         <ModelFilesSection item={item} onChange={setItem} />
         <SafetySection {...sectionProps} />
+        <AehnlicheSection item={item} />
         <VisibilityPanel form={form} set={set} />
 
         {formError && <Alert kind="error">{formError}</Alert>}

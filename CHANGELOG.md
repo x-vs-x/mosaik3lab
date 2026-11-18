@@ -6,6 +6,11 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Ähnliche Druckteile:** Beim Bearbeiten eines Druckteils lassen sich im neuen Abschnitt „Ähnliche Druckteile“ andere
+  Druckteile über die Suche (Name oder Nummer) verknüpfen und wieder entfernen. Die Verknüpfung gilt für beide Teile.
+  Ganz unten auf der Seite des Druckteils erscheinen sie als kleine Karten; ein Tipp öffnet das ähnliche Druckteil.
+  Nicht veröffentlichte Teile sieht nur das Druck-Team. Die Verknüpfungen kommen beim Exportieren nicht mit.
+
 - **Katalog lädt schneller:** Die Seite mit den Druckteilen zeigt zuerst 50 Stück. Beim Runterscrollen kommen kurz vor
   dem Ende automatisch die nächsten 50 dazu – ohne Seitenzahlen. Unter der Liste stehen „50 von 137 Druckteilen“ und der
   Knopf „Weitere Druckteile laden“ (für Tastatur und Screenreader). Suche und Filter finden weiterhin alle Druckteile.

@@ -49,6 +49,7 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 | `artikel` | Druckteil (nummer, Name, Beschreibung, Preis-Text, veröffentlicht …; seit 018 `links`: JSON-Liste der Link-Knöpfe `{ id, text, beschreibung, url }`, nur http/https, höchstens 50, bestehende Druckteile `[]`) |
 | `artikel_farbbereich` | Farbbereiche je Artikel (Name, Sortierung, seit 013 `alle_farben`: 1 = alle Farbrollen, auch später angelegte – dann keine Einzelverweise; seit 017 `gruppen`: JSON-Liste ganzer Linien/Materialarten wie `art:PLA`, auch später angelegte Rollen) + `artikel_farbbereich_filament` (erlaubte Farben bei „Nur bestimmte Farben“) |
 | `artikel_feld` | Personalisierungsfelder je Artikel (Bezeichnung, Typ, Pflicht, max. Länge) |
+| `artikel_aehnlich` | seit 019: ähnliche Druckteile, gegenseitig (A ↔ B). Paar ohne Richtung `(a, b)` mit `a < b` (eine Zeile je Paar), beide `ON DELETE CASCADE` (Löschen eines Druckteils räumt auf), Index auf `b`. **Nicht** im Export/Import. API: `GET/POST /api/items/:id/aehnliche`, `DELETE /api/items/:id/aehnliche/:andereId` (`module/katalog/aehnliche.ts`) |
 | `anfrage` | Bestellung (nummer, lehrkraft_id, artikel_id, Klasse, Menge, Bemerkung, status) |
 | `anfrage_farbe` | gewählte Farbe je Farbbereich |
 | `anfrage_feldwert` | Werte der Personalisierungsfelder |
@@ -145,3 +146,9 @@ Neue Spalte `benutzer.neuigkeiten_gesehen` (TEXT, Standard NULL): zuletzt gelese
 die App beim Start in `betrieb_einstellung` (Bereich `betrieb`) `version.aktuell` und bei einem Versionswechsel `version.vorherige`
 (Update von 1.0.0, das noch nichts speicherte: `1.0.0`; Neuinstallation: keine). Angezeigt werden die Abschnitte aus `CHANGELOG.md`
 mit `gesehen (sonst vorherige) < Version ≤ aktuelle` (`module/neuigkeiten/`, `GET /api/neuigkeiten`, `POST /api/neuigkeiten/gelesen`).
+
+## Migration 019 – Ähnliche Druckteile (`artikel_aehnlich`)
+Neue Tabelle `artikel_aehnlich (a, b)`: Verknüpfung zweier Druckteile, gilt für beide Seiten. Gespeichert wird das Paar
+sortiert (`CHECK (a < b)`), so gibt es jede Verknüpfung nur einmal. Bestehende Daten: keine Verknüpfungen. Löschen eines
+Druckteils entfernt seine Paare per Fremdschlüssel. Bewusst nicht im Export/Import (Entscheidung des Nutzers, 2026-11-18).
+Besucher bekommen nur veröffentlichte Teile; Pflegen mit `catalog:manage`.
