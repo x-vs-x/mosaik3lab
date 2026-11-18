@@ -88,8 +88,13 @@ Bevor eine Session „fertig“ meldet:
   einrichten“ gleicht das System (Ports, Firewall, Dienste) an die Datenbank an. Nichts doppelt bauen. Keine nativen npm-Module, nichts x64-Spezifisches (Raspberry Pi).
 
 ## Versionen (seit 1.0.0, 2026-11-15)
-- **SemVer, eine Nummer für alles** (oberste `package.json`, alle Teilpakete gleich): PATCH = Fehlerbehebung, MINOR = neue
-  Funktion, MAJOR = große Umstellung (z. B. Bedienung oder Daten grundlegend anders).
+- **Eine Nummer für alles** (oberste `package.json`, alle Teilpakete gleich). Regel (Entscheidung des Nutzers, 2026-11-18):
+  - **PATCH** (1.8.1, 1.8.2 …): Fehlerbehebungen **und kleinere Funktionen**, die Bedienung und Daten nicht grundlegend
+    ändern (z. B. mehrere Kategorien, Anzeige-Korrekturen, überarbeitete Farbauswahl) – auch wenn eine Migration dabei ist.
+  - **MINOR** (1.9.0): größere Funktionspakete oder spürbare Umstellungen für die Schule (z. B. Übernahme per Link von
+    MakerWorld/Printables).
+  - **MAJOR** (2.0.0): große Umstellung, z. B. Bedienung oder Daten grundlegend anders oder alte Stände nicht mehr unterstützt.
+  - Im Zweifel PATCH und den Nutzer fragen.
 - Jede Änderung, die bei der Schule ankommt, bekommt eine Zeile in `CHANGELOG.md` unter „Unveröffentlicht“.
 - Freigeben: `npm run release -- patch|minor|major` (nur auf sauberem `main`), dann `git push origin main --follow-tags`.
   Das Tag startet den Installer-Test auf Windows, Linux und Pi; bestanden → Release `vX.Y.Z` mit allen drei Paketen.
