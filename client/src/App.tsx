@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { SessionPending } from './auth/SessionPending';
+import { Fehlergrenze } from './components/Fehlergrenze';
 import { Layout } from './components/Layout';
 import { ForbiddenPage, NotFoundPage } from './components/StatusPages';
 import { Spinner } from './components/ui';
@@ -62,6 +63,21 @@ function Start() {
   return <Navigate to={user ? '/katalog' : '/login'} replace />;
 }
 
+/**
+ * Bei Bedarf nachgeladene Seiten: Fehlergrenze innerhalb des Layouts (Navigation bleibt), je Adresse neu – nach dem
+ * Wechsel auf eine andere Seite ist der Fehler wieder weg.
+ */
+function NachgeladeneSeiten() {
+  const { pathname } = useLocation();
+  return (
+    <Fehlergrenze key={pathname}>
+      <Suspense fallback={<Spinner />}>
+        <Outlet />
+      </Suspense>
+    </Fehlergrenze>
+  );
+}
+
 export function App() {
   return (
     <Routes>
@@ -76,13 +92,7 @@ export function App() {
         <Route path="vorschlaege" element={<Protected permission="vorschlaege:eigene"><MyProposalsPage /></Protected>} />
         <Route path="konto" element={<Protected><AccountPage /></Protected>} />
 
-        <Route
-          element={
-            <Suspense fallback={<Spinner />}>
-              <Outlet />
-            </Suspense>
-          }
-        >
+        <Route element={<NachgeladeneSeiten />}>
           <Route path="verwaltung" element={<Protected permission="dashboard:view"><DashboardPage /></Protected>} />
           <Route path="verwaltung/bestellungen" element={<Protected permission="orders:view"><OrdersAdminPage /></Protected>} />
           <Route path="verwaltung/vorschlaege" element={<Protected permission="vorschlaege:sehen"><ProposalsAdminPage /></Protected>} />

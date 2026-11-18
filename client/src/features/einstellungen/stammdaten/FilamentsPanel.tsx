@@ -20,7 +20,7 @@ import type {
   MasterData,
 } from "../../../lib/types";
 import { useApi } from "../../../lib/useApi";
-import { filamentRolle } from "@mosaik3lab/shared/stammdaten";
+import { filamentRolle } from "@mosaik3lab/shared/werte/stammdaten";
 import { BambuHinweis } from "./BambuHinweis";
 import { FarbeZuordnenDialog } from "./FarbeZuordnenDialog";
 import { Aufklappen } from "./Aufklappen";

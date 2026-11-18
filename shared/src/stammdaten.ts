@@ -1,30 +1,11 @@
 import { z } from 'zod';
 import { text, type MitId } from './basis';
 import type { OrderStatusDef } from './anfragen';
+import { COLOR_KEYS, ICON_KEYS } from './werte/stammdaten';
 
 // Stammdaten, die die Administration pflegt: Kategorien, Einsatzbereiche, Materialien, Farbrollen (Filamente).
-// Die feste Statusliste steht in anfragen.ts.
-
-/** Farben aus dem Schullogo (+ Grau) – der Client ordnet ihnen Stile zu (lib/constants.ts). */
-export const COLOR_KEYS = ['blau', 'rot', 'gelb', 'orange', 'lila', 'gruen', 'grau'] as const;
-export type ColorKey = (typeof COLOR_KEYS)[number];
-
-/** Symbole, die für Kategorien gewählt werden können (Namen aus dem Symbolsatz des Clients). */
-export const ICON_KEYS = [
-  'kommunikation',
-  'hand',
-  'besteck',
-  'buch',
-  'sterne',
-  'werkzeug',
-  'formen',
-  'puzzle',
-  'stift',
-  'musik',
-  'herz',
-  'rollstuhl',
-] as const;
-export type IconKey = (typeof ICON_KEYS)[number];
+// Die feste Statusliste steht in anfragen.ts. Listen und Hilfen ohne zod: werte/stammdaten.ts (hier wieder exportiert).
+export * from './werte/stammdaten';
 
 const entryId = z.string().trim().max(64).optional();
 const entryName = text(1, 60);
@@ -70,13 +51,6 @@ export type Filament = MitId<Omit<z.infer<typeof filamentInput>, 'available'>> &
   /** Katalog-Rolle, die Bambu Lab nicht mehr führt. Bleibt bestehen, weil Druckteile darauf verweisen. */
   weggefallen: boolean;
 };
-
-/** Rolle für Druck-Team und Admin, z. B. „Bambu Lab PLA Basic, Nr. 10101“ (Lehrkräfte sehen nur den Farbnamen). */
-export function filamentRolle(f: Pick<Filament, 'brand' | 'line'> & { herstellerNummer?: string }) {
-  const art = [f.brand, f.line].map((s) => s.trim()).filter(Boolean).join(' ');
-  const nr = f.herstellerNummer?.trim() ? `Nr. ${f.herstellerNummer.trim()}` : '';
-  return [art, nr].filter(Boolean).join(', ');
-}
 
 export interface MasterData {
   categories: Category[];

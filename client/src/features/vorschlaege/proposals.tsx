@@ -1,7 +1,7 @@
 import { CircleCheck, CircleX, Search, Inbox, type LucideIcon } from 'lucide-react';
 import { Badge, cx } from '../../components/ui';
 import { withBase } from '../../lib/basePath';
-import { PROPOSAL_STATUS_LABELS, type ProposalStatus } from '@mosaik3lab/shared/vorschlaege';
+import { PROPOSAL_STATUS_LABELS, type ProposalStatus } from '@mosaik3lab/shared/werte/vorschlaege';
 
 // Darstellung der Vorschläge; Typen, Listen und Grenzen kommen aus shared/src/vorschlaege.ts.
 export type { OwnProposal, Proposal, ProposalStatus, ProposalUrgency } from '@mosaik3lab/shared/vorschlaege';
@@ -10,7 +10,7 @@ export {
   MAX_PROPOSAL_PHOTOS as MAX_PHOTOS,
   PROPOSAL_STATUS_LABELS as STATUS_LABELS,
   PROPOSAL_URGENCY_LABELS as URGENCY_LABELS,
-} from '@mosaik3lab/shared/vorschlaege';
+} from '@mosaik3lab/shared/werte/vorschlaege';
 
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 

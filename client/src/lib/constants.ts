@@ -23,11 +23,11 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
-import { STATUS_CATALOG } from '@mosaik3lab/shared/anfragen';
+import { STATUS_CATALOG } from '@mosaik3lab/shared/werte/anfragen';
 import type { Category, ColorKey, Filament, IconKey, MasterData, OrderStatusDef, StatusPhase } from './types';
 
-export { ROLE_LABELS } from '@mosaik3lab/shared/konten';
-export { COLOR_KEYS, ICON_KEYS } from '@mosaik3lab/shared/stammdaten';
+export { ROLE_LABELS } from '@mosaik3lab/shared/werte/konten';
+export { COLOR_KEYS, ICON_KEYS } from '@mosaik3lab/shared/werte/stammdaten';
 
 // --- Farben (Mosaiksteine des Schullogos + Grau) ---------------------------------
 interface ColorStyle {

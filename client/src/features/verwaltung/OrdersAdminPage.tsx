@@ -26,7 +26,7 @@ import { findFilament, nextStatus, statusMeta } from '../../lib/constants';
 import { formatDate, formatDateTime, formatRelative } from '../../lib/format';
 import type { MasterData, Order } from '../../lib/types';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
-import { filamentRolle } from '@mosaik3lab/shared/stammdaten';
+import { filamentRolle } from '@mosaik3lab/shared/werte/stammdaten';
 import { passtZurSuche } from '@mosaik3lab/shared/suche';
 
 /** 'unerledigt' = Phasen open + active, 'alle' = alles, sonst eine Status-ID. */

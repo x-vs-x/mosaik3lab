@@ -1,29 +1,10 @@
 import { z } from 'zod';
 import { httpLink } from './basis';
+import { MAX_PROPOSAL_LINKS, PROPOSAL_STATUSES, PROPOSAL_URGENCIES, type ProposalStatus } from './werte/vorschlaege';
 
 // Vorschläge der Lehrkräfte für Druckteile, die es im Katalog noch nicht gibt.
-
-export const PROPOSAL_STATUSES = ['neu', 'in_pruefung', 'umgesetzt', 'abgelehnt'] as const;
-export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
-
-export const PROPOSAL_STATUS_LABELS: Record<ProposalStatus, string> = {
-  neu: 'Neu',
-  in_pruefung: 'In Prüfung',
-  umgesetzt: 'Umgesetzt',
-  abgelehnt: 'Abgelehnt',
-};
-
-export const PROPOSAL_URGENCIES = ['normal', 'bald', 'dringend'] as const;
-export type ProposalUrgency = (typeof PROPOSAL_URGENCIES)[number];
-
-export const PROPOSAL_URGENCY_LABELS: Record<ProposalUrgency, string> = {
-  normal: 'Keine Eile',
-  bald: 'Bald',
-  dringend: 'Dringend',
-};
-
-export const MAX_PROPOSAL_PHOTOS = 5;
-export const MAX_PROPOSAL_LINKS = 5;
+// Status, Dringlichkeit und Grenzen ohne zod: werte/vorschlaege.ts (auch für den Client) – hier wieder exportiert.
+export * from './werte/vorschlaege';
 
 export const proposalInputSchema = z.object({
   title: z.string().trim().min(3).max(100),

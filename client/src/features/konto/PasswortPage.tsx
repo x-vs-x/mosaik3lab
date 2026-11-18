@@ -1,7 +1,7 @@
 import { Eye, EyeOff, KeyRound } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { MIN_PASSWORT } from '@mosaik3lab/shared/konten';
+import { MIN_PASSWORT } from '@mosaik3lab/shared/werte/konten';
 import { useAuth } from '../../auth/AuthContext';
 import { Logo } from '../../components/Logo';
 import { Alert, Button, Field, Input, Spinner, Email } from '../../components/ui';

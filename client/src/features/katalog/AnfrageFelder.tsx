@@ -1,4 +1,4 @@
-import { EGAL_FARBE, EGAL_FARBE_NAME } from '@mosaik3lab/shared/anfragen';
+import { EGAL_FARBE, EGAL_FARBE_NAME } from '@mosaik3lab/shared/werte/anfragen';
 import { CircleCheck, Minus, Plus, Shuffle, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ColorSwatch } from '../../components/ColorSwatch';

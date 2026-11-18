@@ -1,19 +1,11 @@
 import { z } from 'zod';
 import { httpLink, text, uniqueList } from './basis';
+import { CUSTOM_FIELD_TYPES, ITEM_KINDS, MAX_CUSTOM_VALUE_LENGTH, MAX_ITEM_LINKS } from './werte/katalog';
 
 // Katalog: Druckteile mit Farbbereichen, Personalisierung, Videos und Art (Glossar: docs/ARCHITEKTUR.md).
+// Listen, Grenzen und Farbgruppen-Hilfen ohne zod stehen in werte/katalog.ts (auch für den Client) – hier wieder exportiert.
 // Kategorie, Einsatzbereiche, Material und Farbrollen prüft der Server zusätzlich gegen die Stammdaten (module/katalog/katalog.service.ts).
-
-/** Art eines Druckteils. */
-export const ITEM_KINDS = ['hilfsmittel', 'lehrmittel', 'beides'] as const;
-export type ItemKind = (typeof ITEM_KINDS)[number];
-export const ITEM_KIND_LABELS: Record<ItemKind, string> = { hilfsmittel: 'Hilfsmittel', lehrmittel: 'Lehrmittel', beides: 'Hilfs- und Lehrmittel' };
-
-export const CUSTOM_FIELD_TYPES = ['text', 'number', 'select'] as const;
-export type CustomFieldType = (typeof CUSTOM_FIELD_TYPES)[number];
-
-/** Höchstlänge einer Angabe in Personalisierungsfeldern. */
-export const MAX_CUSTOM_VALUE_LENGTH = 200;
+export * from './werte/katalog';
 
 /** Benannter Farbbereich eines Druckteils (z. B. „Griff“, „Grundplatte“) mit den dort erlaubten Farbrollen. */
 export const colorAreaSchema = z
@@ -39,21 +31,6 @@ export const colorAreaSchema = z
     path: ['colors'],
   });
 export type ColorArea = z.infer<typeof colorAreaSchema>;
-
-type Rolle = { brand: string; line: string };
-/** Gruppe „Linie“ einer Farbrolle, z. B. „Bambu Lab PLA Basic“ (leer = ohne Marke und Linie). */
-export const linieVon = (f: Rolle) => [f.brand, f.line].map((s) => s.trim()).filter(Boolean).join(' ');
-/** Materialart einer Farbrolle aus dem ersten Wort der Linie, z. B. „PLA“ aus „PLA Basic“ (leer = ohne Linie). */
-export const materialartVon = (f: Rolle) => (f.line.trim().split(/\s+/)[0] ?? '').toLocaleUpperCase('de-DE');
-export const gruppeLinie = (f: Rolle) => `linie:${linieVon(f)}`;
-export const gruppeArt = (art: string) => `art:${art}`;
-/** Gehört die Farbrolle zu einer der Gruppen eines Farbbereichs? */
-export function inGruppen(f: Rolle, gruppen: readonly string[] | undefined) {
-  if (!gruppen?.length) return false;
-  const linie = linieVon(f);
-  const art = materialartVon(f);
-  return gruppen.some((g) => (!!linie && g === `linie:${linie}`) || (!!art && g === `art:${art}`));
-}
 
 /** POST /api/items/farbe-zuordnen – eine Farbrolle mehreren Druckteilen (Farbbereichen) auf einmal hinzufügen. */
 export const farbeZuordnenSchema = z.object({
@@ -82,9 +59,6 @@ export const customFieldSchema = z
     path: ['options'],
   });
 export type CustomField = z.infer<typeof customFieldSchema>;
-
-/** Schutzgrenze für Link-Knöpfe je Druckteil (praktisch beliebig viele). */
-export const MAX_ITEM_LINKS = 50;
 
 /** Link-Knopf am Druckteil, z. B. „Taster-Beispiel“ mit Link zum Bestellen eines Elektroteils. */
 export const itemLinkSchema = z.object({
