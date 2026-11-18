@@ -9,6 +9,7 @@ import { dateiName } from '../../kern/files';
 import { detectImage, originalName } from '../../kern/uploads';
 import type { Storage } from '../../storage';
 import { notifyNewProposal } from './vorschlaege.mail';
+import { passtZurSuche } from '@mosaik3lab/shared/suche';
 import { proposalInputSchema } from '@mosaik3lab/shared/vorschlaege';
 
 // Regeln für Vorschläge der Lehrkräfte: einreichen (mit Fotos), beantworten, in ein Druckteil umwandeln.
@@ -78,10 +79,9 @@ export async function myProposals(storage: Storage, requesterId: string) {
 }
 
 export function listProposals(storage: Storage, status: string, query: string) {
-  const q = query.trim().toLocaleLowerCase('de-DE');
   return storage.proposals
     .listByStatus(status)
-    .filter((p) => !q || [p.number, p.title, p.description, p.requesterEmail].join(' ').toLocaleLowerCase('de-DE').includes(q))
+    .filter((p) => passtZurSuche([p.number, p.title, p.description, p.requesterEmail], query))
     .sort(byNewest);
 }
 

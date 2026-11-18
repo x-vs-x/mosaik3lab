@@ -308,3 +308,14 @@ test('„Farbe egal“ wird angenommen (auch in Varianten und Vorlage), unbekann
   assert.equal(single.status, 201, JSON.stringify(single.json));
   assert.equal((await anon.req('POST', '/api/orders', { ...orderBody(), color: 'gibt-es-nicht' })).status, 400);
 });
+test('Suche in der Anfragenliste wie im Katalog: Umlaute egal, mehrere Wörter in beliebiger Reihenfolge', async () => {
+  const r = await anon.req('POST', '/api/orders', { ...orderBody(), requesterEmail: `suche.test@${SCHOOL}`, classOrTeam: 'AG Brückenbau Müller' });
+  assert.equal(r.status, 201, JSON.stringify(r.json));
+  const treffer = async (q: string) => (await team.req('GET', `/api/orders?q=${encodeURIComponent(q)}`)).json.map((o: any) => o.number);
+  for (const q of ['Muller', 'MÜLLER', 'mueller', 'bruckenbau', 'müller ag', '  Brücken   Müller ', r.json.number.toLowerCase()]) {
+    assert.deepEqual(await treffer(q), [r.json.number], q);
+  }
+  assert.deepEqual(await treffer('Müller Meier'), [], 'jedes Wort muss vorkommen');
+  assert.ok((await treffer('')).length > 1, 'leere Suche zeigt alle');
+  assert.deepEqual(await team.req('GET', `/api/orders?status=erledigt&q=${encodeURIComponent('Muller')}`).then((x) => x.json), [], 'Status-Filter gilt weiter');
+});

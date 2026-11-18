@@ -5,6 +5,7 @@ import { initialStatus, isAllowedEmail, type Filament, type StatusPhase } from '
 import { singleColorArea, type Item, type Order, type OrderColorChoice, type OrderCustomValue, type Requester, type User } from '../../domain/types';
 import { badRequest, conflict, forbidden, notFound } from '../../kern/errors';
 import type { Storage } from '../../storage';
+import { passtZurSuche } from '@mosaik3lab/shared/suche';
 import { notifyNewOrder } from './anfragen.mail';
 import {
   colorChoicesText,
@@ -310,12 +311,11 @@ export async function listRequesters(storage: Storage) {
     .sort((a, b) => b.lastOrderAt.localeCompare(a.lastOrderAt));
 }
 
-/** Alle Anfragen, optional nach Status und Suchtext gefiltert, neueste zuerst. */
+/** Alle Anfragen, optional nach Status und Suchtext gefiltert (wie im Katalog: jedes Wort, Umlaute egal), neueste zuerst. */
 export function listOrders(storage: Storage, status: string, query: string) {
-  const q = query.trim().toLocaleLowerCase('de-DE');
   return storage.orders
     .listByStatus(status)
-    .filter((o) => !q || [o.number, o.itemName, o.classOrTeam, o.color, o.requesterName, o.requesterEmail].join(' ').toLocaleLowerCase('de-DE').includes(q))
+    .filter((o) => passtZurSuche([o.number, o.itemName, o.classOrTeam, o.color, o.requesterName, o.requesterEmail], query))
     .sort(byNewest);
 }
 
