@@ -75,7 +75,7 @@ test('Einstellungen ändern: alles landet in der Datenbank, Startdatei bleibt wi
   assert.equal(start.managerPort, 5196);
   const all = sdb.readAll(dbFileA);
   assert.equal(all.betrieb['app.port'], 3055);
-  assert.deepEqual(all.betrieb['backup.full'], { enabled: true, time: '04:45', weekday: 6, keep: 2 });
+  assert.equal(all.betrieb['backup.full'], undefined, 'den früheren Schlüssel backup.full schreibt der Manager nicht mehr');
   assert.deepEqual([all.betrieb['portal.enabled'], all.betrieb['portal.basePath'], all.betrieb['portal.httpPort'], all.betrieb['portal.httpsPort'], all.betrieb['portal.https']], [true, '/mosaik3lab', 8081, 8444, true], 'Pfad mit Portal fest – ein anderer (z. B. aus alter Einrichtung) wird ersetzt');
   assert.ok(all.betrieb['portal.cert'], 'Zertifikat in der Datenbank');
   assert.equal(all.mail.smtp.pass, 'Smtp-Geheim-9');
