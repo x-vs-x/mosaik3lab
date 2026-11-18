@@ -10,6 +10,7 @@ import { formatDate } from '../../lib/format';
 import type { Order, OwnOrder } from '../../lib/types';
 import { OrderTimeline, StatusProgress } from './AnfrageVerlauf';
 import { farbAnzeige } from './farbAnzeige';
+import { FarbZusammenfassung } from './FarbZusammenfassung';
 
 /** Anfrage mit Bearbeitungsstand (nur bei eingeschalteter Statusanzeige). */
 export type TrackedOrder = OwnOrder & Pick<Order, 'status' | 'history' | 'trackingCode'>;
@@ -36,7 +37,7 @@ export function OrderCard({
   // Letzter Kommentar des Druck-Teams (der erste Eintrag stammt von der Anfrage selbst, Änderungen der Lehrkraft ohne Benutzer-ID).
   const lastComment = tracked?.history.slice(1).reverse().find((h) => h.comment && h.byUserId);
   const farben = farbAnzeige(order);
-  const colors = farben.art === 'bereiche' ? farben.bereiche : farben.art === 'eine' ? [{ areaId: 'farbe', area: 'Farbe', ...farben.farbe }] : [];
+  const colors = farben.art === 'eine' ? [{ areaId: 'farbe', area: 'Farbe', ...farben.farbe }] : [];
   // Gesperrt-Hinweis nur, solange das Team noch daran arbeitet (nicht bei erledigten Anfragen).
   const lockedHint = onEdit && !order.editable && meta && meta.def.phase !== 'done';
   const personalization = order.personalization ?? [];
@@ -75,7 +76,21 @@ export function OrderCard({
               <Detail label="Menge" value={`${order.quantity} Stück`} />
               <Detail label="Klasse / Team" value={order.classOrTeam} />
               {order.size && <Detail label="Größe" value={order.size} />}
-              {farben.art === 'varianten' ? (
+              {farben.art === 'bereiche' || (farben.art === 'varianten' && farben.varianten.some((v) => v.colorChoices.length > 1)) ? (
+                // Mehrteilige Drucke: kompakt „10 Teile · 7 Farben“, aufklappbar nach Farbe bzw. Teilen
+                <div className="col-span-full">
+                  <dt className="text-hinweis text-stone-600">Farben</dt>
+                  <dd className="mt-1 space-y-2">
+                    {farben.art === 'bereiche' ? (
+                      <FarbZusammenfassung teile={farben.bereiche} />
+                    ) : (
+                      farben.varianten.map((v, i) => (
+                        <FarbZusammenfassung key={i} teile={v.colorChoices} praefix={`${v.quantity} ×`} vergleich={i ? farben.varianten[0].colorChoices : undefined} />
+                      ))
+                    )}
+                  </dd>
+                </div>
+              ) : farben.art === 'varianten' ? (
                 // Mehrere Farben in einer Anfrage: „3 × Blau, 4 × Gelb“
                 <div className="col-span-full">
                   <dt className="text-hinweis text-stone-600">Farben</dt>

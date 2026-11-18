@@ -63,6 +63,8 @@ export async function createApp(config: AppConfig) {
   // Komprimieren (gzip/brotli, reines JavaScript): API-JSON, HTML, JS, CSS – spart im WLAN viel. Nicht: Bilder, Videos,
   // ZIP und Downloads (schon komprimiert bzw. Strom mit Content-Length und Range fürs Vorspulen).
   app.use(compression({ filter: komprimieren }));
+  // Druckteile mit vielen Teilen (bis 20, jedes mit eigener Farbauswahl) brauchen mehr Platz; sonst bleibt es bei 100 kB.
+  app.use('/api/items', express.json({ limit: '256kb' }));
   app.use(express.json({ limit: '100kb' }));
 
   if (config.logRequests) {

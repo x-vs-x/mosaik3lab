@@ -319,3 +319,43 @@ test('Suche in der Anfragenliste wie im Katalog: Umlaute egal, mehrere Wörter i
   assert.ok((await treffer('')).length > 1, 'leere Suche zeigt alle');
   assert.deepEqual(await team.req('GET', `/api/orders?status=erledigt&q=${encodeURIComponent('Muller')}`).then((x) => x.json), [], 'Status-Filter gilt weiter');
 });
+
+// Mehrfarbige Druckteile mit bis zu 20 Teilen (Grenze seit „Farbauswahl“ 20 statt 8).
+test('20 Teile: Druckteil speichern (auch > 100 kB), Anfrage mit 20 Teilen und 2 Stückzahlen, 21 Teile → 400', async () => {
+  const md = (await anon.req('GET', '/api/config')).json.masterData;
+  const vorraetig = md.filaments.filter((f: any) => f.available).map((f: any) => f.id);
+  assert.ok(vorraetig.length >= 2);
+  const teile = (n: number) => Array.from({ length: n }, (_, i) => ({ id: '', name: `Teil ${i + 1} mit langem Namen`, colors: vorraetig }));
+  const basis = {
+    name: 'Steckpuzzle mit 20 Teilen', shortDescription: 'Prüfteil für viele Farben', categories: [md.categories[0].name], useAreas: [],
+    material: md.materials[0].name, printTimeMinutes: 30, published: true,
+  };
+  // 21 Teile: abgelehnt
+  assert.equal((await team.req('POST', '/api/items', { ...basis, colorAreas: teile(21) })).status, 400);
+  // 20 Teile, Anfrage größer als 100 kB (z. B. viele einzeln gewählte Farben): angenommen bis 256 kB
+  const gross = await team.req('POST', '/api/items', { ...basis, colorAreas: teile(20), fuellung: 'x'.repeat(150 * 1024) });
+  assert.equal(gross.status, 201, JSON.stringify(gross.json).slice(0, 300));
+  const item = gross.json;
+  assert.equal(item.colorAreas.length, 20);
+  // Andere Endpunkte bleiben bei 100 kB
+  assert.equal((await anon.req('POST', '/api/orders', { ...orderBody(), fuellung: 'x'.repeat(150 * 1024) })).status, 413);
+  // Anfrage: 20 Teile, zwei Stückzahlen (zweite weicht in zwei Teilen ab)
+  const ids = item.colorAreas.map((a: any) => a.id);
+  const v1 = Object.fromEntries(ids.map((id: string, i: number) => [id, vorraetig[i % vorraetig.length]]));
+  const v2 = { ...v1, [ids[2]]: vorraetig[1], [ids[3]]: 'egal' };
+  const r = await teacher.req('POST', '/api/orders', {
+    itemId: item.id, quantity: 5, colors: v1, requesterEmail: TEACHER, classOrTeam: 'Klasse 4b',
+    variants: [{ quantity: 3, colors: v1 }, { quantity: 2, colors: v2 }],
+  });
+  assert.equal(r.status, 201, JSON.stringify(r.json));
+  const stored = (await team.req('GET', `/api/orders/${r.json.id}`)).json;
+  assert.equal(stored.colorChoices.length, 20);
+  assert.deepEqual(stored.colorVariants.map((v: any) => [v.quantity, v.colorChoices.length]), [[3, 20], [2, 20]]);
+  assert.equal(stored.colorVariants[1].colorChoices[3].colorId, 'egal');
+  assert.deepEqual(stored.colorChoices.map((c: any) => c.area), item.colorAreas.map((a: any) => a.name), 'Teile-Reihenfolge bleibt');
+  // Ein Teil ohne Farbe → Fehler genau an diesem Teil
+  const { [ids[19]]: _weg, ...ohne } = v1;
+  const fehlt = await teacher.req('POST', '/api/orders', { itemId: item.id, quantity: 1, colors: ohne, requesterEmail: TEACHER, classOrTeam: '4b' });
+  assert.equal(fehlt.status, 400);
+  assert.ok(fehlt.json.fields?.[`color.${ids[19]}`], JSON.stringify(fehlt.json));
+});

@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { orderInputSchema, STATUS_CATALOG, type StatusId } from '@mosaik3lab/shared/anfragen';
 import { emailEingabeSchema, identifySchema, passwortVergessenSchema } from '@mosaik3lab/shared/konten';
 import { importAusfuehrenSchema, MAX_EXPORT_AUSWAHL } from '@mosaik3lab/shared/datenaustausch';
-import { itemInputSchema, MAX_COLOR_AREAS, MAX_CUSTOM_FIELDS } from '@mosaik3lab/shared/katalog';
+import { farbeZuordnenSchema, itemInputSchema, MAX_COLOR_AREAS, MAX_CUSTOM_FIELDS } from '@mosaik3lab/shared/katalog';
 import { HEX_FARBE, masterDataSchemas } from '@mosaik3lab/shared/stammdaten';
 import { proposalInputSchema } from '@mosaik3lab/shared/vorschlaege';
 import { BILD_BREITE, JPEG_QUALITAET_ORIGINAL, VORSCHAU_GROESSEN } from '@mosaik3lab/shared/werte/bilder';
@@ -56,13 +56,24 @@ const teil = (extra: object) => ({
   ...extra,
 });
 
-test('Druckteil: höchstens 8 Farbbereiche und 10 Personalisierungsfelder (benannte Grenzen)', () => {
-  assert.equal(MAX_COLOR_AREAS, 8);
+test('Druckteil: höchstens 20 Farbbereiche (Teile) und 10 Personalisierungsfelder (benannte Grenzen)', () => {
+  assert.equal(MAX_COLOR_AREAS, 20);
   assert.equal(MAX_CUSTOM_FIELDS, 10);
   const bereiche = (n: number) => Array.from({ length: n }, (_, i) => farbe(String(i)));
   const felder = (n: number) => Array.from({ length: n }, (_, i) => feld(i));
-  assert.equal(itemInputSchema.safeParse(teil({ colorAreas: bereiche(8) })).success, true);
-  assert.equal(itemInputSchema.safeParse(teil({ colorAreas: bereiche(9) })).success, false);
+  assert.equal(itemInputSchema.safeParse(teil({ colorAreas: bereiche(20) })).success, true);
+  assert.equal(itemInputSchema.safeParse(teil({ colorAreas: bereiche(21) })).success, false);
+  // „Farbe zuordnen“ (Stammdaten) darf ebenso alle 20 Teile eines Druckteils treffen
+  const ziel = (n: number) => ({ filamentId: 'f1', ziele: [{ itemId: 'i1', bereiche: Array.from({ length: n }, (_, i) => `b${i}`) }] });
+  assert.equal(farbeZuordnenSchema.safeParse(ziel(20)).success, true);
+  assert.equal(farbeZuordnenSchema.safeParse(ziel(21)).success, false);
+  // Anfrage: Farbe je Teil für alle 20 Teile (Schema erlaubt seit 1.6.3 bis 20)
+  const mitFarben = (n: number) => ({
+    itemId: 'i1', quantity: 1, requesterEmail: 'l@schule.example', classOrTeam: '3b',
+    colors: Object.fromEntries(Array.from({ length: n }, (_, i) => [`b${i}`, 'f1'])),
+  });
+  assert.equal(orderInputSchema.safeParse(mitFarben(20)).success, true);
+  assert.equal(orderInputSchema.safeParse(mitFarben(21)).success, false);
   assert.equal(itemInputSchema.safeParse(teil({ customFields: felder(10) })).success, true);
   assert.equal(itemInputSchema.safeParse(teil({ customFields: felder(11) })).success, false);
 });

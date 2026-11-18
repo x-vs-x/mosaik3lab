@@ -27,7 +27,9 @@ export function Section({
   const contentId = `abschnitt-${id}`;
   return (
     <Card as="section" className={cx('overflow-hidden', hasError && 'ring-2 ring-rose-300')}>
-      <h2>
+      {/* Container-Abfrage: Wird der Kopf schmal (Handy mit großer Schrift), fällt das Symbol weg – sonst blieben für den
+          Titel nur wenige Buchstaben je Zeile und er brach mitten im Wort. */}
+      <h2 className="@container">
         <button
           type="button"
           aria-expanded={open}
@@ -35,11 +37,11 @@ export function Section({
           onClick={() => setOpen((o) => !o)}
           className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left sm:min-h-16 sm:gap-4 sm:px-7 sm:py-4 transition-colors hover:bg-stone-50 focus-visible:outline-3 focus-visible:-outline-offset-4 focus-visible:outline-brand-600"
         >
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 sm:size-11 sm:rounded-2xl">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 sm:size-11 sm:rounded-2xl @max-[22rem]:hidden">
             <Icon className="size-5" aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-abschnitt font-bold text-stone-900 sm:text-xl">{title}</span>
+            <span className="block text-abschnitt font-bold text-stone-900 hyphens-auto wrap-break-word sm:text-xl">{title}</span>
             {summary && <span className="block wrap-anywhere text-hinweis font-normal text-stone-600">{summary}</span>}
           </span>
           {hasError && (

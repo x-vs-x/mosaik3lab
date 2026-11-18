@@ -1,7 +1,11 @@
 import { EGAL_FARBE, EGAL_FARBE_NAME } from '@mosaik3lab/shared/werte/anfragen';
+import { farbenText, teileText } from '@mosaik3lab/shared/werte/farbgruppen';
 import { CircleCheck, Minus, Plus, Shuffle, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ColorSwatch } from '../../components/ColorSwatch';
+import { TeilSchilder } from '../../components/TeilSchilder';
+import { TupferReihe } from '../../components/TupferReihe';
+import { TeileFarbListe } from './TeileFarbListe';
 import { Button, cx, Field, Input, Select } from '../../components/ui';
 import type { AreaColors } from '../../lib/colors';
 import type { CustomField } from '../../lib/types';
@@ -28,6 +32,9 @@ export function ColorRow({
   errors,
   onChange,
   onRemove,
+  collapsed = false,
+  onExpand,
+  compareTo,
 }: {
   index: number;
   numbered: boolean;
@@ -38,11 +45,18 @@ export function ColorRow({
   errors: Record<string, string>;
   onChange: (row: ColorRowValue) => void;
   onRemove?: () => void;
+  /** Mehrteilige Druckteile mit mehreren Stückzahlen: diese Zeile nur als Zusammenfassung zeigen. */
+  collapsed?: boolean;
+  onExpand?: () => void;
+  /** Farben der ersten Zeile – für „abweichend: Dach, Tor“ in der Zusammenfassung. */
+  compareTo?: Record<string, string>;
 }) {
   const prefix = index ? `variants.${index}.` : '';
-  const title = numbered ? `Farbe ${index + 1}` : 'Farbe';
+  const title = numbered ? (multiColor ? `Stückzahl ${index + 1}` : `Farbe ${index + 1}`) : 'Farbe';
   const titleId = `farbzeile-${index}`;
-  const fields = (
+  const fields = collapsed ? (
+    <VarianteKurz row={row} areas={areas} compareTo={index ? compareTo : undefined} onExpand={onExpand} title={title} />
+  ) : (
     <>
       <QuantityInput
         id={`anzahl-${index}`}
@@ -53,14 +67,24 @@ export function ColorRow({
         onChange={(quantity) => onChange({ ...row, quantity })}
         error={index ? undefined : errors.quantity}
       />
-      {areas.map(({ area, filaments }) => (
+      {/* Mehrteilig: kurze Teile-Liste mit Farbwahl-Fenster; einfarbig bleibt das Knopf-Raster direkt im Formular. */}
+      {multiColor && (
+        <TeileFarbListe
+          teile={areas}
+          colors={row.colors}
+          onChange={(colors) => onChange({ ...row, colors })}
+          fehler={(areaId) => errors[`${prefix}color.${areaId}`]}
+          titel={numbered ? `Farben (${title})` : 'Farben'}
+        />
+      )}
+      {!multiColor && areas.map(({ area, filaments }) => (
         <ChoiceGroup
           key={area.id}
-          legend={multiColor ? `${title}: ${area.name}` : title}
+          legend={title}
           name={`farbe-${index}-${area.id}`}
           value={row.colors[area.id] ?? ''}
           onChange={(v) => onChange({ ...row, colors: { ...row.colors, [area.id]: v } })}
-          error={errors[prefix + (multiColor ? `color.${area.id}` : 'color')]}
+          error={errors[`${prefix}color`]}
           options={[
             ...filaments.map((f) => ({
               value: f.id,
@@ -101,6 +125,56 @@ export function ColorRow({
       </div>
       {fields}
     </section>
+  );
+}
+
+/**
+ * Zugeklappte Stückzahl eines mehrteiligen Druckteils: „2 × · 10 Teile · 2 Farben · abweichend: Dach, Tor“ – ein Tipp klappt
+ * sie auf. Die abweichenden Teile stehen als Schildchen (bei Komma-Listen sähe man nach einem Umbruch nicht, wo ein Name endet).
+ */
+function VarianteKurz({
+  row,
+  areas,
+  compareTo,
+  onExpand,
+  title,
+}: {
+  row: ColorRowValue;
+  areas: AreaColors[];
+  compareTo?: Record<string, string>;
+  onExpand?: () => void;
+  title: string;
+}) {
+  const ids = areas.map((a) => a.area.id);
+  const gewaehlt = ids.map((id) => row.colors[id]).filter((c) => c && c !== EGAL_FARBE);
+  const hex = [...new Set(gewaehlt)].map((id) => areas.flatMap((a) => a.filaments).find((f) => f.id === id)?.hex).filter((h): h is string => !!h);
+  const abweichend = compareTo ? areas.filter((a) => (row.colors[a.area.id] ?? '') !== (compareTo[a.area.id] ?? '')) : [];
+  const offen = ids.filter((id) => !row.colors[id]).length;
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      aria-expanded={false}
+      className="flex min-h-[48px] w-full items-center gap-[12px] rounded-xl bg-white px-[12px] py-[8px] text-left ring-1 ring-inset ring-stone-300 hover:bg-stone-50"
+    >
+      <b className="shrink-0 whitespace-nowrap">{row.quantity} ×</b>
+      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+        <b>
+          {teileText(ids.length)} · {farbenText(new Set(gewaehlt).size)}
+        </b>
+        <TupferReihe farben={hex} />
+        {offen > 0 && <span className="text-hinweis font-bold text-brand-700">{offen} noch ohne Farbe</span>}
+        {compareTo && (
+          <span className="w-full text-hinweis text-stone-600">
+            {abweichend.length ? 'abweichend:' : 'Farben wie oben'}
+            {abweichend.length > 0 && <TeilSchilder namen={abweichend.map((a) => a.area.name)} />}
+          </span>
+        )}
+      </span>
+      <span className="shrink-0 text-hinweis font-bold text-brand-700">
+        <span className="sr-only">{title} </span>Aufklappen
+      </span>
+    </button>
   );
 }
 

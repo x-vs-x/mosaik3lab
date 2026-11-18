@@ -682,6 +682,40 @@ test('Rundreise in eine frische Installation: jede Angabe eines Druckteils und j
   }
 });
 
+test('20 Teile: Export → Import in eine frische Installation, Format unverändert, Teile samt Reihenfolge und eigener Auswahl', async () => {
+  const md0 = (await src.req('GET', '/api/config')).json.masterData;
+  const [f1, f2] = md0.filaments;
+  const colorAreas = Array.from({ length: 20 }, (_, i) =>
+    i === 0 ? { id: 't0', name: 'Grundplatte links unten', colors: [f1.id, f2.id] } : { id: `t${i}`, name: `Teil ${i + 1} (langer Name)`, alleFarben: true, colors: [] },
+  );
+  const neu = await src.req('POST', '/api/items', {
+    name: 'Steckpuzzle Bauernhof (20 Teile)', shortDescription: 'Zwanzig Teile, je eine Farbe', categories: [cfg.categories[0].name], useAreas: [],
+    colorAreas, material: cfg.materials[0].name, printTimeMinutes: 120, published: true,
+  });
+  assert.equal(neu.status, 201, neu.text);
+  const zip = await exportZip(src, [neu.json.id]);
+  const { kopf } = await entpacke(zip);
+  assert.equal(kopf.version, 2, 'Format 2 wie bisher');
+  assert.equal(kopf.artikel[0].colorAreas.length, 20);
+  const schule = await start({ demo: false });
+  try {
+    const sc = new Client(schule.base);
+    await schule.storage.users.create({
+      id: newId(), username: 'schule', email: 'schule.admin@schule.example', displayName: 'Schule', role: 'admin',
+      passwordHash: await hashPassword('Schule-Admin-Passwort-1'), active: true, isDemo: false,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), lastLoginAt: null, teamBereiche: [], fehlversuche: 0,
+    });
+    assert.equal((await sc.login('schule.admin@schule.example', 'Schule-Admin-Passwort-1')).status, 200);
+    const { bericht } = await einspielen(sc, zip, 'ueberspringen');
+    assert.equal(bericht.abschnitte.artikel.neu, 1);
+    const ziel = (await sc.req('GET', `/api/items/${neu.json.id}`)).json;
+    assert.deepEqual(ziel.colorAreas.map((a: any) => [a.id, a.name, !!a.alleFarben]), colorAreas.map((a) => [a.id, a.name, !!a.alleFarben]));
+    assert.equal(ziel.colorAreas[0].colors.length, 2, 'eigene Auswahl des ersten Teils');
+  } finally {
+    await schule.stop();
+  }
+});
+
 test('Ähnliche Druckteile: Teilexport → vorgemerkt → späterer Export bringt den Partner (auch unter neuer ID) → verknüpft; nur hinzufügen', async () => {
   const neuesTeil = async (c: Client, name: string) => {
     const r = await c.req('POST', '/api/items', {
