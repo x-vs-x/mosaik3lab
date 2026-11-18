@@ -260,14 +260,18 @@ test('Mail: Prüfung, Speicherung in der Datenbank für die App, Passwort nie zu
 });
 
 test('Fehlerhafte Konfiguration sperrt Schreibaktionen (kein Ausweichen auf Standardordner)', async () => {
-  const keep = fs.readFileSync(cfg.CONFIG_FILE);
-  fs.writeFileSync(cfg.CONFIG_FILE, JSON.stringify({ paths: { backupDir: 'kaputt' } }));
+  // Ungültiger Wert in der Datenbank (Port unter 1024) → Standardwerte, aber der Datenordner aus der Startdatei bleibt
+  const dbFile = cfg.resolvePaths().dbFile;
+  const keep = settingsdb.readBereich(dbFile, 'betrieb')['app.port'];
+  settingsdb.writeBereich(dbFile, 'betrieb', { 'app.port': 80 });
   cfg.reloadConfig();
   try {
+    assert.match(cfg.configErrors()[0] ?? '', /ungültig/);
+    assert.equal(cfg.resolvePaths().dataDir, storage, 'kein Ausweichen auf den Standardordner');
     await assert.rejects(bk.createBackup('test'), /gesperrt/);
     assert.throws(() => mail.saveMail({ host: 'x' }), /gesperrt/);
   } finally {
-    fs.writeFileSync(cfg.CONFIG_FILE, keep);
+    settingsdb.writeBereich(dbFile, 'betrieb', { 'app.port': keep });
     cfg.reloadConfig();
   }
 });
