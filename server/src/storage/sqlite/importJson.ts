@@ -5,9 +5,8 @@ import { newId, UUID_PATTERN } from '../../domain/ids';
 import { MIME_BY_EXT } from '../../domain/objekttypen';
 import { isCatalogStatus, LEGACY_STATUS_MAP } from '../../domain/orderStatuses';
 import { ANFANGSSTATUS } from '../../domain/settings';
-import type { Item, Order } from '../../domain/types';
+import { productDefaults, type Item, type Order } from '../../domain/types';
 import { STANDARD_BEREICHE, TEAM_BEREICHE } from '@mosaik3lab/shared/konten';
-import { productDefaults } from '../../seed/migrateProductData';
 import { dateiName, SAFE_ID, sha256, type Datei, type FileStore } from '../../kern/files';
 import { hasLegacyData, readLegacyData } from '../json/legacyJson';
 import { transaction, type Db } from '../../kern/db';
@@ -94,7 +93,7 @@ export async function importLegacyJson(
   report.gelesen = data.gelesen;
   const hint = (t: string) => report.hinweise.push(t);
 
-  // 1) Ältere Datenstände vereinheitlichen (wie migrateLegacyStatuses/migrateProductData es beim Start täten),
+  // 1) Ältere Datenstände vereinheitlichen (Status auf die feste Liste, fehlende Produktdaten ergänzen),
   //    damit Fremdschlüssel (z. B. Status) passen.
   const fallback = ANFANGSSTATUS;
   const fixStatus = (s: string) => (isCatalogStatus(s) ? s : (data.settings.statusAliases[s] ?? LEGACY_STATUS_MAP[s] ?? fallback));

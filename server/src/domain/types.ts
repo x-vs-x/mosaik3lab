@@ -3,7 +3,7 @@
 // was der Server zusätzlich speichert (Passwort-Hash, Ablagename der Druckdateien) und kleine Helfer.
 // Unabhängig von der Speicherart (SQLite, Abbildung in storage/sqlite/).
 import type { Account, SessionUser } from '@mosaik3lab/shared/konten';
-import type { ColorArea, Item as SharedItem, ModelFile as SharedModelFile } from '@mosaik3lab/shared/katalog';
+import type { ColorArea, CustomField, ItemVideo, Item as SharedItem, ModelFile as SharedModelFile } from '@mosaik3lab/shared/katalog';
 import type { Requester } from '@mosaik3lab/shared/anfragen';
 
 export { ACCOUNT_ROLES, ROLES, ROLE_LABELS, type Role, type SessionUser } from '@mosaik3lab/shared/konten';
@@ -24,6 +24,11 @@ export type Item = SharedItem<ModelFile>;
 /** Bisherige Druckteile ohne Farbbereiche: alle Farben in einem Bereich „Farbe“. */
 export function singleColorArea(colors: string[]): ColorArea[] {
   return [{ id: 'farbe', name: 'Farbe', alleFarben: false, colors }];
+}
+
+/** Standardwerte der Produktdaten (einfarbig, ohne Preis, ohne Personalisierung, ohne Videos) – Demo-Daten und JSON-Übernahme. */
+export function productDefaults(colors: string[]): { colorAreas: ColorArea[]; price: string; customFields: CustomField[]; videos: ItemVideo[] } {
+  return { colorAreas: singleColorArea(colors), price: '', customFields: [], videos: [] };
 }
 
 /** Alle Farbrollen über alle Bereiche (ohne Doppelte) – wird als Item.colors gespeichert. */

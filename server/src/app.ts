@@ -22,8 +22,7 @@ import { bambuAbgleichBeimStart } from './module/stammdaten/bambuAbgleich';
 import { filamentRoutes } from './module/stammdaten/stammdaten.routes';
 import { neuigkeitenRoutes } from './module/neuigkeiten/neuigkeiten.routes';
 import { versionBeimStart } from './module/neuigkeiten/neuigkeiten.service';
-import { migrateLegacyStatuses, migrateUserEmails, seedIfEmpty } from './seed/seed';
-import { migrateProductData } from './seed/migrateProductData';
+import { migrateUserEmails, seedIfEmpty } from './seed/seed';
 import { importLegacyMail, importLegacySessionSecret } from './kern/mail/mailConfig';
 import { sessionGeheimnis, setBetriebWennNeu } from './kern/betrieb';
 import { retirePathConfig } from './bootstrapConfig';
@@ -44,9 +43,7 @@ export async function createApp(config: AppConfig) {
   // Versionswechsel merken (für „Was ist neu“) – vor den Demo-Daten, sonst sähe eine Neuinstallation wie ein Update aus.
   versionBeimStart(storage.neuigkeiten, config.appVersion);
   if (config.seedDemoData) await seedIfEmpty(storage);
-  await migrateLegacyStatuses(storage);
   await migrateUserEmails(storage);
-  await migrateProductData(storage);
   // Bambu-Farbrollen mit dem mitgelieferten Katalog abgleichen (wirkt nach Updates; eigene Farbrollen bleiben unberührt).
   bambuAbgleichBeimStart(storage);
   // Bildpflege einige Minuten nach dem Start (wenn /api/health längst grün ist) – nie im Installer/Update-Schritt.
