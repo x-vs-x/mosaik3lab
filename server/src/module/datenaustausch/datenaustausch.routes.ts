@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { importLaeuft } from '../../kern/bilder';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -155,6 +156,7 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
     if (!w || w.nutzerId !== req.user!.id || w.bis < Date.now()) throw notFound('Die Vorschau ist abgelaufen. Bitte die Datei erneut auswählen.');
     if (beschaeftigt) throw conflict('Es wird gerade schon eine Datei eingespielt. Bitte kurz warten.');
     beschaeftigt = true;
+    const importFertig = importLaeuft(); // Bildpflege pausiert solange
     const tmpDir = path.join(ablageTmp, w.id);
     let antwort: { bericht: unknown; sicherung: string };
     try {
@@ -173,6 +175,7 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
       // Erst aufräumen, dann antworten: sonst sieht der Aufrufer den Temp-Ordner beim Verschwinden.
       await verwerfe(w).catch((e) => console.warn('[Import] Aufräumen fehlgeschlagen:', e));
       beschaeftigt = false;
+      importFertig();
     }
     res.json(antwort);
   });

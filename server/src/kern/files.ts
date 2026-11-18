@@ -5,6 +5,7 @@ import { newId } from '../domain/ids';
 import { MIME_BY_EXT, type DateiRolle, type Objekttyp } from '../domain/objekttypen';
 import type { Db, Row } from './db';
 import { str } from './db';
+import { VORSCHAU_GROESSEN, vorschauRel } from './bilder/groessen';
 
 export type ImageExt = 'jpg' | 'png' | 'webp';
 export type ModelExt = 'stl' | '3mf';
@@ -162,6 +163,7 @@ export class FileStore {
       throw err;
     }
     if (pfad !== alt.pfad) await fs.rm(this.absPath(alt), { force: true }).catch(() => undefined);
+    await this.entferneVorschau(alt.id); // abgeleitet vom alten Inhalt
     return neu;
   }
 
@@ -188,11 +190,11 @@ export class FileStore {
   }
 
   /** Sucht eine Datei über ihren öffentlichen Namen (<id>.<endung>); Endung und ggf. Rolle müssen passen. */
-  findByName(name: string, rolle?: DateiRolle): Datei | undefined {
+  findByName(name: string, rolle?: DateiRolle, opts: { endungEgal?: boolean } = {}): Datei | undefined {
     const m = /^([A-Za-z0-9_-]{1,64})\.([a-z0-9]{1,8})$/.exec(name);
     if (!m) return undefined;
     const d = this.find(m[1]);
-    if (!d || dateiName(d) !== name || (rolle && d.rolle !== rolle)) return undefined;
+    if (!d || (!opts.endungEgal && dateiName(d) !== name) || (rolle && d.rolle !== rolle)) return undefined;
     return d;
   }
 
@@ -233,9 +235,23 @@ export class FileStore {
         const abs = this.absPath(d);
         await fs.rm(abs, { force: true });
         await this.pruneDirs(path.dirname(abs));
+        await this.entferneVorschau(d.id);
       } catch (err) {
         console.warn(`[Ablage] Datei ${d.pfad} konnte nicht gelöscht werden: ${(err as Error).message}`);
       }
+    }
+  }
+
+  /**
+   * Vorschaubilder einer Datei löschen (<ablage>/vorschau/<größe>/<id>.jpg, kern/bilder). Sie sind abgeleitet und werden
+   * bei Bedarf neu berechnet; gibt es keine, passiert nichts.
+   */
+  async entferneVorschau(id: string) {
+    if (!SAFE_ID.test(id)) return;
+    for (const g of VORSCHAU_GROESSEN) {
+      await fs.rm(path.join(this.root, ...vorschauRel(g, id).split('/')), { force: true }).catch((err: Error) => {
+        console.warn(`[Ablage] Vorschaubild ${vorschauRel(g, id)} konnte nicht gelöscht werden: ${err.message}`);
+      });
     }
   }
 
