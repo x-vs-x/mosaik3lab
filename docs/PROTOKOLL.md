@@ -2,6 +2,22 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Gesamtdurchsicht vor 1.8.1 (Unter-Session, Branch: fix/durchsicht-1.8.1)
+- **Auftrag:** Fenster in allen Größen, Klicktests, abgeschnittene Texte, Update-Sicherheit (neu: mehrere Kategorien,
+  iPad-Druckteil-Seite).
+- **Geprüft:** 387 Aufnahmen (4 Rollen, 9 Größen inkl. 375 px mit 200 % Schrift), per Skript auf abgeschnittene und
+  überstehende Texte; Klicktests (Druckteil mit 3 Kategorien anlegen, Hauptkategorie wechseln, Kategorie umbenennen,
+  Löschschutz, Katalogfilter + Zählung je Kategorie, Anfrage + Status, Vorschlag mit Foto → Druckteil, Bild-Upload,
+  Galerie, Passwort ändern, ZIP-Export → leere Instanz); Update 1.6.3 (Kopie echter Daten) und 1.8.0 → neu: Tabellen
+  zeilengleich, jede Kategorie übernommen.
+- **Behoben:** `client/src/features/katalog/CatalogPage.tsx` – Kategorie-Abzeichen der Katalogkarte im Fluss statt absolut
+  (Bildfläche wächst mit, „+N“ bricht um, keine Trennung mitten im Wort, nichts abgeschnitten).
+  `verwaltung/OrdersAdminPage.tsx`, `anfragen/MyOrdersPage.tsx` – kürzere Platzhalter in den Suchfeldern (bei 320 px
+  abgeschnitten).
+- **Bericht:** `C:\Entwicklung\_testdaten\durchsicht-1.8.1\BERICHT.md`, Bilder in `…\durchsicht-1.8.1\bilder`.
+- **Aufgeräumt:** Testserver und headless Chrome gestoppt, Worktrees `mosaik3lab-durchsicht` und `mosaik3lab-v180`
+  entfernt, Testdaten `_testdaten\durchsicht` und `_testdaten\durchsicht-1.9` gelöscht.
+
 ## 2026-11-18 – Web-App-Icon auf allen Geräten (Unter-Session, Branch: fix/webapp-icon)
 - **Meldung:** iPhone „Zum Home-Bildschirm“ zeigt nur ein großes „M“ statt des Logos (iPad zeigt das Logo).
 - **Befund (installierte 1.8.0, nur HTTP):** Icons selbst in Ordnung (180×180, deckend weiß). Aber `<link href="./apple-touch-icon.png">`

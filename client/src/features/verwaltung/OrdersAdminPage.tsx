@@ -104,7 +104,7 @@ export function OrdersAdminPage() {
                 <FilterKnopf key={f.key} label={f.label} count={counts[f.key] ?? 0} active={!highlight && filter === f.key} onClick={() => setFilter(f.key)} />
               ))}
             </div>
-            <Suchfeld id="order-search" label="Anfragen durchsuchen" value={q} onChange={setQ} placeholder="Nummer, Druckteil, E-Mail, Klasse …" className="lg:w-80" />
+            <Suchfeld id="order-search" label="Anfragen durchsuchen" value={q} onChange={setQ} placeholder="Nummer, Druckteil, E-Mail …" className="lg:w-80" />
           </Card>
 
           {visible.length === 0 ? (
