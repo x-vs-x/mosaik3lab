@@ -13,19 +13,14 @@ import { getConfig, reloadConfig, resolvePaths, updateConfig, checkDir, readStar
 import * as settingsdb from './settingsdb.mjs';
 import { portConflict, portalConflict, firewallStatus, firewallExists, readState, serviceStatus, restartService, admin, appHost, localAppUrl, candidateFirewallPorts } from './services.mjs';
 import { logger } from './log.mjs';
+import { schreibprobe } from './hilfen.mjs';
 
 const PATH_KEYS = { ablageDir: 'Ablageordner', backupDir: 'Backup-Ziel', logDir: 'Protokollordner' };
 
 function usable(dir) {
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-    const probe = path.join(dir, `.schreibtest-${process.pid}`);
-    fs.writeFileSync(probe, 'ok');
-    fs.rmSync(probe);
-    return null;
-  } catch (err) {
-    return err.code === 'ENOENT' || err.code === 'ENOTDIR' ? 'Laufwerk oder übergeordneter Ordner fehlt' : `nicht beschreibbar (${err.code ?? err.message})`;
-  }
+  const err = schreibprobe(dir);
+  if (!err) return null;
+  return err.code === 'ENOENT' || err.code === 'ENOTDIR' ? 'Laufwerk oder übergeordneter Ordner fehlt' : `nicht beschreibbar (${err.code ?? err.message})`;
 }
 
 /**
@@ -141,9 +136,8 @@ export async function reconcile({ dryRun = false, paths = {}, restart = true, fi
     else add('portal', 'warnung', portal?.lastError ?? 'Portal läuft nicht – Karte „Dienste“ → Portal → Starten.');
   } else add('portal', 'ok', 'Portal ausgeschaltet – die App ist direkt auf ihrem Port erreichbar');
 
-  // 7. Zeitplan, Update-Quelle (nur Anzeige: werden bei jedem Lauf aus der Datenbank gelesen)
+  // 7. Zeitplan (nur Anzeige: wird bei jedem Lauf aus der Datenbank gelesen)
   add('backup-zeitplan', 'ok', `${c.backup.enabled ? `Sicherung täglich ${c.backup.time}` : 'Automatische Sicherung aus'}, ${c.backup.keep} Sicherungen aufbewahren${c.backup.encrypt ? ', verschlüsselt' : ''}`);
-  add('update-quelle', 'ok', c.update.repo ? `${c.update.repo} (${c.update.branch})` : 'Arbeitskopie');
 
   const bad = steps.some((s) => ['fehler', 'warnung'].includes(s.status));
   if (!dryRun) logger('manager').info(`Abgleich ${needsInput.length ? 'braucht Rückfrage' : bad ? 'mit Hinweisen' : 'erledigt'}: ${steps.filter((s) => s.status === 'fertig').length} Änderung(en)`);

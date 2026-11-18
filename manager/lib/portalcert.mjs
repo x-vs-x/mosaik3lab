@@ -59,7 +59,8 @@ async function x509Of(cert) {
       const s = tls.connect({ socket: b, rejectUnauthorized: false }, () => {
         const x = s.getPeerX509Certificate();
         s.destroy();
-        x ? resolve(x) : reject(new Error('kein Zertifikat'));
+        if (x) resolve(x);
+        else reject(new Error('kein Zertifikat'));
       });
       s.on('error', reject);
     });

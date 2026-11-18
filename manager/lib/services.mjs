@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { getConfig, resolvePaths, updateConfig, requireValidConfig, CONFIG_FILE, MANAGER_DIR, InputError, DEFAULTS } from './config.mjs';
 import { logger } from './log.mjs';
+import { recordManifest } from './manifest.mjs';
 import { platform, SERVICE_TITLES, FIREWALL_RULE } from '../platform/index.mjs';
 
 export const KEYS = ['webapp', 'backup', 'portal'];
@@ -35,15 +36,9 @@ export function readState(key) {
   }
 }
 
-export function isAlive(pid) {
-  if (!pid) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    return err.code === 'EPERM';
-  }
-}
+import { lebt as isAlive } from './hilfen.mjs';
+
+export { isAlive };
 
 /** Antwort von /api/health (oder null). Die App meldet dort künftig auch den Datenbank-Zustand. */
 export async function fetchHealth(port = getConfig().app.port, basePath = getConfig().portal.basePath) {
@@ -284,7 +279,6 @@ export async function setNetwork(enabled, { dryRun = false } = {}) {
       manual = err;
     }
   }
-  const { recordManifest } = await import('./setup.mjs');
   if (!manual) for (const p of stale) recordManifest({ type: 'firewall', name: FIREWALL_RULE(p), port: p }, false);
   if (enabled) for (const p of want) recordManifest({ type: 'firewall', name: FIREWALL_RULE(p), port: p }); // Deinstallieren entfernt sie (auch von Hand angelegte)
   updateConfig({ app: { network: enabled } });

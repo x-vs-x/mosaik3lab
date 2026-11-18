@@ -1,4 +1,4 @@
-// Workspace-Verweise nach dem Umbenennen von „<id>.unfertig“ in „<id>“ (Update aus Git): npm ci legt sie mit absolutem
+// Workspace-Verweise nach dem Kopieren in einen anderen Ordner (Installation aus einer Arbeitskopie): npm ci legt sie mit absolutem
 // Pfad an – danach müssen sie auf den neuen Ordner zeigen, sonst findet die Web-App @mosaik3lab/shared nicht.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

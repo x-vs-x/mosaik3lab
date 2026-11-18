@@ -23,10 +23,12 @@ export async function activeAdminCount(dbFile) {
   }
 }
 
+// Gleich wie in shared/src/einstellungen.ts (emailDomainSchema) – der Manager ist reines .mjs (Test: abgleich-app.test.mjs)
+export const DOMAIN_RE = /^[a-z0-9.-]+\.[a-z]{2,}$/;
 /** Schul-Domain (nur der Teil nach dem @) wie in shared/src/einstellungen.ts (emailDomainSchema). '' = ungültig. */
 export function normalizeDomain(d) {
   const v = String(d ?? '').trim().toLowerCase().replace(/^@/, '');
-  return /^[a-z0-9.-]+\.[a-z]{2,}$/.test(v) ? v : '';
+  return DOMAIN_RE.test(v) ? v : '';
 }
 
 /** { email, name, password, schulDomain? } prüfen, bevor etwas passiert (die App prüft zusätzlich). */

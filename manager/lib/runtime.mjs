@@ -1,19 +1,18 @@
-// Laufzeit: Node.js, Git und Dienst-Wrapper (WinSW) aus dem Manager prüfen und aktualisieren – nie automatisch,
-// nur auf Knopfdruck (oder `runtime update <node|git|wrapper>`).
+// Laufzeit: Node.js und Dienst-Wrapper (WinSW) aus dem Manager prüfen und aktualisieren – nie automatisch,
+// nur auf Knopfdruck (oder `runtime update <node|wrapper>`).
 // Ablauf immer: Sicherung → Dienste stoppen → aktualisieren (Windows: winget per UAC, Linux: apt per sudo) →
 // Dienste starten → Health-Check. Scheitert etwas, gibt es eine klare Meldung und den Befehl zum Zurückgehen.
 // npm-Pakete der App aktualisiert das App-Update (npm ci aus der Lock-Datei); hier nur die Info aus `npm audit`.
 import fs from 'node:fs';
 import path from 'node:path';
 import { platform } from '../platform/index.mjs';
-import { run, runShell } from '../platform/common.mjs';
-import { INSTALL, getConfig, resolvePaths, requireValidConfig, isInside, InputError } from './config.mjs';
-import { findGit, forgetGit } from './git.mjs';
-import { nodeOk } from './setup.mjs';
+import { run, runShell, psQuote, SERVICE_IDS } from '../platform/common.mjs';
+import { INSTALL, resolvePaths, requireValidConfig, isInside, InputError } from './config.mjs';
+import { nodeOk, ensureWrapper } from './setup.mjs';
 import { logger } from './log.mjs';
 
-export const WHAT = ['node', 'git', 'wrapper'];
-const TITLES = { node: 'Node.js', git: 'Git', wrapper: 'Dienst-Wrapper (WinSW)' };
+export const WHAT = ['node', 'wrapper'];
+const TITLES = { node: 'Node.js', wrapper: 'Dienst-Wrapper (WinSW)' };
 const log = () => logger('manager');
 
 /** "v24.1.0" / "2.47.1" → [24, 1, 0] */
@@ -41,16 +40,6 @@ export async function latestNodeLts(get = fetchJson) {
   }
 }
 
-async function latestGit(get = fetchJson) {
-  if (platform.id !== 'windows') return null; // Linux: apt kennt die Quelle
-  try {
-    const tag = (await get('https://api.github.com/repos/git-for-windows/git/releases/latest')).tag_name;
-    return /^v(\d+(?:\.\d+)+)/.exec(tag)?.[1] ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /** Installierte WinSW-Version: höchste Datei WinSW-<version>.exe im Werkzeugordner der Installation. */
 function installedWrapper() {
   if (!INSTALL) return null;
@@ -68,10 +57,6 @@ async function installedVersion(what) {
     const r = await run(process.execPath, ['--version'], { timeout: 8000 });
     return r.code === 0 ? r.stdout.replace(/^v/, '') : process.versions.node;
   }
-  if (what === 'git') {
-    forgetGit();
-    return (await findGit())?.version ?? null;
-  }
   return installedWrapper();
 }
 
@@ -85,8 +70,7 @@ export async function runtimeStatus(ctx = {}) {
   const rows = [];
   const row = (id, installed, latest, light, label, action = 'update', hint = '') => rows.push({ id, title: TITLES[id], installed, latest, light, label, action, hint });
 
-  // Paket-Installation: Node.js kommt mit dem Paket, Updates kommen als Paket – Git wird nicht gebraucht, auch wenn es auf
-  // dem Rechner zufällig installiert ist (sonst böte der Manager ein Git-Update an, das mit Mosaik³LAB nichts zu tun hat).
+  // Paket-Installation: Node.js kommt mit dem Paket, Updates kommen als Paket
   const paket = ctx.paket ?? bundledNode();
   const node = await installedVersion('node');
   const nodeLatest = await latestNodeLts(get);
@@ -95,16 +79,6 @@ export async function runtimeStatus(ctx = {}) {
   else if (nodeLatest && compareVersions(nodeLatest, node) > 0) row('node', node, nodeLatest, 'warn', `${node} – neuere LTS ${nodeLatest} verfügbar`);
   else if (!nodeLatest) row('node', node, null, 'info', `${node} – aktuelle Version unbekannt (offline?)`);
   else row('node', node, nodeLatest, 'ok', `${node} – aktuell`);
-
-  const git = paket ? null : await findGit();
-  const usesGit = ctx.usesGit ?? !!getConfig().update.repo; // Update-Quelle ist Git (nur Arbeitskopie/Git-Installation)
-  if (paket) row('git', null, null, 'ok', 'nicht nötig – Updates kommen als Mosaik³LAB-Paket', null);
-  else if (!git) row('git', null, null, usesGit ? 'error' : 'warn', 'nicht gefunden – ohne Git keine Updates aus der Git-Quelle', 'install', platform.gitInstall);
-  else {
-    const gitLatest = await latestGit(get);
-    if (gitLatest && compareVersions(gitLatest, git.version) > 0) row('git', git.version, gitLatest, 'warn', `${git.version} – neuere Version ${gitLatest} verfügbar`);
-    else row('git', git.version, gitLatest, gitLatest ? 'ok' : 'info', gitLatest ? `${git.version} – aktuell` : `${git.version} – aktuelle Version unbekannt`);
-  }
 
   if (platform.wrapper) {
     const have = installedWrapper();
@@ -131,13 +105,46 @@ export async function npmAudit(dir = resolvePaths().programDir) {
   }
 }
 
+/**
+ * WinSW in allen eingerichteten Diensten ersetzen (Web-App, Backup, Portal, Manager, Update-Helfer – nur die, deren .exe
+ * es gibt). Eine laufende .exe lässt sich umbenennen, aber nicht überschreiben → erst beiseite schieben, dann neu kopieren;
+ * ein laufender Dienst arbeitet bis zu seinem Neustart mit der alten Datei weiter.
+ */
+export function wrapperScript(managerDir, version) {
+  const exe = path.join(managerDir, 'werkzeuge', `WinSW-${version}.exe`);
+  const dir = path.join(managerDir, 'dienste');
+  return Object.values(SERVICE_IDS).map((id) => {
+    const f = path.join(dir, `${id}.exe`);
+    return `if (Test-Path ${psQuote(f)}) { Remove-Item -Force ${psQuote(`${f}.alt`)} -ErrorAction SilentlyContinue; Move-Item -Force ${psQuote(f)} ${psQuote(`${f}.alt`)}; Copy-Item -Force ${psQuote(exe)} ${psQuote(f)} }`;
+  }).join('\n');
+}
+
 /** Standard-Umgebung; Tests ersetzen einzelne Teile. */
 async function defaultContext() {
-  const { defaultContext: updateContext } = await import('./update.mjs');
   return {
     platform,
     installedVersion,
-    services: updateContext().services,
+    services: {
+      async stopAll() {
+        const s = await import('./services.mjs');
+        const running = [];
+        for (const key of s.KEYS) {
+          if (!(await s.serviceStatus(key)).running) continue;
+          running.push(key);
+          await s.stopService(key);
+        }
+        return running;
+      },
+      async startAll(keys) {
+        const s = await import('./services.mjs');
+        for (const key of keys) await s.startService(key);
+      },
+      async healthy(ms) {
+        const s = await import('./services.mjs');
+        for (const until = Date.now() + ms; Date.now() < until; await new Promise((r) => setTimeout(r, 1500))) if (await s.checkHealth()) return true;
+        return false;
+      },
+    },
     async backup() {
       return (await import('./backup.mjs')).createBackup('vor Laufzeit-Update');
     },
@@ -145,14 +152,10 @@ async function defaultContext() {
       return (await import('./services.mjs')).admin(script, title);
     },
     async prepareWrapper() {
-      return (await import('./setup.mjs')).ensureWrapper(path.join(INSTALL.managerDir, 'werkzeuge', `WinSW-${platform.wrapper.version}.exe`), true);
+      return ensureWrapper(path.join(INSTALL.managerDir, 'werkzeuge', `WinSW-${platform.wrapper.version}.exe`), true);
     },
     wrapperScript() {
-      const exe = path.join(INSTALL.managerDir, 'werkzeuge', `WinSW-${platform.wrapper.version}.exe`);
-      const dir = path.join(INSTALL.managerDir, 'dienste');
-      const q = (s) => `'${s.replace(/'/g, "''")}'`;
-      // Laufende .exe lässt sich umbenennen, aber nicht überschreiben → erst beiseite schieben, dann neu kopieren.
-      return ['mosaik3lab-webapp', 'mosaik3lab-backup', 'mosaik3lab-manager'].map((id) => { const f = path.join(dir, `${id}.exe`); return `if (Test-Path ${q(f)}) { Remove-Item -Force ${q(f + '.alt')} -ErrorAction SilentlyContinue; Move-Item -Force ${q(f)} ${q(f + '.alt')} }; Copy-Item -Force ${q(exe)} ${q(f)}`; }).join('\n');
+      return wrapperScript(INSTALL.managerDir, platform.wrapper.version);
     },
     requestManagerRestart() {
       if (INSTALL) fs.writeFileSync(path.join(resolvePaths().logDir, 'manager.restart'), '1');
@@ -170,7 +173,6 @@ export async function updateRuntime(what, { dryRun = false, ...override } = {}, 
   const pf = c.platform;
   if (what === 'wrapper' ? !pf.wrapper : !pf.runtime) throw new InputError(what === 'wrapper' ? 'Den Dienst-Wrapper gibt es nur unter Windows.' : 'Für diese Plattform ist keine Aktualisierung hinterlegt.');
   if (what === 'node' && !override.platform && bundledNode()) throw new InputError(`Node.js ${PAKET_HINWEIS}.`);
-  if (what === 'git' && !override.platform && bundledNode()) throw new InputError('Git wird bei einer Paket-Installation nicht gebraucht – Updates kommen als Mosaik³LAB-Paket.');
   const before = await c.installedVersion(what);
   let script;
   if (what === 'wrapper') {
@@ -224,7 +226,7 @@ export async function updateRuntime(what, { dryRun = false, ...override } = {}, 
     log().error(`Laufzeit-Update ${what} fehlgeschlagen: ${failure.message}`);
     return { ok: false, what, from: before, to: after, backup, message: `${TITLES[what]}: ${failure.message}`, hint: `Die Daten sind unverändert, Sicherung: ${backup}.${back}` };
   }
-  if (what !== 'git') c.requestManagerRestart?.();
+  c.requestManagerRestart?.();
   log().info(`Laufzeit aktualisiert: ${what} ${before} → ${after}`);
   return { ok: true, what, from: before, to: after, backup, healthy, message: before === after ? `${TITLES[what]} war bereits aktuell (${after}).` : `${TITLES[what]} ${before ?? '–'} → ${after}.` };
 }

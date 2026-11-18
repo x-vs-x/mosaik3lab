@@ -58,6 +58,7 @@ export function tail(name, count = 100) {
     const len = Math.min(size, 256 * 1024);
     const buf = Buffer.alloc(len);
     fs.readSync(fd, buf, 0, len, size - len);
+    // eslint-disable-next-line no-control-regex -- Farbcodes (ESC [ … m) aus der Ausgabe entfernen
     const lines = buf.toString('utf8').replace(/\x1b\[[0-9;]*m/g, '').split(/\r?\n/).filter((l) => l.trim());
     if (len < size) lines.shift();
     return lines.slice(-count).map((text) => ({ text, error: isErrorLine(text) }));

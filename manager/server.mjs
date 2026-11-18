@@ -61,14 +61,6 @@ function runSetup(body) {
   return { started: true };
 }
 
-const updateStateFile = () => path.join(resolvePaths().logDir, 'update.state.json');
-function startUpdate() {
-  if (!INSTALL) throw new InputError('Updates gibt es nach der Einrichtung. In der Arbeitskopie: git pull.');
-  const child = spawn(process.execPath, [path.join(MANAGER_DIR, 'runners', 'update.mjs'), '--config', CONFIG_FILE], { detached: true, stdio: 'ignore', windowsHide: true });
-  child.unref();
-  return { started: true };
-}
-
 const runtimeStateFile = () => path.join(resolvePaths().logDir, 'runtime.state.json');
 function startRuntimeUpdate(what) {
   if (!RUNTIMES.includes(what)) throw new InputError('Unbekannte Laufzeit.');
@@ -212,25 +204,17 @@ const ROUTES = [
   }],
   ['POST', '/api/reconcile', 'Abgleichen { dryRun, paths: { ablageDir?, backupDir?, logDir? } } – Firewall, Ports, Ordner, Dienste aus der Datenbank ableiten', ({ body }) => (body.dryRun ? reconcile({ dryRun: true, paths: body.paths ?? {} }) : afterChange({ paths: body.paths ?? {} }))],
   ['POST', '/api/backup/password', 'Backup-Passwort { password } | { generate: true } | { disable: true } – erzeugtes Passwort nur in dieser Antwort', ({ body }) => configureBackupPassword({ password: body.password, generate: body.generate === true, disable: body.disable === true })],
-  ['POST', '/api/update/check', 'Nach Updates suchen (Paket-Installation: freigegebene Versionen aus der Paketquelle, sonst Git; läuft sonst automatisch) → Zustand wie GET /api/update', async () => {
-    if (istPaketInstallation()) {
-      const z = await updatePruefen();
-      await checkUpdates();
-      return z;
-    }
-    const u = await checkUpdates();
-    if (!u) throw new InputError('Updates gibt es nach der Einrichtung. In der Arbeitskopie: git pull.');
-    if (u.error) throw new InputError(u.error);
-    return u;
+  ['POST', '/api/update/check', 'Nach Updates suchen: freigegebene Versionen aus der Paketquelle (nur Paket-Installation; läuft sonst automatisch) → Zustand wie GET /api/update', async () => {
+    if (!istPaketInstallation()) throw new InputError('Updates gibt es für Installationen aus einem Installer-Paket. In der Arbeitskopie: git pull.');
+    const z = await updatePruefen();
+    await checkUpdates();
+    return z;
   }],
-  ['POST', '/api/update/install', 'Update installieren – Paket: herunterladen, prüfen, Update-Helfer startet (Sicherung vorher, Rückfall bei Fehler); Git: eigener Prozess', () => (istPaketInstallation() ? updateStarten() : startUpdate())],
-  ['GET', '/api/update', 'Updates: installierte Version, verfügbare Versionen, Download und Fortschritt (Paket) bzw. Fortschritt des Git-Updates', () => {
-    if (istPaketInstallation()) return updateZustand();
-    try { return JSON.parse(fs.readFileSync(updateStateFile(), 'utf8')); } catch { return null; }
-  }],
-  ['GET', '/api/runtime', 'Laufzeit: Node.js, Git, Dienst-Wrapper mit Ampel (Abfrage nodejs.org, offline → „unbekannt“; läuft sonst automatisch täglich)', () => checkRuntime()],
+  ['POST', '/api/update/install', 'Update installieren: herunterladen, prüfen, Update-Helfer startet (Sicherung vorher, Rückfall bei Fehler)', () => updateStarten()],
+  ['GET', '/api/update', 'Updates: installierte Version, verfügbare Versionen, Download und Fortschritt (Arbeitskopie: null)', () => (istPaketInstallation() ? updateZustand() : null)],
+  ['GET', '/api/runtime', 'Laufzeit: Node.js, Dienst-Wrapper mit Ampel (Abfrage nodejs.org, offline → „unbekannt“; läuft sonst automatisch täglich)', () => checkRuntime()],
   ['POST', '/api/runtime/audit', 'npm audit --omit=dev als Information', () => npmAudit()],
-  ['POST', '/api/runtime/update', 'Laufzeit aktualisieren { what: node|git|wrapper } (eigener Prozess; Sicherung, Dienste stoppen/starten, Health-Check)', ({ body }) => startRuntimeUpdate(body.what)],
+  ['POST', '/api/runtime/update', 'Laufzeit aktualisieren { what: node|wrapper } (eigener Prozess; Sicherung, Dienste stoppen/starten, Health-Check)', ({ body }) => startRuntimeUpdate(body.what)],
   ['GET', '/api/runtime/progress', 'Fortschritt des letzten Laufzeit-Updates', () => { try { return JSON.parse(fs.readFileSync(runtimeStateFile(), 'utf8')); } catch { return null; } }],
   ['GET', '/api/portal', 'Erreichbarkeit: Portal (Pfad, Ports, HTTPS), Adressen, Zertifikat-Prüfung, belegte Ports', () => portalInfo()],
   ['POST', '/api/portal', 'Portal speichern { enabled, httpPort, httpsPort, https } – Pfad fest /mosaik3lab (danach Abgleich)', ({ body }) => savePortal(body)],
@@ -299,7 +283,9 @@ function readJson(req) {
 // Netzfreigabe, Web-App/Portal stoppen), bestätigt die Oberfläche vorher; der Notzugang 127.0.0.1:<Port> bleibt immer.
 // Ausnahme Ersteinrichtung: solange es keinen Administrator gibt, sind über das Netz nur die Seite selbst, der
 // Anmeldestatus und „ersten Administrator anlegen“ erreichbar – sonst nichts.
-const SETUP_OPEN = new Set(['GET /', 'GET /app.css', 'GET /app.js', 'GET /ui.js', 'GET /update.js', 'GET /neuigkeiten.js', 'GET /erweitert.js', 'GET /einstellungen.js', 'GET /icon.svg', 'GET /api/auth', 'POST /api/auth/first']);
+// Dateien der Oberfläche (Adresse → Datei in public/) – eine Liste: daraus auch, was vor dem ersten Administrator offen ist
+const FILES = { '/': 'index.html', '/app.css': 'app.css', '/app.js': 'app.js', '/ui.js': 'ui.js', '/update.js': 'update.js', '/neuigkeiten.js': 'neuigkeiten.js', '/erweitert.js': 'erweitert.js', '/einstellungen.js': 'einstellungen.js', '/icon.svg': 'icon.svg' };
+const SETUP_OPEN = new Set([...Object.keys(FILES).map((p) => `GET ${p}`), 'GET /api/auth', 'POST /api/auth/first']);
 /** Zugang über die App-Adresse: nur mit Admin-Sitzung der App (oder Ersteinrichtung). → true, wenn schon geantwortet. */
 async function remoteDenied(req, res, url, remote) {
   if (await needsAdmin()) {
@@ -320,7 +306,7 @@ async function handle(req, res) {
   try {
     const remote = remoteOf(req); // null = direkt am Server (wie bisher)
     if (remote && (await remoteDenied(req, res, url, remote))) return;
-    const file = { '/': 'index.html', '/app.css': 'app.css', '/app.js': 'app.js', '/ui.js': 'ui.js', '/update.js': 'update.js', '/neuigkeiten.js': 'neuigkeiten.js', '/erweitert.js': 'erweitert.js', '/einstellungen.js': 'einstellungen.js', '/icon.svg': 'icon.svg' }[url.pathname];
+    const file = Object.hasOwn(FILES, url.pathname) ? FILES[url.pathname] : null;
     if (req.method === 'GET' && file) return send(res, 200, fs.readFileSync(path.join(PUBLIC, file), 'utf8').replace('__TOKEN__', TOKEN).replace('__BASE__', remote ? `${remote.prefix}/` : '/'), TYPES[path.extname(file)]);
     if (req.method === 'GET' && url.pathname === '/api/portal/cert.cer') {
       if (!remote && !isLoggedIn(req)) return send(res, 401, { error: 'Bitte anmelden.' });
@@ -360,7 +346,7 @@ async function listen() {
   for (let attempt = 0; ; attempt++) {
     try {
       await new Promise((resolve, reject) => {
-        const s = http.createServer(handle).once('error', reject).listen(port, '127.0.0.1', () => {
+        http.createServer(handle).once('error', reject).listen(port, '127.0.0.1', () => {
           http.createServer(handle).once('error', () => {}).listen(port, '::1'); // IPv6-localhost, falls vorhanden
           resolve();
         });

@@ -4,7 +4,7 @@
 //   Entwicklung:  Manager läuft aus einer Arbeitskopie (z. B. C:\Entwicklung\mosaik3lab\manager)
 //                 Startdatei mosaik3lab.json (nur dataDir, managerPort); Daten trotzdem in C:\Mosaik3LAB\{daten,ablage,backups}, Logs manager/logs/
 //   Installation: Manager läuft aus <Programmordner>/releases/<version>/manager (über den Verweis „current“)
-//                 Programmordner (Windows: C:\Mosaik3LAB\programm) und Datenordner (C:\Mosaik3LAB)
+//                 Programmordner (Windows: C:\Program Files\Mosaik3LAB) und Datenordner (C:\Mosaik3LAB)
 //                 sind getrennt; <Programmordner>/install.json zeigt auf die Konfiguration.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -12,6 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { platform } from '../platform/index.mjs';
 import * as settingsdb from './settingsdb.mjs';
+import { schreibprobe } from './hilfen.mjs';
 
 export const MANAGER_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const PROGRAM_DIR = path.dirname(MANAGER_DIR);
@@ -40,11 +41,10 @@ export const DEFAULTS = Object.freeze({
   manager: { port: 5190 },
   app: { port: 3001, network: false, demoAccounts: false }, // network: im Netzwerk freigegeben (0.0.0.0 + Firewall-Regel); das Session-Geheimnis verwaltet die App selbst (Datenbank)
   paths: { dataDir: '', ablageDir: '', backupDir: '', logDir: '' }, // leer = Standard der Betriebsart
-  backup: { enabled: true, time: '02:00', keep: 14, encrypt: false, full: { enabled: false, time: '03:30', weekday: 0, keep: 4 } }, // enabled/time: automatische tägliche Sicherung (immer vollständig: Datenbank + Ablage); keep: so viele Sicherungen bleiben; encrypt: mit Backup-Passwort (AES-256-GCM); full: früher eigene „Komplett“-Sicherung – unbenutzt, bleibt nur für ältere Datenbanken
+  backup: { enabled: true, time: '02:00', keep: 14, encrypt: false }, // enabled/time: automatische tägliche Sicherung (immer vollständig: Datenbank + Ablage); keep: so viele Sicherungen bleiben; encrypt: mit Backup-Passwort (AES-256-GCM). Frühere Schlüssel älterer Datenbanken (backup.full, update.*) werden ignoriert und bleiben für einen Rückfall stehen
   // Portal: kleiner Weiterleitungs-Dienst, einziger Zugang von außen (Port 80/443); die App hört dann nur auf 127.0.0.1.
   // Standard: http://<Server>/mosaik3lab ohne Portnummer. Ältere Einstellungen ohne Portal-Werte behalten ihr Verhalten (keepLegacyPortal).
   portal: { enabled: true, basePath: FIXED_BASE_PATH, httpPort: 80, httpsPort: 443, https: false },
-  update: { repo: '', branch: 'main', gitPath: '' }, // Git-Quelle; leer = Arbeitskopie, aus der installiert wurde. gitPath: gefundenes git (leer = suchen)
 });
 
 /**
@@ -92,6 +92,7 @@ export function checkDir(value, label, { allowEmpty = true } = {}) {
     if (allowEmpty) return '';
     throw new InputError(`${label}: bitte einen Ordner angeben.`);
   }
+  // eslint-disable-next-line no-control-regex -- Steuerzeichen im Pfad gezielt ablehnen
   if (v.length > 400 || /[\0-\x1f]/.test(v) || (process.platform === 'win32' && /[<>"|?*]/.test(v.slice(2)))) throw new InputError(`${label}: ungültiger Pfad.`);
   if (!path.isAbsolute(v) || fremderPfad(v)) throw new InputError(`${label}: bitte einen vollständigen Pfad angeben (z. B. ${process.platform === 'win32' ? 'D:\\Mosaik3LAB\\Daten' : '/srv/mosaik3lab'}).`);
   const p = path.resolve(v);
@@ -110,12 +111,8 @@ const MIN_FREE_BYTES = 200 * 1024 * 1024;
  * Liefert { freeBytes, files } (files = Anzahl vorhandener Dateien, z. B. um vor dem Umzug zu warnen).
  */
 export function checkAblageDir(dir) {
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-    const probe = path.join(dir, `.schreibtest-${process.pid}`);
-    fs.writeFileSync(probe, 'ok');
-    fs.rmSync(probe);
-  } catch (err) {
+  const err = schreibprobe(dir);
+  if (err) {
     throw new InputError(`Ablageordner „${dir}“ kann nicht angelegt oder beschrieben werden (${err.code ?? err.message}).`, 'Rechte des Dienstkontos prüfen oder einen anderen Ordner wählen.');
   }
   let freeBytes = null;
@@ -157,17 +154,8 @@ export function validate(cfg) {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(c.backup.time))) throw new InputError('Uhrzeit bitte als HH:MM angeben.');
   c.backup.encrypt = c.backup.encrypt === true;
   c.backup.enabled = c.backup.enabled !== false;
-  const full = { ...DEFAULTS.backup.full, ...(c.backup.full ?? {}) };
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(full.time))) throw new InputError('Uhrzeit der kompletten Sicherung bitte als HH:MM angeben.');
-  if (!Number.isInteger(Number(full.weekday)) || Number(full.weekday) < -1 || Number(full.weekday) > 6) throw new InputError('Wochentag der kompletten Sicherung: 0 (Sonntag) bis 6 oder -1 (täglich).');
-  if (!Number.isInteger(Number(full.keep)) || Number(full.keep) < 1 || Number(full.keep) > 52) throw new InputError('Anzahl der kompletten Sicherungen: 1 bis 52.');
-  c.backup.full = { enabled: full.enabled === true, time: String(full.time), weekday: Number(full.weekday), keep: Number(full.keep) };
   c.backup.keep = Number(c.backup.keep);
   if (!Number.isInteger(c.backup.keep) || c.backup.keep < 1 || c.backup.keep > 365) throw new InputError('Anzahl der Sicherungen: 1 bis 365.');
-  if (c.update.branch && !/^[\w./-]{1,100}$/.test(c.update.branch)) throw new InputError('Git-Branch ungültig.');
-  if (/^-/.test(c.update.repo)) throw new InputError('Git-Quelle ungültig.');
-  c.update.gitPath = typeof c.update.gitPath === 'string' ? c.update.gitPath.trim() : '';
-  if (c.update.gitPath && (/[\0-\x1f]/.test(c.update.gitPath) || !path.isAbsolute(c.update.gitPath))) throw new InputError('Pfad zu Git: bitte einen vollständigen Pfad angeben oder leer lassen.');
   const po = { ...DEFAULTS.portal, ...(c.portal ?? {}) };
   // Mit Portal ist die Adresse immer http://<Server>/mosaik3lab – nicht einstellbar (Entscheidung des Nutzers, 2026-11-16).
   // Ein anderer gespeicherter Pfad (ältere Einrichtung, Sicherung) wird hier überall ersetzt: Portal, Web-App, Status, Mails.
@@ -194,7 +182,7 @@ function merge(base, extra) {
 // Alle Einstellungen liegen in der Datenbank (settingsdb.mjs). Nur die winzige Startdatei <Wurzel>/mosaik3lab.json
 // { dataDir, managerPort } bleibt außerhalb, weil man den Ort der Datenbank kennen muss, bevor man sie liest.
 // Fehlt etwas in der Datenbank → Standardwerte.
-const SECTIONS = { manager: 'manager', app: 'betrieb', paths: 'betrieb', backup: 'betrieb', update: 'betrieb', portal: 'betrieb' }; // Abschnitt → Bereich
+const SECTIONS = { manager: 'manager', app: 'betrieb', paths: 'betrieb', backup: 'betrieb', portal: 'betrieb' }; // Abschnitt → Bereich
 const RETIRED_KEYS = ['manager.passwordHash', 'manager.remote']; // früher: eigenes Manager-Passwort, Schalter „Über die App-Adresse“
 const NOT_IN_DB = ['paths.dataDir']; // steht in der Startdatei
 
@@ -228,7 +216,7 @@ const defaultDataDir = () => (INSTALL ? layout({ programRoot: INSTALL.programRoo
 
 export function readStartFile(file = CONFIG_FILE) {
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, ''));
+    return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
   } catch (err) {
     if (err.code === 'ENOENT') return null;
     throw err;
@@ -274,7 +262,7 @@ export function migrateLegacy(startFile = CONFIG_FILE) {
   else if (!start && startFile === path.join(PROGRAM_DIR, 'mosaik3lab.json')) {
     const old = path.join(MANAGER_DIR, 'manager.config.json'); // Entwicklung: früherer Ort
     try {
-      legacyFile = { file: old, raw: JSON.parse(fs.readFileSync(old, 'utf8').replace(/^﻿/, '')) };
+      legacyFile = { file: old, raw: JSON.parse(fs.readFileSync(old, 'utf8').replace(/^\uFEFF/, '')) };
     } catch {
       /* nichts zu übernehmen */
     }
@@ -297,7 +285,7 @@ export function migrateLegacy(startFile = CONFIG_FILE) {
   const mailFile = path.join(dataDir, 'config', 'mail.json');
   if (fs.existsSync(mailFile) && !Object.keys(settingsdb.readBereich(dbFile, 'mail')).length) {
     try {
-      settingsdb.writeBereich(dbFile, 'mail', JSON.parse(fs.readFileSync(mailFile, 'utf8').replace(/^﻿/, '')), { secrets: ['smtp'] });
+      settingsdb.writeBereich(dbFile, 'mail', JSON.parse(fs.readFileSync(mailFile, 'utf8').replace(/^\uFEFF/, '')), { secrets: ['smtp'] });
       retire(mailFile);
       done.push(`${mailFile} in die Datenbank übernommen`);
     } catch (err) {
@@ -449,7 +437,7 @@ export function publicConfig(c = fresh().config) {
 
 /**
  * Feste Ordnerstruktur einer Installation (Vorgaben, im Einrichtungsdialog änderbar):
- *   Windows: C:\Mosaik3LAB\{programm, daten, ablage, backups, logs, manager}
+ *   Windows: C:\Program Files\Mosaik3LAB (Programm, Dienstdateien, WinSW) · C:\Mosaik3LAB\{daten, ablage, backups, logs}
  *   Linux:   /opt/mosaik3lab · /var/lib/mosaik3lab/{daten, ablage, manager} · /var/backups/mosaik3lab · /var/log/mosaik3lab
  */
 export function layout({ programRoot, dataRoot, backupDir, logDir, managerDir } = {}) {
@@ -470,9 +458,13 @@ export function layout({ programRoot, dataRoot, backupDir, logDir, managerDir } 
     services: path.join(manager, 'dienste'),
     tools: path.join(manager, 'werkzeuge'),
     configFile: path.join(dataRoot, 'mosaik3lab.json'), // Startdatei { dataDir, managerPort }
+    keyFile: keyFileOf(path.join(dataRoot, 'mosaik3lab.json')), // Backup-Passwort neben der Startdatei
     manifest: path.join(manager, 'install-manifest.json'),
   };
 }
+
+/** Backup-Passwort: immer neben der Startdatei (<Wurzel>/backup.key) – einzige Stelle für diesen Pfad. */
+export const keyFileOf = (configFile) => path.join(path.dirname(configFile), 'backup.key');
 
 /** Tatsächlich benutzte Ordner. */
 export function resolvePaths(c = fresh().config) {
@@ -489,7 +481,7 @@ export function resolvePaths(c = fresh().config) {
       backupDir: c.paths.backupDir || l.backups,
       logDir: c.paths.logDir || l.logs,
       dbFile: settingsdb.dbFileOf(dataDir),
-      keyFile: path.join(path.dirname(CONFIG_FILE), 'backup.key'),
+      keyFile: keyFileOf(CONFIG_FILE),
       configFile: CONFIG_FILE,
     };
   }
@@ -505,7 +497,7 @@ export function resolvePaths(c = fresh().config) {
     backupDir: c.paths.backupDir || path.join(devDataRoot(), 'backups'),
     logDir: c.paths.logDir || path.join(MANAGER_DIR, 'logs'),
     dbFile: settingsdb.dbFileOf(dataDir),
-    keyFile: path.join(path.dirname(CONFIG_FILE), 'backup.key'),
+    keyFile: keyFileOf(CONFIG_FILE),
     configFile: CONFIG_FILE,
   };
 }

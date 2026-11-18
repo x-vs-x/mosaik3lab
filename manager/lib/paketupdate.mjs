@@ -1,4 +1,4 @@
-// Update per Installer-Paket absichern – so sicher wie das Git-Update (update.mjs) und mit denselben Bausteinen:
+// Update per Installer-Paket absichern (der einzige Update-Weg):
 // Downgrade verweigern (Versionsnummer nach SemVer und Datenbank-Schema, schema.mjs), Sicherung mit der bisherigen Version direkt vor dem Umschalten, bei Fehlschlag
 // automatisch zurück auf die vorige Version (switchCurrent). Hat die neue Version das Datenbank-Schema schon verändert,
 // wird die Datenbank aus genau dieser Sicherung zurückgespielt – die alte Version läuft nie mit einem neueren Schema.
@@ -9,6 +9,8 @@ import { execFile } from 'node:child_process';
 import { InputError } from './config.mjs';
 import { dbSchemaVersion, releaseSchemaVersion } from './schema.mjs';
 import { openBackup, applyBackup, EXT } from './backup.mjs';
+import { currentRelease, switchCurrent } from './releases.mjs';
+import { removeTree } from './dateien.mjs';
 import { SICHERUNG_MAX_MS } from './zeitlimits.mjs'; // Sicherung vor dem Update: großzügig (Pi, große Ablage), kleiner als die äußeren Limits
 
 /** Versionsnummer nach SemVer: „1.2.3“, „1.2.3-dev.abc1234“, „1.2.3-abc1234“ → [1, 2, 3] (Zusätze zählen nicht); null = unlesbar. */
@@ -92,8 +94,6 @@ export async function restoreDbFrom({ backupDir, id, keyFile, dataDir, ablageDir
  * → { healthy, data } (data: was mit der Datenbank passiert ist, als Text für die IT)
  */
 export async function rollBack(u, ops) {
-  const { switchCurrent } = await import('./update.mjs');
-  const { removeTree } = await import('./setup.mjs');
   await ops.stop();
   switchCurrent(u.programRoot, u.previous);
   const schemaNow = await dbSchemaVersion(u.dbFile);
@@ -112,4 +112,46 @@ export async function rollBack(u, ops) {
   }
   await ops.start();
   return { healthy: await ops.healthy(), data };
+}
+
+/**
+ * „current“ auf die neue Version umschalten (Dienste sind gestoppt). Scheitert das – z. B. weil „current“ kein Verweis ist
+ * oder der neue Verweis nicht angelegt werden kann –, zeigt „current“ danach wieder auf die bisherige Version und die
+ * gestoppten Dienste laufen wieder; der ursprüngliche Fehler wird weitergegeben (es wurde nichts umgestellt).
+ * ops = { switchCurrent, currentRelease, start(), warn(text) } – austauschbar für Tests.
+ */
+export async function umschalten({ programRoot, id, previous }, ops = {}) {
+  const o = { switchCurrent, currentRelease, start: async () => {}, warn: () => {}, ...ops };
+  try {
+    o.switchCurrent(programRoot, id);
+  } catch (err) {
+    if (previous && o.currentRelease(programRoot)?.id !== previous) {
+      try {
+        o.switchCurrent(programRoot, previous);
+      } catch (e) {
+        o.warn(`„current“ konnte nicht auf ${previous} zurückgesetzt werden: ${e.message}`);
+      }
+    }
+    try {
+      await o.start();
+    } catch (e) {
+      o.warn(`Dienste konnten nicht wieder gestartet werden: ${e.message}`);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Nach einem gelungenen Update alte Versionen löschen (nur aktuelle + vorige bleiben). Scheitert das – unter Windows z. B.
+ * ein noch offenes Manager-Fenster im alten Ordner oder ein Virenscanner –, bleibt das Update gelungen; aufgeräumt wird
+ * beim nächsten Update. → true, wenn aufgeräumt wurde.
+ */
+export function alteVersionenEntfernen(programRoot, prune, warn = () => {}) {
+  try {
+    prune(programRoot);
+    return true;
+  } catch (err) {
+    warn(`Alte Programmversionen konnten nicht gelöscht werden (${err.message}) – das Update ist trotzdem fertig, aufgeräumt wird beim nächsten Update.`);
+    return false;
+  }
 }

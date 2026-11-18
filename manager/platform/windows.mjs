@@ -83,11 +83,6 @@ export const windows = {
     return { ok: r.code === 0, code: r.code, output: `${r.stdout}\n${r.stderr}`.trim() };
   },
 
-  /**
-   * Ordner anlegen und beschreibbar machen: für den angemeldeten Benutzer und das Dienstkonto. Läuft die Einrichtung als
-   * Konto System (Update-Helfer), gibt es keinen angemeldeten Benutzer – „WORKGROUP\SYSTEM“ wäre ein ungültiger Name und
-   * icacls schlüge fehl. System hat ohnehin volle Rechte, dann nur das Dienstkonto berechtigen.
-   */
   /** Rechte eines Ordners (samt Inhalt) auf die vererbten Standardrechte zurücksetzen – unter „Programme“: nur Admin/System schreiben. */
   resetAclScript: (dir) => `& icacls ${psQuote(dir)} /reset /T /C /Q | Out-Null`,
 
@@ -110,6 +105,11 @@ export const windows = {
     ].join('; ');
   },
 
+  /**
+   * Ordner anlegen und beschreibbar machen: für den angemeldeten Benutzer und das Dienstkonto. Läuft die Einrichtung als
+   * Konto System (Update-Helfer), gibt es keinen angemeldeten Benutzer – „WORKGROUP\SYSTEM“ wäre ein ungültiger Name und
+   * icacls schlüge fehl. System hat ohnehin volle Rechte, dann nur das Dienstkonto berechtigen.
+   */
   prepareDirsScript(dirs) {
     const name = os.userInfo().username;
     const system = /^system$/i.test(name) || name.endsWith('$');
@@ -196,15 +196,8 @@ export const windows = {
   shortcutExt: (item) => (item.url ? '.url' : '.lnk'),
   launcher: (programDir, arg = '') => ({ target: path.join(SYSTEM32, 'cmd.exe'), args: `/c ""${path.join(programDir, 'manager', 'mosaik3lab.cmd')}"${arg ? ` ${arg}` : ''}"`, workDir: programDir }),
 
-  /** Git-Archiv (.tar.gz) entpacken – immer das Windows-eigene tar (bsdtar). */
-  async extract(file, dest) {
-    fs.mkdirSync(dest, { recursive: true });
-    const r = await run(path.join(SYSTEM32, 'tar.exe'), ['-xf', file, '-C', dest], { timeout: 300_000 });
-    if (r.code !== 0) throw new Error(`Entpacken fehlgeschlagen: ${r.stderr || r.error}`);
-  },
   linkDir: (target, link) => fs.symlinkSync(target, link, 'junction'), // Junction: ohne Admin-Rechte
   unlinkDir: (link) => fs.rmdirSync(link),
-  /** Ordner löschen, auch wenn der Manager gerade daraus läuft (verzögert, nach Programmende). */
 
   /**
    * Selbstsigniertes HTTPS-Zertifikat erzeugen (Namen + IP-Adressen, Jahre gültig) und als PFX-Datei exportieren.
@@ -226,12 +219,9 @@ export const windows = {
   },
 
   nodeInstall: 'winget install --id OpenJS.NodeJS.LTS -e',
-  gitInstall: 'winget install --id Git.Git -e',
-  /** Übliche Orte von git.exe – das Dienstkonto „Lokaler Dienst“ hat oft einen anderen PATH als der Benutzer. */
-  gitCandidates: () => [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.ProgramW6432].filter(Boolean).map((d) => path.join(d, 'Git', 'cmd', 'git.exe')).concat(process.env.LOCALAPPDATA ? [path.join(process.env.LOCALAPPDATA, 'Programs', 'Git', 'cmd', 'git.exe')] : []),
   /** Laufzeiten per winget (Windows-Bestätigung): installieren bzw. aktualisieren; 0x8A15002B = „kein Update nötig“. */
   runtime: {
-    ids: { node: 'OpenJS.NodeJS.LTS', git: 'Git.Git' },
+    ids: { node: 'OpenJS.NodeJS.LTS' },
     installScript: (what) => `winget install --id ${windows.runtime.ids[what]} -e --silent --accept-package-agreements --accept-source-agreements; if ($LASTEXITCODE) { exit $LASTEXITCODE }`,
     upgradeScript: (what) => `winget upgrade --id ${windows.runtime.ids[what]} -e --silent --accept-package-agreements --accept-source-agreements; if ($LASTEXITCODE -and $LASTEXITCODE -ne -1978335189) { exit $LASTEXITCODE }`,
     backScript: (what, version) => `winget install --id ${windows.runtime.ids[what]} -e --version ${version}`,

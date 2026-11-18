@@ -188,7 +188,8 @@ const readFile = (file, as) => new Promise((resolve, reject) => {
   const fr = new FileReader();
   fr.onload = () => resolve(fr.result);
   fr.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
-  as === 'base64' ? fr.readAsDataURL(file) : fr.readAsText(file);
+  if (as === 'base64') fr.readAsDataURL(file);
+  else fr.readAsText(file);
 });
 action($('#btn-cert-generate'), async () => {
   const r = await api('portal/cert/generate', {});

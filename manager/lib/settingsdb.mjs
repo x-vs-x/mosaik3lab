@@ -9,7 +9,8 @@ import { DatabaseSync } from 'node:sqlite';
 
 export const DB_NAME = 'mosaik3lab.db';
 export const BEREICHE = ['betrieb', 'mail', 'manager'];
-const TABLE = `CREATE TABLE IF NOT EXISTS betrieb_einstellung (
+// Gleich wie server/src/storage/sqlite/migrations/006_betrieb_einstellung.sql (Test: abgleich-app.test.mjs)
+export const TABLE = `CREATE TABLE IF NOT EXISTS betrieb_einstellung (
   bereich       TEXT NOT NULL CHECK (bereich IN ('betrieb', 'mail', 'manager')),
   schluessel    TEXT NOT NULL,
   wert          TEXT NOT NULL,
