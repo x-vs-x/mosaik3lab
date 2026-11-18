@@ -40,7 +40,8 @@ export async function createSqliteStorage(paths: StoragePaths): Promise<Storage 
   let db: ReturnType<typeof openDb> | undefined;
   try {
     db = openDb(paths.dbFile);
-    migrate(db, { backupDir: path.join(path.dirname(paths.dbFile), 'sicherungen') });
+    const sicherungsOrdner = path.join(path.dirname(paths.dbFile), 'sicherungen');
+    migrate(db, { backupDir: sicherungsOrdner });
 
     const files = new FileStore(db, paths.ablageDir);
     await files.init();
@@ -72,6 +73,7 @@ export async function createSqliteStorage(paths: StoragePaths): Promise<Storage 
       sqlite: { db: conn },
       database: {
         file: paths.dbFile,
+        sicherungsOrdner,
         info: () => dbInfo(conn, paths.dbFile),
         backupInto: (target: string) => backupInto(conn, target),
       },

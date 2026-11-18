@@ -33,6 +33,8 @@ export interface Storage {
   sqlite: { db: Db };
   database: {
     file: string;
+    /** <daten>/sicherungen: automatische Sicherungen vor Migrationen und vor dem Einspielen von Druckteilen. */
+    sicherungsOrdner: string;
     /** Für /api/health und den Server-Manager. */
     info(): { vorhanden: boolean; schemaVersion: number | null; groesseBytes: number };
     /** Konsistente Kopie im laufenden Betrieb (VACUUM INTO). */
