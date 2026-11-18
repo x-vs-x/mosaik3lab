@@ -1,22 +1,22 @@
-import { ArrowLeft, Clock, ExternalLink, Layers, MapPin, Palette, Pencil, PenLine, Ruler, Send, ShieldAlert, Tag, Video } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
-import { ColorSwatch } from '../../components/ColorSwatch';
 import { LadeFehler } from '../../components/Listenwerkzeug';
-import { Alert, Badge, Button, Card, cx, DemoBadge, LinkButton, Spinner } from '../../components/ui';
-import { videoUrl } from '../../lib/api';
-import { itemColorAreas } from '../../lib/colors';
+import { Alert, Badge, cx, DemoBadge, Spinner } from '../../components/ui';
 import { useMasterData } from '../../lib/config';
 import { categoryMeta } from '../../lib/constants';
-import { formatDuration } from '../../lib/format';
-import { ITEM_KIND_LABELS, type Filament, type Item, type ItemVideo } from '../../lib/types';
+import type { Item } from '../../lib/types';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
 import { ladeEntwurf } from '../../lib/entwurfSpeicher';
 import { anfrageEntwurfSchluessel, RequestDialog } from '../anfragen/RequestDialog';
-import { LinkKnoepfe, TextMitLinks } from './ItemLinks';
-import { BildGalerie } from './BildGalerie';
+import { useAnfrageAuswahl } from '../anfragen/useAnfrageAuswahl';
+import { LinkKnoepfe } from './ItemLinks';
+import { MedienGalerie } from './MedienGalerie';
 import { AehnlicheTeile } from './AehnlicheTeile';
+import { DruckteilAuswahl } from './DruckteilAuswahl';
+import { Eckdaten, Sicherheitshinweise, TextAbschnitt } from './DruckteilFakten';
+import { useMitlaufen } from './useMitlaufen';
 
 export function ItemDetailPage() {
   const { id } = useParams();
@@ -24,8 +24,7 @@ export function ItemDetailPage() {
   // nie das vorige Teil – sonst könnte man das falsche anfragen.
   const { data, error, loading, aktuell, reload } = useApi<Item>(`/items/${id}`);
   const item = aktuell ? data : undefined;
-  const { can, user, loading: authLoading } = useAuth();
-  const md = useMasterData();
+  const { user, loading: authLoading } = useAuth();
   const [requestOpen, setRequestOpen] = useState(false);
   // Nach einem Neuladen mitten in der Anfrage (Handy wechselt App): Dialog mit dem Entwurf wieder öffnen.
   useEffect(() => {
@@ -47,163 +46,77 @@ export function ItemDetailPage() {
     );
   }
 
-  // Nur Angaben anzeigen, die auch hinterlegt sind (leere Bereiche/Felder werden ausgeblendet).
-  const colorAreas = itemColorAreas(item, md).filter((a) => a.filaments.length > 0);
-  const customFields = item.customFields ?? [];
-  const videos = item.videos ?? [];
-  const hasDescription = !!(item.description.trim() || item.materialInfo.trim());
+  return (
+    <>
+      <BackLink />
+      <DruckteilSeite key={item.id} item={item} requestOpen={requestOpen} setRequestOpen={setRequestOpen} />
+      {/* Immer ganz unten, unter allem anderen (Wunsch des Nutzers). */}
+      <AehnlicheTeile key={`aehnliche-${item.id}`} itemId={item.id} />
+    </>
+  );
+}
+
+/**
+ * Aufteilung (Konzept A2): links alles Feste – Galerie (Bilder, dann Videos), Eckdaten, Beschreibung, Materialinformationen,
+ * Links, Sicherheitshinweise; rechts Kategorien, Titel, Kurztext und alles Wählbare mit „Druckteil anfragen“. Zweispaltig ab
+ * Tablet hoch (auch iPad quer); die rechte Spalte läuft mit, wenn sie ganz ins Fenster passt. Einspaltig (Handy) gilt die
+ * Reihenfolge im Quelltext – auch für Tastatur und Vorlesen: Galerie → Titel → Auswahl + Anfragen → Eckdaten → Beschreibung …
+ * Die Auswahl gehört dieser Seite und wird an das Anfrage-Fenster weitergereicht (dort vorbelegt, ein gemeinsamer Zustand).
+ */
+function DruckteilSeite({ item, requestOpen, setRequestOpen }: { item: Item; requestOpen: boolean; setRequestOpen: (offen: boolean) => void }) {
+  const { can } = useAuth();
+  const auswahl = useAnfrageAuswahl(item);
+  const rechtsRef = useRef<HTMLDivElement>(null);
+  const mitlaufen = useMitlaufen(rechtsRef);
   // Sicherheitshinweise derzeit nur für das Druck-Team sichtbar – ohne hinterlegte Hinweise ganz weglassen
   const hasSafety = can('catalog:view') && item.safetyNotes.length > 0;
 
   return (
     <>
-      <BackLink />
-
-      {/* Zweispaltig (Tablet hoch, ab xl): Kerninfos rechts über zwei Zeilen, Beschreibung links direkt unter den Bildern –
-          sonst bleibt unter dem Bild bis zum Ende der Kerninfos eine große Lücke (Meldung vom iPad). Einspaltig wie
-          bisher untereinander: Bilder, Kerninfos, Beschreibung (gleiche Reihenfolge für Tastatur und Vorlesen). */}
-      <div className="mt-4 grid gap-5 sm:mt-6 sm:gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-rows-[auto_1fr] lg:grid-cols-1 lg:grid-rows-none xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:grid-rows-[auto_1fr] xl:gap-x-12">
-        {/* Bilder */}
-        <BildGalerie key={item.id} item={item} />
-
-        {/* Kerninfos */}
-        <div className="md:row-span-2 lg:row-span-1 xl:row-span-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {item.categories.map((c) => {
-              const meta = categoryMeta(md, c);
-              return (
-                <Badge key={c} className={meta.chip} icon={meta.icon}>
-                  {c}
-                </Badge>
-              );
-            })}
-            <Badge>{ITEM_KIND_LABELS[item.kind ?? 'hilfsmittel']}</Badge>
-            {item.isDemo && <DemoBadge />}
-            {!item.published && <Badge className="bg-stone-800 text-white ring-stone-800">Nicht veröffentlicht</Badge>}
-          </div>
-          <h1 className="mt-3 wrap-anywhere text-titel font-bold tracking-tight text-stone-900 sm:mt-4 sm:text-[2.4rem]">
-            {item.name}
-          </h1>
-          <p className="mt-2 text-base text-stone-700 sm:mt-3 sm:text-[1.15rem]">{item.shortDescription}</p>
-
-          {/* Ab sm nebeneinander; passt „Druckteil anfragen“ nicht einzeilig neben „Bearbeiten“ (Tablet hoch), rutscht „Bearbeiten“ darunter */}
-          <div className="mt-5 flex flex-col gap-2.5 sm:mt-8 sm:flex-row sm:flex-wrap sm:gap-3">
-            {item.published && (
-              <Button size="lg" icon={Send} onClick={() => setRequestOpen(true)} className="sm:flex-[1_0_auto]">
-                Druckteil anfragen
-              </Button>
-            )}
-            {can('catalog:manage') && (
-              <LinkButton to={`/verwaltung/hilfsmittel/${item.id}`} variant="secondary" size="lg" icon={Pencil}>
-                Bearbeiten
-              </LinkButton>
-            )}
-          </div>
-
-          {/* Zwei Spalten nur, wenn je mindestens 9rem frei sind – bei großer Schrift untereinander statt Silbenresten */}
-          <dl className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-2.5 sm:mt-8 sm:gap-3">
-            <Fact icon={Clock} label="Geschätzte Druckdauer">
-              {formatDuration(item.printTimeMinutes)}
-            </Fact>
-            <Fact icon={Layers} label="Material">
-              {item.material}
-            </Fact>
-            {item.price?.trim() && (
-              <Fact icon={Tag} label="Preis" wide>
-                {item.price}
-              </Fact>
-            )}
-            {colorAreas.length === 1 && (
-              <Fact icon={Palette} label="Verfügbare Farben" wide>
-                <FilamentChips filaments={colorAreas[0].filaments} />
-              </Fact>
-            )}
-            {colorAreas.length > 1 && (
-              <Fact icon={Palette} label="Mehrfarbig – Farbe je Bereich wählbar" wide>
-                <ul className="space-y-3">
-                  {colorAreas.map(({ area, filaments }) => (
-                    <li key={area.id}>
-                      <p className="mb-1.5 text-base text-stone-700">{area.name}</p>
-                      <FilamentChips filaments={filaments} />
-                    </li>
-                  ))}
-                </ul>
-              </Fact>
-            )}
-            {customFields.length > 0 && (
-              <Fact icon={PenLine} label="Personalisierbar – beim Anfragen anzugeben" wide>
-                <ChipList values={customFields.map((f) => (f.required ? f.label : `${f.label} (optional)`))} />
-              </Fact>
-            )}
-            {item.sizes.length > 0 && (
-              <Fact icon={Ruler} label="Verfügbare Größen" wide>
-                <ChipList values={item.sizes} />
-              </Fact>
-            )}
-            {item.useAreas.length > 0 && (
-              <Fact icon={MapPin} label="Einsatzbereiche" wide>
-                <ChipList values={item.useAreas} />
-              </Fact>
-            )}
-          </dl>
+      <div className="mt-4 grid gap-5 sm:mt-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:gap-x-6 lg:gap-x-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] xl:gap-x-12">
+        <div className="min-w-0 md:col-start-1 md:row-start-1">
+          <MedienGalerie item={item} />
         </div>
-
-        {/* Beschreibung und Sicherheitshinweise – zweispaltig links unter den Bildern */}
-        {(hasDescription || hasSafety) && (
-          <div className="grid content-start gap-4 sm:gap-6">
-            {hasDescription && (
-              <Card as="section" className="p-4 sm:p-7">
-                {item.description.trim() && (
-                  <>
-                    <h2 className="text-abschnitt font-bold text-stone-900 sm:text-xl">Beschreibung</h2>
-                    <p className="mt-3 whitespace-pre-line text-stone-700"><TextMitLinks text={item.description} /></p>
-                  </>
-                )}
-                {item.materialInfo.trim() && (
-                  <>
-                    <h3 className={cx('font-bold text-stone-900', item.description.trim() ? 'mt-6' : 'text-abschnitt sm:text-xl')}>
-                      Materialinformationen
-                    </h3>
-                    <p className="mt-1.5 whitespace-pre-line text-stone-700"><TextMitLinks text={item.materialInfo} /></p>
-                  </>
-                )}
-              </Card>
-            )}
-
-            {hasSafety && (
-            <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 sm:rounded-3xl sm:p-7">
-              <h2 className="flex flex-wrap items-center gap-x-2.5 text-abschnitt font-bold text-amber-950 sm:text-xl">
-                <ShieldAlert className="size-6 text-amber-700" aria-hidden />
-                Sicherheitshinweise
-                <span className="text-hinweis font-normal text-amber-900">(nur für das Druck-Team sichtbar)</span>
-              </h2>
-              <ul className="mt-4 space-y-3">
-                {item.safetyNotes.map((n) => (
-                  <li key={n} className="flex gap-3 text-amber-950">
-                    <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-amber-600" aria-hidden />
-                    {n}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-5 border-t border-amber-200 pt-4 text-hinweis text-amber-900">
-                3D-gedruckte Hilfs- und Lehrmittel sind keine zertifizierten Medizinprodukte. Bitte vor jedem Einsatz auf
-                Beschädigungen prüfen.
-              </p>
-            </section>
-            )}
-          </div>
-        )}
+        <div
+          ref={rechtsRef}
+          className={cx('min-w-0 space-y-5 md:col-start-2 md:row-span-2 md:row-start-1 md:self-start', mitlaufen && 'md:sticky md:top-20 lg:top-6')}
+        >
+          <Kopf item={item} />
+          <DruckteilAuswahl item={item} zustand={auswahl} onAnfragen={() => setRequestOpen(true)} />
+        </div>
+        <div className="grid min-w-0 content-start gap-5 md:col-start-1 md:row-start-2">
+          <Eckdaten item={item} />
+          <TextAbschnitt titel="Beschreibung" text={item.description} />
+          <TextAbschnitt titel="Materialinformationen" text={item.materialInfo} />
+          <LinkKnoepfe links={item.links ?? []} />
+          {hasSafety && <Sicherheitshinweise notes={item.safetyNotes} />}
+        </div>
       </div>
-
-      {videos.length > 0 && <VideoSection videos={videos} />}
-
-      <LinkKnoepfe links={item.links ?? []} />
-
-      {/* Immer ganz unten, unter allem anderen (Wunsch des Nutzers). */}
-      <AehnlicheTeile key={`aehnliche-${item.id}`} itemId={item.id} />
-
-      <RequestDialog key={item.id} item={item} open={requestOpen} onClose={() => setRequestOpen(false)} />
+      <RequestDialog item={item} open={requestOpen} onClose={() => setRequestOpen(false)} auswahl={auswahl} />
     </>
+  );
+}
+
+/** Kategorien als Plaketten, Titel und Kurztext. */
+function Kopf({ item }: { item: Item }) {
+  const md = useMasterData();
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        {item.categories.map((c) => {
+          const meta = categoryMeta(md, c);
+          return (
+            <Badge key={c} className={meta.chip} icon={meta.icon}>
+              {c}
+            </Badge>
+          );
+        })}
+        {item.isDemo && <DemoBadge />}
+        {!item.published && <Badge className="bg-stone-800 text-white ring-stone-800">Nicht veröffentlicht</Badge>}
+      </div>
+      <h1 className="mt-3 wrap-anywhere text-titel font-bold tracking-tight text-stone-900 sm:text-[2.2rem] sm:leading-tight">{item.name}</h1>
+      <p className="mt-2 text-base text-stone-700 wrap-break-word sm:text-[1.1rem]">{item.shortDescription}</p>
+    </div>
   );
 }
 
@@ -226,101 +139,3 @@ function BackLink() {
     </Link>
   );
 }
-
-function Fact({
-  icon: Icon,
-  label,
-  children,
-  wide,
-}: {
-  icon: typeof Clock;
-  label: string;
-  children: ReactNode;
-  wide?: boolean;
-}) {
-  return (
-    <div className={cx('rounded-2xl border border-stone-200/80 bg-white p-3 sm:p-4', wide && 'col-span-full')}>
-      <dt className="flex items-center gap-2 text-hinweis font-bold text-stone-600">
-        <Icon className="size-4 shrink-0" aria-hidden />
-        {label}
-      </dt>
-      <dd className="mt-1.5 font-bold text-stone-900">{children}</dd>
-    </div>
-  );
-}
-
-function FilamentChips({ filaments }: { filaments: Filament[] }) {
-  return (
-    <ul className="flex flex-wrap gap-2">
-      {filaments.map((f) => (
-        <li
-          key={f.id}
-          className="inline-flex items-center gap-2 rounded-full bg-stone-100 py-1 pl-1.5 pr-3 text-base font-bold text-stone-800"
-        >
-          <ColorSwatch hex={f.hex} />
-          <span>{f.colorName}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** Videos ohne Autoplay; Links öffnen in einem neuen Tab. */
-function VideoSection({ videos }: { videos: ItemVideo[] }) {
-  const files = videos.filter((v) => v.file);
-  const links = videos.filter((v) => !v.file && v.url);
-  return (
-    <Card as="section" className="mt-6 p-4 sm:mt-10 sm:p-7">
-      <h2 className="flex items-center gap-2.5 text-abschnitt font-bold text-stone-900 sm:text-xl">
-        <Video className="size-6 text-brand-700" aria-hidden />
-        So wird es verwendet
-      </h2>
-      {files.length > 0 && (
-        <ul className="mt-4 grid gap-6 lg:grid-cols-2">
-          {files.map((v) => (
-            <li key={v.id}>
-              <figure>
-                <video controls preload="metadata" playsInline className="aspect-video w-full rounded-2xl bg-stone-900">
-                  <source src={videoUrl(v.file)} type={v.file.endsWith('.webm') ? 'video/webm' : 'video/mp4'} />
-                  Ihr Browser kann dieses Video nicht abspielen.
-                </video>
-                <figcaption className="mt-2 font-bold text-stone-800">{v.title}</figcaption>
-              </figure>
-            </li>
-          ))}
-        </ul>
-      )}
-      {links.length > 0 && (
-        <ul className="mt-4 flex flex-wrap gap-3">
-          {links.map((v) => (
-            <li key={v.id}>
-              <a
-                href={v.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-brand-50 px-4 font-bold text-brand-800 ring-1 ring-brand-200 hover:bg-brand-100"
-              >
-                <ExternalLink className="size-5" aria-hidden />
-                {v.title}
-                <span className="sr-only"> (öffnet in neuem Tab)</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-function ChipList({ values }: { values: string[] }) {
-  return (
-    <ul className="flex flex-wrap gap-2">
-      {values.map((v) => (
-        <li key={v} className="rounded-full bg-stone-100 px-3 py-1 text-base font-bold text-stone-800">
-          {v}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
