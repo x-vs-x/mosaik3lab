@@ -338,7 +338,7 @@ test('Update 1.7.0 → Migrationen 021 (nur Indizes) und 022 (benutzer_recht weg
     try {
       const db = openDb(dbFile, { readOnly: true });
       const da = db.prepare("SELECT name FROM sqlite_master WHERE type = 'index'").all().map((r: any) => r.name);
-      const tabellen = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r: any) => r.name);
+      const tabellen = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r) => (r as { name: string }).name);
       const version = (db.prepare('SELECT MAX(version) AS v FROM schema_version').get() as any).v;
       db.close();
       assert.equal(version, 22);
