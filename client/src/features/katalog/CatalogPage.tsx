@@ -1,7 +1,16 @@
 import { ChevronDown, Clock, Layers, Lightbulb, PackageOpen, Search, SlidersHorizontal, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
-import { ladePosition, merkePosition, sollPositionWiederherstellen } from './katalogScroll';
+import {
+  KATALOG_SEITE,
+  ladeAnzahl,
+  ladePosition,
+  merkeAnzahl,
+  merkePosition,
+  naechsteAnzahl,
+  sollPositionWiederherstellen,
+} from './katalogScroll';
+import { NachladenFuss } from './Nachladen';
 import { ItemImage } from '../../components/ItemImage';
 import { useAuth } from '../../auth/AuthContext';
 import { Alert, Badge, Button, Card, cx, DemoBadge, LinkButton, PageHeader, Select, Spinner } from '../../components/ui';
@@ -37,8 +46,19 @@ export function CatalogPage() {
     return `/items?${s.toString()}`;
   }, [debouncedQ, category, area, kind]);
 
+  // Die Liste kommt immer vollständig (Suche und Filter über alle Druckteile), angezeigt wird nur der Anfang.
   const { data: items, error, loading } = useApi<Item[]>(query);
-  useScrollPositionMerken(!!items);
+  const [anzahl, setAnzahl] = useState(KATALOG_SEITE);
+  // Neue Suche oder neuer Filter: wieder mit der ersten Seite beginnen.
+  const [anzahlFuer, setAnzahlFuer] = useState(query);
+  if (anzahlFuer !== query) {
+    setAnzahlFuer(query);
+    setAnzahl(KATALOG_SEITE);
+  }
+  const gesamt = items?.length ?? 0;
+  const [laedtMehr, startMehr] = useTransition();
+  const mehr = useCallback(() => startMehr(() => setAnzahl((a) => naechsteAnzahl(a, gesamt))), [gesamt]);
+  useScrollPositionMerken(!!items, anzahl, setAnzahl);
 
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -173,11 +193,12 @@ export function CatalogPage() {
 
       {items && items.length > 0 && (
         <ul className={cx('grid gap-3 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3', loading && 'opacity-60 transition-opacity')}>
-          {items.map((item) => (
+          {items.slice(0, anzahl).map((item) => (
             <ItemCard key={item.id} item={item} />
           ))}
         </ul>
       )}
+      {items && <NachladenFuss angezeigt={Math.min(anzahl, gesamt)} gesamt={gesamt} laedt={laedtMehr} onMehr={mehr} />}
 
       {items?.some((i) => i.isDemo) && (
         <p className="mt-10 text-center text-hinweis text-stone-500">
@@ -191,26 +212,39 @@ export function CatalogPage() {
 /**
  * Merkt die Scrollhöhe je Katalog-Adresse (Suche/Filter) und stellt sie wieder her, wenn man vom Druckteil
  * zurückkommt – per Zurück-Taste/-Geste (POP) oder per Link/Navigation. Erst wenn die Liste geladen ist: Vorher ist
- * die Seite zu kurz, deshalb klappte das Zurückspringen des Browsers allein nicht.
+ * die Seite zu kurz, deshalb klappte das Zurückspringen des Browsers allein nicht. Die Anzahl der angezeigten
+ * Druckteile wird mitgemerkt und zuerst wiederhergestellt, sonst wäre die Seite weit unten zu kurz.
  */
-function useScrollPositionMerken(geladen: boolean) {
+function useScrollPositionMerken(geladen: boolean, anzahl: number, setAnzahl: (n: number) => void) {
   const { search } = useLocation();
   const navigationType = useNavigationType();
   // Art des Seitenwechsels beim Öffnen; Filter ändern sie danach (REPLACE).
   const [navBeimOeffnen] = useState(navigationType);
   const [bereit, setBereit] = useState(false);
+  // Zielhöhe nach dem Laden (0 = nicht wiederherstellen); null = noch nicht entschieden.
+  const [ziel, setZiel] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!geladen || bereit) return;
+    if (!geladen || ziel !== null) return;
     // Erst hier prüfen: Das Layout meldet den Seitenwechsel nach dem ersten Zeichnen des Katalogs.
     const y = sollPositionWiederherstellen(navBeimOeffnen) ? ladePosition(search) : null;
-    // Kurz danach, damit die Liste steht (und nach dem „nach oben“ im Layout).
+    if (y) setAnzahl(ladeAnzahl(search));
+    setZiel(y ?? 0);
+  }, [geladen, ziel, navBeimOeffnen, search, setAnzahl]);
+
+  useEffect(() => {
+    if (ziel === null || bereit) return;
+    // Kurz danach, damit die Liste (mit der gemerkten Anzahl) steht – und nach dem „nach oben“ im Layout.
     const timer = setTimeout(() => {
-      if (y) window.scrollTo({ top: y, behavior: 'instant' });
+      if (ziel) window.scrollTo({ top: ziel, behavior: 'instant' });
       setBereit(true);
     });
     return () => clearTimeout(timer);
-  }, [geladen, bereit, navBeimOeffnen, search]);
+  }, [ziel, bereit]);
+
+  useEffect(() => {
+    if (bereit) merkeAnzahl(search, anzahl);
+  }, [bereit, search, anzahl]);
 
   useEffect(() => {
     if (!bereit) return;
