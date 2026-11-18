@@ -61,6 +61,8 @@ test('Ohne Basis-Pfad: App unter /, keine HTTPS-Anweisungen im LAN (W1), kein HS
     assert.match(await page.text(), /<base href="\/" \/>/);
     const csp = page.headers.get('content-security-policy') ?? '';
     assert.ok(csp.includes("default-src 'self'"), csp);
+    // Fotovorschau im Vorschlagsformular nutzt blob:-Adressen (F2); 'self' und data: bleiben wie bei den Standardwerten.
+    assert.match(csp, /(^|;)\s*img-src 'self' data: blob:\s*(;|$)/, csp);
     assert.ok(!csp.includes('upgrade-insecure-requests'), 'bricht sonst http://<IP> im Schulnetz');
     assert.equal(page.headers.get('strict-transport-security'), null);
     assert.equal((await noRedirect(`${plain.base}/api/health`)).status, 200);

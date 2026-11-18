@@ -51,7 +51,11 @@ export async function createApp(config: AppConfig) {
     helmet({
       crossOriginEmbedderPolicy: false,
       // upgrade-insecure-requests und HSTS nur bei echtem HTTPS – sonst bricht der Aufruf über http://<IP> im Schulnetz.
-      contentSecurityPolicy: { useDefaults: true, directives: { 'upgrade-insecure-requests': config.https ? [] : null } },
+      // img-src zusätzlich blob: – für die Fotovorschau im Vorschlagsformular (URL.createObjectURL).
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: { 'img-src': ["'self'", 'data:', 'blob:'], 'upgrade-insecure-requests': config.https ? [] : null },
+      },
       strictTransportSecurity: config.https ? { maxAge: 15552000 } : false,
     }),
   );

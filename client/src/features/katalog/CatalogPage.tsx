@@ -203,7 +203,7 @@ export function CatalogPage() {
       )}
 
       {items && items.length > 0 && (
-        <ul className={cx('grid gap-3 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3', (loading || veraltet) && 'opacity-60 transition-opacity')}>
+        <ul className={cx('grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3', (loading || veraltet) && 'opacity-60 transition-opacity')}>
           {items.slice(0, anzahl).map((item) => (
             <ItemCard key={item.id} item={item} />
           ))}
@@ -319,7 +319,7 @@ function ItemCard({ item }: { item: Item }) {
           <h2 className="wrap-anywhere text-abschnitt font-bold text-stone-900 group-hover:text-brand-800">{item.name}</h2>
           <p className="mt-1 line-clamp-3 flex-1 text-stone-600 sm:mt-1.5">{item.shortDescription}</p>
           {filaments.length > 0 && (
-            <div className="mt-3 flex items-center gap-1.5">
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
               <span className="sr-only">
                 Verfügbare Farben: {filaments.map((f) => f.colorName).join(', ')}
               </span>

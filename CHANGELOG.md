@@ -6,6 +6,12 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Fotovorschau im Vorschlagsformular:** Ausgewählte Fotos erscheinen jetzt als Vorschaubild (die
+  Sicherheitsregeln der Seite hatten sie blockiert).
+- **Katalog bei großer Schrift:** Auf dem Handy mit großer Schrift werden die Karten nicht mehr rechts abgeschnitten;
+  viele Farbtupfer brechen um.
+- **Kontosperre:** Bei weiteren Versuchen an einem schon gesperrten Konto behauptet die Meldung nicht mehr, es sei eine
+  E-Mail verschickt worden.
 - **Suchfelder verlieren beim schnellen Tippen keine Zeichen mehr:** Im Katalog, in den Anfragen und in der
   Druckteil-Liste der Verwaltung kamen bei schnellem Tippen nicht alle Buchstaben an. Jetzt bleibt alles Getippte stehen;
   Zurück/Vor im Browser und Links mit Suchbegriff funktionieren wie bisher.

@@ -2,6 +2,21 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Restfehler F2–F4 aus der Abschlussprüfung (Unter-Session, Branch: fix/restfehler → refactor/code-hygiene)
+- **Abschlussprüfung Code-Hygiene bestanden**, Bericht `_testdaten/abschluss-hygiene`. Die drei dort gefundenen, schon in
+  1.6.3 vorhandenen Schwächen behoben:
+  - **F2** `server/src/app.ts`: CSP `img-src 'self' data: blob:` (Fotovorschau im Vorschlagsformular per
+    `URL.createObjectURL`; andere blob:-Bilder gibt es nicht, `herunterladen.ts` nutzt blob: nur für Download-Links).
+  - **F3** `client/src/features/katalog/CatalogPage.tsx`: Raster `grid-cols-1` als Basis, Farbtupfer-Zeile `flex-wrap`.
+    „Ähnliche Druckteile“ (schon `min-w-0`/`wrap-anywhere`) und Verwaltungs-Raster ohne dasselbe Problem.
+  - **F4** `server/src/module/konten/konten.service.ts`: Versuche an schon gesperrtem Konto bekommen einen neutralen Text
+    („Falls Sie eine E-Mail … bekommen haben“); „Wir haben eine E-Mail geschickt“ nur noch beim Sperren mit gesendeter Mail.
+- **Tests:** `betrieb.test.ts` prüft `img-src` im CSP-Header, `konten-sperre.test.ts` prüft beide Sperrtexte und dass
+  keine zweite Mail geht. Klicktest headless Chrome (frisches Profil), Demo-Daten mit einem Druckteil mit 16 Farben:
+  Katalog 320/375/375 mit 200 %/768/1440 ohne Überstand (vorher 388 px Karte im 330 px Raster), Fotovorschau sichtbar
+  ohne CSP-Meldung, Sperrtexte Versuch 10/11. Screenshots in `_testdaten/restfehler-bilder`.
+- **Aufgeräumt:** Dev-Server 5183/3013 gestoppt, `_testdaten/restfehler` und Scratchpad-Skripte gelöscht, Worktree entfernt.
+
 ## 2026-11-18 – Code-Hygiene Phase 2: shared/Verträge (Unter-Session, Branch: refactor/shared → refactor/code-hygiene)
 - **Auftrag:** D1–D9, C14–C16, S21 sowie Rest: D16, M14-Rest, DATENMODELL `update.*`, D10-Client, Testkommentar, Suchfeld.
 - **Gebaut:** `shared/src/werte/bilder.ts` (Bildbreiten 2000/1080/360, JPEG 85, Vorschaugrößen), `werte/dateien.ts`

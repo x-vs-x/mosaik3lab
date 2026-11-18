@@ -56,12 +56,19 @@ test('Gleichzeitige Fehlversuche an der Grenze: genau eine Sperre, genau eine Ma
   assert.deepEqual(status, [401, 403, 403]);
   assert.match(antworten.find((a) => a.status === 401)!.json.error, /Noch 1 Versuch/);
   for (const a of antworten.filter((x) => x.status === 403)) assert.match(a.json.error, /gesperrt/);
+  // Nur der Versuch, der sperrt (und die Mail verschickt), behauptet „Wir haben eine E-Mail … geschickt“.
+  assert.equal(antworten.filter((a) => /Wir haben eine E-Mail/.test(a.json.error ?? '')).length, 1);
   const s = stand(email);
   assert.equal(s.fehlversuche, 10, 'Sperre wird von einem späteren Fehlversuch nicht zurückgesetzt');
   assert.ok(s.gesperrt_seit);
   // Die Sperr-Mail geht noch innerhalb der Anmelde-Anfrage raus – sie ist also schon gezählt.
   assert.equal(sentMails.length - vorher, 1, 'genau eine Mail zum Zurücksetzen');
-  assert.equal((await new Client(srv.base).login(email, TEST_PASSWORT)).status, 403, 'auch das richtige Passwort hilft nicht');
+  const spaeter = await new Client(srv.base).login(email, TEST_PASSWORT);
+  assert.equal(spaeter.status, 403, 'auch das richtige Passwort hilft nicht');
+  // Spätere Versuche wissen nicht, ob eine Mail ging: neutraler Hinweis, keine Behauptung (F4).
+  assert.doesNotMatch(spaeter.json.error, /Wir haben eine E-Mail/);
+  assert.match(spaeter.json.error, /Falls Sie eine E-Mail/);
+  assert.equal(sentMails.length - vorher, 1, 'spätere Versuche verschicken keine weitere Mail');
 });
 
 test('Abgelaufene Sperre: gleichzeitige Fehlversuche beginnen bei 1 und zählen weiter', async () => {
