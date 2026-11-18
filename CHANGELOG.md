@@ -6,6 +6,18 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Druckteil-Seite neu aufgeteilt:** Links steht alles, was fest zum Druckteil gehört – Bilder und Videos in einer Galerie,
+  darunter kompakt Druckdauer, Material, Preis, Art und Einsatzbereiche, dann Beschreibung, Materialinformationen, Links und
+  (nur für das Druck-Team) Sicherheitshinweise. Rechts stehen Titel und alles, was man wählt: Farbe bzw. Farbe je Teil
+  (Teile-Liste mit Farbwahl-Fenster), Größe, Personalisierung, Anzahl und „Druckteil anfragen“.
+  - **Gleich auf der Seite wählen:** Das Anfrage-Fenster kommt vorbelegt und fragt nur noch Schul-E-Mail, Klasse und
+    Anpassungswünsche; die Auswahl steht dort als Zusammenfassung mit „Ändern“. „Weitere Stückzahl“ bleibt im Fenster.
+    Fehlt eine Pflichtangabe, zeigt die Seite das direkt am Feld.
+  - **Videos in der Galerie:** Hochgeladene Videos stehen hinter den Bildern (mit Play-Symbol) und spielen direkt dort,
+    ohne Autoplay. YouTube-/Vimeo-Links erscheinen als Kachel „Bei youtube.com ansehen“ (neuer Tab, nichts eingebettet).
+  - **iPad quer jetzt zweispaltig;** die rechte Spalte läuft beim Scrollen mit, wenn sie ganz ins Fenster passt. Auf dem
+    Handy kommt „Druckteil anfragen“ direkt nach Titel und Auswahl, die Beschreibung danach.
+  - Knöpfe und Eingabefelder sind auf dem Handy jetzt mindestens 44 px hoch (vorher 41 px).
 - **Mehrfarbige Druckteile übersichtlich – bis zu 20 Teile:** Ein Druckteil kann jetzt aus bis zu 20 Teilen bestehen
   (vorher 8), jedes Teil mit eigener Farbe.
   - **Anfragen:** Die Teile stehen als kurze Liste (Farbtupfer, Teilname, Farbname). Ein Tipp öffnet das Farbwahl-Fenster
