@@ -4,7 +4,6 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { Readable } from 'node:stream';
 import { Router, type RequestHandler } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
@@ -20,7 +19,8 @@ import type { Storage } from '../../storage';
 import { stamp } from '../../kern/db';
 
 // Druckteile exportieren und einspielen – der eine Weg dafür (Verwaltung → Druckteile, Rechte daten:export/daten:import).
-//   GET  /export[?artikel=id1,id2]   eine Datei mit den gewählten (ohne Angabe: allen) Druckteilen samt Dateien
+//   GET  /export[?artikel=id1,id2]   eine ZIP-Datei mit den gewählten (ohne Angabe: allen) Druckteilen samt Dateien
+//   (Einspielen nimmt ZIP und ältere JSON-Exporte – erkannt an den ersten Bytes, nicht am Dateinamen)
 //   POST /import/vorschau            Datei hochladen und prüfen → Vorschau für „überspringen“ und „ersetzen“
 //   POST /import/ausfuehren          { importId, modus } – alles oder nichts, vorher wird die Datenbank gesichert
 //   DELETE /import/:id               Vorschau verwerfen
@@ -76,7 +76,7 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
         fs.mkdirSync(uploadDir, { recursive: true });
         cb(null, uploadDir);
       },
-      filename: (_req, _file, cb) => cb(null, `${crypto.randomBytes(16).toString('hex')}.json`),
+      filename: (_req, _file, cb) => cb(null, `${crypto.randomBytes(16).toString('hex')}.upload`),
     }),
     limits: { fileSize: config.importMaxBytes, files: 1, fields: 3 },
   });
@@ -95,11 +95,11 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
     try {
       const artikel = req.query.artikel === undefined ? undefined : artikelQuery.parse(req.query.artikel);
       const exp = await erzeugeExport(storage, { artikel });
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename="${exp.name}"`);
       res.setHeader('Cache-Control', 'no-store');
       console.log(`[Export] ${req.user?.email ?? '?'} lädt ${exp.name} (${exp.artikel} Druckteile, ${exp.dateien} Dateien).`);
-      await pipeline(Readable.from(exp.strom, { objectMode: false }), res);
+      await pipeline(exp.strom, res);
     } catch (err) {
       if (res.headersSent) res.destroy(err as Error);
       else {
@@ -136,6 +136,7 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
           artikel: paket.artikel.length,
           vorhanden: berichte.ueberspringen.vorhanden,
           dateien: infos.size,
+          version: paket.version,
         },
         berichte,
       });

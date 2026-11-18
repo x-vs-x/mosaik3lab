@@ -323,10 +323,20 @@ Der **eine** Weg, Druckteile weiterzugeben (Laien-Anleitung: [ANLEITUNG-DRUCKTEI
 Oberfläche: Verwaltung → Druckteile verwalten (`ItemsAdminPage` + `DruckteileAustausch.tsx`): Druckteile anhaken → „Exportieren“,
 „Einspielen …“ → Datei → Vorschau → „überspringen“/„ersetzen“ → Ergebnis. System-Sicherungen gibt es in der App nicht (Server-Manager).
 Rechte `daten:export` (braucht `catalog:view`) und `daten:import` (braucht `catalog:manage`), Standard Admin + Druck-Team, je Team-Konto abschaltbar.
-Code: `module/datenaustausch/` – `datenaustausch.export.ts` (Format, Strom), `datenaustausch.paket.ts` (Lesen, Prüfen), `datenaustausch.service.ts` (Vorschau, Einspielen), `datenaustausch.abgleich.ts` (Bezüge ergänzen), `datenaustausch.routes.ts`.
+Code: `module/datenaustausch/` – `datenaustausch.export.ts` (Format, Strom), `datenaustausch.zip.ts` (ZIP schreiben/lesen, Sicherheitsregeln; `yazl`/`yauzl`, reines JavaScript), `datenaustausch.paket.ts` (Lesen, Prüfen), `datenaustausch.service.ts` (Vorschau, Einspielen), `datenaustausch.abgleich.ts` (Bezüge ergänzen), `datenaustausch.aehnliche.ts` (ähnliche Druckteile), `datenaustausch.routes.ts`.
 
-**Datei** `mosaik3lab-druckteile-JJJJ-MM-TT.json` bzw. `mosaik3lab-druckteil-<Nummer>.json` (Format `mosaik3lab-stammdaten`, Version 1 – Name und
-Aufbau unverändert, damit alte Dateien lesbar bleiben und ältere Installationen neue lesen): als Ganzes gültiges JSON, zeilenweise aufgebaut –
+**Datei (seit 1.7.0, Format 2)** `mosaik3lab-druckteile-JJJJ-MM-TT.zip` bzw. `mosaik3lab-druckteil-<Nummer>.zip`: ZIP mit `paket.json` (dasselbe Objekt wie
+Zeile 1 des alten Formats, `version: 2`, je Datei zusätzlich `pfad`, je Druckteil `aehnliche: [{ id, name, nummer }]`) und den Dateien als echte
+Binärdateien in `bilder/`, `druckdateien/`, `videos/` (Name `<Datei-ID>.<Endung>`). JPG/PNG/WebP/MP4/WebM/3MF unkomprimiert, JSON/STL/PDF mit Deflate;
+rund ein Viertel kleiner als Base64 (Messung: 48 echte Bilder, 132,6 → 99,5 MB). Erkannt wird das Format an den ersten Bytes (`PK\x03\x04`), nicht am Namen.
+Import-Regeln für ZIP: nur `paket.json` und genau die beschriebenen Pfade (kein `..`, nicht absolut, Ordner passend zur Rolle), keine doppelten oder
+verschlüsselten Einträge, höchstens 20.000 Einträge, `paket.json` ≤ 64 MB, Summe entpackt < 4 GB, je Datei Größe aus dem Inhaltsverzeichnis =
+angegebene Größe ≤ Upload-Grenze **vor** dem Entpacken (Zip-Bombe; yauzl prüft beim Entpacken, dass sie stimmt), dann SHA-256 und Magic Bytes.
+Installationen bis 1.6.x melden bei einer ZIP „Das ist keine Export-Datei von Mosaik³LAB“ – die App weist beim Export auf 1.7.0 hin.
+**Ähnliche Druckteile** (Format 2): nur hinzufügen, in beiden Modi; Partner über Zuordnung in der Datei, gleiche ID oder `artikel.herkunft_id`, sonst
+vorgemerkt in `artikel_aehnlich_offen` und bei jedem späteren Import aufgelöst. Sie zählen nicht in den Vergleich „gleich/ersetzt“.
+
+**Datei bis 1.6.x (Format 1, wird weiter gelesen)** `….json`: als Ganzes gültiges JSON, zeilenweise aufgebaut –
 Zeile 1 = Kopf (`format, version, exportiertAm, appVersion, schemaVersion, mitDateien: true, auswahl: true, hinweise`) + `stammdaten` (nur die
 Kategorien, Einsatzbereiche, Materialien und Farbrollen, auf die die Druckteile verweisen; `statusarten: []`) + `artikel` (alle Angaben, Farbbereiche,
 Personalisierungsfelder, Preis, Videolinks, `dateien`: Rolle, Originalname, MIME, Größe, SHA-256), danach je Zeile eine Datei `{"id","daten":"<Base64>"}`

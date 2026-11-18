@@ -9,9 +9,11 @@ import { badRequest } from '../../kern/errors';
 import { detectImage, detectModel, detectVideo, MAX_IMAGE_BYTES, MAX_MODEL_BYTES, MAX_VIDEO_BYTES } from '../../kern/uploads';
 import { KOPF_ENDE, PAKET_FORMAT, PAKET_ROLLEN, PAKET_VERSION, PAKET_ENDE, type Paket, type PaketArtikel } from './datenaustausch.export';
 import { masterDataSchemas } from '@mosaik3lab/shared/stammdaten';
+import { istZip, leseEintrag, MAX_PAKET_JSON, oeffneZip, ORDNER, PAKET_JSON, ZIP_PFAD, type ZipInhalt } from './datenaustausch.zip';
 
 // Import, Teil 1: Paketdatei lesen (Kopf, Stammdaten, Artikel) und jede enthaltene Datei einzeln prüfen
-// (SHA-256, Größe, Magic Bytes). Format siehe datenaustausch.export.ts, Ablauf siehe datenaustausch.service.ts.
+// (SHA-256, Größe, Magic Bytes). Erkannt wird das Format an den ersten Bytes: „PK\x03\x04“ = ZIP (Format 2), sonst die
+// ältere JSON-Zeilen-Datei (Format 1). Format siehe datenaustausch.export.ts, Ablauf siehe datenaustausch.service.ts.
 
 const MAX_ARTIKEL = 5000;
 const MAX_DATEIEN_JE_ARTIKEL = 40;
@@ -27,7 +29,9 @@ export const dateiS = z.object({
   sha256: z.string().regex(/^[0-9a-f]{64}$/),
   sortierung: z.number().int().default(0),
   erstelltAm: z.string().max(40).default(''),
-});
+  // Pfad im ZIP (Format 2); muss zur Rolle passen. Fehlt in Format 1.
+  pfad: z.string().regex(ZIP_PFAD, 'unzulässiger Pfad').optional(),
+}).refine((d) => !d.pfad || d.pfad.startsWith(`${ORDNER[d.rolle]}/`), { message: 'Pfad passt nicht zur Art der Datei', path: ['pfad'] });
 
 const artikelS = z.object({
   id: z.string().regex(ID),
@@ -53,6 +57,8 @@ const artikelS = z.object({
   createdAt: z.string().max(40).default(''),
   updatedAt: z.string().max(40).default(''),
   dateien: z.array(dateiS).max(MAX_DATEIEN_JE_ARTIKEL).default([]),
+  // Ähnliche Druckteile (seit Format 2); ältere Dateien haben keine.
+  aehnliche: z.array(z.object({ id: z.string().regex(ID), name: z.string().max(300).default(''), nummer: z.string().max(40).default('') })).max(500).default([]),
   videos: z
     .array(z.object({ id: z.string().max(64), title: z.string().max(300).default(''), url: z.string().max(2000).refine((u) => u === '' || /^https?:\/\//i.test(u), 'Nur Links mit http:// oder https://').default(''), dateiId: z.string().max(64).default(''), uploadedAt: z.string().max(40).default('') }))
     .max(20)
@@ -89,7 +95,25 @@ async function* zeilen(file: string): AsyncGenerator<string> {
   }
 }
 
+/** Liest Kopf, Stammdaten und Druckteile – aus dem ZIP (paket.json) oder aus der ersten Zeile der JSON-Datei. */
 export async function leseKopf(file: string): Promise<Paket> {
+  if (await istZip(file)) {
+    const z = await oeffneZip(file);
+    try {
+      const e = z.eintraege.get(PAKET_JSON);
+      if (!e) throw badRequest('Das ist keine Export-Datei von Mosaik³LAB (paket.json fehlt in der ZIP-Datei). Bitte die Datei wählen, die beim Exportieren heruntergeladen wurde.');
+      const text = (await leseEintrag(z, e, MAX_PAKET_JSON)).toString('utf8').replace(/^\uFEFF/, '');
+      let raw: unknown;
+      try {
+        raw = JSON.parse(text);
+      } catch {
+        throw badRequest('Die Datei ist beschädigt (paket.json ist kein gültiges JSON).');
+      }
+      return pruefeKopf(raw);
+    } finally {
+      z.close();
+    }
+  }
   let first: string | undefined;
   for await (const line of zeilen(file)) {
     // Byte-Order-Mark entfernen: entsteht z. B., wenn die Datei im Windows-Editor geöffnet und gespeichert wurde
@@ -106,6 +130,10 @@ export async function leseKopf(file: string): Promise<Paket> {
   } catch {
     throw badRequest('Die Datei ist beschädigt (kein gültiges JSON).');
   }
+  return pruefeKopf(raw);
+}
+
+function pruefeKopf(raw: unknown): Paket {
   const format = (raw as { format?: unknown } | null)?.format;
   if (format !== PAKET_FORMAT) throw badRequest('Das ist keine Export-Datei von Mosaik³LAB (Format unbekannt).');
   const version = (raw as { version?: unknown }).version;
@@ -190,12 +218,29 @@ async function sha256Hex(buffer: Buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
+type Meta = PaketArtikel['dateien'][number];
+
+/** Prüft eine Datei (Größe, SHA-256, Inhalt) und legt sie bei Bedarf in `tmpDir` ab. */
+async function pruefeEine(meta: Meta, buffer: Buffer, tmpDir: string | undefined): Promise<DateiInfo> {
+  const name = meta.originalname || meta.id;
+  if (buffer.length !== meta.groesse) throw badRequest(`„${name}“: Größe stimmt nicht (${buffer.length} statt ${meta.groesse} Bytes) – Datei beschädigt.`);
+  if ((await sha256Hex(buffer)) !== meta.sha256) throw badRequest(`„${name}“: Prüfsumme (SHA-256) stimmt nicht – die Datei wurde verändert oder ist beschädigt.`);
+  let ext: string;
+  try {
+    ext = pruefeInhalt(meta, buffer);
+  } catch (err) {
+    throw badRequest(`„${name}“: ${(err as Error).message}`);
+  }
+  if (tmpDir) await fsp.writeFile(path.join(tmpDir, meta.id), buffer, { flag: 'w' });
+  return { ext, groesse: buffer.length };
+}
+
 /**
  * Geht alle Dateien des Pakets durch (jeweils eine im Speicher) und prüft sie. Optional wird jede geprüfte Datei
  * in `tmpDir` geschrieben (Ausführung). Wirft bei der ersten Abweichung – manipulierte Pakete werden nie teilweise eingespielt.
  */
 export async function pruefeDateien(file: string, paket: Paket, tmpDir?: string): Promise<Map<string, DateiInfo>> {
-  const metas = new Map<string, PaketArtikel['dateien'][number]>();
+  const metas = new Map<string, Meta>();
   if (paket.mitDateien) {
     for (const a of paket.artikel) {
       for (const d of a.dateien) {
@@ -206,6 +251,15 @@ export async function pruefeDateien(file: string, paket: Paket, tmpDir?: string)
   }
   const infos = new Map<string, DateiInfo>();
   if (tmpDir) await fsp.mkdir(tmpDir, { recursive: true });
+  if (await istZip(file)) {
+    const z = await oeffneZip(file);
+    try {
+      await pruefeZipDateien(z, metas, infos, tmpDir);
+    } finally {
+      z.close();
+    }
+    return infos;
+  }
   for await (const z of dateiZeilen(file)) {
     const meta = metas.get(z.id);
     if (!meta) {
@@ -213,20 +267,31 @@ export async function pruefeDateien(file: string, paket: Paket, tmpDir?: string)
       continue;
     }
     if (infos.has(z.id)) throw badRequest(`Der Inhalt der Datei ${z.id} kommt mehrfach vor.`);
-    const name = meta.originalname || z.id;
-    const buffer = Buffer.from(z.daten, 'base64');
-    if (buffer.length !== meta.groesse) throw badRequest(`„${name}“: Größe stimmt nicht (${buffer.length} statt ${meta.groesse} Bytes) – Datei beschädigt.`);
-    if ((await sha256Hex(buffer)) !== meta.sha256) throw badRequest(`„${name}“: Prüfsumme (SHA-256) stimmt nicht – die Datei wurde verändert oder ist beschädigt.`);
-    let ext: string;
-    try {
-      ext = pruefeInhalt(meta, buffer);
-    } catch (err) {
-      throw badRequest(`„${name}“: ${(err as Error).message}`);
-    }
-    if (tmpDir) await fsp.writeFile(path.join(tmpDir, z.id), buffer, { flag: 'w' });
-    infos.set(z.id, { ext, groesse: buffer.length });
+    infos.set(z.id, await pruefeEine(meta, Buffer.from(z.daten, 'base64'), tmpDir));
   }
   for (const id of metas.keys()) if (!infos.has(id)) throw badRequest(`Der Inhalt der Datei ${metas.get(id)!.originalname || id} fehlt im Paket.`);
   return infos;
 }
 
+/** ZIP: jede beschriebene Datei muss genau einmal unter ihrem Pfad liegen; weitere Einträge sind nicht erlaubt. */
+async function pruefeZipDateien(z: ZipInhalt, metas: Map<string, Meta>, infos: Map<string, DateiInfo>, tmpDir: string | undefined) {
+  const erwartet = new Map<string, Meta>();
+  for (const m of metas.values()) {
+    const name = m.originalname || m.id;
+    if (!m.pfad) throw badRequest(`Der Inhalt der Datei ${name} fehlt im Paket (kein Pfad angegeben).`);
+    if (erwartet.has(m.pfad)) throw badRequest(`Der Pfad ${m.pfad} kommt mehrfach vor.`);
+    erwartet.set(m.pfad, m);
+  }
+  for (const name of z.eintraege.keys()) {
+    if (name !== PAKET_JSON && !erwartet.has(name)) throw badRequest(`Die Datei enthält einen unerwarteten Eintrag („${name}“) und wird aus Sicherheitsgründen nicht eingespielt.`);
+  }
+  for (const [pfad, meta] of erwartet) {
+    const e = z.eintraege.get(pfad);
+    const name = meta.originalname || meta.id;
+    if (!e) throw badRequest(`Der Inhalt der Datei ${name} fehlt im Paket.`);
+    // Größe aus dem Inhaltsverzeichnis vor dem Entpacken prüfen (Zip-Bombe); yauzl prüft beim Entpacken, dass sie stimmt.
+    if (e.uncompressedSize !== meta.groesse) throw badRequest(`„${name}“: Größe stimmt nicht (${e.uncompressedSize} statt ${meta.groesse} Bytes) – Datei beschädigt.`);
+    if (e.uncompressedSize > GRENZE[meta.rolle]) throw badRequest(`„${name}“: zu groß (max. ${GRENZE[meta.rolle] / 1024 / 1024} MB)`);
+    infos.set(meta.id, await pruefeEine(meta, await leseEintrag(z, e, GRENZE[meta.rolle]), tmpDir));
+  }
+}

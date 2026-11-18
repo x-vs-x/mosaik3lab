@@ -18,7 +18,16 @@ daraus die nächste Version.
 - **Ähnliche Druckteile:** Beim Bearbeiten eines Druckteils lassen sich im neuen Abschnitt „Ähnliche Druckteile“ andere
   Druckteile über die Suche (Name oder Nummer) verknüpfen und wieder entfernen. Die Verknüpfung gilt für beide Teile.
   Ganz unten auf der Seite des Druckteils erscheinen sie als kleine Karten; ein Tipp öffnet das ähnliche Druckteil.
-  Nicht veröffentlichte Teile sieht nur das Druck-Team. Die Verknüpfungen kommen beim Exportieren nicht mit.
+  Nicht veröffentlichte Teile sieht nur das Druck-Team.
+
+- **Export als ZIP-Datei:** „Exportieren“ erzeugt jetzt eine ZIP-Datei statt einer Textdatei – rund ein Viertel kleiner,
+  und die Bilder darin lassen sich am Computer direkt ansehen. Ältere Export-Dateien (.json) lassen sich weiter
+  einspielen. Die Schule, die die Datei einspielt, braucht mindestens Version 1.7.0 (ältere melden „keine Export-Datei“).
+
+- **Ähnliche Druckteile wandern mit:** Export und Einspielen übernehmen die Verknüpfungen „Ähnliche Druckteile“. Fehlt ein
+  ähnliches Druckteil noch, merkt sich die App die Verknüpfung und legt sie an, sobald es mit einer späteren Datei kommt.
+  Vorschau und Ergebnis zeigen z. B. „3 Verknüpfungen werden angelegt, 1 wartet auf Druckteile, die noch fehlen“.
+  Verknüpfungen werden nur hinzugefügt, nie gelöscht.
 
 - **Katalog lädt schneller:** Die Seite mit den Druckteilen zeigt zuerst 50 Stück. Beim Runterscrollen kommen kurz vor
   dem Ende automatisch die nächsten 50 dazu – ohne Seitenzahlen. Unter der Liste stehen „50 von 137 Druckteilen“ und der

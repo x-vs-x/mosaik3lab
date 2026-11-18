@@ -16,6 +16,7 @@ import { COLOR_KEYS, ICON_KEYS } from '@mosaik3lab/shared/stammdaten';
 import { PAKET_ROLLEN, type Paket, type PaketArtikel } from './datenaustausch.export';
 import { ID, type DateiInfo } from './datenaustausch.paket';
 import { ergaenze, lc } from './datenaustausch.abgleich';
+import { verknuepfe, type VerknuepfungsZaehler } from './datenaustausch.aehnliche';
 
 // Druckteile einspielen (Format siehe datenaustausch.export.ts, Lesen/Prüfen: datenaustausch.paket.ts).
 // Ablauf: 1) Kopf lesen und prüfen, 2) jede Datei einzeln prüfen (SHA-256, Größe, Magic Bytes), 3) „trocken“ durchrechnen
@@ -29,6 +30,7 @@ import { ergaenze, lc } from './datenaustausch.abgleich';
 // Kategorien, Einsatzbereiche, Materialien und Farbrollen der eingespielten Druckteile werden zugeordnet oder ergänzt;
 // vorhandene Stammdaten werden nie geändert oder gelöscht. Ältere Dateien (vollständiger Export mit allen Stammdaten
 // und Anfragestatus) werden genauso gelesen – nicht gebrauchte Stammdaten und Status werden ignoriert.
+// Ähnliche Druckteile werden in beiden Modi nur hinzugefügt, nie gelöscht (datenaustausch.aehnliche.ts).
 
 export type Modus = 'ueberspringen' | 'ersetzen';
 
@@ -55,6 +57,8 @@ export interface Bericht {
   /** Davon gibt es hier schon. */
   vorhanden: number;
   abschnitte: Record<'artikel' | 'kategorien' | 'einsatzbereiche' | 'materialien' | 'filamente' | 'dateien', Zaehler>;
+  /** Ähnliche Druckteile: neu angelegte und vorgemerkte (Partner fehlt hier noch) Verknüpfungen. */
+  verknuepfungen: VerknuepfungsZaehler;
   details: Detail[];
   /** Mehr Details, als angezeigt werden. */
   weitereDetails: number;
@@ -76,7 +80,12 @@ interface Ergebnis {
   loeschen: Datei[];
 }
 
-/** Vergleichswert eines Druckteils (ohne technische IDs von Dateien, mit Prüfsummen der Dateien). */
+/**
+ * Vergleichswert eines Druckteils (ohne technische IDs von Dateien, mit Prüfsummen der Dateien). Ähnliche Druckteile
+ * gehören bewusst nicht dazu: Sie werden in beiden Modi nur ergänzt, unabhängig davon, ob das Druckteil ersetzt wird.
+ * Zählten sie mit, würde ein unverändertes Druckteil nur wegen einer neuen Verknüpfung als „ersetzt“ gelten (samt neu
+ * geschriebener Dateien), und weil Partner außerhalb des Exports hier fehlen oder andere IDs haben, wäre der Vergleich nie stabil.
+ */
 function fingerabdruck(i: Pick<Item, 'name' | 'shortDescription' | 'description' | 'category' | 'kind' | 'useAreas' | 'sizes' | 'colorAreas' | 'price' | 'customFields' | 'material' | 'materialInfo' | 'printTimeMinutes' | 'safetyNotes' | 'links' | 'published'>, videos: { title: string; url: string; sha: string }[], dateien: { rolle: string; sha: string }[] | null, farben: (a: ColorArea) => unknown) {
   return JSON.stringify({
     n: i.name,
@@ -150,6 +159,9 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
 
   // 1) Welche Druckteile werden eingespielt?
   const treffer = ordneZu(paket, vorherArtikel);
+  /** Druckteil der Datei (ID dort) → Druckteil hier, für die Verknüpfungen „ähnliche Druckteile“. */
+  const lokal = new Map<string, string>();
+  for (const [a, t] of treffer) if (t && !lokal.has(a.id)) lokal.set(a.id, t.id);
   const gesehenIds = new Set<string>();
   const zuImportieren: PaketArtikel[] = [];
   for (const a of paket.artikel) {
@@ -344,6 +356,7 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
       }
     }
     vergebeneNummern.add(nummer);
+    lokal.set(a.id, id);
 
     for (const n of neueDateien) {
       files.insert(n.datei);
@@ -407,12 +420,16 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
     }
   }
 
+  // 4) Ähnliche Druckteile: anlegen, vormerken, früher vorgemerkte auflösen (nur hinzufügen).
+  const verknuepfungen = verknuepfe(db, paket.artikel, lokal);
+
   // Dateien, deren Pfad neu belegt wurde, nicht löschen (gleicher Pfad = neue Datei).
   const bericht: Bericht = {
     modus: opt.modus,
     artikel: paket.artikel.length,
     vorhanden: [...treffer.values()].filter(Boolean).length,
     abschnitte: z,
+    verknuepfungen,
     details: details.slice(0, MAX_DETAILS),
     weitereDetails: Math.max(0, details.length - MAX_DETAILS),
   };
