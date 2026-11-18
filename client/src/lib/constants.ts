@@ -23,7 +23,7 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
-import { STATUS_CATALOG } from '@mosaik3lab/shared/werte/anfragen';
+import { STATUS_CATALOG, type StatusId } from '@mosaik3lab/shared/werte/anfragen';
 import type { Category, ColorKey, IconKey, MasterData, OrderStatusDef, StatusPhase } from './types';
 
 export { ROLE_LABELS } from '@mosaik3lab/shared/werte/konten';
@@ -82,7 +82,7 @@ export function categoryMeta(md: MasterData, name: string) {
 export const PHASE_ICONS: Record<StatusPhase, LucideIcon> = { open: Inbox, active: Printer, done: CircleCheck };
 
 /** Symbole der festen Status (IDs aus shared/src/anfragen.ts). */
-export const STATUS_ICONS: Record<string, LucideIcon> = {
+export const STATUS_ICONS: Record<StatusId, LucideIcon> = {
   offen: Inbox,
   in_pruefung: SearchCheck,
   in_druck: Printer,
@@ -99,7 +99,7 @@ export const STATUS_DESCRIPTIONS: Record<string, string> = Object.fromEntries(ST
 /** Darstellung eines Status (über seine ID). */
 export function statusMeta(md: MasterData, id: string) {
   const def: OrderStatusDef = md.orderStatuses.find((s) => s.id === id) ?? { id, name: id, phase: 'open', color: 'grau', active: false };
-  return { ...COLOR_STYLES[def.color], icon: STATUS_ICONS[def.id] ?? PHASE_ICONS[def.phase], def, label: def.name };
+  return { ...COLOR_STYLES[def.color], icon: (STATUS_ICONS as Partial<Record<string, LucideIcon>>)[def.id] ?? PHASE_ICONS[def.phase], def, label: def.name };
 }
 
 /** Eingeschaltete Status in Bearbeitungsreihenfolge. */

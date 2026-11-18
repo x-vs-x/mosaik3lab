@@ -14,8 +14,11 @@ export type {
 
 import type { MasterData } from '@mosaik3lab/shared/stammdaten';
 export type { Category, ColorKey, Filament, IconKey, MasterData, SimpleEntry, BambuAbgleichHinweis, BambuKatalogAntwort, BambuKatalogEintrag } from '@mosaik3lab/shared/stammdaten';
-/** Listen der Stammdaten-Seite (inkl. Bestellstatus, die nur an-/ausgeschaltet werden). */
-export type MasterDataList = keyof MasterData;
+/**
+ * Listen der Stammdaten-Seite (inkl. Bestellstatus, die nur an-/ausgeschaltet werden) – nicht zu verwechseln mit
+ * MasterDataList in shared/ (nur die vier Listen, die per PUT gespeichert werden).
+ */
+export type StammdatenSeite = keyof MasterData;
 
 export type { AdminSettings, Features, MailInfoView, OrderFormSettings, PublicConfig } from '@mosaik3lab/shared/einstellungen';
 

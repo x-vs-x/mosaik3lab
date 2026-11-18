@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { newId } from '../../kern/ids';
 import { userCan } from '../konten/rechte';
-import type { Proposal } from '@mosaik3lab/shared/vorschlaege';
+import type { Proposal, ProposalUmgewandelt } from '@mosaik3lab/shared/vorschlaege';
 import type { Item, User } from '../../domain/types';
 import type { Requester } from '@mosaik3lab/shared/anfragen';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../../kern/errors';
@@ -152,7 +152,7 @@ async function draftItem(storage: Storage, p: Proposal, itemId: string, images: 
 }
 
 /** „In Druckteil umwandeln“: Entwurf (nicht veröffentlicht) mit Titel, Beschreibung und kopierten Fotos. */
-export async function convertProposal(storage: Storage, id: string, user: User) {
+export async function convertProposal(storage: Storage, id: string, user: User): Promise<ProposalUmgewandelt> {
   if (!userCan(user, 'catalog:manage')) throw forbidden('Zum Umwandeln wird zusätzlich das Recht „Katalog bearbeiten“ gebraucht.');
   const proposal = await loadProposal(storage, id);
   if (proposal.itemId) throw conflict('Dieser Vorschlag wurde bereits in ein Druckteil umgewandelt.');

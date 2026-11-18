@@ -5,7 +5,7 @@ import { ANFANGSSTATUS, isAllowedEmail } from '../einstellungen/einstellungen.vo
 import { type Filament } from '@mosaik3lab/shared/stammdaten';
 import { type StatusPhase } from '@mosaik3lab/shared/anfragen';
 import { singleColorArea, type Item, type User } from '../../domain/types';
-import { type Order, type OrderColorChoice, type OrderCustomValue, type Requester } from '@mosaik3lab/shared/anfragen';
+import { type DashboardData, type Order, type OrderColorChoice, type OrderCustomValue, type OwnOrder, type Requester, type RequestTemplate } from '@mosaik3lab/shared/anfragen';
 import { badRequest, conflict, forbidden, notFound } from '../../kern/errors';
 import type { Storage } from '../../storage';
 import { passtZurSuche } from '@mosaik3lab/shared/suche';
@@ -216,8 +216,8 @@ export async function trackOrders(storage: Storage, body: unknown) {
 }
 
 /** Sicht der Lehrkraft auf ihre Anfrage – ohne interne Felder. */
-function toOwnOrder(o: Order, withStatus: boolean) {
-  const base = {
+function toOwnOrder(o: Order, withStatus: boolean): OwnOrder {
+  const base: OwnOrder = {
     id: o.id,
     number: o.number,
     itemId: o.itemId,
@@ -239,7 +239,7 @@ function toOwnOrder(o: Order, withStatus: boolean) {
 }
 
 /** Eigene Anfragen der Lehrkraft; Bearbeitungsstand nur, wenn die Statusanzeige für Lehrkräfte eingeschaltet ist. */
-export async function myOrders(storage: Storage, requesterId: string) {
+export async function myOrders(storage: Storage, requesterId: string): Promise<OwnOrder[]> {
   const { features } = await storage.settings.get();
   const orders = (await storage.orders.listByRequester(requesterId)).sort(byNewest);
   const items = new Map(storage.items.listByIds(orders.map((o) => o.itemId)).map((i) => [i.id, i]));
@@ -253,7 +253,7 @@ export async function myOrders(storage: Storage, requesterId: string) {
  * Vorlage zum erneuten Anfragen: nur die eigene Anfrage. Prüft gegen den aktuellen Stand des Druckteils und
  * liefert nur noch gültige Angaben; alles andere steht in `hinweise` (und bleibt im Formular leer).
  */
-export async function orderTemplate(storage: Storage, orderId: string, requesterId: string) {
+export async function orderTemplate(storage: Storage, orderId: string, requesterId: string): Promise<RequestTemplate> {
   const order = await storage.orders.findById(orderId);
   if (!order || order.requesterId !== requesterId) throw notFound('Anfrage nicht gefunden.');
   const item = order.itemId ? await storage.items.findById(order.itemId) : undefined;
@@ -342,7 +342,7 @@ export async function changeStatus(storage: Storage, id: string, status: string,
 }
 
 /** Übersicht für das Druck-Team: Zahlen per SQL, dazu die neuesten Anfragen. */
-export async function dashboard(storage: Storage) {
+export async function dashboard(storage: Storage): Promise<DashboardData> {
   const statuses = (await storage.settings.get()).masterData.orderStatuses;
   const byStatus: Record<string, number> = Object.fromEntries(statuses.map((s) => [s.id, 0]));
   for (const [status, n] of Object.entries(storage.orders.countByStatus())) byStatus[status] = (byStatus[status] ?? 0) + n;

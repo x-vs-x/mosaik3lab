@@ -26,7 +26,7 @@ const filamentInput = z.object({
   available: z.boolean().optional(),
 });
 
-/** PUT /api/admin/master-data/:list – ganze Liste auf einmal (leere ID = neuer Eintrag). */
+/** PUT /api/admin/settings/masterdata/:list – ganze Liste auf einmal (leere ID = neuer Eintrag), Rumpf siehe MasterDataPutBody. */
 export const masterDataSchemas = {
   categories: z.array(categoryInput),
   useAreas: z.array(simpleEntryInput),
@@ -34,6 +34,13 @@ export const masterDataSchemas = {
   filaments: z.array(filamentInput),
 };
 export type MasterDataList = keyof typeof masterDataSchemas;
+/**
+ * Rumpf von PUT /api/admin/settings/masterdata/:list: die Liste unter `entries`. Geprüft wird sie mit masterDataSchemas[list]
+ * im Server (stammdaten.service.ts, Meldungen mit Zeilennummer).
+ */
+export interface MasterDataPutBody {
+  entries: unknown[];
+}
 
 export type Category = MitId<z.infer<typeof categoryInput>>;
 export type SimpleEntry = MitId<z.infer<typeof simpleEntryInput>>;
@@ -73,6 +80,12 @@ export const filamentImportSchema = z.object({
     .max(200)
     .transform((l) => [...new Set(l)]),
 });
+/** Antwort auf POST /api/admin/settings/masterdata/filaments/import. */
+export interface FilamentImportErgebnis {
+  masterData: MasterData;
+  /** Neu angelegte Farbrollen. */
+  added: number;
+}
 
 /** Eine Farbe im mitgelieferten Bambu-Lab-Katalog (server/src/domain/bambuKatalog.json). */
 export interface BambuKatalogEintrag {

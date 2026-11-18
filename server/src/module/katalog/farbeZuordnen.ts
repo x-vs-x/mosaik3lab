@@ -1,3 +1,4 @@
+import type { FarbeZuordnenErgebnis } from '@mosaik3lab/shared/katalog';
 import { allAreaColors } from '../../domain/types';
 import { badRequest, notFound } from '../../kern/errors';
 import type { Storage } from '../../storage';
@@ -6,7 +7,7 @@ import type { Storage } from '../../storage';
 // Alles in einer Transaktion (items.updateMany): klappt etwas nicht, bleibt jedes Druckteil, wie es war. Bereiche mit
 // „Alle Farben“ bekommen neue Farben ohnehin automatisch und bleiben unberührt.
 
-export async function farbeZuordnen(storage: Storage, filamentId: string, ziele: { itemId: string; bereiche: string[] }[]) {
+export async function farbeZuordnen(storage: Storage, filamentId: string, ziele: { itemId: string; bereiche: string[] }[]): Promise<FarbeZuordnenErgebnis> {
   if (!storage.settings.read().masterData.filaments.some((f) => f.id === filamentId)) throw notFound('Farbrolle nicht gefunden.');
   const bereicheJeTeil = new Map<string, string[]>();
   for (const z of ziele) bereicheJeTeil.set(z.itemId, [...(bereicheJeTeil.get(z.itemId) ?? []), ...z.bereiche]);

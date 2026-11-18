@@ -55,5 +55,16 @@ export type Proposal = ProposalInput & {
   updatedAt: string;
 };
 
+/** GET /api/proposals/anzahl-neu – Zähler in der Seitenleiste. */
+export interface ProposalAnzahlNeu {
+  neu: number;
+}
+
+/** POST /api/proposals/:id/convert – Vorschlag umgesetzt, Entwurf des Druckteils angelegt. */
+export interface ProposalUmgewandelt {
+  proposal: Proposal;
+  itemId: string;
+}
+
 /** Sicht der Lehrkraft auf ihren Vorschlag (GET /api/proposals/mine) – ohne interne Felder. */
 export type OwnProposal = Omit<Proposal, 'requesterId' | 'requesterEmail' | 'itemId' | 'updatedByUserId'>;

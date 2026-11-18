@@ -7,6 +7,7 @@ import { Alert, Button, cx, inputClass } from '../../../components/ui';
 import { api, fehlerText } from '../../../lib/api';
 import type { Filament, Item } from '../../../lib/types';
 import { passtZurSuche } from '@mosaik3lab/shared/suche';
+import type { FarbeZuordnenErgebnis } from '@mosaik3lab/shared/katalog';
 
 /** Bereiche eines Druckteils, denen man die Farbe hinzufügen kann (nicht „Alle Farben“, Farbe noch nicht dabei). */
 const offeneBereiche = (item: Item, farbe: string) => item.colorAreas.filter((a) => !a.alleFarben && !a.colors.includes(farbe));
@@ -80,7 +81,7 @@ export function FarbeZuordnenDialog({
     setFehler(undefined);
     try {
       const ziele = [...wahl.entries()].map(([itemId, b]) => ({ itemId, bereiche: [...b] }));
-      const r = await api<{ druckteile: number }>('/items/farbe-zuordnen', { method: 'POST', body: { filamentId: farbe.id, ziele } });
+      const r = await api<FarbeZuordnenErgebnis>('/items/farbe-zuordnen', { method: 'POST', body: { filamentId: farbe.id, ziele } });
       toast(
         'success',
         r.druckteile === 1

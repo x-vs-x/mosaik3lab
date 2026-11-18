@@ -1,7 +1,7 @@
 import { newId } from '../../kern/ids';
 import { type Permission } from '@mosaik3lab/shared/konten';
 import { isAllowedEmail } from '../einstellungen/einstellungen.vorgaben';
-import { type SessionUser } from '@mosaik3lab/shared/konten';
+import { type SessionAntwort, type SessionUser } from '@mosaik3lab/shared/konten';
 import { type User } from '../../domain/types';
 import { canUseAccount, type AuthOptions } from '../../kern/auth/middleware';
 import { hashPassword, verifyPassword } from '../../kern/auth/password';
@@ -15,7 +15,7 @@ import { linkVerschicken } from './passwortlink';
 // Regeln für die Anmeldung (Konten mit Passwort, Lehrkräfte per E-Mail), eigenes Passwort und das erste Admin-Konto.
 // Personen und Rechte: personen.service.ts, Passwort-Links: passwortlink.ts.
 
-export function sessionPayload(user: SessionUser, permissions: Permission[]) {
+export function sessionPayload(user: SessionUser, permissions: Permission[]): SessionAntwort {
   return { user, permissions };
 }
 

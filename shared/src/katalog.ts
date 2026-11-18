@@ -40,6 +40,11 @@ export const farbeZuordnenSchema = z.object({
     .min(1)
     .max(1000),
 });
+/** Antwort auf POST /api/items/farbe-zuordnen: geänderte Druckteile und Farbbereiche. */
+export interface FarbeZuordnenErgebnis {
+  druckteile: number;
+  bereiche: number;
+}
 
 /** Angabe, die beim Anfragen eines personalisierbaren Druckteils abgefragt wird (z. B. „Beschriftung“). */
 export const customFieldSchema = z

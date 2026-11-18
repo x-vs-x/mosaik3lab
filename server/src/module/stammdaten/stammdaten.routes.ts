@@ -7,7 +7,7 @@ import type { Storage } from '../../storage';
 import { leseHinweis, loescheHinweis, ohneNeue } from './bambuAbgleich';
 import { importFilaments, isMasterDataList, saveList, setFilamentAvailability, toggleStatus } from './stammdaten.service';
 import { statusToggleSchema } from '@mosaik3lab/shared/anfragen';
-import { filamentAvailabilitySchema, filamentImportSchema, type BambuKatalogAntwort } from '@mosaik3lab/shared/stammdaten';
+import { filamentAvailabilitySchema, filamentImportSchema, type BambuKatalogAntwort, type MasterDataPutBody } from '@mosaik3lab/shared/stammdaten';
 
 /**
  * Stammdaten, Bestellstatus-Schalter und Bambu-Palette – eingehängt in /api/admin/settings. Jede Route nennt ihr Recht:
@@ -21,7 +21,7 @@ export function masterDataRoutes(storage: Storage, auth: Auth) {
   router.put('/masterdata/:list', stammdatenRecht, async (req, res) => {
     const list = param(req.params.list);
     if (!isMasterDataList(list)) throw notFound('Unbekannte Stammdatenliste.');
-    res.json(await saveList(storage, list, req.body?.entries));
+    res.json(await saveList(storage, list, (req.body as Partial<MasterDataPutBody> | undefined)?.entries));
   });
 
   // --- Bestellstatus (feste Liste, nur an/aus) --------------------------------------

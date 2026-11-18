@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError, onUnauthorized } from '../lib/api';
+import type { EmailEingabe, IdentifyAntwort, LoginInput, PasswortSetzenInput } from '@mosaik3lab/shared/konten';
 import type { IdentifyResult, Permission, SessionUser } from '../lib/types';
 import { einmalig, ME_TIMEOUT_MS, pruefeSitzung, pruefFehlerText, type SessionResponse } from './sitzungPruefen';
 
@@ -110,13 +111,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const identify = useCallback(
     async (email: string) => {
-      const result = await api<{ result: IdentifyResult } & Partial<SessionResponse>>('/auth/identify', {
+      const result = await api<IdentifyAntwort>('/auth/identify', {
         method: 'POST',
-        body: { email },
+        body: { email } satisfies EmailEingabe,
         silent401: true,
         timeoutMs: LOGIN_TIMEOUT_MS,
       });
-      if (result.result === 'signed-in' && result.user) signedIn({ user: result.user, permissions: result.permissions ?? [] });
+      if (result.result === 'signed-in' && result.user) signedIn(result);
       return result.result;
     },
     [signedIn],
@@ -126,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       const result = await api<SessionResponse>('/auth/login', {
         method: 'POST',
-        body: { email, password },
+        body: { email, password } satisfies LoginInput,
         silent401: true,
         timeoutMs: LOGIN_TIMEOUT_MS,
       });
@@ -137,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (email: string) => {
-      const result = await api<SessionResponse>('/auth/register', { method: 'POST', body: { email }, silent401: true, timeoutMs: LOGIN_TIMEOUT_MS });
+      const result = await api<SessionResponse>('/auth/register', { method: 'POST', body: { email } satisfies EmailEingabe, silent401: true, timeoutMs: LOGIN_TIMEOUT_MS });
       signedIn(result);
     },
     [signedIn],
@@ -145,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setPasswordWithLink = useCallback(
     async (token: string, password: string) => {
-      const result = await api<SessionResponse>('/auth/passwort-setzen', { method: 'POST', body: { token, password }, silent401: true, timeoutMs: LOGIN_TIMEOUT_MS });
+      const result = await api<SessionResponse>('/auth/passwort-setzen', { method: 'POST', body: { token, password } satisfies PasswortSetzenInput, silent401: true, timeoutMs: LOGIN_TIMEOUT_MS });
       signedIn(result);
     },
     [signedIn],
