@@ -183,6 +183,12 @@ jobs:
         if: matrix.runde == 'neu'
         run: .github/installer-test/pruefen.ps1 marker
 
+      # Rechen-Thread im Paket (server\dist\bild-worker.mjs): Bilder hochladen, Vorschaubilder prüfen, Rechenzeit ins Log
+      - name: Bilder hochladen und Vorschaubilder prüfen
+        if: matrix.runde == 'neu'
+        timeout-minutes: 5
+        run: node .github/installer-test/bilder-pruefen.mjs
+
       - name: Aktualisieren (Installieren.cmd /still, neue Version)
         if: matrix.runde == 'neu'
         timeout-minutes: 14
