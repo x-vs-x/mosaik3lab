@@ -60,9 +60,10 @@ test('Plug & Play: leere DB wird angelegt (Tabellen, Schema, WAL, Fremdschlüsse
     assert.ok(info.groesseBytes > 0);
     const db = openDb(config.dbFile, { readOnly: true });
     const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map((r) => r.name);
-    for (const t of ['benutzer', 'benutzer_recht', 'lehrkraft', 'kategorie', 'einsatzbereich', 'material', 'filament', 'statusart', 'artikel', 'artikel_farbbereich', 'artikel_farbbereich_filament', 'artikel_feld', 'artikel_video', 'anfrage', 'anfrage_farbe', 'anfrage_feldwert', 'anfrage_statusverlauf', 'datei', 'nummernkreis', 'schema_version', 'sitzung', 'einstellung']) {
+    for (const t of ['benutzer', 'benutzer_bereich', 'lehrkraft', 'kategorie', 'einsatzbereich', 'material', 'filament', 'statusart', 'artikel', 'artikel_farbbereich', 'artikel_farbbereich_filament', 'artikel_feld', 'artikel_video', 'anfrage', 'anfrage_farbe', 'anfrage_feldwert', 'anfrage_statusverlauf', 'datei', 'nummernkreis', 'schema_version', 'sitzung', 'einstellung']) {
       assert.ok(tables.includes(t), `Tabelle ${t}`);
     }
+    assert.ok(!tables.includes('benutzer_recht'), 'alte Einzelrechte entfernt (Migration 022)');
     assert.equal((db.prepare('PRAGMA journal_mode').get() as { journal_mode: string }).journal_mode, 'wal');
     db.close();
     assert.equal((await storage.settings.get()).masterData.categories.length, 7, 'Standard-Stammdaten');

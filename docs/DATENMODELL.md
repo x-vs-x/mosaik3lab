@@ -43,7 +43,6 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 | --- | --- |
 | `benutzer` | Admin/Druck-Team-Konten (E-Mail – immer klein geschrieben, Rolle, Passwort-Hash – leer = noch nicht festgelegt, aktiv – 0 = ruht/nur Lehrkraft, `fehlversuche` (011), `gesperrt_seit` (014), `neuigkeiten_gesehen` (015), `entfernt_am` (016: entfernt, E-Mail durch Platzhalter `entfernt-<id>` ersetzt)) |
 | `benutzer_bereich` | angehakte Druck-Team-Bereiche je Konto (benutzer_id, bereich) – seit Migration 011 |
-| `benutzer_recht` | alte Einzelrechte (bis Migration 011, wird nicht mehr gelesen) |
 | `passwort_link` | Einmal-Links „Passwort festlegen/zurücksetzen“ (SHA-256 des Tokens, benutzer_id, zweck, gueltig_bis – leer = läuft nicht ab) |
 | `lehrkraft` | bekannte Lehrkräfte (E-Mail, angelegt_am, Häkchen `darf_anfragen`, `darf_vorschlagen` (011), `entfernt_am` (016, wie bei `benutzer`)) |
 | `kategorie`, `einsatzbereich`, `material` | Stammdaten |
@@ -132,8 +131,8 @@ Anfragen. Bei mehreren Varianten gilt: `menge` = Summe, `anfrage_farbe`/`farbe_i
 
 ## Migration 011 – Rechte einfach
 Häkchen statt Einzelrechte: `benutzer_bereich` (Druck-Team-Bereiche je Konto), `lehrkraft.darf_anfragen`/`darf_vorschlagen`
-(bestehende Lehrkräfte: 1), `benutzer.fehlversuche`, Tabelle `passwort_link`. Übernommen aus `benutzer_recht`, das seitdem
-nur noch stehen bleibt (wird nicht gelesen; der Server-Manager prüft es in seinen Tests beim Wiederherstellen mit).
+(bestehende Lehrkräfte: 1), `benutzer.fehlversuche`, Tabelle `passwort_link`. Übernommen aus den alten Einzelrechten
+`benutzer_recht`; die Tabelle entfernt Migration 022.
 
 ## Migration 012 – Farbrollen aus dem Bambu-Lab-Katalog
 `filament.katalog_id` (eindeutig, NULL = eigene Rolle), `hersteller_nummer`, `hersteller_name`, `weggefallen`. Bisherige
@@ -163,7 +162,7 @@ Eine Quelle der Wahrheit: Alle Einstellungen, auch die des Servers, stehen in de
 | Spalte | Bedeutung |
 | --- | --- |
 | `bereich` | `betrieb` · `mail` · `manager` (CHECK) – zusammen mit `schluessel` der Primärschlüssel |
-| `schluessel` | z. B. `app.port`, `app.network`, `paths.ablageDir`, `backup.time`, `backup.keep`, `backup.encrypt`, `update.repo`, `update.gitPath`, `sessionSecret`; Bereich `mail`: `enabled`, `smtp`, `from`, `recipients`, `appBaseUrl`; Bereich `manager`: `manager.port` (Anmeldung am Manager = Admin-Konto der App; frühere `manager.passwordHash`/`manager.remote` entfernt der Manager) |
+| `schluessel` | z. B. `app.port`, `app.network`, `paths.ablageDir`, `backup.time`, `backup.keep`, `backup.encrypt`, `sessionSecret` (frühere `update.*`-Schlüssel aus der Zeit des Git-Updates werden ignoriert und bleiben für einen Rückfall stehen); Bereich `mail`: `enabled`, `smtp`, `from`, `recipients`, `appBaseUrl`; Bereich `manager`: `manager.port` (Anmeldung am Manager = Admin-Konto der App; frühere `manager.passwordHash`/`manager.remote` entfernt der Manager) |
 | `wert` | JSON |
 | `geheim` | 1 = Geheimnis (Mail-Passwort in `smtp`, Passwort-Hash, Session-Geheimnis) – nie in Anzeigen/Logs/Exporten ausgeben |
 | `geaendert_am` | ISO-Zeit |
@@ -186,6 +185,11 @@ Die Repositories lesen Kindzeilen damit nur für die gefundenen Datensätze stat
 Nur Indizes, keine Datenänderung: `artikel_farbbereich_filament (filament_id)`, `artikel_einsatzbereich (einsatzbereich_id)`,
 `artikel (kategorie_id)`, `artikel (material_id)`, `anfrage (erstellt_am, id)` (neueste Anfragen im Dashboard). Beim Löschen
 von Stammdaten prüft SQLite die Kindtabellen damit gezielt statt per vollständigem Durchlauf.
+
+## Migration 022 – alte Einzelrechte entfernt
+`DROP TABLE IF EXISTS benutzer_recht`. Die Tabelle wurde seit 011 weder gelesen noch geschrieben; 011 läuft immer vorher
+(auch beim Wiederherstellen älterer Sicherungen) und übernimmt die Einzelrechte nach `benutzer_bereich`. Kein Verweis anderer
+Tabellen, keine weitere Datenänderung.
 
 ## Portal und HTTPS (keine eigene Migration – Zeilen in `betrieb_einstellung`, Bereich `betrieb`)
 Schlüssel `portal.enabled`, `portal.basePath` (leer oder `/mosaik3lab`), `portal.httpPort`, `portal.httpsPort`, `portal.https` sowie
