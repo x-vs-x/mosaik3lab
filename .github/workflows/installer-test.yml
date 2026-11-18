@@ -179,11 +179,6 @@ jobs:
         if: matrix.runde == 'neu'
         run: .github/installer-test/pruefen.ps1 installiert
 
-      # Frisch geladenes WinSW: Prüfsumme zeigen (die Einrichtung hat sie schon gegen platform/windows.mjs geprüft)
-      - name: WinSW-Prüfsumme
-        if: matrix.runde == 'neu'
-        run: Get-ChildItem (Join-Path $env:ProgramFiles 'Mosaik3LAB\werkzeuge\WinSW-*.exe') | Get-FileHash -Algorithm SHA256 | Format-List Path, Hash
-
       - name: Testdaten anlegen
         if: matrix.runde == 'neu'
         run: .github/installer-test/pruefen.ps1 marker

@@ -24,7 +24,7 @@ export const WINSW = {
   version: '2.12.0',
   url: 'https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW.NET461.exe', // braucht .NET 4.6.1+ (ab Windows 10 vorhanden)
   size: 655872,
-  sha256: null, // TODO: einmalig prüfen und eintragen – bis dahin wird nur die Größe geprüft und die Prüfsumme protokolliert
+  sha256: 'b5066b7bbdfba1293e5d15cda3caaea88fbeab35bd5b38c41c913d492aadfc4f', // vom offiziellen Download (frischer Windows-Runner, Installer-Test 2026-11-18); abweichende Datei wird verworfen
 };
 
 export const windows = {
