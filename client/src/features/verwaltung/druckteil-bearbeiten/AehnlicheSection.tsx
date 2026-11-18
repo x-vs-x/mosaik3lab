@@ -1,8 +1,8 @@
-import { Plus, Search, Shapes, Trash2 } from 'lucide-react';
+import { Plus, RotateCw, Search, Shapes, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { ItemImage } from '../../../components/ItemImage';
 import { useToast } from '../../../components/Toast';
-import { Field, Input, Button } from '../../../components/ui';
+import { Alert, Field, Input, Button } from '../../../components/ui';
 import { api, ApiError } from '../../../lib/api';
 import type { AehnlichesTeil, Item } from '../../../lib/types';
 import { useApi } from '../../../lib/useApi';
@@ -14,16 +14,25 @@ const MAX_TREFFER = 8;
 
 /** Ähnliche Druckteile: gegenseitige Verknüpfung, wird sofort gespeichert (eigener Endpunkt, nicht mit dem Formular). */
 export function AehnlicheSection({ item }: { item?: Item }) {
-  const { data: liste, setData } = useApi<AehnlichesTeil[]>(item ? `/items/${item.id}/aehnliche` : null);
+  const { data: liste, setData, error, loading, reload } = useApi<AehnlichesTeil[]>(item ? `/items/${item.id}/aehnliche` : null);
+  // Laden fehlgeschlagen: nicht „Keine“ anzeigen – sonst sähe es aus, als gäbe es keine Verknüpfungen.
+  const fehler = !!error && !loading && !liste;
   const verknuepft = liste ?? [];
   return (
     <Section
       id="aehnliche"
       icon={Shapes}
       title="Ähnliche Druckteile"
-      summary={!item ? 'nach dem ersten Speichern' : verknuepft.length ? `${plural(verknuepft.length, 'Druckteil', 'Druckteile')}: ${verknuepft.slice(0, 3).map((t) => t.name).join(', ')}${verknuepft.length > 3 ? ' …' : ''}` : 'Keine'}
+      summary={!item ? 'nach dem ersten Speichern' : fehler ? 'konnte nicht geladen werden' : verknuepft.length ? `${plural(verknuepft.length, 'Druckteil', 'Druckteile')}: ${verknuepft.slice(0, 3).map((t) => t.name).join(', ')}${verknuepft.length > 3 ? ' …' : ''}` : 'Keine'}
     >
-      {item ? (
+      {item && fehler ? (
+        <Alert kind="error" title="Ähnliche Druckteile konnten nicht geladen werden">
+          <p>{error.message}</p>
+          <Button variant="secondary" icon={RotateCw} className="mt-3" onClick={() => void reload()}>
+            Erneut versuchen
+          </Button>
+        </Alert>
+      ) : item ? (
         <AehnlicheEditor item={item} verknuepft={verknuepft} onChange={setData} />
       ) : (
         <p className="rounded-xl bg-stone-50 px-4 py-3 text-stone-700 ring-1 ring-stone-200">
@@ -40,7 +49,7 @@ function AehnlicheEditor({ item, verknuepft, onChange }: { item: Item; verknuepf
   const [busy, setBusy] = useState<string>();
   const sucheRef = useRef<HTMLInputElement>(null);
   // Alle Druckteile erst laden, wenn gesucht wird (für die Schule genügt die Suche im Browser).
-  const { data: alle, loading } = useApi<Item[]>(suche.trim() ? '/items?all=1' : null);
+  const { data: alle, loading, error: suchFehler } = useApi<Item[]>(suche.trim() ? '/items?all=1' : null);
   const treffer = (alle ?? [])
     .filter((i) => i.id !== item.id && !verknuepft.some((v) => v.id === i.id))
     .filter((i) => passtZurSuche([i.name, i.number], suche));
@@ -110,6 +119,8 @@ function AehnlicheEditor({ item, verknuepft, onChange }: { item: Item; verknuepf
         <div aria-live="polite">
           {loading && !alle ? (
             <p className="text-hinweis text-stone-600">Suche …</p>
+          ) : suchFehler && !alle ? (
+            <Alert kind="error">Die Druckteile für die Suche konnten nicht geladen werden: {suchFehler.message}</Alert>
           ) : treffer.length === 0 ? (
             <p className="text-hinweis text-stone-600">Kein passendes Druckteil gefunden.</p>
           ) : (

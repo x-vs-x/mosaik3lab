@@ -5,14 +5,14 @@ import { ColorSwatch } from "../../../components/ColorSwatch";
 import { Alert, cx, inputClass } from "../../../components/ui";
 import { filamentLabel } from "../../../lib/constants";
 import type { Filament } from "../../../lib/types";
-import { filamentRolle } from "@mosaik3lab/shared/stammdaten";
+import { filamentRolle } from "@mosaik3lab/shared/werte/stammdaten";
 import {
   gruppeArt,
   gruppeLinie,
   inGruppen,
   linieVon,
   materialartVon,
-} from "@mosaik3lab/shared/katalog";
+} from "@mosaik3lab/shared/werte/katalog";
 
 /**
  * Farbwahl eines Farbbereichs: oben „Alle Farben“ (auch später angelegte) oder „Nur bestimmte Farben“;

@@ -19,7 +19,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (kind: ToastKind, message: string) => {
       const id = Date.now() + Math.random();
       setToasts((t) => [...t.slice(-3), { id, kind, message }]);
-      setTimeout(() => dismiss(id), kind === 'error' ? 8000 : 5000);
+      // Fehler bleiben, bis man sie schließt – wer langsam liest oder gerade anders beschäftigt ist, verpasst sie sonst.
+      if (kind === 'success') setTimeout(() => dismiss(id), 5000);
     },
     [dismiss],
   );

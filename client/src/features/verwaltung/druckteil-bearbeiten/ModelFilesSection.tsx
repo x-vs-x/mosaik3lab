@@ -24,7 +24,7 @@ export function ModelFilesSection({ item, onChange }: { item?: Item; onChange: (
 }
 
 function ModelFilesEditor({ item, onChange }: { item: Item; onChange: (i: Item) => void }) {
-  const { uploading, upload, status } = useUpload(item, 'models', onChange);
+  const { uploading, upload, status, abbrechen } = useUpload(item, 'models', onChange);
   const toast = useToast();
 
   const [busyId, setBusyId] = useState<string>();
@@ -88,6 +88,7 @@ function ModelFilesEditor({ item, onChange }: { item: Item; onChange: (i: Item) 
         uploading={uploading}
         status={status}
         onFiles={upload}
+        onAbbrechen={abbrechen}
         icon={FileBox}
       />
     </div>

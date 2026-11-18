@@ -1,6 +1,6 @@
 import { Check, Copy, Save, Trash2 } from 'lucide-react';
 import { useId, useRef, useState, type FormEvent } from 'react';
-import { BEREICHE, ROLE_LABELS, ROLE_SAETZE, ROLES, STANDARD_BEREICHE, TEAM_BEREICHE } from '@mosaik3lab/shared/konten';
+import { BEREICHE, ROLE_LABELS, ROLE_SAETZE, ROLES, STANDARD_BEREICHE, TEAM_BEREICHE } from '@mosaik3lab/shared/werte/konten';
 import { Dialog } from '../../components/Dialog';
 import { Alert, Button, cx, Field, Input } from '../../components/ui';
 import { api, ApiError } from '../../lib/api';

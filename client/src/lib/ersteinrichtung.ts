@@ -3,11 +3,11 @@ import { withBase } from './basePath';
 // Ersteinrichtung: Solange es noch keinen Administrator gibt, führt jeder Aufruf der App direkt zur Einrichtungsseite
 // des Server-Managers (<pfad>/manager/ – dort E-Mail, Name, Passwort festlegen). Der Manager antwortet auf
 // GET <pfad>/manager/api/auth mit { needsAdmin }; danach (Administrator vorhanden) antwortet er 403 oder ist gar nicht
-// erreichbar (Entwicklung ohne Manager) → die App startet normal. Ist einmal ein Administrator da, fragt dieser Tab
-// nicht erneut (sessionStorage).
+// erreichbar (Entwicklung ohne Manager) → die App läuft normal weiter. Die Prüfung läuft neben dem ersten Anzeigen
+// (main.tsx), blockiert es also nicht. Ist einmal ein Administrator da, fragt dieser Tab nicht erneut (sessionStorage).
 const KEY = 'm3l.adminVorhanden';
 
-/** → true: App normal starten · false: es wird gerade zur Einrichtung weitergeleitet. */
+/** → true: App läuft normal · false: es wird gerade zur Einrichtung weitergeleitet. */
 export async function ersteinrichtungPruefen(): Promise<boolean> {
   try {
     if (sessionStorage.getItem(KEY)) return true;

@@ -1,8 +1,8 @@
-import { ArrowUpFromLine, CircleCheck, FileUp } from 'lucide-react';
+import { ArrowUpFromLine, CircleCheck, FileUp, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Dialog } from '../../components/Dialog';
 import { ActionBar, Alert, Button, buttonClass, cx } from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { api, apiUpload, isConnectionProblem, UPLOAD_ABGEBROCHEN } from '../../lib/api';
 import { withBase } from '../../lib/basePath';
 import { formatBytes, plural } from '../../lib/format';
 
@@ -56,31 +56,6 @@ const STAMMDATEN: [keyof Bericht['abschnitte'], string, string][] = [
   ['filamente', 'Farbe', 'Farben'],
 ];
 
-/** Upload mit Fortschrittsanzeige (fetch kann das nicht). */
-function uploadMitFortschritt<T>(url: string, file: File, onProgress: (anteil: number) => void): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', withBase(url));
-    xhr.setRequestHeader('X-Requested-With', 'mosaik3lab');
-    xhr.setRequestHeader('Accept', 'application/json');
-    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
-    xhr.onerror = () => reject(new ApiError(0, 'Der Server ist nicht erreichbar. Bitte später erneut versuchen.'));
-    xhr.onload = () => {
-      let data: { error?: string } | undefined;
-      try {
-        data = JSON.parse(xhr.responseText);
-      } catch {
-        /* keine JSON-Antwort */
-      }
-      if (xhr.status >= 200 && xhr.status < 300) resolve(data as T);
-      else reject(new ApiError(xhr.status, data?.error ?? `Fehler ${xhr.status}`));
-    };
-    const fd = new FormData();
-    fd.append('datei', file, file.name);
-    xhr.send(fd);
-  });
-}
-
 /** Dialog „Druckteile einspielen“. onDone: nach erfolgreichem Einspielen (Liste neu laden). */
 export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
   const [datei, setDatei] = useState<File>();
@@ -90,6 +65,9 @@ export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onC
   const [laeuft, setLaeuft] = useState(false);
   const [ergebnis, setErgebnis] = useState<Bericht>();
   const [fehler, setFehler] = useState('');
+  /** Verbindung beim Einspielen abgerissen: Ob es geklappt hat, ist offen – beim Schließen die Liste neu laden. */
+  const [unklar, setUnklar] = useState(false);
+  const hochladen = useRef<AbortController | undefined>(undefined);
   const input = useRef<HTMLInputElement>(null);
   const meldung = useRef<HTMLDivElement>(null);
   const modusName = useId();
@@ -105,8 +83,10 @@ export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onC
     if (input.current) input.current.value = '';
   };
   const schliessen = () => {
-    if (laeuft || anteil !== undefined) return; // nicht während Einspielen oder Vorschau-Upload
-    const fertig = !!ergebnis;
+    if (laeuft) return; // nicht während des Einspielens
+    hochladen.current?.abort(); // Vorschau-Upload läuft noch: abbrechen und schließen
+    const fertig = !!ergebnis || unklar;
+    setUnklar(false);
     zuruecksetzen();
     onClose();
     if (fertig) onDone();
@@ -117,13 +97,19 @@ export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onC
     if (!f) return;
     setDatei(f);
     setAnteil(0);
+    const ctrl = new AbortController();
+    hochladen.current = ctrl;
     try {
-      setVorschau(await uploadMitFortschritt<Vorschau>('/api/admin/daten/import/vorschau', f, setAnteil));
+      const fd = new FormData();
+      fd.append('datei', f, f.name);
+      setVorschau(await apiUpload<Vorschau>('/admin/daten/import/vorschau', fd, setAnteil, { signal: ctrl.signal }));
     } catch (e) {
-      setFehler(e instanceof Error ? e.message : 'Die Datei konnte nicht geprüft werden.');
+      // Selbst abgebrochen: keine Fehlermeldung nötig.
+      if (!(e instanceof Error && e.message === UPLOAD_ABGEBROCHEN)) setFehler(e instanceof Error ? e.message : 'Die Datei konnte nicht geprüft werden.');
       setDatei(undefined);
       if (input.current) input.current.value = '';
     } finally {
+      if (hochladen.current === ctrl) hochladen.current = undefined;
       setAnteil(undefined);
     }
   };
@@ -141,7 +127,13 @@ export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onC
       setErgebnis(r.bericht);
       setVorschau(undefined);
     } catch (e) {
-      setFehler(`${e instanceof Error ? e.message : 'Das Einspielen ist fehlgeschlagen.'} Es wurde nichts verändert.`);
+      if (isConnectionProblem(e)) {
+        // Keine Antwort heißt nicht „nichts passiert“: Der Server kann das Einspielen trotzdem abgeschlossen haben.
+        setUnklar(true);
+        setFehler('Die Verbindung zum Server ist abgerissen. Bitte die Druckteil-Liste prüfen, ob das Einspielen trotzdem geklappt hat, bevor Sie es erneut versuchen.');
+      } else {
+        setFehler(`${e instanceof Error ? e.message : 'Das Einspielen ist fehlgeschlagen.'} Es wurde nichts verändert.`);
+      }
     } finally {
       setLaeuft(false);
     }
@@ -184,6 +176,9 @@ export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onC
                 {anteil < 1 ? `Wird hochgeladen … ${Math.round(anteil * 100)} %` : 'Datei wird geprüft …'} ({datei.name}, {formatBytes(datei.size)})
               </p>
               <progress className="mt-2 h-3 w-full" max={1} value={anteil < 1 ? anteil : undefined} aria-label="Fortschritt" />
+              <Button variant="secondary" icon={X} className="mt-3" onClick={() => hochladen.current?.abort()}>
+                Abbrechen
+              </Button>
             </div>
           )}
         </>

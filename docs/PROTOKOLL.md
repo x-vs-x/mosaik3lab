@@ -9,7 +9,33 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   „Sicherung: übersprungen, inzwischen gelöscht: …“), alle anderen Fehler brechen weiter ab. Filter (`SKIP`,
   `vorschau/`, `*.neu`, `.import-tmp`) unverändert. Test in `manager/test/manager.test.mjs` (Filter löscht Datei
   und Ordner kurz vor dem Kopieren; blockiertes Ziel muss scheitern) – Manager-Tests laufen in CI.
-- **Aufgeräumt:** Probeskript und `C:Entwicklung_testdatenackup-fix` gelöscht.
+- **Aufgeräumt:** Probeskript und `C:\Entwicklung\_testdaten\backup-fix` gelöscht.
+
+## 2026-11-18 – Stabilität der Oberfläche vor 1.7.0 (Unter-Session, Branch: fix/stabilitaet-client)
+- **Anlass:** Prüfung der Oberfläche (Stand eacfcbb), 13 Funde; nur Client (+ Aufteilung in `shared/`), Server/Manager nicht angefasst.
+- **Gebaut:** `components/Fehlergrenze.tsx` (um die App in `main.tsx` und je Adresse um die nachgeladenen Seiten in
+  `App.tsx`), `lib/neuLaden.ts` (`vite:preloadError` → einmal neu laden, Sperre 60 s in sessionStorage, ohne Speicher
+  nie automatisch). `main.tsx` rendert sofort, `ersteinrichtungPruefen()` läuft daneben. `useApi`: bricht alte Anfragen
+  ab (AbortController, `api(…, { signal })`), liefert `aktuell`; `ItemDetailPage` zeigt nur das Teil der Adresse.
+  Entprellung 400 ms. `CatalogPage`: „Erneut versuchen“, alte Liste als nicht aktuell, ein automatischer Versuch bei
+  Verbindungsfehler. `apiUpload`: Stillstands-Wächter 60 s (nur während der Übertragung), `signal` zum Abbrechen;
+  `DruckteileAustausch` nutzt sie (401, kein NaN), „Abbrechen“, Schließen bricht den Upload ab, vorsichtiger Text bei
+  Verbindungsfehler beim Einspielen; `FilePicker` mit „Abbrechen“. `Dialog`: reagiert auf `close` (zweites Escape).
+  `RequestDialog`: Hinweis „erst unter Meine Anfragen nachsehen“ bei Zeitüberschreitung. `AehnlicheSection`: Fehler
+  sichtbar. `Toast`: Fehler ohne Zeitgrenze. `ItemImage` `vorrang` (eager + fetchPriority high) fürs erste Galeriebild.
+  `vite.config.ts`: Paket `react` (manualChunks), Plugin `schriftenVorladen` (Atkinson latin 400/700 direkt hinter `<base>`).
+- **shared:** neue zod-freie Dateien `shared/src/werte/{katalog,stammdaten,anfragen,konten,vorschlaege}.ts`; die bisherigen
+  Dateien importieren und exportieren sie wieder (`export *`), Server-Importe unverändert. Client importiert Werte von
+  `@mosaik3lab/shared/werte/*`, Typen weiter aus den alten Dateien.
+- **Gemessen:** Haupt-Chunk 535,6 kB (gzip 162,9) → index 217,2 kB (gzip 66,0) + react 223,1 kB (gzip 69,2), zod nicht mehr
+  im Client, keine Vite-Warnung. „Katalog sichtbar“ (Produktions-Build, BASE_PATH /mosaik3lab, Fast 3G, 375 px, DPR 3,
+  Median aus 3): kalt 6008 → 5077 ms, warm 1899 → 1309 ms.
+- **Tests:** `client/test/stabilitaet.test.ts` (Neuladen-Sperre, Nachladefehler, Upload-Wächter/Abbrechen/401, Abbruch
+  von `api`, shared-Wiederexport). Klicktest headless Chrome (CDP): Katalog/Druckteil 320–1440 px, Druckteil-Wechsel mit
+  verzögerter Antwort, Katalog-Fehler + automatischer Versuch, Update-Fall (Chunk 404 → 1× neu laden), dauerhaft
+  blockierter Chunk (Hinweis, keine Schleife), Dialog 2× Escape, Einspielen abbrechen. Screenshots in
+  `C:\Entwicklung\_testdaten\stabil-client-bilder\`.
+- **Aufgeräumt:** Testserver gestoppt, `_testdaten\stabil-client` und Werkzeugordner gelöscht; Worktree bleibt.
 
 ## 2026-11-18 – Stabilität Server und Server-Manager vor 1.7.0 (Unter-Session, Branch: fix/stabilitaet-server)
 - **Anlass:** Prüfung vor 1.7.0 (Stand eacfcbb), 14 Funde in Server und Server-Manager.

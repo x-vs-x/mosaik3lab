@@ -1,11 +1,11 @@
 // Formular-Grundlagen des Druckteil-Editors: Leerwerte, Umwandlung, lokale Prüfung, kleine Helfer.
-import { inGruppen } from '@mosaik3lab/shared/katalog';
+import { inGruppen } from '@mosaik3lab/shared/werte/katalog';
 import type { Filament, Item, ItemInput } from '../../../lib/types';
 
 export const MAX_COLOR_AREAS = 8;
 export const MAX_CUSTOM_FIELDS = 10;
 export const MAX_VIDEOS = 4;
-export { MAX_ITEM_LINKS } from '@mosaik3lab/shared/katalog';
+export { MAX_ITEM_LINKS } from '@mosaik3lab/shared/werte/katalog';
 
 export type FieldErrors = Record<string, string>;
 export type SetField = <K extends keyof ItemInput>(key: K, value: ItemInput[K]) => void;

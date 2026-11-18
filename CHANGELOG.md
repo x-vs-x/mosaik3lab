@@ -9,6 +9,15 @@ daraus die nächste Version.
 - **Sicherung bricht nicht mehr ab, wenn währenddessen eine Datei verschwindet:** Wird beim Sichern z. B. gerade ein
   Bild in der App gelöscht, überspringt die Sicherung diese Datei (Hinweis im Protokoll) und wird trotzdem fertig.
 
+- **Stabiler bei schwachem WLAN und nach Updates:** Statt einer weißen Seite erscheint bei einem Fehler „Etwas ist
+  schiefgelaufen – Seite neu laden“; ein alter Tab nach einem Update lädt sich einmal selbst neu. Der Katalog erscheint
+  schneller (kleineres Programm, Schriften werden früh geladen, keine Wartezeit mehr auf die Prüfung der Ersteinrichtung;
+  gemessen auf langsamem Mobilfunk: beim ersten Aufruf 6,0 → 5,1 s, danach 1,9 → 1,3 s). Lädt der Katalog nicht, gibt es
+  „Erneut versuchen“ (bei Verbindungsfehlern versucht er es einmal selbst). Beim Wechsel zu einem ähnlichen Druckteil ist
+  nie mehr kurz das vorige zu sehen. Hochladen lässt sich abbrechen und bricht ab, wenn es eine Minute lang stehen bleibt.
+  Fehlermeldungen bleiben stehen, bis man sie schließt. Antwortet der Server beim Absenden einer Anfrage nicht, weist die
+  Meldung darauf hin, erst unter „Meine Anfragen“ nachzusehen (keine doppelten Anfragen).
+
 - **Stabiler nach Updates und auf kleinen Raspberry Pis:** Fehlen nach einem Update oder Wiederherstellen viele
   Vorschaubilder, zeigt der Katalog sofort die Originalbilder statt lange zu laden; die Vorschaubilder entstehen nach
   etwa einer Minute im Hintergrund. Auf Geräten mit wenig Arbeitsspeicher werden sehr große Bilder nicht mehr

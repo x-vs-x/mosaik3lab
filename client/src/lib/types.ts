@@ -19,7 +19,7 @@ export type MasterDataList = keyof MasterData;
 
 export type { AdminSettings, Features, MailInfoView, OrderFormSettings, PublicConfig } from '@mosaik3lab/shared/einstellungen';
 
-export { ITEM_KIND_LABELS } from '@mosaik3lab/shared/katalog';
+export { ITEM_KIND_LABELS } from '@mosaik3lab/shared/werte/katalog';
 export type { AehnlichesTeil, ColorArea, CustomField, CustomFieldType, ItemInput, ItemLink, ItemKind, ItemVideo, ModelFile, ItemView as Item } from '@mosaik3lab/shared/katalog';
 
 export type {

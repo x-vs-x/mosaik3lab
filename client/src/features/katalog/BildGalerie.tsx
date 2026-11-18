@@ -56,7 +56,7 @@ export function BildGalerie({ item }: { item: Bilder }) {
           onKeyDown,
         })}
       >
-        <ItemImage item={item} index={index} groesse="original" iconSize="size-16 sm:size-24" />
+        <ItemImage item={item} index={index} groesse="original" iconSize="size-16 sm:size-24" vorrang={index === 0} />
         {mehrere && (
           <>
             <button type="button" onClick={() => gehe(-1)} aria-label="Vorheriges Bild" className={cx(pfeil, 'left-2 sm:left-3')}>

@@ -28,6 +28,8 @@ interface RequestOptions {
    * 0 = ohne Grenze (Uploads per `form` und lange Vorgänge wie der Import).
    */
   timeoutMs?: number;
+  /** Abbrechen von außen (z. B. neue Suche ersetzt die alte). */
+  signal?: AbortSignal;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -55,7 +57,14 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
   }
 
   const timeoutMs = opts.timeoutMs ?? (opts.form ? 0 : DEFAULT_TIMEOUT_MS);
-  const signal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined;
+  // Zeitgrenze und Abbruch von außen zusammen – ohne AbortSignal.any (fehlt in älterem Safari auf Schul-iPads).
+  // Ohne beides bleibt die Anfrage ohne Signal (Uploads per `form`, lange Vorgänge mit timeoutMs: 0).
+  const ctrl = timeoutMs || opts.signal ? new AbortController() : undefined;
+  const timer = ctrl && timeoutMs ? setTimeout(() => ctrl.abort(), timeoutMs) : undefined;
+  const abbrechen = () => ctrl?.abort();
+  if (opts.signal?.aborted) ctrl?.abort();
+  opts.signal?.addEventListener('abort', abbrechen);
+  const signal = ctrl?.signal;
   let res: Response;
   let text: string;
   try {
@@ -69,6 +78,9 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
     text = await res.text();
   } catch {
     throw new ApiError(0, NO_RESPONSE);
+  } finally {
+    clearTimeout(timer);
+    opts.signal?.removeEventListener('abort', abbrechen);
   }
 
   let data: unknown = undefined;
@@ -88,25 +100,65 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
   return data as T;
 }
 
+/** Meldung, wenn jemand das Hochladen selbst abbricht („Abbrechen“). */
+export const UPLOAD_ABGEBROCHEN = 'Das Hochladen wurde abgebrochen.';
+const UPLOAD_HAENGT = 'Das Hochladen ist stehen geblieben – vermutlich ist die Verbindung abgerissen. Bitte erneut versuchen.';
+/** Kommt so lange kein Fortschritt beim Hochladen, wird abgebrochen (schwaches WLAN, Verbindung weg). */
+export const UPLOAD_STILLSTAND_MS = 60_000;
+
+export interface UploadOptionen {
+  /** „Abbrechen“-Knopf: signal.abort() bricht das Hochladen ab (Fehler mit UPLOAD_ABGEBROCHEN). */
+  signal?: AbortSignal;
+  /** Abbruch nach so langer Zeit ohne Fortschritt (Standard UPLOAD_STILLSTAND_MS). */
+  stillstandMs?: number;
+}
+
 /**
  * Hochladen mit Fortschritt (XMLHttpRequest – fetch meldet keinen Upload-Fortschritt). `onFortschritt(anteil)` mit 0…1;
- * bei 1 sind alle Bytes beim Server, die Antwort kann danach noch dauern (z. B. Vorschaubilder werden erzeugt).
- * Fehler wie bei api(): ApiError mit Meldung des Servers.
+ * bei 1 sind alle Bytes beim Server, die Antwort kann danach noch dauern (z. B. Vorschaubilder werden erzeugt, große
+ * Import-Datei wird geprüft) – dann gilt der Stillstands-Wächter nicht mehr, abbrechen geht weiter per `signal`.
+ * Fehler wie bei api(): ApiError mit Meldung des Servers; 401 meldet die Sitzung als abgelaufen.
  */
-export function apiUpload<T>(path: string, form: FormData, onFortschritt?: (anteil: number) => void): Promise<T> {
+export function apiUpload<T>(path: string, form: FormData, onFortschritt?: (anteil: number) => void, optionen: UploadOptionen = {}): Promise<T> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    const stillstandMs = optionen.stillstandMs ?? UPLOAD_STILLSTAND_MS;
+    let grund = UPLOAD_ABGEBROCHEN;
+    let waechter: ReturnType<typeof setTimeout> | undefined;
+    const wache = () => {
+      clearTimeout(waechter);
+      waechter = setTimeout(() => {
+        grund = UPLOAD_HAENGT;
+        xhr.abort();
+      }, stillstandMs);
+    };
+    const abbrechen = () => xhr.abort();
+    const fertig = () => {
+      clearTimeout(waechter);
+      optionen.signal?.removeEventListener('abort', abbrechen);
+    };
     xhr.open('POST', withBase(`/api${path}`));
     xhr.withCredentials = true;
     xhr.setRequestHeader('Accept', 'application/json');
     xhr.setRequestHeader('X-Requested-With', 'mosaik3lab');
     xhr.upload.onprogress = (e) => {
+      wache();
       if (e.lengthComputable && e.total > 0) onFortschritt?.(Math.min(1, e.loaded / e.total));
     };
-    xhr.upload.onload = () => onFortschritt?.(1);
-    xhr.onerror = () => reject(new ApiError(0, NO_RESPONSE));
-    xhr.onabort = () => reject(new ApiError(0, NO_RESPONSE));
+    xhr.upload.onload = () => {
+      clearTimeout(waechter);
+      onFortschritt?.(1);
+    };
+    xhr.onerror = () => {
+      fertig();
+      reject(new ApiError(0, NO_RESPONSE));
+    };
+    xhr.onabort = () => {
+      fertig();
+      reject(new ApiError(0, grund));
+    };
     xhr.onload = () => {
+      fertig();
       let data: unknown = undefined;
       try {
         data = xhr.responseText ? JSON.parse(xhr.responseText) : undefined;
@@ -118,6 +170,13 @@ export function apiUpload<T>(path: string, form: FormData, onFortschritt?: (ante
       const payload = (data ?? {}) as { error?: string; fields?: Record<string, string> };
       reject(new ApiError(xhr.status, payload.error ?? (xhr.status >= 500 ? RESTARTING : `Fehler ${xhr.status}`), payload.fields ?? {}));
     };
+    if (optionen.signal?.aborted) {
+      fertig();
+      reject(new ApiError(0, UPLOAD_ABGEBROCHEN));
+      return;
+    }
+    optionen.signal?.addEventListener('abort', abbrechen);
+    wache();
     xhr.send(form);
   });
 }

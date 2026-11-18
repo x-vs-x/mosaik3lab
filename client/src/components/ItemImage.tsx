@@ -10,7 +10,8 @@ import { cx } from './ui';
  *
  * `groesse` je Ort: „karte“ (Katalogkarte, Standard), „mini“ (kleine Vorschauen: Ähnliche Druckteile, Listen),
  * „original“ (Galerie). Mit srcset/sizes wählt der Browser die passende Fassung; `sizes` überschreibt die übliche
- * Anzeigebreite des Orts. Bis das Bild da ist (der Server rechnet ein fehlendes Vorschaubild sofort), pulsiert ein Platzhalter.
+ * Anzeigebreite des Orts. `vorrang`: wichtigstes Bild der Seite (erstes Galeriebild) – sofort und zuerst laden statt
+ * „lazy“ (sonst wartet der Browser auf das Layout). Bis das Bild da ist (der Server rechnet ein fehlendes Vorschaubild sofort), pulsiert ein Platzhalter.
  */
 export function ItemImage({
   item,
@@ -19,6 +20,7 @@ export function ItemImage({
   iconSize = 'size-12 sm:size-16',
   groesse = 'karte',
   sizes,
+  vorrang = false,
 }: {
   item: { name: string; category: string; images: string[] };
   index?: number;
@@ -26,10 +28,11 @@ export function ItemImage({
   iconSize?: string;
   groesse?: BildGroesse;
   sizes?: string;
+  vorrang?: boolean;
 }) {
   const md = useMasterData();
   const file = item.images[index];
-  if (file) return <Foto key={`${file}-${groesse}`} file={file} groesse={groesse} sizes={sizes} alt={`Foto: ${item.name}`} className={className} />;
+  if (file) return <Foto key={`${file}-${groesse}`} file={file} groesse={groesse} sizes={sizes} vorrang={vorrang} alt={`Foto: ${item.name}`} className={className} />;
   const meta = categoryMeta(md, item.category);
   const Icon = meta.icon;
   return (
@@ -45,7 +48,7 @@ export function ItemImage({
   );
 }
 
-function Foto({ file, groesse, sizes, alt, className }: { file: string; groesse: BildGroesse; sizes?: string; alt: string; className?: string }) {
+function Foto({ file, groesse, sizes, alt, className, vorrang }: { file: string; groesse: BildGroesse; sizes?: string; alt: string; className?: string; vorrang: boolean }) {
   const [geladen, setGeladen] = useState(false);
   const q = bildQuellen(file, groesse, sizes);
   return (
@@ -55,7 +58,8 @@ function Foto({ file, groesse, sizes, alt, className }: { file: string; groesse:
       srcSet={q.srcSet}
       sizes={q.sizes}
       alt={alt}
-      loading="lazy"
+      loading={vorrang ? 'eager' : 'lazy'}
+      fetchPriority={vorrang ? 'high' : undefined}
       decoding="async"
       // schon im Zwischenspeicher: sofort als geladen markieren
       ref={(el) => {
