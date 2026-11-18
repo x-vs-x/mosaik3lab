@@ -7,7 +7,7 @@ import type { AehnlichesTeil } from '@mosaik3lab/shared/katalog';
 import { canManage } from './katalog.service';
 
 // Ähnliche Druckteile: gegenseitige Verknüpfung A ↔ B (Tabelle artikel_aehnlich, Paar mit a < b).
-// Löschen eines Druckteils räumt per Fremdschlüssel auf. Nicht Teil von Export/Import.
+// Löschen eines Druckteils räumt per Fremdschlüssel auf. Export/Import: module/datenaustausch/datenaustausch.aehnliche.ts.
 
 const paar = (x: string, y: string) => (x < y ? [x, y] : [y, x]);
 

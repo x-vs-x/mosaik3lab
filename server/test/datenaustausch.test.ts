@@ -1,5 +1,6 @@
 // Druckteile exportieren/einspielen: Rechte, einer/mehrere/alle, Rundreise in leere Datenbank mit identischen Dateien (SHA-256),
-// vorhandene überspringen oder ersetzen, Zuordnung über den Namen, Bezüge ergänzen, kaputte Dateien, Rückabwicklung, altes Format.
+// vorhandene überspringen oder ersetzen, Zuordnung über den Namen, Bezüge ergänzen, kaputte Dateien, Rückabwicklung, altes Format,
+// ZIP (Format 2) samt Sicherheitsregeln, ähnliche Druckteile (anlegen, vormerken, später auflösen).
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -15,6 +16,7 @@ import { DEMO_USERS } from '../src/seed/demoData';
 import { rechteFuer } from '@mosaik3lab/shared/konten';
 import { leseKopf, pruefeDateien } from '../src/module/datenaustausch/datenaustausch.paket';
 import { fuehreAus } from '../src/module/datenaustausch/datenaustausch.service';
+import { alsJson, entpacke, packe } from './zippaket';
 
 const PNG = Buffer.concat([Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex'), Buffer.from('mosaik')]);
 const PNG2 = Buffer.concat([PNG, Buffer.from('zwei')]);
@@ -55,19 +57,20 @@ class Client {
     const res = await fetch(this.base + url, { method, headers, body: payload });
     const c = res.headers.get('set-cookie');
     if (c) this.cookie = c.split(';')[0];
-    const text = await res.text();
+    const bytes = Buffer.from(await res.arrayBuffer());
+    const text = bytes.toString('utf8');
     let json: any;
     try {
       json = text ? JSON.parse(text) : undefined;
     } catch {
       json = undefined;
     }
-    return { status: res.status, json, text, headers: res.headers };
+    return { status: res.status, json, text, body: bytes, headers: res.headers };
   }
   login(email: string, password: string) {
     return this.req('POST', '/api/auth/login', { email, password });
   }
-  upload(url: string, content: Buffer | string, name = 'paket.json') {
+  upload(url: string, content: Buffer | string, name = 'paket.zip') {
     const fd = new FormData();
     fd.append('datei', new Blob([content]), name);
     return this.req('POST', url, undefined, fd);
@@ -123,14 +126,29 @@ const sha = (storage: typeof sourceSrv.storage, id: string) =>
     .map((d) => `${d.rolle}:${d.sha256}:${d.groesse}`)
     .sort();
 
-let paketMit = '';
+let paketMit = Buffer.alloc(0);
+let kopfMit: any;
+let dateienMit = new Map<string, Buffer>();
 
 const exportiere = (c: Client, ids?: string[]) => c.req('GET', `/api/admin/daten/export${ids ? `?artikel=${ids.join(',')}` : ''}`);
-const kopfVon = (paket: string) => JSON.parse(paket.split('\n')[0].slice(0, -',"dateiinhalte":['.length) + '}');
-/** Paket aus geändertem Kopf und den Dateizeilen eines anderen Pakets. */
-const mitKopf = (kopf: unknown, dateizeilen = '\n]}\n') => JSON.stringify(kopf).slice(0, -1) + ',"dateiinhalte":[' + dateizeilen;
-const dateizeilenVon = (paket: string) => '\n' + paket.split('\n').slice(1).join('\n');
-const einspielen = async (c: Client, paket: string, modus: 'ueberspringen' | 'ersetzen') => {
+/** Frische Installation ohne Demo-Daten mit eigenem Admin (eigenes Import-Limit). */
+async function frischesZiel() {
+  const srv = await start({ demo: false });
+  const c = new Client(srv.base);
+  await srv.storage.users.create({
+    id: newId(), username: 'frisch', email: 'frisch.admin@mosaikschule-lu.de', displayName: 'Frisch', role: 'admin',
+    passwordHash: await hashPassword('Frisch-Admin-Passwort-1'), active: true, isDemo: false,
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), lastLoginAt: null, teamBereiche: [], fehlversuche: 0,
+  });
+  assert.equal((await c.login('frisch.admin@mosaikschule-lu.de', 'Frisch-Admin-Passwort-1')).status, 200);
+  return { srv, c };
+}
+const exportZip = async (c: Client, ids?: string[]) => {
+  const r = await exportiere(c, ids);
+  assert.equal(r.status, 200, r.text);
+  return r.body;
+};
+const einspielen = async (c: Client, paket: Buffer | string, modus: 'ueberspringen' | 'ersetzen') => {
   const vor = await c.upload('/api/admin/daten/import/vorschau', paket);
   assert.equal(vor.status, 200, vor.text);
   const ok = await c.req('POST', '/api/admin/daten/import/ausfuehren', { importId: vor.json.importId, modus });
@@ -159,20 +177,35 @@ test('Export: einer, mehrere, alle – mit Dateien, nur gebrauchte Stammdaten, o
   // alle
   const res = await exportiere(src);
   assert.equal(res.status, 200, res.text);
-  assert.match(res.headers.get('content-disposition') ?? '', /mosaik3lab-druckteile-\d{4}-\d{2}-\d{2}\.json/);
-  paketMit = res.text;
-  const j = JSON.parse(paketMit);
+  assert.match(res.headers.get('content-disposition') ?? '', /mosaik3lab-druckteile-\d{4}-\d{2}-\d{2}\.zip/);
+  assert.equal(res.headers.get('content-type'), 'application/zip');
+  paketMit = res.body;
+  assert.deepEqual([...paketMit.subarray(0, 4)], [0x50, 0x4b, 0x03, 0x04], 'ZIP');
+  const { kopf: j, dateien } = await entpacke(paketMit);
+  kopfMit = j;
+  dateienMit = dateien;
   assert.equal(j.format, 'mosaik3lab-stammdaten');
-  assert.equal(j.version, 1);
+  assert.equal(j.version, 2);
   assert.ok(j.exportiertAm && j.appVersion && j.schemaVersion >= 1);
   assert.equal(j.mitDateien, true);
   assert.equal(j.auswahl, true);
   assert.equal(j.artikel.length, alle.length);
-  assert.ok(j.dateiinhalte.length >= 4);
+  assert.ok(dateien.size >= 4);
+  // Jede beschriebene Datei liegt als echte Binärdatei unter ihrem Pfad (Ordner nach Rolle), Bytes wie in der Ablage.
+  const metas = j.artikel.flatMap((a: any) => a.dateien);
+  assert.equal(metas.length, dateien.size);
+  for (const m of metas) {
+    assert.match(m.pfad, /^(bilder|druckdateien|videos)\/[0-9a-f-]+\.(png|stl|mp4|jpg|webp)$/);
+    const { createHash } = await import('node:crypto');
+    assert.equal(createHash('sha256').update(dateien.get(m.pfad)!).digest('hex'), m.sha256, m.pfad);
+  }
+  const teilMeta = j.artikel.find((a: any) => a.id === itemId).dateien.find((d: any) => d.rolle === 'bild');
+  assert.deepEqual(dateien.get(teilMeta.pfad), PNG, 'Bild unverändert und ohne Base64');
+  assert.ok(j.artikel.every((a: any) => Array.isArray(a.aehnliche)), 'ähnliche Druckteile je Druckteil (auch leer)');
   assert.deepEqual(j.stammdaten.statusarten, []);
   const kategorien = new Set(alle.map((i) => i.category));
   assert.deepEqual(new Set(j.stammdaten.kategorien.map((k: any) => k.name)), kategorien, 'nur gebrauchte Kategorien');
-  const lower = paketMit.toLowerCase();
+  const lower = JSON.stringify(j).toLowerCase();
   for (const verboten of ['passwordhash', 'passwort_hash', 'requesteremail', 'abruf', 'smtp', DEMO_USERS[0].password.toLowerCase()]) {
     assert.ok(!lower.includes(verboten), `enthält nicht: ${verboten}`);
   }
@@ -181,10 +214,10 @@ test('Export: einer, mehrere, alle – mit Dateien, nur gebrauchte Stammdaten, o
   // einer: Dateiname mit Nummer, nur seine Dateien und Stammdaten
   const eins = await exportiere(src, [itemId]);
   const nr = alle.find((i) => i.id === itemId).number;
-  assert.match(eins.headers.get('content-disposition') ?? '', new RegExp(`mosaik3lab-druckteil-${nr}\\.json`));
-  const je = JSON.parse(eins.text);
+  assert.match(eins.headers.get('content-disposition') ?? '', new RegExp(`mosaik3lab-druckteil-${nr}\\.zip`));
+  const { kopf: je, dateien: dateienEins } = await entpacke(eins.body);
   assert.deepEqual(je.artikel.map((a: any) => a.id), [itemId]);
-  assert.equal(je.dateiinhalte.length, 4);
+  assert.equal(dateienEins.size, 4);
   const teil = je.artikel[0];
   assert.deepEqual(je.stammdaten.kategorien.map((k: any) => k.name), [teil.category]);
   assert.deepEqual(je.stammdaten.materialien.map((m: any) => m.name), [teil.material]);
@@ -193,7 +226,7 @@ test('Export: einer, mehrere, alle – mit Dateien, nur gebrauchte Stammdaten, o
 
   // mehrere
   const zwei = [itemId, alle.find((i) => i.id !== itemId).id];
-  const jm = JSON.parse((await exportiere(src, zwei)).text);
+  const jm = (await entpacke(await exportZip(src, zwei))).kopf;
   assert.deepEqual(jm.artikel.map((a: any) => a.id).sort(), [...zwei].sort());
 
   // Fehler: leer, ungültig, unbekannt
@@ -207,7 +240,7 @@ test('Export: einer, mehrere, alle – mit Dateien, nur gebrauchte Stammdaten, o
 test('Alle einspielen in leere Installation: gleiche Druckteile, identische Dateien, Bezüge angelegt, vorher gesichert', async () => {
   const vor = await dst.upload('/api/admin/daten/import/vorschau', paketMit);
   assert.equal(vor.status, 200, vor.text);
-  const n = JSON.parse(paketMit).artikel.length;
+  const n = kopfMit.artikel.length;
   assert.equal(vor.json.kopf.artikel, n);
   assert.equal(vor.json.kopf.vorhanden, 0);
   assert.equal(vor.json.berichte.ueberspringen.abschnitte.artikel.neu, n);
@@ -250,7 +283,7 @@ test('Alle einspielen in leere Installation: gleiche Druckteile, identische Date
 test('Noch einmal einspielen: vorhandene werden übersprungen, nichts doppelt', async () => {
   const before = await dst.req('GET', '/api/items?all=1');
   const filesBefore = targetSrv.storage.files.listByTyp('artikel').length;
-  const n = JSON.parse(paketMit).artikel.length;
+  const n = kopfMit.artikel.length;
   const { vorschau, bericht } = await einspielen(dst, paketMit, 'ueberspringen');
   assert.equal(vorschau.kopf.vorhanden, n);
   assert.equal(bericht.abschnitte.artikel.neu, 0);
@@ -275,10 +308,9 @@ test('Ersetzen: vorhandenes Druckteil bekommt Texte und Dateien aus der Datei, b
     price: '', customFields: [], sizes: ['M'], material: cfg.materials[0].name, materialInfo: '', printTimeMinutes: 5, safetyNotes: [], published: false,
   });
   assert.equal(fremd.status, 201, fremd.text);
-  const paket = (await exportiere(src, [itemId])).text;
-  const kopf = kopfVon(paket);
+  const { kopf, dateien } = await entpacke(await exportZip(src, [itemId]));
   kopf.artikel.push({ ...kopf.artikel[0], id: newId(), number: fremd.json.number, name: 'Kopie mit Nummernkonflikt', dateien: [], videos: [] });
-  const text = mitKopf(kopf, dateizeilenVon(paket));
+  const text = await packe(kopf, dateien);
   const nrZiel = (await dst.req('GET', `/api/items/${itemId}`)).json.number;
 
   const skip = await dst.upload('/api/admin/daten/import/vorschau', text);
@@ -315,8 +347,7 @@ test('Ersetzen: vorhandenes Druckteil bekommt Texte und Dateien aus der Datei, b
 test('Datei von einer anderen Installation: gleicher Name gilt als vorhanden; fehlende Bezüge werden angelegt, vorhandene nicht geändert', async () => {
   const repo = targetSrv.storage.sqlite.settings;
   const s = repo.read();
-  const paket = (await exportiere(src, [itemId])).text;
-  const kopf = kopfVon(paket);
+  const { kopf } = await entpacke(await exportZip(src, [itemId]));
   const kat = s.masterData.categories.find((k) => k.name === kopf.artikel[0].category)!;
   kat.color = kat.color === 'rot' ? 'blau' : 'rot'; // abweichende Farbe hier muss bleiben
   repo.write(s);
@@ -341,7 +372,7 @@ test('Datei von einer anderen Installation: gleicher Name gilt als vorhanden; fe
   kopf.artikel.push({ ...kopf.artikel[1], id: newId(), name: 'Teil mit Kategorie in Großbuchstaben', category: kat.name.toUpperCase(), colorAreas: [{ id: 'a', name: 'Farbe', colors: [gelb.id] }] });
   // Nichts zu retten: keine seiner Farben ist beschrieben.
   kopf.artikel.push({ ...kopf.artikel[1], id: newId(), name: 'Teil ohne beschriebene Farbe', colorAreas: [{ id: 'a', name: 'Farbe', colors: ['unbekannt-1'] }] });
-  const text = mitKopf(kopf);
+  const text = await packe(kopf);
   const vor = await dst.upload('/api/admin/daten/import/vorschau', text);
   assert.equal(vor.status, 200, vor.text);
   assert.equal(vor.json.kopf.vorhanden, 1);
@@ -384,66 +415,119 @@ test('Datei von einer anderen Installation: gleicher Name gilt als vorhanden; fe
   const filesBefore = sha(targetSrv.storage, itemId);
   kopf.artikel = [kopf.artikel[0]];
   kopf.mitDateien = false;
-  const r = await einspielen(dst, mitKopf(kopf), 'ersetzen');
+  const r = await einspielen(dst, await packe(kopf), 'ersetzen');
   assert.equal(r.bericht.abschnitte.artikel.ersetzt, 1);
   assert.equal((await dst.req('GET', `/api/items/${itemId}`)).json.price, 'anderer Preis');
   assert.deepEqual(sha(targetSrv.storage, itemId), filesBefore, 'ohne Dateien in der Datei bleiben vorhandene');
 });
 
 test('Kaputte, abgeschnittene und fremde Dateien werden abgelehnt – nichts wird verändert', async () => {
-  const state = JSON.stringify((await dst.req('GET', '/api/items?all=1')).json);
-  const lines = paketMit.split('\n');
-  // 1) Inhalt einer Datei verändert (Base64 geändert, SHA bleibt)
-  const k = lines.findIndex((l) => l.startsWith('{"id"'));
-  const flipped = [...lines];
-  flipped[k] = flipped[k].replace(/"daten":"(.)/, (_m, c) => `"daten":"${c === 'A' ? 'B' : 'A'}`);
-  const r1 = await dst.upload('/api/admin/daten/import/vorschau', flipped.join('\n'));
-  assert.equal(r1.status, 400);
-  assert.match(r1.json.error, /Prüfsumme|Größe|ungültig/);
+  const { srv, c } = await frischesZiel(); // eigene Instanz: eigenes Import-Limit
+  after(() => srv.stop());
+  const kopie = () => ({ kopf: structuredClone(kopfMit), dateien: new Map(dateienMit) });
+  const ablehnen = async (inhalt: Buffer | string, muster: RegExp) => {
+    const r = await c.upload('/api/admin/daten/import/vorschau', inhalt);
+    assert.equal(r.status, 400, r.text);
+    assert.match(r.json.error, muster);
+  };
+  // 1) Inhalt einer Datei verändert (SHA bleibt) – im ZIP und in der älteren JSON-Datei
+  {
+    const { kopf, dateien } = kopie();
+    const [pfad, buf] = [...dateien][0];
+    const anders = Buffer.from(buf);
+    anders[anders.length - 1] ^= 0xff;
+    dateien.set(pfad, anders);
+    await ablehnen(await packe(kopf, dateien), /Prüfsumme/);
+    await ablehnen(alsJson(kopf, dateien), /Prüfsumme/);
+  }
   // 2) SHA im Kopf verändert
-  const j = JSON.parse(paketMit);
+  const { kopf: j } = kopie();
   j.artikel.find((a: any) => a.dateien.length).dateien[0].sha256 = 'f'.repeat(64);
-  const r2 = await dst.upload('/api/admin/daten/import/vorschau', mitKopf({ ...j, dateiinhalte: undefined }, dateizeilenVon(paketMit)));
-  assert.equal(r2.status, 400);
-  assert.match(r2.json.error, /Prüfsumme/);
-  // 3) abgeschnitten
-  const r3 = await dst.upload('/api/admin/daten/import/vorschau', paketMit.slice(0, Math.floor(paketMit.length / 2)));
-  assert.equal(r3.status, 400);
-  assert.match(r3.json.error, /unvollständig|beschädigt/);
+  await ablehnen(await packe(j, dateienMit), /Prüfsumme/);
+  await ablehnen(alsJson(j, dateienMit), /Prüfsumme/);
+  // 3) abgeschnitten (abgebrochener Download)
+  await ablehnen(paketMit.subarray(0, Math.floor(paketMit.length / 2)), /unvollständig|beschädigt/);
+  const json = alsJson(kopfMit, dateienMit);
+  await ablehnen(json.slice(0, Math.floor(json.length / 2)), /unvollständig|beschädigt/);
   // 4) keine Export-Datei / falsches Format / neuere Version
-  const r4 = await dst.upload('/api/admin/daten/import/vorschau', 'hallo');
-  assert.equal(r4.status, 400);
-  assert.match(r4.json.error, /keine Export-Datei/);
-  assert.equal((await dst.upload('/api/admin/daten/import/vorschau', mitKopf({ format: 'anders' }))).status, 400);
-  const r5 = await dst.upload('/api/admin/daten/import/vorschau', mitKopf({ ...j, version: 99, dateiinhalte: undefined }));
-  assert.equal(r5.status, 400);
-  assert.match(r5.json.error, /neueren Mosaik³LAB-Version/);
+  await ablehnen('hallo', /keine Export-Datei/);
+  await ablehnen(await packe({ format: 'anders' }), /Format unbekannt/);
+  await ablehnen(await packe({ ...kopfMit, version: 99 }), /neueren Mosaik³LAB-Version/);
   // 5) Bild, das keines ist (richtige Prüfsumme, falscher Inhalt)
   const { createHash } = await import('node:crypto');
   const fake = Buffer.from('das ist kein bild');
-  const jj = JSON.parse(paketMit);
+  const { kopf: jj } = kopie();
   const art = jj.artikel.find((a: any) => a.dateien.length);
   const fid = newId();
-  art.dateien = [{ ...art.dateien[0], id: fid, rolle: 'bild', originalname: 'x.png', groesse: fake.length, sha256: createHash('sha256').update(fake).digest('hex') }];
+  art.dateien = [{ ...art.dateien[0], id: fid, rolle: 'bild', originalname: 'x.png', groesse: fake.length, sha256: createHash('sha256').update(fake).digest('hex'), pfad: `bilder/${fid}.png` }];
   art.videos = [];
-  const r6 = await dst.upload('/api/admin/daten/import/vorschau', mitKopf({ ...jj, dateiinhalte: undefined }, `\n{"id":"${fid}","daten":"${fake.toString('base64')}"}\n]}\n`));
-  assert.equal(r6.status, 400);
-  assert.match(r6.json.error, /Bild/);
+  const nurFake = new Map([[`bilder/${fid}.png`, fake]]);
+  for (const a of jj.artikel) if (a !== art) for (const d of a.dateien) nurFake.set(d.pfad, dateienMit.get(d.pfad)!);
+  await ablehnen(await packe(jj, nurFake), /Bild/);
   // 6) Video-Link mit javascript: (wäre im Katalog ein anklickbarer Link)
-  const jl = JSON.parse(paketMit);
+  const { kopf: jl } = kopie();
   jl.artikel[0].videos = [{ id: newId(), title: 'Böse', url: 'javascript:alert(1)', dateiId: '', uploadedAt: '' }];
-  const r7 = await dst.upload('/api/admin/daten/import/vorschau', mitKopf({ ...jl, dateiinhalte: undefined }, dateizeilenVon(paketMit)));
-  assert.equal(r7.status, 400);
-  assert.match(r7.json.error, /http/);
-  assert.equal(JSON.stringify((await dst.req('GET', '/api/items?all=1')).json), state, 'unverändert');
-  assert.ok(!existsSync(path.join(targetSrv.dir, 'import-tmp')) || (await fs.readdir(path.join(targetSrv.dir, 'import-tmp'))).length === 0, 'hochgeladene Dateien entfernt');
+  await ablehnen(await packe(jl, dateienMit), /http/);
+  assert.equal(await srv.storage.items.count(), 0, 'nichts eingespielt');
+  assert.ok(!existsSync(path.join(srv.dir, 'import-tmp')) || (await fs.readdir(path.join(srv.dir, 'import-tmp'))).length === 0, 'hochgeladene Dateien entfernt');
+});
+
+test('ZIP-Sicherheit: Zip-Slip, unerwartete und fehlende Einträge, Zip-Bombe, falscher Ordner – abgelehnt, nichts verändert', async () => {
+  const { srv, c } = await frischesZiel(); // eigene Instanz: eigenes Import-Limit
+  after(() => srv.stop());
+  const ablehnen = async (inhalt: Buffer, muster: RegExp, wozu: string) => {
+    const r = await c.upload('/api/admin/daten/import/vorschau', inhalt);
+    assert.equal(r.status, 400, `${wozu}: ${r.text}`);
+    assert.match(r.json.error, muster, wozu);
+  };
+  /** Namen im fertigen ZIP austauschen (gleiche Länge) – yazl selbst schreibt keine unzulässigen Namen. */
+  const tausche = (zip: Buffer, von: string, nach: string) => {
+    assert.equal(von.length, nach.length);
+    const out = Buffer.from(zip);
+    for (let i = out.indexOf(von); i >= 0; i = out.indexOf(von, i + 1)) out.write(nach, i, 'latin1');
+    return out;
+  };
+  const boese = Buffer.from('boese');
+  // Zip-Slip: „..“, absoluter Pfad, Laufwerk, Backslash
+  for (const [platzhalter, name] of [['xx/xx/boese.txt', '../../boese.txt'], ['xtmp/boese.txt', '/tmp/boese.txt'], ['Cx/boese.txt', 'C:/boese.txt'], ['bilderxxxxboese', 'bilder\\..\\boese']] as const) {
+    await ablehnen(tausche(await packe(kopfMit, dateienMit, [{ name: platzhalter, daten: boese }]), platzhalter, name), /unzulässigen Pfad|unerwarteten Eintrag/, name);
+  }
+  // Unerwartete Einträge (auch eine Datei, die im Kopf nicht beschrieben ist)
+  await ablehnen(await packe(kopfMit, dateienMit, [{ name: 'LIESMICH.txt', daten: boese }]), /unerwarteten Eintrag/, 'LIESMICH');
+  await ablehnen(await packe(kopfMit, dateienMit, [{ name: `bilder/${newId()}.png`, daten: PNG }]), /unerwarteten Eintrag/, 'nicht beschriebenes Bild');
+  // Fehlender Eintrag
+  const ohneEine = new Map(dateienMit);
+  ohneEine.delete([...ohneEine.keys()][0]);
+  await ablehnen(await packe(kopfMit, ohneEine), /fehlt im Paket/, 'fehlender Eintrag');
+  // paket.json fehlt
+  await ablehnen(tausche(await packe(kopfMit, dateienMit), 'paket.json', 'paket.jsox'), /unerwarteten Eintrag|paket\.json fehlt/, 'ohne paket.json');
+  // Zip-Bombe: 60 MB Nullen, gepackt nur wenige KB, als „Bild“ beschrieben → abgelehnt, bevor entpackt wird
+  const { createHash } = await import('node:crypto');
+  const bombe = Buffer.alloc(60 * 1024 * 1024);
+  const k = structuredClone(kopfMit);
+  const teil = k.artikel.find((a: any) => a.id === itemId);
+  const bid = newId();
+  teil.dateien.push({ ...teil.dateien.find((d: any) => d.rolle === 'bild'), id: bid, groesse: bombe.length, sha256: createHash('sha256').update(bombe).digest('hex'), pfad: `bilder/${bid}.png` });
+  const mitBombe = await packe(k, new Map([...dateienMit, [`bilder/${bid}.png`, bombe]]));
+  assert.ok(mitBombe.length < paketMit.length + 1024 * 1024, 'stark gepackt');
+  await ablehnen(mitBombe, /zu groß/, 'Zip-Bombe');
+  // Pfad passt nicht zur Rolle (Bild im Ordner „videos“)
+  const f = structuredClone(kopfMit);
+  const bild = f.artikel.find((a: any) => a.id === itemId).dateien.find((d: any) => d.rolle === 'bild');
+  const neu = new Map(dateienMit);
+  neu.set(`videos/${bild.id}.png`, neu.get(bild.pfad)!);
+  neu.delete(bild.pfad);
+  bild.pfad = `videos/${bild.id}.png`;
+  await ablehnen(await packe(f, neu), /Pfad passt nicht/, 'falscher Ordner');
+  assert.equal(await srv.storage.items.count(), 0, 'nichts eingespielt');
+  assert.ok(!existsSync(path.join(srv.dir, '..', 'boese.txt')) && !existsSync(path.join(srv.storage.files.root, 'boese.txt')), 'nichts außerhalb geschrieben');
 });
 
 test('Fehler mitten im Einspielen: Datenbank und Ablage bleiben unverändert (alles oder nichts)', async () => {
   // Leeres Ziel, absichtlich leerer Temp-Ordner → Verschieben der Dateien scheitert.
   const frisch = await start({ demo: false });
   try {
-    const paketDatei = path.join(frisch.dir, 'paket.json');
+    const paketDatei = path.join(frisch.dir, 'paket.zip');
     await fs.writeFile(paketDatei, paketMit);
     const paket = await leseKopf(paketDatei);
     const infos = await pruefeDateien(paketDatei, paket);
@@ -483,7 +567,7 @@ test('Altes Format (vollständiger Export mit allen Stammdaten und Anfragestatus
     assert.equal((await c.login('alt.admin@mosaikschule-lu.de', 'Alt-Admin-Passwort-1')).status, 200);
     // So sahen Exporte bisher aus: kein „auswahl“, alle Stammdaten, Anfragestatus dabei.
     const ms = (await src.req('GET', '/api/config')).json.masterData;
-    const kopf = kopfVon(paketMit);
+    const kopf = structuredClone(kopfMit);
     delete kopf.auswahl;
     kopf.stammdaten = {
       kategorien: [...ms.categories, { id: newId(), name: 'Ungenutzt im alten Export', color: 'grau', icon: ms.categories[0].icon }],
@@ -493,7 +577,7 @@ test('Altes Format (vollständiger Export mit allen Stammdaten und Anfragestatus
       statusarten: ms.orderStatuses.map((s: any) => ({ id: s.id, aktiv: !s.active || s.id === 'offen' })),
     };
     const statusVorher = (await c.req('GET', '/api/config')).json.masterData.orderStatuses;
-    const { bericht } = await einspielen(c, mitKopf(kopf, dateizeilenVon(paketMit)), 'ueberspringen');
+    const { bericht } = await einspielen(c, alsJson(kopf, dateienMit), 'ueberspringen');
     assert.equal(bericht.abschnitte.artikel.neu, kopf.artikel.length);
     const md = (await c.req('GET', '/api/config')).json.masterData;
     assert.ok(!md.categories.some((k: any) => k.name === 'Ungenutzt im alten Export'), 'nur gebrauchte Stammdaten');
@@ -502,7 +586,7 @@ test('Altes Format (vollständiger Export mit allen Stammdaten und Anfragestatus
     assert.equal(dateienAlt.length, 4, 'Bilder, Druckdatei und Video aus dem alten Export');
     // alter Export „ohne Dateien“: Druckteile kommen, vorhandene Dateien bleiben
     const ohne = { ...kopf, mitDateien: false, artikel: kopf.artikel.map((a: any) => ({ ...a, dateien: [], videos: a.videos.filter((v: any) => !v.dateiId) })) };
-    const r = await einspielen(c, mitKopf(ohne), 'ersetzen');
+    const r = await einspielen(c, alsJson(ohne, new Map()), 'ersetzen');
     assert.equal(r.bericht.abschnitte.artikel.neu, 0);
     assert.deepEqual(sha(frisch.storage, itemId), dateienAlt);
   } finally {
@@ -558,7 +642,7 @@ test('Rundreise in eine frische Installation: jede Angabe eines Druckteils und j
     });
     assert.equal((await sc.login('schule.admin@mosaikschule-lu.de', 'Schule-Admin-Passwort-1')).status, 200);
 
-    const { bericht } = await einspielen(sc, (await exportiere(src, [quelle.id])).text, 'ueberspringen');
+    const { bericht } = await einspielen(sc, await exportZip(src, [quelle.id]), 'ueberspringen');
     assert.equal(bericht.abschnitte.artikel.neu, 1);
     const ziel = (await sc.req('GET', `/api/items/${quelle.id}`)).json;
     for (const f of ['number', 'name', 'shortDescription', 'description', 'category', 'kind', 'useAreas', 'price', 'sizes', 'customFields', 'material', 'materialInfo', 'printTimeMinutes', 'safetyNotes', 'links', 'published'])
@@ -577,7 +661,7 @@ test('Rundreise in eine frische Installation: jede Angabe eines Druckteils und j
     assert.ok(mdZ.useAreas.some((u: any) => u.name === 'Rundreise-Bereich'));
 
     // Noch einmal „Ersetzen“ ohne Änderung: gleich. Nur die Art geändert bzw. nur Gruppe → feste Rollen (gleiche Farben): wird ersetzt.
-    const ersetze = async () => (await einspielen(sc, (await exportiere(src, [quelle.id])).text, 'ersetzen')).bericht.abschnitte.artikel;
+    const ersetze = async () => (await einspielen(sc, await exportZip(src, [quelle.id]), 'ersetzen')).bericht.abschnitte.artikel;
     assert.equal((await ersetze()).unveraendert, 1);
     assert.equal((await src.req('PUT', `/api/items/${quelle.id}`, { ...body, kind: 'beides' })).status, 200);
     assert.equal((await ersetze()).ersetzt, 1, 'nur Art geändert');
@@ -589,6 +673,81 @@ test('Rundreise in eine frische Installation: jede Angabe eines Druckteils und j
   } finally {
     await schule.stop();
   }
+});
+
+test('Ähnliche Druckteile: Teilexport → vorgemerkt → späterer Export bringt den Partner (auch unter neuer ID) → verknüpft; nur hinzufügen', async () => {
+  const neuesTeil = async (c: Client, name: string) => {
+    const r = await c.req('POST', '/api/items', {
+      name, shortDescription: `Kurz ${name}`, category: cfg.categories[0].name, useAreas: [], colorAreas: [{ id: 'a', name: 'Farbe', colors: [cfg.filaments[0].id] }],
+      price: '', customFields: [], sizes: [], material: cfg.materials[0].name, materialInfo: '', printTimeMinutes: 5, safetyNotes: [], published: true,
+    });
+    assert.equal(r.status, 201, r.text);
+    return r.json as { id: string; number: string };
+  };
+  const verknuepfe = async (x: string, y: string) => assert.ok((await src.req('POST', `/api/items/${x}/aehnliche`, { id: y })).status < 300);
+  const [A, B, C, D] = [await neuesTeil(src, 'Ähnlich A'), await neuesTeil(src, 'Ähnlich B'), await neuesTeil(src, 'Ähnlich C'), await neuesTeil(src, 'Ähnlich D')];
+  await verknuepfe(A.id, B.id);
+  await verknuepfe(C.id, A.id);
+
+  // Export nur von A: beide Partner stehen drin (auch nicht exportierte), mit Name und Nummer als Hilfe.
+  const zipA = await exportZip(src, [A.id]);
+  const kopfA = (await entpacke(zipA)).kopf;
+  assert.deepEqual(
+    kopfA.artikel[0].aehnliche.map((p: any) => [p.id, p.name, p.nummer]).sort(),
+    [[B.id, 'Ähnlich B', B.number], [C.id, 'Ähnlich C', C.number]].sort(),
+  );
+
+  const { srv, c } = await frischesZiel();
+  after(() => srv.stop());
+  const db = srv.storage.sqlite.db;
+  const offen = () => (db.prepare('SELECT COUNT(*) AS n FROM artikel_aehnlich_offen').get() as { n: number }).n;
+  const aehnlicheIm = async (id: string) => ((await c.req('GET', `/api/items/${id}/aehnliche`)).json as any[]).map((p) => p.name).sort();
+
+  // 1) A allein: nichts anzulegen, zwei Verknüpfungen warten (Vorschau und Ergebnis sagen dasselbe).
+  const e1 = await einspielen(c, zipA, 'ueberspringen');
+  for (const b of [e1.vorschau.berichte.ueberspringen, e1.vorschau.berichte.ersetzen, e1.bericht]) assert.deepEqual(b.verknuepfungen, { neu: 0, wartend: 2 });
+  assert.equal(offen(), 2);
+  assert.deepEqual(await aehnlicheIm(A.id), []);
+
+  // 2) B kommt – im Ziel gibt es schon ein Druckteil gleichen Namens (andere ID) → B wird ihm zugeordnet (übersprungen),
+  //    dessen Herkunft gemerkt und die vorgemerkte Verknüpfung A ↔ B dorthin aufgelöst.
+  const bHier = await neuesTeil(c, 'Ähnlich B');
+  assert.notEqual(bHier.id, B.id);
+  const e2 = await einspielen(c, await exportZip(src, [B.id]), 'ueberspringen');
+  assert.equal(e2.bericht.abschnitte.artikel.uebersprungen, 1);
+  assert.deepEqual(e2.bericht.verknuepfungen, { neu: 1, wartend: 0 });
+  assert.deepEqual(await aehnlicheIm(A.id), ['Ähnlich B']);
+  assert.equal((db.prepare('SELECT herkunft_id FROM artikel WHERE id = ?').get(bHier.id) as any).herkunft_id, B.id, 'Herkunfts-ID gemerkt');
+  assert.equal(offen(), 1, 'C wartet noch');
+
+  // 3) C kommt (neu, behält seine ID) → letzte Vormerkung aufgelöst.
+  const e3 = await einspielen(c, await exportZip(src, [C.id]), 'ueberspringen');
+  assert.equal(e3.bericht.abschnitte.artikel.neu, 1);
+  assert.deepEqual(e3.bericht.verknuepfungen, { neu: 1, wartend: 0 });
+  assert.deepEqual(await aehnlicheIm(A.id), ['Ähnlich B', 'Ähnlich C']);
+  assert.equal(offen(), 0);
+
+  // 4) Nur hinzufügen, nie löschen: Quelle hebt A ↔ C auf und verknüpft A ↔ D; „Ersetzen“ mit A.
+  //    Verknüpfungen zählen nicht in den Vergleich: A gilt als unverändert, nicht als ersetzt.
+  assert.ok((await src.req('DELETE', `/api/items/${A.id}/aehnliche/${C.id}`)).status < 300);
+  await verknuepfe(A.id, D.id);
+  const e4 = await einspielen(c, await exportZip(src, [A.id]), 'ersetzen');
+  assert.equal(e4.bericht.abschnitte.artikel.unveraendert, 1);
+  assert.equal(e4.bericht.abschnitte.artikel.ersetzt, 0);
+  assert.deepEqual(e4.bericht.verknuepfungen, { neu: 0, wartend: 1 }, 'D fehlt noch');
+  assert.deepEqual(await aehnlicheIm(A.id), ['Ähnlich B', 'Ähnlich C'], 'A ↔ C bleibt');
+  assert.equal(offen(), 1);
+
+  // 5) Ältere Datei ohne Verknüpfungen: nichts passiert, nichts geht verloren.
+  const alt = alsJson(kopfA, new Map());
+  const e5 = await einspielen(c, alt, 'ersetzen');
+  assert.deepEqual(e5.bericht.verknuepfungen, { neu: 0, wartend: 0 });
+  assert.deepEqual(await aehnlicheIm(A.id), ['Ähnlich B', 'Ähnlich C']);
+
+  // 6) Druckteil gelöscht → seine Vormerkungen verschwinden mit.
+  assert.ok((await c.req('DELETE', `/api/items/${A.id}`)).status < 300);
+  assert.equal(offen(), 0);
+  assert.deepEqual(await aehnlicheIm(bHier.id), [], 'Verknüpfung per Fremdschlüssel mit weg');
 });
 
 after(() => sourceSrv.stop());

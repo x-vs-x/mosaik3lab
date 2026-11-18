@@ -13,10 +13,14 @@ Es gibt genau **zwei** Dinge, und jedes hat genau **einen** Ort:
 
 1. In der App **Verwaltung → Druckteile verwalten** öffnen.
 2. Die gewünschten Druckteile **anhaken** – eins, mehrere oder oben „**Alle auswählen**“.
-3. **„Exportieren“** drücken. Der Browser lädt **eine Datei** herunter (z. B. `mosaik3lab-druckteile-2026-11-02.json`).
+3. **„Exportieren“** drücken. Der Browser lädt **eine ZIP-Datei** herunter (z. B. `mosaik3lab-druckteile-2026-11-02.zip`).
 
 In der Datei steckt alles, was zum Druckteil gehört: Texte, Farben, Varianten, **Bilder, Videos und Druckdateien**.
-Nicht drin: Anfragen, Lehrkräfte, Konten und Passwörter.
+Auch die **ähnlichen Druckteile** sind vermerkt. Die ZIP-Datei lässt sich am Computer öffnen, die Bilder darin kann man
+direkt ansehen. Nicht drin: Anfragen, Lehrkräfte, Konten und Passwörter.
+
+**Wichtig:** Die andere Schule braucht mindestens **Mosaik³LAB 1.7.0**. Ältere Versionen melden sonst „Das ist keine
+Export-Datei von Mosaik³LAB“ – dann dort zuerst aktualisieren.
 
 ## Druckteile einspielen
 
@@ -40,7 +44,10 @@ Gut zu wissen:
 - Anfragestatus gehören nicht zu den Druckteilen und werden nicht übernommen.
 - „Gibt es schon“ heißt: dasselbe Druckteil (z. B. früher von hier exportiert) oder ein Druckteil mit genau
   demselben Namen.
-- Auch ältere Export-Dateien lassen sich einspielen.
+- Auch ältere Export-Dateien (`.json`) lassen sich einspielen.
+- **Ähnliche Druckteile** werden mit verknüpft. Fehlt ein ähnliches Druckteil hier noch, merkt sich die App die
+  Verknüpfung und legt sie an, sobald es mit einer späteren Datei kommt („1 wartet auf Druckteile, die noch fehlen“).
+  Verknüpfungen werden nur hinzugefügt, nie gelöscht.
 - Wer das darf: Administration und das 3D-Druck-Team (in der Benutzerverwaltung je Konto abschaltbar).
 
 ---
