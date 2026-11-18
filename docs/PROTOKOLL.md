@@ -2,6 +2,15 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Sicherung robust gegen verschwundene Dateien (Unter-Session, Branch: fix/sicherung-enoent)
+- **Anlass:** `fs.cp` in `createBackup` brach mit ENOENT ab, wenn während des Kopierens eine Datei/ein Ordner verschwand.
+- **Gebaut:** `manager/lib/backup.mjs`: neue `kopiereOrdner(quelle, ziel, filter)` (rekursiv, reines Node) ersetzt
+  `fs.cp` beim Kopieren der Quellen; ENOENT wird nur übersprungen, wenn die Quelle wirklich weg ist (Log-Zeile
+  „Sicherung: übersprungen, inzwischen gelöscht: …“), alle anderen Fehler brechen weiter ab. Filter (`SKIP`,
+  `vorschau/`, `*.neu`, `.import-tmp`) unverändert. Test in `manager/test/manager.test.mjs` (Filter löscht Datei
+  und Ordner kurz vor dem Kopieren; blockiertes Ziel muss scheitern) – Manager-Tests laufen in CI.
+- **Aufgeräumt:** Probeskript und `C:\Entwicklung\_testdaten\backup-fix` gelöscht.
+
 ## 2026-11-18 – Stabilität der Oberfläche vor 1.7.0 (Unter-Session, Branch: fix/stabilitaet-client)
 - **Anlass:** Prüfung der Oberfläche (Stand eacfcbb), 13 Funde; nur Client (+ Aufteilung in `shared/`), Server/Manager nicht angefasst.
 - **Gebaut:** `components/Fehlergrenze.tsx` (um die App in `main.tsx` und je Adresse um die nachgeladenen Seiten in
