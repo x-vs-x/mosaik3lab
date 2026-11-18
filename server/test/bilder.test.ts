@@ -11,7 +11,7 @@ import { PNG } from 'pngjs';
 import { anmelden, form, startServer, storageAt, tmp } from './helfer';
 import { verarbeite, NichtUnterstuetzt } from '../src/kern/bilder/verarbeitung';
 import { leseKopf } from '../src/kern/bilder/format';
-import { BildRechner, importLaeuft, SICHERUNG_MARKER, vorschauRel } from '../src/kern/bilder';
+import { BildRechner, austauschLaeuft, SICHERUNG_MARKER, vorschauRel } from '../src/kern/bilder';
 import { lockContent } from '../src/kern/lock';
 
 // Server zuerst starten (vor allen Tests), wie in den anderen Testdateien
@@ -185,7 +185,7 @@ test('Hochladen: Transparenz bleibt PNG, kaputtes Bild wird trotzdem gespeichert
   assert.ok(!existsSync(vorschauDatei(kaputt, 'karte')));
   const antwort = await hole(`/api/files/images/${kaputt}?groesse=karte`);
   assert.equal(antwort.status, 200);
-  assert.equal(antwort.headers.get('cache-control'), 'no-store', 'Original als Ersatz, nicht zwischenspeichern');
+  assert.equal(antwort.headers.get('cache-control'), 'private, max-age=60', 'Original als Ersatz, nur kurz zwischenspeichern');
   assert.equal(Number(antwort.headers.get('content-length')), KAPUTT.length);
 });
 
@@ -272,7 +272,7 @@ test('Ersetzen räumt veraltete Vorschaubilder auf; Bildpflege verkleinert, übe
 
     // pausiert während eines Imports und einer Sicherung des Server-Managers
     const spaet = await speichern(jpg(300, 200), 'jpg');
-    const fertig = importLaeuft();
+    const fertig = austauschLaeuft();
     let ende = false;
     const lauf = pflege.nachholen([spaet.id]).then(() => (ende = true));
     await new Promise((r) => setTimeout(r, 150));

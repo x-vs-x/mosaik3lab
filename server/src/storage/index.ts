@@ -74,7 +74,8 @@ export async function createSqliteStorage(paths: StoragePaths): Promise<Storage 
         backupInto: (target: string) => backupInto(conn, target),
       },
       async close() {
-        // Hintergrund-Arbeit zuerst beenden (bricht sauber ab, geht beim nächsten Start weiter)
+        // Hintergrund-Arbeit zuerst beenden: Bildpflege abbrechen, Rechen-Thread sofort beenden (kein Warten aufs laufende
+        // Bild), dann aufs Ende des Laufs warten – geht beim nächsten Start weiter
         await bildpflege.beenden();
         await bilder.beenden();
         if (conn.isOpen) {

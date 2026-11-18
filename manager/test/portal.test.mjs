@@ -10,6 +10,7 @@ import net from 'node:net';
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
+import zlib from 'node:zlib';
 import { spawn, spawnSync } from 'node:child_process';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -73,6 +74,11 @@ const upstream = http.createServer((q, s) => {
     q.on('data', (c) => (h.update(c), (n += c.length)));
     return q.on('end', () => s.end(JSON.stringify({ bytes: n, sha: h.digest('hex') })));
   }
+  if (p === '/mosaik3lab/gzip') {
+    // wie die App mit „compression“: komprimierte Antwort mit Content-Encoding und Vary
+    s.writeHead(200, { 'Content-Type': 'application/json', 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' });
+    return s.end(zlib.gzipSync(JSON.stringify({ text: 'x'.repeat(10_000) })));
+  }
   if (p === '/mosaik3lab/download') {
     s.setHeader('Content-Type', 'application/octet-stream');
     for (let i = 0; i < 20; i++) s.write(Buffer.alloc(1024 * 1024, i));
@@ -100,6 +106,11 @@ test('Portal leitet /mosaik3lab weiter, / zur App, alles andere → 404; Forward
     assert.equal(echo.headers['x-forwarded-proto'], 'http');
     assert.equal(echo.headers['x-forwarded-host'], `127.0.0.1:${httpPort}`);
     assert.equal(echo.headers.forwarded, undefined);
+    // Komprimierte Antworten der App gehen unverändert durch (Content-Encoding bleibt, Inhalt bleibt gzip)
+    const gz = await req(`http://127.0.0.1:${httpPort}/mosaik3lab/gzip`, { headers: { 'Accept-Encoding': 'gzip' } });
+    assert.equal(gz.headers['content-encoding'], 'gzip');
+    assert.equal(gz.headers.vary, 'Accept-Encoding');
+    assert.equal(JSON.parse(zlib.gunzipSync(gz.body).toString()).text.length, 10_000);
   } finally {
     await p.close();
   }

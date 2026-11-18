@@ -3,6 +3,12 @@ import { loadConfig } from './config';
 
 const config = loadConfig();
 
+// Letztes Netz: eine vergessene Promise-Ablehnung beendet sonst die ganze App (Node-Standard). Nur ins Log schreiben –
+// der eigentliche Fehler wird an seiner Stelle behandelt.
+process.on('unhandledRejection', (grund) => {
+  console.error('[Fehler] Unbehandelte Promise-Ablehnung:', grund instanceof Error ? (grund.stack ?? grund.message) : grund);
+});
+
 if (!['127.0.0.1', 'localhost', '::1'].includes(config.host)) {
   console.warn(
     `\n⚠  Hinweis: Die App lauscht direkt im Netzwerk (${config.host}), nicht nur auf diesem Rechner.\n` +

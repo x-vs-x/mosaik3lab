@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import express, { type ErrorRequestHandler } from 'express';
+import compression from 'compression';
+import express, { type ErrorRequestHandler, type Request, type Response } from 'express';
 import session from 'express-session';
 import helmet from 'helmet';
 import multer from 'multer';
@@ -51,7 +52,7 @@ export async function createApp(config: AppConfig) {
   // Bambu-Farbrollen mit dem mitgelieferten Katalog abgleichen (wirkt nach Updates; eigene Farbrollen bleiben unberührt).
   bambuAbgleichBeimStart(storage);
   // Bildpflege einige Minuten nach dem Start (wenn /api/health längst grün ist) – nie im Installer/Update-Schritt.
-  storage.bildpflege.planeStart(config.bildpflegeNachMs);
+  storage.bildpflege.planeStart(config.bildpflegeNachMs).catch((err: Error) => console.warn(`[Bilder] Bildpflege nicht geplant: ${err.message}`));
 
   // Außen: die eigentliche Express-App (hört nur auf 127.0.0.1, dahinter steht der Portal-Dienst des Server-Managers);
   // innen: alle Routen unter dem Basis-Pfad (Standard /, z. B. /mosaik3lab).
@@ -67,6 +68,9 @@ export async function createApp(config: AppConfig) {
       strictTransportSecurity: config.https ? { maxAge: 15552000 } : false,
     }),
   );
+  // Komprimieren (gzip/brotli, reines JavaScript): API-JSON, HTML, JS, CSS – spart im WLAN viel. Nicht: Bilder, Videos,
+  // ZIP und Downloads (schon komprimiert bzw. Strom mit Content-Length und Range fürs Vorspulen).
+  app.use(compression({ filter: komprimieren }));
   app.use(express.json({ limit: '100kb' }));
 
   if (config.logRequests) {
@@ -159,6 +163,12 @@ export async function createApp(config: AppConfig) {
       await storage.close();
     },
   };
+}
+
+/** Nur Text-Antworten komprimieren; Dateien der Ablage, Export-Download und Range-Anfragen nie. */
+function komprimieren(req: Request, res: Response) {
+  if (req.headers.range || /^[/]api[/](files[/]|admin[/]daten[/]export)/.test(req.path)) return false;
+  return compression.filter(req, res); // prüft den Inhaltstyp (text/*, JSON, JavaScript, SVG …)
 }
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {

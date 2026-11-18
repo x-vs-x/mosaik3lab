@@ -171,7 +171,7 @@ async function bilderVerarbeiten(storage: Storage, namen: string[]) {
     const d = storage.files.findByName(name, 'bild');
     if (!d) continue;
     if (Date.now() > ende) {
-      void storage.bildpflege.nachholen([d.id]);
+      storage.bildpflege.nachholen([d.id]).catch((err: Error) => console.warn(`[Bilder] Bildpflege: ${err.message}`));
       continue;
     }
     try {
@@ -184,15 +184,24 @@ async function bilderVerarbeiten(storage: Storage, namen: string[]) {
   return geaendert;
 }
 
-export const reorderImages = (storage: Storage, id: string, images: string[]) =>
+/**
+ * Bildname aus dem Editor → aktueller Name im Druckteil. Die Bildpflege kann die Endung inzwischen geändert haben
+ * (PNG → JPG, gleiche Datei-ID); offene Seiten schicken dann noch den alten Namen.
+ */
+const bildIdVon = (name: string) => name.replace(/[.][^.]*$/, '');
+const aktuellerName = (images: string[], name: string) => (images.includes(name) ? name : (images.find((f) => bildIdVon(f) === bildIdVon(name)) ?? name));
+
+export const reorderImages = (storage: Storage, id: string, wunsch: string[]) =>
   change(storage, id, (c) => {
+    const images = wunsch.map((f) => aktuellerName(c.images, f));
     const same = images.length === c.images.length && new Set(images).size === images.length && images.every((f) => c.images.includes(f));
     if (!same) throw badRequest('Die Bildliste passt nicht zum Druckteil.');
     return { ...c, images, updatedAt: touched() };
   });
 
-export const removeImage = (storage: Storage, id: string, file: string) =>
+export const removeImage = (storage: Storage, id: string, name: string) =>
   change(storage, id, (c) => {
+    const file = aktuellerName(c.images, name);
     if (!c.images.includes(file)) throw notFound('Bild nicht gefunden.');
     return { ...c, images: c.images.filter((f) => f !== file), updatedAt: touched() };
   });

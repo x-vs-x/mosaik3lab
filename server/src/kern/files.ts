@@ -5,7 +5,7 @@ import { newId } from '../domain/ids';
 import { MIME_BY_EXT, type DateiRolle, type Objekttyp } from '../domain/objekttypen';
 import type { Db, Row } from './db';
 import { str } from './db';
-import { VORSCHAU_GROESSEN, vorschauRel } from './bilder/groessen';
+import { gescheitertRel, VORSCHAU_GROESSEN, vorschauRel } from './bilder/groessen';
 
 export type ImageExt = 'jpg' | 'png' | 'webp';
 export type ModelExt = 'stl' | '3mf';
@@ -19,6 +19,8 @@ export const VIDEO_NAME = /^[a-f0-9-]{36}\.(mp4|webm)$/;
 /** IDs, die als Ordnername taugen (keine Pfadzeichen). */
 const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const SAFE_EXT = /^[a-z0-9]{1,8}$/;
+/** Zwischendatei beim sicheren Ersetzen: <ziel>.<id>.neu (hier und in kern/bilder/dienst.ts). */
+const ZWISCHENDATEI = /\.[A-Za-z0-9_-]{1,64}\.neu$/;
 
 /** Eine Datei als Datensatz (Tabelle `datei`). */
 export interface Datei {
@@ -83,8 +85,18 @@ export class FileStore {
     readonly root: string,
   ) {}
 
+  /** Ablage anlegen; Zwischendateien (*.<id>.neu) eines abgebrochenen Laufs entfernen – beim Start schreibt noch niemand. */
   async init() {
     await fs.mkdir(this.root, { recursive: true });
+    let n = 0;
+    for (const f of await fs.readdir(this.root, { recursive: true }).catch(() => [] as string[])) {
+      if (!ZWISCHENDATEI.test(f)) continue;
+      await fs.rm(path.join(this.root, f), { force: true, maxRetries: 3 }).then(
+        () => n++,
+        (err: Error) => console.warn(`[Ablage] Zwischendatei ${f} bleibt liegen: ${err.message}`),
+      );
+    }
+    if (n) console.log(`[Ablage] ${n} verwaiste Zwischendatei${n === 1 ? '' : 'en'} (*.neu) entfernt.`);
   }
 
   relPath(objekttyp: Objekttyp, objektId: string, rolle: DateiRolle, id: string, ext: string): string {
@@ -154,12 +166,14 @@ export class FileStore {
     await fs.writeFile(temp, buffer, { flag: 'wx' });
     try {
       await fs.rename(temp, abs); // gleiche Endung: ersetzt die alte Datei in einem Schritt
-      this.db
+      const r = this.db
         .prepare('UPDATE datei SET pfad = ?, mime = ?, groesse = ?, sha256 = ?, originalname = ? WHERE id = ?')
         .run(neu.pfad, neu.mime, neu.groesse, neu.sha256, neu.originalname, neu.id);
+      // Inzwischen gelöscht (z. B. Bild entfernt, während die Bildpflege es verkleinert hat): neue Datei wäre eine Waise.
+      if (Number(r.changes) === 0) throw new Error('Datei wurde inzwischen gelöscht.');
     } catch (err) {
       await fs.rm(temp, { force: true });
-      if (pfad !== alt.pfad) await fs.rm(abs, { force: true });
+      if (pfad !== alt.pfad || !this.find(id)) await fs.rm(abs, { force: true }); // Datensatz weg → Datei auch bei gleichem Pfad weg
       throw err;
     }
     if (pfad !== alt.pfad) await fs.rm(this.absPath(alt), { force: true }).catch(() => undefined);
@@ -253,6 +267,7 @@ export class FileStore {
         console.warn(`[Ablage] Vorschaubild ${vorschauRel(g, id)} konnte nicht gelöscht werden: ${err.message}`);
       });
     }
+    await fs.rm(path.join(this.root, ...gescheitertRel(id).split('/')), { force: true }).catch(() => undefined); // Merker „gescheitert“
   }
 
   /** Datensatz und Datei löschen (erst DB, dann Datei). */

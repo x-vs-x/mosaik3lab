@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { importLaeuft } from '../../kern/bilder';
+import { austauschLaeuft } from '../../kern/bilder';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -27,6 +27,7 @@ import { stamp } from '../../kern/db';
 // Siehe datenaustausch.export.ts (Format), datenaustausch.paket.ts (Lesen/Prüfen) und datenaustausch.service.ts (Ablauf).
 
 const VORSCHAU_GUELTIG_MS = 30 * 60 * 1000;
+const AUFRAEUMEN_MS = 5 * 60 * 1000;
 
 interface Wartend {
   id: string;
@@ -36,6 +37,8 @@ interface Wartend {
   infos: Map<string, DateiInfo>;
   groesse: number;
   bis: number;
+  /** Wird gerade eingespielt – nicht verwerfen. */
+  inArbeit?: boolean;
 }
 
 const ausfuehrenSchema = z.object({
@@ -56,9 +59,15 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
   const wartend = new Map<string, Wartend>();
   let beschaeftigt = false;
 
-  // Reste eines abgebrochenen Imports (Neustart) aufräumen.
-  fs.rmSync(uploadDir, { recursive: true, force: true });
-  fs.rmSync(ablageTmp, { recursive: true, force: true });
+  // Reste eines abgebrochenen Imports (Neustart) aufräumen. Gesperrte Reste (Virenscanner, Indexer) verhindern den Start
+  // nicht – sie werden beim nächsten Start erneut versucht.
+  for (const dir of [uploadDir, ablageTmp]) {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch (err) {
+      console.warn(`[Import] Reste in ${dir} bleiben liegen: ${(err as Error).message}`);
+    }
+  }
 
   const verwerfe = async (w: Wartend) => {
     wartend.delete(w.id);
@@ -67,8 +76,10 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
     await fsp.rm(path.join(ablageTmp, w.id), { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   };
   const aufraeumen = async () => {
-    for (const w of [...wartend.values()]) if (w.bis < Date.now()) await verwerfe(w);
+    for (const w of [...wartend.values()]) if (w.bis < Date.now() && !w.inArbeit) await verwerfe(w);
   };
+  // Abgebrochene Vorschauen (Fenster geschlossen) belegen bis zu 1 GB – regelmäßig verwerfen, auch ohne neuen Import.
+  setInterval(() => aufraeumen().catch((e: Error) => console.warn('[Import] Aufräumen fehlgeschlagen:', e.message)), AUFRAEUMEN_MS).unref();
 
   const upload = multer({
     storage: multer.diskStorage({
@@ -92,6 +103,9 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
   const importLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 30, message: 'Zu viele Import-Versuche. Bitte später erneut versuchen.' });
 
   router.get('/export', auth.requirePermission('daten:export'), async (req, res, next) => {
+    // Bis der Download fertig ist (oder abbricht), pausiert die Bildpflege und ersetzt kein Original – sonst verschwindet
+    // eine Datei, die der Export gleich lesen will (PNG → JPG).
+    const austauschFertig = austauschLaeuft();
     try {
       const artikel = req.query.artikel === undefined ? undefined : artikelQuery.parse(req.query.artikel);
       const exp = await erzeugeExport(storage, { artikel });
@@ -106,6 +120,8 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
         res.removeHeader('Content-Disposition');
         next(err);
       }
+    } finally {
+      austauschFertig();
     }
   });
 
@@ -122,6 +138,8 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
         ersetzen: vorschau(storage, paket, 'ersetzen', infos),
       };
       const id = crypto.randomBytes(16).toString('hex');
+      // Höchstens eine wartende Vorschau je Person: eine ältere (abgebrochener Versuch) wird verworfen.
+      for (const alt of [...wartend.values()]) if (alt.nutzerId === req.user!.id && !alt.inArbeit) await verwerfe(alt);
       wartend.set(id, { id, nutzerId: req.user!.id, datei: file.path, paket, infos, groesse: file.size, bis: Date.now() + VORSCHAU_GUELTIG_MS });
       behalten = true;
       res.json({
@@ -147,7 +165,7 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
 
   router.delete('/import/:id', auth.requirePermission('daten:import'), async (req, res) => {
     const w = wartend.get(param(req.params.id));
-    if (w && w.nutzerId === req.user!.id) await verwerfe(w);
+    if (w && w.nutzerId === req.user!.id && !w.inArbeit) await verwerfe(w);
     res.status(204).end();
   });
 
@@ -157,7 +175,8 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
     if (!w || w.nutzerId !== req.user!.id || w.bis < Date.now()) throw notFound('Die Vorschau ist abgelaufen. Bitte die Datei erneut auswählen.');
     if (beschaeftigt) throw conflict('Es wird gerade schon eine Datei eingespielt. Bitte kurz warten.');
     beschaeftigt = true;
-    const importFertig = importLaeuft(); // Bildpflege pausiert solange
+    w.inArbeit = true;
+    const importFertig = austauschLaeuft(); // Bildpflege pausiert solange, Originale bleiben unverändert
     const tmpDir = path.join(ablageTmp, w.id);
     let antwort: { bericht: unknown; sicherung: string };
     try {
