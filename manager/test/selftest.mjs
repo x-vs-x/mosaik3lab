@@ -79,14 +79,14 @@ test('Schutz: Host-Header, Anmeldung, CSRF-Token', async () => {
 });
 
 test('Noch kein Administrator: direkt am Server anlegen, danach Anmeldung mit diesem Konto, Login-Bremse', async () => {
-  const ADMIN = { email: 'chef@schule.de', name: 'Chef', password: 'Selbsttest-2026' };
+  const ADMIN = { email: 'chef@schule.example', name: 'Chef', password: 'Selbsttest-2026' };
   assert.equal((await get('/api/auth')).json.needsAdmin, true);
   assert.equal((await get('/api/settings')).status, 401, 'ohne Anmeldung nichts');
   assert.equal((await post('/api/auth/first', { ...ADMIN, password: 'kurz' })).status, 400);
   const first = await post('/api/auth/first', ADMIN);
   assert.equal(first.status, 200, first.text);
   assert.equal((await get('/api/settings')).status, 200, 'gleich angemeldet');
-  assert.equal((await post('/api/auth/first', { ...ADMIN, email: 'zwei@schule.de' })).status, 400, 'nur solange es keinen gibt');
+  assert.equal((await post('/api/auth/first', { ...ADMIN, email: 'zwei@schule.example' })).status, 400, 'nur solange es keinen gibt');
   assert.equal((await get('/api/auth')).json.needsAdmin, false);
   const saved = cookie;
   cookie = '';
@@ -144,7 +144,7 @@ test('Web-App starten, prüfen, stoppen', async () => {
 });
 
 test('Mail-Einstellungen: Passwort nie in der Antwort, Datei für die App', async () => {
-  const r = await post('/api/mail', { enabled: true, host: 'smtp.schule.de', port: 587, user: 'lab', password: 'geheim-123', from: 'lab@schule.de', recipients: 'werkstatt@schule.de', appBaseUrl: `http://127.0.0.1:${APP_PORT}` });
+  const r = await post('/api/mail', { enabled: true, host: 'smtp.schule.example', port: 587, user: 'lab', password: 'geheim-123', from: 'lab@schule.example', recipients: 'werkstatt@schule.example', appBaseUrl: `http://127.0.0.1:${APP_PORT}` });
   assert.equal(r.status, 200, JSON.stringify(r.json));
   assert.ok(!r.text.includes('geheim-123'));
   assert.ok(!(await get('/api/mail')).text.includes('geheim-123'));
@@ -155,7 +155,7 @@ test('Mail-Einstellungen: Passwort nie in der Antwort, Datei für die App', asyn
   db.close();
   assert.equal(JSON.parse(row.wert).pass, 'geheim-123');
   assert.equal(row.geheim, 1, 'als geheim markiert');
-  assert.equal((await post('/api/mail', { enabled: true, host: 'smtp.schule.de', from: 'x', recipients: 'a@b.de' })).status, 400);
+  assert.equal((await post('/api/mail', { enabled: true, host: 'smtp.schule.example', from: 'x', recipients: 'a@b.de' })).status, 400);
 });
 
 test('Backup und Wiederherstellen', async () => {

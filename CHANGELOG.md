@@ -15,6 +15,11 @@ daraus die nächste Version.
   Der Knopf „Bilder verkleinern …“ unter Verwaltung → Druckteile entfällt, er ist nicht mehr nötig.
   Vorschaubilder kommen nicht in Exporte und nicht ins Backup (sie werden bei Bedarf neu berechnet).
 
+- **Neutrale Vorgaben:** keine schulspezifischen Beispiele mehr im Standard. Beispiel- und Demo-Adressen lauten
+  `…@schule.example`, Texte auf der Anmeldeseite sind neutral. Neue Installationen erlauben zunächst jede Adresse, bis
+  die Einrichtung die Domain der Schule übernimmt. Bestehende Installationen behalten ihre erlaubte Domain und ihre
+  Konten unverändert.
+
 - **Ähnliche Druckteile:** Beim Bearbeiten eines Druckteils lassen sich im neuen Abschnitt „Ähnliche Druckteile“ andere
   Druckteile über die Suche (Name oder Nummer) verknüpfen und wieder entfernen. Die Verknüpfung gilt für beide Teile.
   Ganz unten auf der Seite des Druckteils erscheinen sie als kleine Karten; ein Tipp öffnet das ähnliche Druckteil.

@@ -18,15 +18,15 @@ export interface DemoUser {
 // Lehrkräfte brauchen kein Konto: Jede E-Mail aus den Beispiel-Anfragen (z. B. frau.beispiel@…)
 // ist eine bekannte Lehrkraft und meldet sich ohne Passwort an.
 export const DEMO_USERS: DemoUser[] = [
-  { key: 'admin', username: 'admin', email: 'demo.admin@mosaikschule-lu.de', displayName: 'Demo Administration', role: 'admin', password: 'Mosaik-Admin-2026' },
-  { key: 'druck', username: 'druckteam', email: 'demo.druckteam@mosaikschule-lu.de', displayName: 'Demo 3D-Druck-Team', role: 'druckteam', password: 'Mosaik-Druck-2026' },
+  { key: 'admin', username: 'admin', email: 'demo.admin@schule.example', displayName: 'Demo Administration', role: 'admin', password: 'Mosaik-Admin-2026' },
+  { key: 'druck', username: 'druckteam', email: 'demo.druckteam@schule.example', displayName: 'Demo 3D-Druck-Team', role: 'druckteam', password: 'Mosaik-Druck-2026' },
 ];
 
 /** E-Mail-Adressen für Demo-Konten älterer Datenstände (ohne E-Mail), nach Benutzername. */
 export const LEGACY_DEMO_EMAILS: Record<string, string> = {
-  admin: 'demo.admin@mosaikschule-lu.de',
-  druckteam: 'demo.druckteam@mosaikschule-lu.de',
-  lehrkraft: 'demo.lehrkraft@mosaikschule-lu.de',
+  admin: 'demo.admin@schule.example',
+  druckteam: 'demo.druckteam@schule.example',
+  lehrkraft: 'demo.lehrkraft@schule.example',
 };
 
 export interface DemoItem {
@@ -303,7 +303,7 @@ export interface DemoOrder {
 
 export const DEMO_ORDERS: DemoOrder[] = [
   {
-    itemKey: 'stiftgriff', requesterEmail: 'frau.beispiel@mosaikschule-lu.de', quantity: 3, color: TPU.blue, size: 'Ø 25 mm',
+    itemKey: 'stiftgriff', requesterEmail: 'frau.beispiel@schule.example', quantity: 3, color: TPU.blue, size: 'Ø 25 mm',
     classOrTeam: 'Klasse 3b', customization: '', daysAgo: 12,
     steps: [
       { status: 'in_druck', byKey: 'druck' },
@@ -311,21 +311,21 @@ export const DEMO_ORDERS: DemoOrder[] = [
     ],
   },
   {
-    itemKey: 'keyguard', requesterEmail: 'frau.beispiel@mosaikschule-lu.de', quantity: 1, color: PETG.black, size: 'iPad 10,2"',
+    itemKey: 'keyguard', requesterEmail: 'frau.beispiel@schule.example', quantity: 1, color: PETG.black, size: 'iPad 10,2"',
     classOrTeam: 'Klasse 3b', customization: 'Raster 6 × 4 Felder, App mit Standard-Randabstand.', daysAgo: 4,
     steps: [{ status: 'in_druck', comment: 'Druck läuft, ca. 6 Stunden.', byKey: 'druck' }],
   },
   {
-    itemKey: 'besteck', requesterEmail: 'herr.muster@mosaikschule-lu.de', quantity: 2, color: PETG.blue, size: 'Kinderbesteck',
+    itemKey: 'besteck', requesterEmail: 'herr.muster@schule.example', quantity: 2, color: PETG.blue, size: 'Kinderbesteck',
     classOrTeam: 'Team Mittagessen', customization: '', daysAgo: 1, steps: [],
   },
   {
-    itemKey: 'taktil', requesterEmail: 'frau.sonnenschein@mosaikschule-lu.de', quantity: 8, color: PLA.yellow, size: '8 × 8 cm',
+    itemKey: 'taktil', requesterEmail: 'frau.sonnenschein@schule.example', quantity: 8, color: PLA.yellow, size: '8 × 8 cm',
     classOrTeam: 'Klasse 5a', customization: 'Symbole: Essen, Trinken, Sport, Musik, Pause, Bus, Toilette, Morgenkreis.',
     daysAgo: 2, steps: [],
   },
   {
-    itemKey: 'joystick', requesterEmail: 'herr.muster@mosaikschule-lu.de', quantity: 1, color: TPU.gray, size: 'T-Griff',
+    itemKey: 'joystick', requesterEmail: 'herr.muster@schule.example', quantity: 1, color: TPU.gray, size: 'T-Griff',
     classOrTeam: 'Klasse 5a', customization: 'Bitte mit der Physiotherapie abstimmen.', daysAgo: 7,
     steps: [{ status: 'offen', comment: 'Wartet auf Freigabe durch das Sanitätshaus.', byKey: 'admin' }],
   },

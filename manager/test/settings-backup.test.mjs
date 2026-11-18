@@ -90,7 +90,7 @@ test('Testmail: bösartige Adresse wird abgelehnt, nie als Befehl ausgeführt (W
     await assert.rejects(() => mail.sendTestMail(evil), /Ungültige Adresse/, evil);
   }
   assert.ok(!fs.existsSync(marker));
-  assert.throws(() => mail.saveMail({ host: 'smtp.schule.de', from: 'a@b.de', recipients: 'a@b.de&calc' }), /Empfänger ungültig/);
+  assert.throws(() => mail.saveMail({ host: 'smtp.schule.example', from: 'a@b.de', recipients: 'a@b.de&calc' }), /Empfänger ungültig/);
 });
 
 test('Backup: Standard = vollständig (mit Ablage), je EINE Datei, verschlüsselt; ältere Art „daten“ lesbar; falsches Passwort wird sauber abgelehnt', async () => {

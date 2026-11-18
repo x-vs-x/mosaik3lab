@@ -75,7 +75,7 @@ export function pruefeLinks({ appBaseUrl, erreichbarkeit } = {}) {
   const warnung =
     wahl === 'oeffentlich' && erkennung.schulnetz
       ? `Sie haben „Auch von außerhalb“ gewählt, aber die Links in den Mails zeigen auf eine Adresse im Schulnetz (${erkennung.grund.replace(/\.$/, '')}). ` +
-        'Bitte unter „Adresse in den Mails“ die öffentliche Adresse eintragen (z. B. https://mosaik3lab.meine-schule.de). ' +
+        'Bitte unter „Adresse in den Mails“ die öffentliche Adresse eintragen (z. B. https://mosaik3lab.meine-schule.example). ' +
         'Bis dahin steht in den Mails weiter der Hinweis „nur im Schulnetz“.'
       : '';
   const httpsHinweis = wahl === 'oeffentlich' && !erkennung.schulnetz && /^http:/i.test(url) ? HTTPS_EMPFOHLEN : '';

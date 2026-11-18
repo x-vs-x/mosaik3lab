@@ -75,10 +75,10 @@ function seedUsers() {
   db.exec('CREATE TABLE benutzer (id TEXT PRIMARY KEY, email TEXT, passwort_hash TEXT, rolle TEXT, aktiv INTEGER, ist_demo INTEGER)');
   const add = db.prepare('INSERT INTO benutzer VALUES (?, ?, ?, ?, ?, ?)');
   const hash = bcrypt.hashSync(PW, 4);
-  add.run('1', 'chef@schule.de', hash, 'admin', 1, 0);
-  add.run('2', 'team@schule.de', hash, 'druckteam', 1, 0);
-  add.run('3', 'alt@schule.de', hash, 'admin', 0, 0);
-  add.run('4', 'demo@schule.de', hash, 'admin', 1, 1);
+  add.run('1', 'chef@schule.example', hash, 'admin', 1, 0);
+  add.run('2', 'team@schule.example', hash, 'druckteam', 1, 0);
+  add.run('3', 'alt@schule.example', hash, 'admin', 0, 0);
+  add.run('4', 'demo@schule.example', hash, 'admin', 1, 1);
   db.close();
   // So sah es früher aus: eigenes Manager-Passwort, Schalter „Über die App-Adresse“
   writeBereich(DB, 'manager', { 'manager.passwordHash': 'scrypt$salz$hash', 'manager.remote': false });
@@ -158,7 +158,7 @@ test('Über die App-Adresse mit Admin-Sitzung der App: direkt drin, keine zweite
   // früher „nur direkt am Server“ – jetzt auch über die App-Adresse (die Oberfläche fragt vorher nach)
   const stop = await remotePost('/api/services/webapp/stop', {}, cookie);
   assert.equal(stop.status, 200, stop.text);
-  assert.equal((await remotePost('/api/auth/login', { email: 'chef@schule.de', password: PW }, cookie)).status, 400, 'keine eigene Anmeldung über das Netz');
+  assert.equal((await remotePost('/api/auth/login', { email: 'chef@schule.example', password: PW }, cookie)).status, 400, 'keine eigene Anmeldung über das Netz');
   // CSRF: Token und Origin
   assert.equal((await remotePost('/api/backup/password', {}, cookie, { 'X-Manager-Token': 'falsch' })).status, 403);
   assert.equal((await remotePost('/api/backup/password', {}, cookie, { Origin: 'http://evil.example' })).status, 403);
@@ -168,17 +168,17 @@ test('Über die App-Adresse mit Admin-Sitzung der App: direkt drin, keine zweite
 
 test('Direkt am Server: Anmeldung mit dem Admin-Konto der App; andere Konten nicht; Sperre nach 5 Fehlversuchen', async () => {
   assert.equal((await direct('GET', '/api/status')).status, 401);
-  for (const [email, why] of [['team@schule.de', 'Druck-Team'], ['alt@schule.de', 'deaktiviert'], ['demo@schule.de', 'Demo-Konto (nicht erlaubt)'], ['niemand@schule.de', 'unbekannt']]) {
+  for (const [email, why] of [['team@schule.example', 'Druck-Team'], ['alt@schule.example', 'deaktiviert'], ['demo@schule.example', 'Demo-Konto (nicht erlaubt)'], ['niemand@schule.example', 'unbekannt']]) {
     assert.equal((await login(email, PW)).status, 401, why);
   }
-  const ok = await login('CHEF@schule.de ', PW);
+  const ok = await login('CHEF@schule.example ', PW);
   assert.equal(ok.status, 200, ok.text);
   assert.match(ok.headers['set-cookie'][0], /HttpOnly; SameSite=Strict; Path=\//);
   assert.equal((await direct('GET', '/api/status', { headers: { Cookie: sid(ok) } })).status, 200);
   assert.equal((await viaPortal('GET', '/api/status', { headers: { Cookie: sid(ok) } })).status, 403, 'Manager-Sitzung gilt nicht über das Netz');
 
-  for (let i = 0; i < 5; i++) assert.equal((await login('chef@schule.de', 'falsch-falsch')).status, 401);
-  const locked = await login('chef@schule.de', PW);
+  for (let i = 0; i < 5; i++) assert.equal((await login('chef@schule.example', 'falsch-falsch')).status, 401);
+  const locked = await login('chef@schule.example', PW);
   assert.equal(locked.status, 429, 'gesperrt, auch mit richtigem Passwort');
   assert.match(locked.json.error, /warten/);
 });

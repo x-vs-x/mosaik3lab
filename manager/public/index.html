@@ -220,14 +220,14 @@
               <p class="muted small" id="d-mail">An die Werkstatt bei neuen Anfragen und Vorschlägen, und für Links zum Passwort-Festlegen. Ohne Mailversand zeigt Mosaik³LAB diese Links zum Weitergeben an.</p>
             </div>
             <div id="mail-fields" class="grid" hidden>
-              <label class="full">Empfänger bei neuen Anfragen<input name="mailRecipients" placeholder="werkstatt@schule.de" data-testid="mail-recipients" aria-describedby="d-recipients" /><span class="muted small" id="d-recipients">Mehrere mit Komma trennen</span></label>
+              <label class="full">Empfänger bei neuen Anfragen<input name="mailRecipients" placeholder="werkstatt@schule.example" data-testid="mail-recipients" aria-describedby="d-recipients" /><span class="muted small" id="d-recipients">Mehrere mit Komma trennen</span></label>
               <h3 class="full">Mailserver (SMTP)</h3>
-              <label>Server<input name="mailHost" placeholder="smtp.schule.de" data-testid="mail-host" /></label>
+              <label>Server<input name="mailHost" placeholder="smtp.schule.example" data-testid="mail-host" /></label>
               <label>Port<input name="mailPort" type="number" min="1" max="65535" data-testid="mail-port" /></label>
               <label>Verschlüsselung<select name="mailSecure" data-testid="mail-secure"><option value="false">STARTTLS (meist Port 587)</option><option value="true">SSL/TLS (meist Port 465)</option></select></label>
               <label>Benutzer<input name="mailUser" autocomplete="off" data-testid="mail-user" /></label>
               <label>Passwort<input name="mailPassword" type="password" autocomplete="new-password" data-testid="mail-password" /></label>
-              <label>Absender<input name="mailFrom" placeholder="mosaik3lab@schule.de" data-testid="mail-from" /></label>
+              <label>Absender<input name="mailFrom" placeholder="mosaik3lab@schule.example" data-testid="mail-from" /></label>
               <h3 class="full">Links in den Mails</h3>
               <label class="full">Adresse in den Mails<input name="mailBaseUrl" data-testid="mail-baseurl" aria-describedby="d-baseurl" /><span class="muted small" id="d-baseurl">Leer lassen = automatisch</span></label>
               <label class="full">Links sind erreichbar<select name="mailErreichbarkeit" data-testid="mail-erreichbarkeit" aria-describedby="mail-erkennung"><option value="auto">Automatisch erkennen</option><option value="schulnetz">Nur im Schulnetz</option><option value="oeffentlich">Auch von außerhalb</option></select></label>

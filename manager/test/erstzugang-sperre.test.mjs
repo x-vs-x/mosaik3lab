@@ -31,9 +31,9 @@ test('offen nur ohne aktiven Administrator, zu bei Admin oder unlesbarer Datenba
   assert.equal(await needsAdmin(), true, 'keine Tabelle benutzer (App lief noch nie)');
   withDb('CREATE TABLE benutzer (id TEXT, email TEXT, passwort_hash TEXT, rolle TEXT, aktiv INTEGER, ist_demo INTEGER)');
   assert.equal(await needsAdmin(), true, 'leere Tabelle');
-  withDb("INSERT INTO benutzer VALUES ('1', 'team@schule.de', 'h', 'druckteam', 1, 0), ('2', 'alt@schule.de', 'h', 'admin', 0, 0), ('3', 'demo@schule.de', 'h', 'admin', 1, 1)");
+  withDb("INSERT INTO benutzer VALUES ('1', 'team@schule.example', 'h', 'druckteam', 1, 0), ('2', 'alt@schule.example', 'h', 'admin', 0, 0), ('3', 'demo@schule.example', 'h', 'admin', 1, 1)");
   assert.equal(await needsAdmin(), true, 'nur Druck-Team, deaktivierter Admin und (abgeschaltetes) Demo-Konto');
-  withDb("INSERT INTO benutzer VALUES ('4', 'chef@schule.de', 'h', 'admin', 1, 0)");
+  withDb("INSERT INTO benutzer VALUES ('4', 'chef@schule.example', 'h', 'admin', 1, 0)");
   assert.equal(await needsAdmin(), false, 'aktiver Administrator → zu');
   fs.rmSync(DB);
   fs.writeFileSync(DB, 'keine Datenbank, sondern Müll '.repeat(200));

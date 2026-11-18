@@ -252,14 +252,14 @@ test('Update: Health-Fehler → automatischer Rollback, danach erfolgreiches Upd
 
 test('Mail: Prüfung, Speicherung in der Datenbank für die App, Passwort nie zurückgegeben', () => {
   assert.throws(() => mail.saveMail({ enabled: true, host: '', from: '', recipients: [] }), /Zum Einschalten/);
-  assert.throws(() => mail.saveMail({ host: 'smtp.schule.de', recipients: 'kein-mail' }), /Empfänger ungültig/);
-  assert.throws(() => mail.saveMail({ host: 'smtp.schule.de', appBaseUrl: 'ftp://x' }), /http/);
-  const saved = mail.saveMail({ enabled: true, host: 'smtp.schule.de', port: 587, user: 'lab', password: 'geheim', from: 'Mosaik³LAB <lab@schule.de>', recipients: 'a@schule.de, A@schule.de; b@schule.de', appBaseUrl: 'http://lab.local:3001/' });
+  assert.throws(() => mail.saveMail({ host: 'smtp.schule.example', recipients: 'kein-mail' }), /Empfänger ungültig/);
+  assert.throws(() => mail.saveMail({ host: 'smtp.schule.example', appBaseUrl: 'ftp://x' }), /http/);
+  const saved = mail.saveMail({ enabled: true, host: 'smtp.schule.example', port: 587, user: 'lab', password: 'geheim', from: 'Mosaik³LAB <lab@schule.example>', recipients: 'a@schule.example, A@schule.example; b@schule.example', appBaseUrl: 'http://lab.local:3001/' });
   assert.equal(saved.passwordSet, true);
   assert.ok(!JSON.stringify(saved).includes('geheim'), 'Passwort nicht in der Antwort');
   const file = settingsdb.readBereich(cfg.resolvePaths().dbFile, 'mail');
   assert.deepEqual(Object.keys(file).sort(), ['appBaseUrl', 'enabled', 'erreichbarkeit', 'from', 'recipients', 'smtp']);
-  assert.deepEqual(file.recipients, ['A@schule.de', 'b@schule.de'], 'doppelte Empfänger entfernt');
+  assert.deepEqual(file.recipients, ['A@schule.example', 'b@schule.example'], 'doppelte Empfänger entfernt');
   assert.equal(file.appBaseUrl, 'http://lab.local:3001');
   // Links nur im Schulnetz: ohne Angabe „auto“, .local wird als Schulnetz erkannt
   assert.equal(file.erreichbarkeit, 'auto');

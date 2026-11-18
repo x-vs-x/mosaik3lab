@@ -13,7 +13,7 @@ import { ERREICHBARKEIT, pruefeLinks } from './erreichbarkeit.mjs';
 
 // Bewusst streng: nur Zeichen, die in normalen Adressen vorkommen (keine Shell-Zeichen wie & | ; ` $ ( ) " ' < > und keine Leerzeichen).
 const EMAIL = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/;
-const isSender = (v) => EMAIL.test(v.match(/<([^<>]+)>\s*$/)?.[1] ?? v); // „name@schule.de“ oder „Name <name@schule.de>“
+const isSender = (v) => EMAIL.test(v.match(/<([^<>]+)>\s*$/)?.[1] ?? v); // „name@schule.example“ oder „Name <name@schule.example>“
 
 export const mailFile = () => resolvePaths().dbFile;
 
@@ -77,10 +77,10 @@ export function saveMail(b) {
     // ohne Angabe (ältere Oberfläche/CLI): bisherigen Wert behalten
     erreichbarkeit: b.erreichbarkeit ?? (ERREICHBARKEIT.includes(old?.erreichbarkeit) ? old.erreichbarkeit : 'auto'),
   };
-  if (!/^[a-z0-9.-]{0,200}$/i.test(m.smtp.host)) throw new InputError('SMTP-Server: nur Rechnername oder IP-Adresse (z. B. smtp.schule.de).');
+  if (!/^[a-z0-9.-]{0,200}$/i.test(m.smtp.host)) throw new InputError('SMTP-Server: nur Rechnername oder IP-Adresse (z. B. smtp.schule.example).');
   if (!Number.isInteger(m.smtp.port) || m.smtp.port < 1 || m.smtp.port > 65535) throw new InputError('SMTP-Port: 1 bis 65535 (meist 587 oder 465).');
   if (m.smtp.user.length > 200 || m.smtp.pass.length > 500) throw new InputError('Benutzer/Passwort zu lang.');
-  if (m.from && !isSender(m.from)) throw new InputError('Absender ungültig – z. B. mosaik3lab@schule.de oder „Mosaik³LAB <mosaik3lab@schule.de>“.');
+  if (m.from && !isSender(m.from)) throw new InputError('Absender ungültig – z. B. mosaik3lab@schule.example oder „Mosaik³LAB <mosaik3lab@schule.example>“.');
   const bad = m.recipients.find((r) => !EMAIL.test(r));
   if (bad) throw new InputError(`Empfänger ungültig: ${bad}`);
   if (m.recipients.length > 20) throw new InputError('Höchstens 20 Empfänger.');

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { withDefaults, type AppSettings } from '../../domain/settings';
+import { ORDERFORM_VORGABE_BIS_1_6, withDefaults, type AppSettings } from '../../domain/settings';
 import type { Item, Order, Requester, User } from '../../domain/types';
 import type { StoredSession } from '../../kern/auth/sitzungen';
 
@@ -60,6 +60,13 @@ const objectOf =
     return data as T;
   };
 
+/** Alte JSON-Einstellungen: fehlen die erlaubten Domains, gilt die damalige Vorgabe (nicht die heutige neutrale). */
+function legacySettings(raw: Partial<AppSettings>): AppSettings {
+  const of = raw.orderForm as Partial<AppSettings['orderForm']> | undefined;
+  const allowedEmailDomains = Array.isArray(of?.allowedEmailDomains) ? of.allowedEmailDomains : [...ORDERFORM_VORGABE_BIS_1_6.allowedEmailDomains];
+  return withDefaults({ ...raw, orderForm: { ...(of ?? {}), allowedEmailDomains } });
+}
+
 export function readLegacyData(dataDir: string): LegacyData {
   const gelesen: string[] = [];
   return {
@@ -67,7 +74,7 @@ export function readLegacyData(dataDir: string): LegacyData {
     items: readFile(dataDir, 'items.json', [], arrayOf<Item>('items.json'), gelesen),
     orders: readFile(dataDir, 'orders.json', [], arrayOf<Order>('orders.json'), gelesen),
     requesters: readFile(dataDir, 'requesters.json', [], arrayOf<Requester>('requesters.json'), gelesen),
-    settings: withDefaults(readFile(dataDir, 'settings.json', {}, objectOf<Partial<AppSettings>>('settings.json'), gelesen)),
+    settings: legacySettings(readFile(dataDir, 'settings.json', {}, objectOf<Partial<AppSettings>>('settings.json'), gelesen)),
     sessions: readFile(dataDir, 'sessions.json', {}, objectOf<Record<string, StoredSession>>('sessions.json'), gelesen),
     gelesen,
   };

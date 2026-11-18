@@ -172,7 +172,7 @@ export async function migrateUserEmails(storage: Storage) {
   const legacy = users.filter((u) => typeof u.email !== 'string' || !u.email);
   if (legacy.length === 0) return;
   const { orderForm } = await storage.settings.get();
-  const domain = orderForm.allowedEmailDomains[0] ?? 'mosaikschule-lu.de';
+  const domain = orderForm.allowedEmailDomains[0] ?? 'schule.example';
   const taken = new Set(users.map((u) => u.email).filter(Boolean));
 
   for (const user of legacy) {
