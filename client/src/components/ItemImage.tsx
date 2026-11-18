@@ -22,7 +22,8 @@ export function ItemImage({
   sizes,
   vorrang = false,
 }: {
-  item: { name: string; category: string; images: string[] };
+  /** Symbolbild nach der Kategorie (category) bzw. der Hauptkategorie (erste von categories). */
+  item: { name: string; images: string[]; category?: string; categories?: string[] };
   index?: number;
   className?: string;
   iconSize?: string;
@@ -33,13 +34,14 @@ export function ItemImage({
   const md = useMasterData();
   const file = item.images[index];
   if (file) return <Foto key={`${file}-${groesse}`} file={file} groesse={groesse} sizes={sizes} vorrang={vorrang} alt={`Foto: ${item.name}`} className={className} />;
-  const meta = categoryMeta(md, item.category);
+  const kategorie = item.category ?? item.categories?.[0] ?? '';
+  const meta = categoryMeta(md, kategorie);
   const Icon = meta.icon;
   return (
     <div
       className={cx('mosaic-pattern relative grid size-full place-items-center bg-gradient-to-br', meta.tile, className)}
       role="img"
-      aria-label={`Kein Foto vorhanden – Symbolbild für ${item.category}`}
+      aria-label={`Kein Foto vorhanden – Symbolbild für ${kategorie}`}
     >
       <div className="grid place-items-center rounded-3xl bg-white/80 p-3.5 sm:rounded-[1.75rem] sm:p-5 shadow-sm ring-1 ring-black/5 backdrop-blur-sm">
         <Icon className={cx(iconSize, meta.iconColor)} strokeWidth={1.6} aria-hidden />

@@ -15,7 +15,7 @@ export const leseAnsicht = (v: string | null): Ansicht => ANSICHTEN.find((a) => 
 
 interface Filterbar {
   name: string;
-  category: string;
+  categories: string[];
   material: string;
   useAreas: string[];
   published: boolean;
@@ -24,7 +24,7 @@ interface Filterbar {
 export const passtZurAnsicht = (item: Pick<Filterbar, 'published'>, ansicht: Ansicht) =>
   ansicht === 'alle' || (ansicht === 'veroeffentlicht') === item.published;
 
-const passtZurSucheItem = (i: Filterbar, q: string) => passtZurSuche([i.name, i.category, i.material, ...i.useAreas], q);
+const passtZurSucheItem = (i: Filterbar, q: string) => passtZurSuche([i.name, ...i.categories, i.material, ...i.useAreas], q);
 
 /** Treffer der Suche je Ansicht – für die Zahlen in den Knöpfen („Entwurf (3)“). */
 export function zaehleAnsichten(items: Filterbar[], q: string): Record<Ansicht, number> {

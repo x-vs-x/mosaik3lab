@@ -24,7 +24,7 @@ export const EMPTY: ItemInput = {
   name: '',
   shortDescription: '',
   description: '',
-  category: '',
+  categories: [],
   kind: 'hilfsmittel',
   useAreas: [],
   // Neue Druckteile: alle Farben (auch später angelegte) – einschränken geht mit „Nur bestimmte Farben“.
@@ -51,13 +51,13 @@ export const ohneGruppen = (colors: string[], gruppen: string[], filaments: Fila
   });
 
 export function toInput(item: Item): ItemInput {
-  const { name, shortDescription, description, kind, category, useAreas, sizes, material, materialInfo, printTimeMinutes, safetyNotes, published } = item;
+  const { name, shortDescription, description, kind, categories, useAreas, sizes, material, materialInfo, printTimeMinutes, safetyNotes, published } = item;
   return {
     name,
     shortDescription,
     description,
     kind,
-    category,
+    categories,
     useAreas,
     // Bei „Alle Farben“ liefert der Server alle Farbrollen mit – gespeichert wird aber keine feste Liste.
     colorAreas: (item.colorAreas?.length ? item.colorAreas : [{ id: 'farbe', name: 'Farbe', colors: item.colors }]).map((a) =>
@@ -77,7 +77,7 @@ export function toInput(item: Item): ItemInput {
 
 // Welche Fehlerfelder gehören zu welchem Abschnitt (damit er bei Fehlern aufklappt)?
 const SECTION_FIELDS = {
-  grunddaten: ['name', 'shortDescription', 'description', 'kind', 'category', 'useAreas', 'price'],
+  grunddaten: ['name', 'shortDescription', 'description', 'kind', 'categories', 'useAreas', 'price'],
   farben: ['colorAreas', 'colors', 'sizes'],
   personalisierung: ['customFields'],
   material: ['material', 'materialInfo', 'printTimeMinutes'],
@@ -93,6 +93,7 @@ export function validateLocal(form: ItemInput): FieldErrors {
   const emptyArea = form.colorAreas.find((a) => !a.name.trim() || (!a.alleFarben && a.colors.length === 0 && !a.gruppen?.length));
   const unnamedField = form.customFields.find((f) => !f.label.trim() || (f.type === 'select' && f.options.length === 0));
   const local: FieldErrors = {};
+  if (form.categories.length === 0) local.categories = 'Bitte mindestens eine Kategorie wählen.';
   if (emptyArea) {
     local.colorAreas = !emptyArea.name.trim()
       ? 'Bitte jedem Farbbereich einen Namen geben.'

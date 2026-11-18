@@ -49,7 +49,7 @@ const feld = (i: number) => ({ label: `Feld ${i}`, type: 'text' as const });
 const teil = (extra: object) => ({
   name: 'Griff',
   shortDescription: 'Ein kurzer Text',
-  category: 'Alltag',
+  categories: ['Alltag'],
   material: 'PLA',
   printTimeMinutes: 30,
   colorAreas: [farbe('a')],

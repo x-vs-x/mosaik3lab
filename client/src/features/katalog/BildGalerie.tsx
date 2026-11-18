@@ -4,7 +4,7 @@ import { ItemImage } from '../../components/ItemImage';
 import { cx } from '../../components/ui';
 import { blaettern, wischRichtung } from './galerie';
 
-type Bilder = { name: string; category: string; images: string[] };
+type Bilder = { name: string; images: string[]; category?: string; categories?: string[] };
 
 /**
  * Bilder eines Druckteils: großes Bild, bei mehreren Bildern Wischen (Touch, Stift, Maus), Pfeil-Knöpfe,

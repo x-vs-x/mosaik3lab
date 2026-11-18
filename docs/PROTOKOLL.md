@@ -2,6 +2,24 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Mehrere Kategorien je Druckteil (Unter-Session, Branch: feature/mehrere-kategorien)
+- **Wunsch:** „es wäre super, wenn man mehrere Kategorien auswählen könnte beim anlegen der Dateien“ (Druckteile).
+- **Gebaut:** Migration `023_artikel_kategorien.sql` (Zuordnung Druckteil ↔ Kategorie, Bestand übernommen);
+  `artikel.kategorie_id` bleibt als Hauptkategorie (= erste), Begründung in `docs/DATENMODELL.md`. `shared/src/katalog.ts`:
+  `categories: string[]` (mind. 1, max. 20) statt `category`. Server: `katalog.repository.ts` (Lesen/Schreiben),
+  `katalog.service.ts` (Prüfung, Filter unter jeder Kategorie, Suche), `stammdaten.repository.ts` (Zählung/Löschschutz über die
+  Zuordnung), Vorschlag → Druckteil, Anfragen-Symbolbild, Demo-Daten (ein Teil mit zwei Kategorien). Export/Import:
+  `categories` + `category` (Hauptkategorie für 1.7.0/1.8.0), Dateien nur mit `category` werden weiter gelesen. Client:
+  ankreuzbare Kategorien im Druckteil-Formular (Stil wie Einsatzbereiche, „Hauptkategorie“-Hinweis, keine Vorbelegung),
+  Katalogkarte „Hauptkategorie +N“, Druckteil-Seite alle Kategorien, Verwaltungsliste. Installer-Test: `bilder-pruefen.mjs`
+  sendet `categories`, `daten-stand.mjs` prüft nach dem Update, dass jedes Druckteil seine Kategorie behält.
+- **Tests:** neu `server/test/kategorien.test.ts`; `migration.test.ts` (017 → 023 zeilengleich, 022 → 023 mit Demo-Daten),
+  `datenaustausch.test.ts` (Rundreise mit drei Kategorien, Vorschau, ältere ZIP mit einer Kategorie; JSON aus 1.x bleibt in
+  `datenaustausch-plattform.test.ts`). Klicktest headless Chrome (frisches Profil) 320/375/768/1440/375 mit 200 %, Besucher +
+  Admin auf Demo-Daten; Kopie von `_testdaten/importtest/quelle` (Schema 017, 23 Druckteile) → alle 23 behalten ihre Kategorie.
+  Bilder in `_testdaten/kategorien-bilder`.
+- **Aufgeräumt:** Dev-Server 5181/3011 gestoppt, `_testdaten/kategorien` gelöscht, Scratchpad-Skripte entfernt.
+
 ## 2026-11-18 – Restfehler F2–F4 aus der Abschlussprüfung (Unter-Session, Branch: fix/restfehler → refactor/code-hygiene)
 - **Abschlussprüfung Code-Hygiene bestanden**, Bericht `_testdaten/abschluss-hygiene`. Die drei dort gefundenen, schon in
   1.6.3 vorhandenen Schwächen behoben:

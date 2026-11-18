@@ -70,6 +70,18 @@ for (const [tabelle, n] of Object.entries(vorher.zeilen)) {
   if (GENAU.has(tabelle)) pruefe(nach === n, `Tabelle ${tabelle}: ${n} → ${nach ?? 'fehlt'} Zeilen`);
   else if (nach === undefined || nach < n) pruefe(false, `Tabelle ${tabelle}: ${n} → ${nach ?? 'fehlt'} Zeilen (weniger als vorher)`);
 }
+// Migration 023 (mehrere Kategorien): jedes Druckteil mit Kategorie hat seine Kategorie auch in artikel_kategorien
+{
+  const db = new DatabaseSync(dbFile, { readOnly: true });
+  try {
+    if (db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'artikel_kategorien'").get()) {
+      const ohne = Number(db.prepare('SELECT COUNT(*) AS n FROM artikel a WHERE a.kategorie_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM artikel_kategorien ak WHERE ak.artikel_id = a.id AND ak.kategorie_id = a.kategorie_id)').get().n);
+      pruefe(ohne === 0, `jedes Druckteil behält seine Kategorie (artikel_kategorien)${ohne ? ` – ${ohne} ohne` : ''}`);
+    }
+  } finally {
+    db.close();
+  }
+}
 const weg = Object.keys(vorher.dateien).filter((p) => !(p in jetzt.dateien));
 const anders = Object.keys(vorher.dateien).filter((p) => p in jetzt.dateien && jetzt.dateien[p] !== vorher.dateien[p]);
 pruefe(!weg.length, `alle ${Object.keys(vorher.dateien).length} Dateien der Ablage noch da${weg.length ? ` – fehlen: ${weg.slice(0, 5).join(', ')}` : ''}`);

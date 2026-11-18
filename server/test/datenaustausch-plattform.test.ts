@@ -77,7 +77,7 @@ async function pruefeEingespielt(z: Awaited<ReturnType<typeof ziel>>) {
   const items = (await z.req('GET', '/api/items?all=1')).json as any[];
   const teil = items.find((i) => i.name === ART.name);
   assert.ok(teil, 'Druckteil eingespielt');
-  assert.equal(teil.category, 'Übungsgeräte für Schüler');
+  assert.deepEqual(teil.categories, ['Übungsgeräte für Schüler'], 'Kategorie aus der Datei von 1.6.3 übernommen');
   assert.equal(teil.material, 'TPU 95A (weich)');
   assert.ok(teil.useAreas.includes('Ergotherapie & Förderung'));
   assert.equal(teil.shortDescription, ART.shortDescription, 'Umlaute unverändert');
@@ -154,7 +154,7 @@ test('Datei im Windows-Editor gespeichert (BOM, CRLF) oder Großschreibung auf d
   assert.equal(bericht.abschnitte.artikel.neu, 1);
   assert.equal(bericht.abschnitte.kategorien.neu, 0, 'vorhandene Kategorie (andere Schreibweise) benutzt');
   const teil = ((await z.req('GET', '/api/items?all=1')).json as any[]).find((i) => i.name === ART.name);
-  assert.equal(teil.category, 'ÜBUNGSGERÄTE FÜR SCHÜLER', 'Schreibweise des Zielsystems');
+  assert.deepEqual(teil.categories, ['ÜBUNGSGERÄTE FÜR SCHÜLER'], 'Schreibweise des Zielsystems');
 });
 
 test('Unvollständige Angaben in der Datei: Teil wird mit Grund übersprungen, Rest kommt an', async () => {

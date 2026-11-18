@@ -333,6 +333,8 @@ Import-Regeln für ZIP: nur `paket.json` und genau die beschriebenen Pfade (kein
 verschlüsselten Einträge, höchstens 20.000 Einträge, `paket.json` ≤ 64 MB, Summe entpackt < 4 GB, je Datei Größe aus dem Inhaltsverzeichnis =
 angegebene Größe ≤ Upload-Grenze **vor** dem Entpacken (Zip-Bombe; yauzl prüft beim Entpacken, dass sie stimmt), dann SHA-256 und Magic Bytes.
 Installationen bis 1.6.x melden bei einer ZIP „Das ist keine Export-Datei von Mosaik³LAB“ – die App weist beim Export auf 1.7.0 hin.
+**Kategorien** (seit Migration 023): je Druckteil `categories` (alle, erste = Hauptkategorie) und zusätzlich `category` (Hauptkategorie, für
+1.7.0/1.8.0); Dateien nur mit `category` werden als eine Kategorie gelesen.
 **Ähnliche Druckteile** (Format 2): nur hinzufügen, in beiden Modi; Partner über Zuordnung in der Datei, gleiche ID oder `artikel.herkunft_id`, sonst
 vorgemerkt in `artikel_aehnlich_offen` und bei jedem späteren Import aufgelöst. Sie zählen nicht in den Vergleich „gleich/ersetzt“.
 

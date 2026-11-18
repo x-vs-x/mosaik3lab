@@ -36,8 +36,8 @@ test('Umbenennen einer Kategorie zieht Druckteile nach (Bezug per ID, ohne die D
   const r = await putList(admin, 'categories', next);
   assert.equal(r.status, 200, JSON.stringify(r.json));
   const items = (await team.req('GET', '/api/items?all=1')).json;
-  assert.ok(!items.some((i: any) => i.category === 'Sonstiges'));
-  assert.ok(items.some((i: any) => i.category === 'Sonstiges & Weiteres'));
+  assert.ok(!items.some((i: any) => i.categories.includes('Sonstiges')));
+  assert.ok(items.some((i: any) => i.categories.includes('Sonstiges & Weiteres')));
   assert.ok(items.every((i: any) => i.updatedAt === stand.get(i.id)), 'kein Druckteil neu geschrieben');
   const material = (await md()).materials.map((m: any) => (m.name === 'PLA' ? { ...m, name: 'PLA (Standard)' } : m));
   assert.equal((await putList(admin, 'materials', material)).status, 200);
@@ -45,7 +45,7 @@ test('Umbenennen einer Kategorie zieht Druckteile nach (Bezug per ID, ohne die D
   assert.equal((await putList(admin, 'materials', material.map((m: any) => (m.name === 'PLA (Standard)' ? { ...m, name: 'PLA' } : m)))).status, 200);
   await putList(admin, 'categories', categories);
   const back = (await team.req('GET', '/api/items?all=1')).json;
-  assert.ok(back.some((i: any) => i.category === 'Sonstiges'));
+  assert.ok(back.some((i: any) => i.categories.includes('Sonstiges')));
 });
 test('Doppelte Namen und leere Pflichtlisten werden abgelehnt', async () => {
   const { materials } = await md();

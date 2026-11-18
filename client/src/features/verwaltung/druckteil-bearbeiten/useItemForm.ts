@@ -33,18 +33,18 @@ export function useItemForm(id: string | undefined) {
     }
   }, [loaded]);
 
-  // Neue Druckteile: erste Kategorie / erstes Material aus den Stammdaten vorbelegen.
+  // Neue Druckteile: erstes Material aus den Stammdaten vorbelegen. Kategorien wählt das Team bewusst selbst (Mehrfachauswahl –
+  // eine vorab angekreuzte Kategorie bliebe leicht unbemerkt stehen).
   useEffect(() => {
     if (!isNew) return;
     setForm((f) => ({
       ...f,
-      category: f.category || md.categories[0]?.name || '',
       material: f.material || md.materials[0]?.name || '',
     }));
-  }, [isNew, md.categories, md.materials]);
+  }, [isNew, md.materials]);
 
   // Entwurf im Browser: erst merken, wenn der Ausgangszustand steht (geladen bzw. vorbelegt).
-  const ready = isNew ? !!config && (form.category !== '' || md.categories.length === 0) : !!item;
+  const ready = isNew ? !!config && (form.material !== '' || md.materials.length === 0) : !!item;
   const entwurf = useEntwurf(entwurfSchluessel('druckteil', user?.id, id), form, setForm, { ready });
 
   const set: SetField = (key, value) => setForm((f) => ({ ...f, [key]: value }));

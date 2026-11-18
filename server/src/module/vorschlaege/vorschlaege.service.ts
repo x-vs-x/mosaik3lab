@@ -128,7 +128,7 @@ async function draftItem(storage: Storage, p: Proposal, itemId: string, images: 
     name: p.title,
     shortDescription: (description.replace(/\s+/g, ' ').trim() || `Entwurf aus Vorschlag ${p.number}`).slice(0, 200),
     description,
-    category: category?.name ?? '',
+    categories: category ? [category.name] : [],
     kind: 'hilfsmittel',
     useAreas: [],
     sizes: ['Standard'],

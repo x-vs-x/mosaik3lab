@@ -16,7 +16,7 @@ export function ergaenzeStammdaten(md: MasterData, paket: Paket, zuImportieren: 
     [...new Map(namen.filter((n) => n.trim()).map((n) => [lc(n), n])).values()].map((n) => nachName(ausPaket, n) ?? neu(n));
   const kategorieNeu = (name: string): Category => ({ id: newId(), name, color: COLOR_KEYS[0], icon: ICON_KEYS[0] });
   const einfachNeu = (name: string): SimpleEntry => ({ id: newId(), name });
-  const kat = ergaenze<Category>(md.categories, gebraucht(zuImportieren.map((a) => a.category), paket.stammdaten.kategorien, kategorieNeu) as Category[], {
+  const kat = ergaenze<Category>(md.categories, gebraucht(zuImportieren.flatMap((a) => a.categories), paket.stammdaten.kategorien, kategorieNeu) as Category[], {
     schluessel: (e) => lc(e.name), z: z.kategorien, bereich: 'Kategorie', name: (e) => e.name, details,
   });
   const einsatz = ergaenze<SimpleEntry>(md.useAreas, gebraucht(zuImportieren.flatMap((a) => a.useAreas), paket.stammdaten.einsatzbereiche, einfachNeu), {

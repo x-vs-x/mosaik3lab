@@ -245,7 +245,7 @@ export async function myOrders(storage: Storage, requesterId: string): Promise<O
   const items = new Map(storage.items.listByIds(orders.map((o) => o.itemId)).map((i) => [i.id, i]));
   return orders.map((o) => {
     const item = items.get(o.itemId);
-    return { ...toOwnOrder(o, features.requesterTracking), itemImages: item?.images.slice(0, 1) ?? [], itemCategory: item?.category ?? '' };
+    return { ...toOwnOrder(o, features.requesterTracking), itemImages: item?.images.slice(0, 1) ?? [], itemCategory: item?.categories[0] ?? '' };
   });
 }
 

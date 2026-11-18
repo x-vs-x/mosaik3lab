@@ -47,7 +47,6 @@ export function ItemDetailPage() {
     );
   }
 
-  const meta = categoryMeta(md, item.category);
   // Nur Angaben anzeigen, die auch hinterlegt sind (leere Bereiche/Felder werden ausgeblendet).
   const colorAreas = itemColorAreas(item, md).filter((a) => a.filaments.length > 0);
   const customFields = item.customFields ?? [];
@@ -66,9 +65,14 @@ export function ItemDetailPage() {
         {/* Kerninfos */}
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className={meta.chip} icon={meta.icon}>
-              {item.category}
-            </Badge>
+            {item.categories.map((c) => {
+              const meta = categoryMeta(md, c);
+              return (
+                <Badge key={c} className={meta.chip} icon={meta.icon}>
+                  {c}
+                </Badge>
+              );
+            })}
             <Badge>{ITEM_KIND_LABELS[item.kind ?? 'hilfsmittel']}</Badge>
             {item.isDemo && <DemoBadge />}
             {!item.published && <Badge className="bg-stone-800 text-white ring-stone-800">Nicht veröffentlicht</Badge>}

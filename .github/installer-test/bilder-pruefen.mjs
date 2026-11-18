@@ -88,7 +88,7 @@ try {
     await api('POST', '/api/items', {
       name: 'CI Bildtest',
       shortDescription: 'Rauchtest der Bildverarbeitung im Installer-Test',
-      category: kategorie,
+      categories: [kategorie],
       material,
       printTimeMinutes: 10,
       colorAreas: [{ name: 'Farbe', alleFarben: true, colors: [] }],

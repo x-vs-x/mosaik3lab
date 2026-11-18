@@ -6,6 +6,11 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Mehrere Kategorien je Druckteil:** Beim Anlegen und Bearbeiten eines Druckteils lassen sich jetzt mehrere Kategorien
+  ankreuzen. Im Katalog erscheint das Druckteil unter jeder davon; die zuerst gewählte bestimmt Symbolbild und Farbe der
+  Karte, weitere stehen daneben („+1“) und auf der Druckteil-Seite. Bestehende Druckteile behalten beim Update ihre
+  Kategorie; Export und Einspielen nehmen alle Kategorien mit, ältere Export-Dateien lassen sich weiter einspielen.
+
 ## [1.8.0] – 2026-11-18
 
 - **Fotovorschau im Vorschlagsformular:** Ausgewählte Fotos erscheinen jetzt als Vorschaubild (die

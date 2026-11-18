@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { httpLink, text, uniqueList } from './basis';
-import { CUSTOM_FIELD_TYPES, ITEM_KINDS, MAX_COLOR_AREAS, MAX_CUSTOM_FIELDS, MAX_CUSTOM_VALUE_LENGTH, MAX_ITEM_LINKS } from './werte/katalog';
+import { CUSTOM_FIELD_TYPES, ITEM_KINDS, MAX_COLOR_AREAS, MAX_CUSTOM_FIELDS, MAX_CUSTOM_VALUE_LENGTH, MAX_ITEM_CATEGORIES, MAX_ITEM_LINKS } from './werte/katalog';
 
 // Katalog: Druckteile mit Farbbereichen, Personalisierung, Videos und Art (Glossar: docs/ARCHITEKTUR.md).
 // Listen, Grenzen und Farbgruppen-Hilfen ohne zod stehen in werte/katalog.ts (auch für den Client) – hier wieder exportiert.
@@ -81,7 +81,15 @@ export const itemInputSchema = z.object({
   name: text(3, 100),
   shortDescription: text(10, 200),
   description: z.string().trim().max(3000).default(''),
-  category: text(1, 60),
+  /**
+   * Kategorien (Namen aus den Stammdaten, mind. eine). Die erste ist die Hauptkategorie: Symbolbild und Farbe der Karte;
+   * im Katalog erscheint das Druckteil unter jeder seiner Kategorien.
+   */
+  categories: z
+    .array(text(1, 60))
+    .max(MAX_ITEM_CATEGORIES)
+    .transform((l) => [...new Set(l)])
+    .pipe(z.array(z.string()).min(1, 'Bitte mindestens eine Kategorie wählen')),
   kind: z.enum(ITEM_KINDS).default('hilfsmittel'),
   useAreas: z
     .array(text(1, 60))
@@ -179,6 +187,7 @@ export interface AehnlichesTeil {
   id: string;
   name: string;
   shortDescription: string;
+  /** Hauptkategorie (erste Kategorie, für das Symbolbild). */
   category: string;
   /** Titelbild (gespeicherter Dateiname) – leer, wenn es keins gibt. */
   image: string;

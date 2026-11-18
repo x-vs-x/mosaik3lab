@@ -14,6 +14,8 @@ export const MAX_CUSTOM_VALUE_LENGTH = 200;
 
 /** Höchstzahl Farbbereiche je Druckteil. */
 export const MAX_COLOR_AREAS = 8;
+/** Schutzgrenze für Kategorien je Druckteil (die erste ist die Hauptkategorie). */
+export const MAX_ITEM_CATEGORIES = 20;
 /** Höchstzahl Personalisierungsfelder je Druckteil. */
 export const MAX_CUSTOM_FIELDS = 10;
 
