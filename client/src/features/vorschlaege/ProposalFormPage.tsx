@@ -145,7 +145,6 @@ export function ProposalFormPage() {
           </EntwurfHinweis>
         )}
         {error && <Alert kind="error">{error}</Alert>}
-        {abgebrochen && <Alert kind="info">Das Senden wurde abgebrochen. Ihre Angaben bleiben hier stehen – Sie können es erneut versuchen.</Alert>}
 
         <Panel icon={Lightbulb} title="1. Das Druckteil beschreiben" description="Je genauer die Beschreibung, desto schneller kann das Team prüfen, ob und wie es sich drucken lässt." bodyClassName="space-y-5">
           <Field label="Titel" required error={fields.title} hint="Kurz und verständlich, z. B. „Rutschfeste Tellerunterlage“">
@@ -287,7 +286,13 @@ export function ProposalFormPage() {
           }
         >
           <p role="status" aria-live="polite" className="mb-3 text-sm font-semibold text-stone-700 empty:hidden">
-            {anteil === null ? '' : anteil < 1 ? `Wird gesendet … ${Math.round(anteil * 100)} %` : 'Wird gespeichert … bitte warten'}
+            {anteil !== null
+              ? anteil < 1
+                ? `Wird gesendet … ${Math.round(anteil * 100)} %`
+                : 'Wird gespeichert … bitte warten'
+              : abgebrochen
+                ? 'Das Senden wurde abgebrochen. Ihre Angaben bleiben stehen – Sie können es erneut versuchen.'
+                : ''}
           </p>
           <label className="flex items-start gap-3 min-h-12">
             <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1 size-5 shrink-0 accent-brand-700" aria-describedby={fields.confirmed ? 'confirm-error' : undefined} aria-invalid={!!fields.confirmed || undefined} />
