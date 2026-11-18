@@ -258,7 +258,8 @@ test('Ersetzen räumt veraltete Vorschaubilder auf; Bildpflege verkleinert, übe
     assert.equal(b1.vorschau, 4, 'je 2 Vorschaubilder für das ersetzte und das große Bild');
     assert.equal(b1.fehler, 1, 'kaputtes Bild übersprungen');
     assert.equal(b1.aufgeraeumt, 2);
-    assert.match(warnungen[0], /übersprungen, Original bleibt/);
+    assert.match(warnungen[0], /übersprungen, Original bleibt – /);
+    assert.match(warnungen[0], /Bild konnte nicht gelesen werden|nicht unterstützt|Kein gültiges/, 'deutscher Grund vor dem Originaltext');
     assert.ok(!existsSync(path.join(storage.files.root, 'vorschau', 'karte-720')), 'veralteter Größen-Ordner gelöscht');
     assert.ok(!existsSync(vorschau('weg', 'mini')));
     const neu = storage.files.find(gross.id)!;
@@ -290,4 +291,12 @@ test('Ersetzen räumt veraltete Vorschaubilder auf; Bildpflege verkleinert, übe
     await storage.close();
     await fs.rm(dir, { recursive: true, force: true });
   }
+});
+
+test('Bildpflege-Protokoll: verständlicher deutscher Grund vor dem Originaltext', async () => {
+  const { BildFehler } = await import('../src/kern/bilder');
+  const { grundText } = await import('../src/kern/bilder/bildpflege');
+  assert.equal(grundText(new BildFehler('marker was not found')), 'Bild konnte nicht gelesen werden (beschädigt oder unbekanntes Format) (marker was not found)');
+  assert.equal(grundText(new BildFehler('JPG mit CMYK-Farben wird nicht unterstützt.', true)), 'JPG mit CMYK-Farben wird nicht unterstützt.');
+  assert.match(grundText(new BildFehler('EBUSY', false, true)), /^gerade nicht möglich.*\(EBUSY\)$/);
 });

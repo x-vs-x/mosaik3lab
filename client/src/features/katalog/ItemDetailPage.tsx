@@ -73,9 +73,10 @@ export function ItemDetailPage() {
           </h1>
           <p className="mt-2 text-base text-stone-700 sm:mt-3 sm:text-[1.15rem]">{item.shortDescription}</p>
 
-          <div className="mt-5 flex flex-col gap-2.5 sm:mt-8 sm:flex-row sm:gap-3">
+          {/* Ab sm nebeneinander; passt „Druckteil anfragen“ nicht einzeilig neben „Bearbeiten“ (Tablet hoch), rutscht „Bearbeiten“ darunter */}
+          <div className="mt-5 flex flex-col gap-2.5 sm:mt-8 sm:flex-row sm:flex-wrap sm:gap-3">
             {item.published && (
-              <Button size="lg" icon={Send} onClick={() => setRequestOpen(true)} className="sm:flex-1">
+              <Button size="lg" icon={Send} onClick={() => setRequestOpen(true)} className="sm:flex-[1_0_auto]">
                 Druckteil anfragen
               </Button>
             )}

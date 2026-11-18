@@ -2,6 +2,50 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – UI-Durchsicht aller Ansichten in allen Größen (Unter-Session, Branch: fix/ui-durchsicht)
+- **Auftrag:** Jedes Fenster, jede Abfrage in unterschiedlichen Größen durchsehen, Anzeigefehler finden und beheben
+  (Lehrkräfte und Druck-Team auf Handy, iPad, PC; viele mit motorischen Einschränkungen).
+- **Geprüft:** 80 Ansichten (App für Besucher, Lehrkraft, Druck-Team, Administration inkl. Dialoge, Fehler-,
+  Leer- und Offline-Zustände, Import in allen Phasen, Toast; Server-Manager mit allen Reitern und Dialogen; Portal-Seiten
+  404/502/Zertifikat) × 320/375/768 hoch/1024 quer/1024 hoch/1366 quer/1440, Schrift 200 % (Grundschrift 32 px) bei 375
+  und 1440, Browser-Zoom 200 % bei 1440 (= 720 px), Dialoge zusätzlich mit Bildschirmtastatur (375×400), Manager zusätzlich
+  dunkel – zusammen 824 Aufnahmen nachher (und ebenso viele vorher). Headless Chrome (CDP, frische Profile in
+  `_testdaten`), automatische Prüfung (Überlauf, Wort ohne Trennstrich getrennt, Tippziele, abgeschnitten, Dialog passt)
+  plus Sichtprüfung jeder Aufnahme über Kontaktbögen. Testdaten: Demo + Druckteil mit 100-Zeichen-Namen, 66 Farbrollen,
+  3 Farbbereichen, 4 Personalisierungsfeldern, 8 Größen, lange E-Mails/Personen, Anfragen mit mehreren Farben, Vorschläge.
+- **Behoben (21 Funde):** Silbentrennung (`index.css`: `hyphens: auto` mit lang="de", ab sm nur Überschriften/
+  Beschriftungen, nie in Eingaben/Links), Sprunglink bei großer Schrift, Wortmarke/Menü-Knopf (`Logo.tsx`, `Layout.tsx`),
+  untere Leiste (Beschriftung max. 13 px wie iPhone-Tab-Leiste, unter 28rem Höhe ausgeblendet), `PageHeader` (Knöpfe
+  rutschen unter den Titel), `Email` (Umbruch vor @ und Punkt, auch Name in Menü/Konto/Meine Anfragen), `OrderCard`
+  (Farben umbrechen, Angaben-Raster nach Platz), `OrdersAdminPage` (Trennpunkte/Farbtupfer), `ListPanel`/`FilamentsPanel`
+  (Handy: Knöpfe oben, Inhalt volle Breite), `Dialog` (bei wenig Höhe – rem-Media-Query – scrollt der ganze Dialog),
+  `FarbeZuordnenDialog`/`BambuImportDialog` (Knopfleiste flex-wrap), `AnfrageFelder` (Größen-Chips min. quadratisch),
+  `DruckteileAustausch` (Tippfläche „Einzelheiten“), `CatalogPage` („+55“), `DashboardPage` (Zahl), `ItemDetailPage`
+  (Kacheln, Knopfzeile), `StatusBadge` (ganz), `OrdersAdminPage` (Container-Query für die Details auf dem iPad quer), `Aufklappen` (Pfeil), `ItemEditPage` (Speicherleiste bei niedriger Höhe); Server-Manager `app.css`
+  (Statustext umbrechbar, Titel, minmax(0,1fr), Silbentrennung, Knopfpolster, Breiten in rem); Portal
+  `portalserver.mjs` (rem-Schrift, Umbruch, Link-Tippflächen).
+- **Offen/bewusst nicht:** Tippziele 41 px (Grundschrift-Entscheidung), Plaketten über dem Katalog-Symbol bei 200 %
+  (Mindesthöhe verbreiterte über aspect-ratio die Karte – verworfen), Text-Zoom ohne Layoutwechsel in „Meine Anfragen“,
+  Stammdaten-Knopfzeile bei 200 %, Platzhalter-Kürzung, Portal ohne Dunkelmodus, Entwicklungs-Proxy-Seite.
+- **Nachträge aus dem Abschlusstest 1.7.0:** H2 `FilePicker`: nach der Übertragung „Bitte warten …“ statt „Wird
+  hochgeladen …“, „bitte warten“ in eigener Zeile; H3 `ItemDetailPage`: „Druckteil anfragen“ bleibt einzeilig, „Bearbeiten“
+  rutscht bei Platzmangel darunter; H1 CHANGELOG-Satz zur Bildpflege ehrlich (Original bleibt, wenn Verkleinern < 20 %
+  spart; Regel unverändert); H4 `kern/bilder/bildpflege.ts` `grundText()`: deutscher Grund vor dem Originaltext im Protokoll
+  (Test in `server/test/bilder.test.ts`); H5 `server/src/index.ts`: Startmeldung zeigt den Ablageordner statt der alten `uploads`-Ordner.
+- **Prüfungen:** typecheck, Lint (keine neuen Warnungen), alle Tests grün. Server-Manager im Entwicklungsmodus auf eigenem
+  Port 5195 mit Test-Startdatei (keine Dienste/Admin), Portal-Seiten über `handleRequest` auf Port 5196.
+- **Bilder:** `C:\Entwicklung\_testdaten\ui-durchsicht-bilder\` (`vorher/`, `nachher/` je Ansicht, Präfix vorher-/nachher-)
+  mit Übersicht `UEBERSICHT.html` (Funde vorher/nachher, Raster aller Ansichten × Größen).
+- **Aufgeräumt:** Test-, Manager- und Portal-Server gestoppt, headless-Chrome-Profile, Testdaten und Werkzeuge gelöscht
+  (nur die Bilder bleiben); Worktree bleibt.
+
+## 2026-11-18 – Bild-Rauchtest im Installer-Test (PR 33, Branch: test/abschluss-1.7.0)
+- **Gebaut:** `.github/installer-test/bilder-pruefen.mjs` mit zwei Testbildern (JPEG mit EXIF-Drehung 6, PNG mit Transparenz),
+  eingehängt in `installer-test.yml` und `installer-linux.yml`: nach der Installation anmelden, Druckteil anlegen, beide Bilder
+  hochladen, Vorschaubilder `karte`/`mini` abrufen und Typ/Maße prüfen, Druckteil wieder löschen. Prüft, dass der
+  Rechen-Thread im Paket (`server/dist/bild-worker.mjs`) auf allen Plattformen läuft.
+- **Gemessen (Rechenzeit im Log):** Windows 455 ms, Linux x64 454 ms, Raspberry Pi/arm64 376 ms.
+
 ## 2026-11-18 – Sicherung robust gegen verschwundene Dateien (Unter-Session, Branch: fix/sicherung-enoent)
 - **Anlass:** `fs.cp` in `createBackup` brach mit ENOENT ab, wenn während des Kopierens eine Datei/ein Ordner verschwand.
 - **Gebaut:** `manager/lib/backup.mjs`: neue `kopiereOrdner(quelle, ziel, filter)` (rekursiv, reines Node) ersetzt

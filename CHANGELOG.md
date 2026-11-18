@@ -42,7 +42,8 @@ daraus die nächste Version.
   wählt je nach Bildschirm selbst die passende Größe. Im Test lud der Katalog auf dem Handy statt 11,9 MB nur noch
   0,7 MB Bilder – scharf auch auf Displays mit hoher Pixeldichte. Neue Bilder werden beim Hochladen gleich fertig verarbeitet („Vorschau wird erzeugt … bitte warten“).
   Vorhandene Bilder erledigt die „Bildpflege“ einmal einige Minuten nach dem Start (auch nach diesem Update): zu große
-  Originale (über 2000 Pixel) werden verkleinert, fehlende Vorschaubilder erzeugt – die App bleibt dabei bedienbar.
+  Originale (über 2000 Pixel) werden verkleinert, wenn das mindestens ein Fünftel Speicher spart – sonst bleibt das Original,
+  wie es ist; fehlende Vorschaubilder werden erzeugt – die App bleibt dabei bedienbar.
   Der Knopf „Bilder verkleinern …“ unter Verwaltung → Druckteile entfällt, er ist nicht mehr nötig.
   Vorschaubilder kommen nicht in Exporte und nicht ins Backup (sie werden bei Bedarf neu berechnet).
 

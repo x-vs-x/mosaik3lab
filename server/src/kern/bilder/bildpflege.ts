@@ -9,6 +9,7 @@ import path from 'node:path';
 import type { FileStore } from '../files';
 import { BildDienst, istDruckteilBild } from './dienst';
 import { GESCHEITERT_ORDNER, VORSCHAU, VORSCHAU_ORDNER } from './groessen';
+import { BildFehler } from './rechner';
 import { bildpflegeWartetAuf } from './sperre';
 
 export interface BildpflegeBericht {
@@ -130,7 +131,7 @@ export class Bildpflege {
       } catch (err) {
         if (signal.aborted) break;
         this.bericht.fehler++;
-        this.warn(`Bildpflege: ${d.pfad} übersprungen, Original bleibt – ${(err as Error).message}`);
+        this.warn(`Bildpflege: ${d.pfad} übersprungen, Original bleibt – ${grundText(err)}`);
       }
       await pause(this.opts.pauseMs ?? 200, signal);
     }
@@ -202,4 +203,16 @@ function pause(ms: number, signal: AbortSignal) {
       r();
     }
   });
+}
+
+/**
+ * Verständlicher Grund für das Protokoll. Eigene Meldungen (nicht unterstütztes Format, Rechen-Thread) sind schon deutsch;
+ * Meldungen der Bild-Bibliotheken (z. B. jpeg-js „marker was not found“) bekommen einen deutschen Satz davor.
+ */
+export function grundText(err: unknown): string {
+  const text = err instanceof Error ? err.message : String(err);
+  if (err instanceof BildFehler && err.nichtUnterstuetzt) return text;
+  if (err instanceof BildFehler && err.voruebergehend) return `gerade nicht möglich, wird später erneut versucht (${text})`;
+  if (/^Rechen-Thread/.test(text)) return text;
+  return `Bild konnte nicht gelesen werden (beschädigt oder unbekanntes Format) (${text})`;
 }
