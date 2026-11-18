@@ -7,7 +7,8 @@ import { withBase } from '../../lib/basePath';
 import { formatBytes, plural } from '../../lib/format';
 
 // Druckteile exportieren und einspielen – der eine Weg dafür (Verwaltung → Druckteile).
-// Export: angehakte Druckteile → GET /api/admin/daten/export?artikel=… (ohne Liste: alle) → eine Datei mit allen Dateien.
+// Export: angehakte Druckteile → GET /api/admin/daten/export?artikel=… (ohne Liste: alle) → eine ZIP-Datei mit allen Dateien
+// (ab 1.7.0; ältere Installationen können sie nicht lesen). Einspielen nimmt ZIP und ältere JSON-Exporte.
 // Einspielen: Datei wählen → Vorschau → „überspringen“ oder „ersetzen“ für vorhandene → Ergebnis.
 // Server: server/src/module/datenaustausch/. Rechte: daten:export, daten:import.
 
@@ -35,6 +36,8 @@ interface Bericht {
   artikel: number;
   vorhanden: number;
   abschnitte: Record<'artikel' | 'kategorien' | 'einsatzbereiche' | 'materialien' | 'filamente' | 'dateien', Zaehler>;
+  /** Ähnliche Druckteile: neu angelegte und vorgemerkte Verknüpfungen (Partner fehlt hier noch). */
+  verknuepfungen?: { neu: number; wartend: number };
   details: Detail[];
   weitereDetails: number;
 }
@@ -169,7 +172,7 @@ export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onC
             id="einspielen-datei"
             ref={input}
             type="file"
-            accept=".json,application/json"
+            accept=".zip,.json,application/zip,application/json"
             className="sr-only"
             data-testid="import-datei"
             onChange={(e) => void waehle(e.target.files?.[0])}
@@ -281,6 +284,16 @@ function ergebnisSatz(b: Bericht) {
   return teile.length ? `${teile.join(', ')}.` : 'Es gab nichts zu ändern.';
 }
 
+/** „Ähnliche Druckteile“: N werden angelegt, M warten auf Druckteile, die noch fehlen. */
+function verknuepfungSatz(b: Bericht, fertig: boolean) {
+  const { neu = 0, wartend = 0 } = b.verknuepfungen ?? {};
+  if (!neu && !wartend) return '';
+  // z. B. „Ähnliche Druckteile: 3 Verknüpfungen werden angelegt, 1 wartet auf Druckteile, die noch fehlen.“
+  const angelegt = neu === 1 ? (fertig ? 'wurde angelegt' : 'wird angelegt') : fertig ? 'wurden angelegt' : 'werden angelegt';
+  const teile = [neu > 0 && `${plural(neu, 'Verknüpfung', 'Verknüpfungen')} ${angelegt}`, wartend > 0 && `${neu > 0 ? wartend : plural(wartend, 'Verknüpfung', 'Verknüpfungen')} ${wartend === 1 ? 'wartet' : 'warten'} auf Druckteile, die noch fehlen`];
+  return `Ähnliche Druckteile: ${teile.filter(Boolean).join(', ')}.`;
+}
+
 /** Zahlen in Klartext + aufklappbare Einzelheiten. */
 function Zusammenfassung({ bericht, titel, fertig = false }: { bericht: Bericht; titel: string; fertig?: boolean }) {
   const a = bericht.abschnitte.artikel;
@@ -307,6 +320,11 @@ function Zusammenfassung({ bericht, titel, fertig = false }: { bericht: Bericht;
             </div>
           ))}
       </dl>
+      {verknuepfungSatz(bericht, fertig) && (
+        <p className="mt-2 text-stone-700" data-testid="import-verknuepfungen">
+          {verknuepfungSatz(bericht, fertig)}
+        </p>
+      )}
       {neueBezuege.length > 0 && (
         <p className="mt-2 text-stone-700" data-testid="neue-stammdaten">
           {fertig ? 'Neu angelegt: ' : 'Wird neu angelegt: '}

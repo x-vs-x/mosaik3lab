@@ -261,7 +261,7 @@ export function ItemsAdminPage() {
                 // Per fetch statt Link: auf dem iPad (Web-App) führte der Link in eine Dateivorschau ohne Rückweg.
                 <DateiLaden
                   pfad={exportUrl(alleGewaehlt ? undefined : auswahl.map((i) => i.id))}
-                  ersatzname="mosaik3lab-druckteile.json"
+                  ersatzname="mosaik3lab-druckteile.zip"
                   titel="Druckteile-Export"
                   icon={ArrowDownToLine}
                   className={buttonClass('primary', 'md')}
@@ -277,9 +277,10 @@ export function ItemsAdminPage() {
               {auswahl.length > MAX_AUSWAHL && !alleGewaehlt ? (
                 <p className="w-full text-hinweis text-stone-600">Höchstens {MAX_AUSWAHL} auf einmal – oder „Alle auswählen“.</p>
               ) : (
-                // Erklärung nur ab Tablet – auf dem Handy nimmt sie viel Platz weg.
-                <p className="hidden w-full text-hinweis text-stone-600 sm:block">
-                  Es entsteht eine Datei mit den angehakten Druckteilen samt Bildern, Videos und Druckdateien – zum Weitergeben oder für eine andere Schule.
+                // Ausführliche Erklärung nur ab Tablet – auf dem Handy nimmt sie viel Platz weg; die Mindestversion immer.
+                <p className="w-full text-hinweis text-stone-600" data-testid="export-hinweis">
+                  <span className="hidden sm:inline">Es entsteht eine ZIP-Datei mit den angehakten Druckteilen samt Bildern, Videos und Druckdateien – zum Weitergeben oder für eine andere Schule. </span>
+                  Zum Einspielen braucht die andere Schule mindestens Mosaik³LAB 1.7.0.
                 </p>
               )}
             </div>

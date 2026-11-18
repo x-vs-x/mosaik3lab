@@ -3,27 +3,34 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import type { Category, Filament, MasterData, SimpleEntry } from '../../domain/settings';
 import type { ColorArea, CustomField, Item } from '../../domain/types';
-import type { Datei } from '../../kern/files';
+import { dateiName, type Datei } from '../../kern/files';
 import type { Storage } from '../../storage';
 import { schemaVersion } from '../../kern/db';
 import { ROOT_DIR } from '../../config';
 import { notFound } from '../../kern/errors';
+import { aehnlicheFuerExport, type PaketAehnlich } from './datenaustausch.aehnliche';
+import { ORDNER, zipStrom } from './datenaustausch.zip';
 
-// Export-Datei für Druckteile (Format „mosaik3lab-stammdaten“, Version 1 – Name und Aufbau bleiben, damit ältere
-// Dateien lesbar bleiben und ältere Installationen neue Dateien lesen können).
+// Export-Datei für Druckteile (Format „mosaik3lab-stammdaten“; der Name bleibt, damit ältere Dateien lesbar bleiben).
 //
-// Eine JSON-Datei, zeilenweise aufgebaut, damit sie auch bei großen Dateien nie ganz im Speicher stehen muss:
+// Format 2 (seit 1.7.0): eine ZIP-Datei – Aufbau und Sicherheitsregeln in datenaustausch.zip.ts. `paket.json` enthält
+// dasselbe Objekt wie bisher die erste Zeile (Kopf, Stammdaten, Druckteile mit Datei-Metadaten samt SHA-256), dazu je
+// Datei ihren Pfad im ZIP und je Druckteil seine ähnlichen Druckteile (`aehnliche`). Die Dateien liegen als echte
+// Binärdateien daneben (kein Base64 mehr, im Explorer/Finder ansehbar).
+//
+// Format 1 (bis 1.6.x, wird weiter gelesen): eine JSON-Datei, zeilenweise aufgebaut:
 //   Zeile 1:   {"format":…,"kopf":…,"stammdaten":…,"artikel":[…],"dateiinhalte":[
 //   Zeile 2…:  {"id":"<datei-id>","daten":"<Base64>"},          (eine Datei je Zeile)
 //   Letzte:    ]}
-// Die Datei ist als Ganzes gültiges JSON. Metadaten der Dateien (Rolle, Name, MIME, Größe, SHA-256) stehen beim
-// Druckteil, die Bytes in `dateiinhalte`. Enthalten: die gewählten Druckteile (einer, mehrere oder alle) mit Bildern,
-// Videos und Druckdateien und nur die Stammdaten, auf die sie verweisen (Kategorie, Einsatzbereiche, Material,
-// Farbrollen). Nie enthalten: Anfragen, Lehrkräfte, Konten, Passwörter, Einstellungen.
+// Enthalten: die gewählten Druckteile (einer, mehrere oder alle) mit Bildern, Videos und Druckdateien und nur die
+// Stammdaten, auf die sie verweisen (Kategorie, Einsatzbereiche, Material, Farbrollen). Nie enthalten: Anfragen,
+// Lehrkräfte, Konten, Passwörter, Einstellungen.
 // Ältere Exporte (`auswahl` fehlt: alle Stammdaten und Anfragestatus, evtl. ohne Dateien) liest der Import weiterhin.
+// Ältere Installationen (bis 1.6.x) können ZIP nicht lesen und melden „keine Export-Datei“ – die Zielschule braucht 1.7.0.
 
 export const PAKET_FORMAT = 'mosaik3lab-stammdaten';
-export const PAKET_VERSION = 1;
+/** Aktuelle Formatversion (2 = ZIP). Version 1 = JSON-Zeilen-Datei (wird nur noch gelesen). */
+export const PAKET_VERSION = 2;
 export const KOPF_ENDE = ',"dateiinhalte":[';
 export const PAKET_ENDE = ']}';
 /** Dateirollen eines Artikels, die ins Paket gehören. */
@@ -38,6 +45,8 @@ export interface PaketDatei {
   sha256: string;
   sortierung: number;
   erstelltAm: string;
+  /** Pfad im ZIP (Format 2), z. B. „bilder/<id>.png“; fehlt in Format 1. */
+  pfad?: string;
 }
 
 export interface PaketVideo {
@@ -52,6 +61,8 @@ export interface PaketVideo {
 export type PaketArtikel = Omit<Item, 'images' | 'modelFiles' | 'videos' | 'colors'> & {
   dateien: PaketDatei[];
   videos: PaketVideo[];
+  /** Ähnliche Druckteile (auch nicht exportierte): ID in der Quelle; Name und Nummer nur als Hilfe. Fehlt in älteren Dateien. */
+  aehnliche: PaketAehnlich[];
 };
 
 export interface Paket {
@@ -129,6 +140,7 @@ export async function buildPaket(storage: Storage, opts: ExportOptionen) {
   }
   const hinweise: string[] = [];
   const inhalt: Datei[] = [];
+  const aehnliche = aehnlicheFuerExport(storage.sqlite.db, items.map((i) => i.id));
 
   const artikel: PaketArtikel[] = [];
   for (const item of [...items].sort(sortByNumber)) {
@@ -152,6 +164,7 @@ export async function buildPaket(storage: Storage, opts: ExportOptionen) {
         sha256: d.sha256,
         sortierung: d.sortierung,
         erstelltAm: d.erstelltAm,
+        pfad: zipPfad(d),
       });
     }
     const ids = new Set(list.map((d) => d.id));
@@ -165,7 +178,7 @@ export async function buildPaket(storage: Storage, opts: ExportOptionen) {
       if (v.file && !dateiId) continue; // hochgeladenes Video ohne Datei im Paket
       paketVideos.push({ id: v.id, title: v.title, url: v.url, dateiId, uploadedAt: v.uploadedAt });
     }
-    artikel.push({ ...rest, dateien: list, videos: paketVideos });
+    artikel.push({ ...rest, dateien: list, videos: paketVideos, aehnliche: aehnliche.get(item.id) ?? [] });
   }
 
   const md = benutzteStammdaten(settings.masterData, items);
@@ -190,40 +203,23 @@ export async function buildPaket(storage: Storage, opts: ExportOptionen) {
   return { paket, inhalt, name: exportDateiname(items) };
 }
 
-/** Dateiname: ein Druckteil → mosaik3lab-druckteil-<Nummer>.json, sonst mosaik3lab-druckteile-JJJJ-MM-TT.json */
+/** Dateiname: ein Druckteil → mosaik3lab-druckteil-<Nummer>.zip, sonst mosaik3lab-druckteile-JJJJ-MM-TT.zip */
 export function exportDateiname(items: Pick<Item, 'number'>[], d = new Date()) {
   const nummer = (items.length === 1 ? (items[0].number ?? '') : '').replace(/[^A-Za-z0-9-]/g, '');
-  return nummer ? `mosaik3lab-druckteil-${nummer}.json` : `mosaik3lab-druckteile-${d.toISOString().slice(0, 10)}.json`;
+  return nummer ? `mosaik3lab-druckteil-${nummer}.zip` : `mosaik3lab-druckteile-${d.toISOString().slice(0, 10)}.zip`;
 }
 
+/** Pfad einer Datei im ZIP: Ordner nach Rolle, Name = Datei-ID + Endung der gespeicherten Datei. */
+export const zipPfad = (d: Pick<Datei, 'id' | 'pfad' | 'rolle'>) => `${ORDNER[d.rolle as keyof typeof ORDNER]}/${dateiName(d)}`;
+
 /**
- * Export vorbereiten (Fehler wie „gibt es nicht“ kommen hier, vor dem ersten Byte) → Dateiname und Strom. Der Strom
- * liefert Textstücke; Dateien werden nacheinander von der Platte gelesen und in Base64-Blöcken ausgegeben – im Speicher
- * liegt nie mehr als ein Block (rund 1 MB).
+ * Export vorbereiten (Fehler wie „gibt es nicht“ kommen hier, vor dem ersten Byte) → Dateiname und Strom (ZIP). Die
+ * Dateien werden nacheinander von der Platte gelesen – im Speicher liegt immer nur ein Block.
  */
 export async function erzeugeExport(storage: Storage, opts: ExportOptionen) {
   const { paket, inhalt, name } = await buildPaket(storage, opts);
-  return { name, artikel: paket.artikel.length, dateien: inhalt.length, strom: paketStrom(storage, paket, inhalt) };
-}
-
-async function* paketStrom(storage: Storage, paket: Paket, inhalt: Datei[]): AsyncGenerator<string> {
-  const kopf = JSON.stringify(paket);
-  yield kopf.slice(0, -1) + KOPF_ENDE + '\n';
-  for (let i = 0; i < inhalt.length; i++) {
-    const d = inhalt[i];
-    yield `{"id":${JSON.stringify(d.id)},"daten":"`;
-    let rest = Buffer.alloc(0);
-    // Blockgröße durch 3 teilbar, damit jeder Block für sich gültiges Base64 ergibt (Rest wird vorgetragen).
-    for await (const chunk of fs.createReadStream(storage.files.absPath(d), { highWaterMark: 3 * 256 * 1024 }) as AsyncIterable<Buffer>) {
-      const buf = rest.length ? Buffer.concat([rest, chunk]) : chunk;
-      const usable = buf.length - (buf.length % 3);
-      rest = buf.subarray(usable);
-      if (usable) yield buf.subarray(0, usable).toString('base64');
-    }
-    if (rest.length) yield rest.toString('base64');
-    yield `"}${i < inhalt.length - 1 ? ',' : ''}\n`;
-  }
-  yield PAKET_ENDE + '\n';
+  const dateien = inhalt.map((d) => ({ pfad: zipPfad(d), quelle: storage.files.absPath(d), groesse: d.groesse, mtime: d.erstelltAm }));
+  return { name, artikel: paket.artikel.length, dateien: inhalt.length, strom: zipStrom(JSON.stringify(paket, null, 2), dateien) };
 }
 
 export type { ColorArea, CustomField };
