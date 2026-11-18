@@ -98,13 +98,12 @@ test('Abgleich beim Start meldet Firewall-Abweichungen nur, nach einer Änderung
 });
 
 test('Update und Laufzeit: geprüft wird automatisch, gemeldet nur bei Handlungsbedarf', async () => {
-  assert.equal(await auto.checkUpdates(async () => assert.fail('in der Arbeitskopie nicht prüfen')), null);
+  assert.equal(await auto.checkUpdates(), null, 'in der Arbeitskopie nicht prüfen');
   const full = await auto.checkRuntime(async () => ({ rows: [
     { id: 'node', title: 'Node.js', light: 'warn', action: 'update', label: '24.1 – neuere LTS 24.2' },
-    { id: 'git', title: 'Git', light: 'ok', action: 'update', label: 'aktuell' },
     { id: 'wrapper', title: 'WinSW', light: 'info', action: null, label: 'noch nicht eingerichtet' },
   ] }));
-  assert.equal(full.rows.length, 3, 'vollständige Liste für „Erweitert“');
+  assert.equal(full.rows.length, 2, 'vollständige Liste für „Erweitert“');
   assert.deepEqual(auto.autoState().runtime.map((r) => r.id), ['node']);
   assert.deepEqual((await pageStatus()).updates.runtime.map((r) => r.id), ['node'], 'Karte „Update verfügbar“');
   assert.deepEqual((await auto.checkRuntime(async () => { throw new Error('offline'); })).rows, [], 'offline ist kein Fehler');

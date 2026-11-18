@@ -7,7 +7,6 @@
 // direkt am Server und über das Schulnetz (wer die Seite nach der Installation zuerst öffnet, legt ihn an).
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import path from 'node:path';
 import { appBcrypt } from './appstart.mjs';
 import { getConfig, resolvePaths, InputError, INSTALL } from './config.mjs';
 import { checkAdminInput, createAdmin } from './admin.mjs';
@@ -21,7 +20,7 @@ let failures = 0;
 let lockedUntil = 0;
 let dummyHash;
 
-const appDb = () => path.join(resolvePaths().dataDir, 'mosaik3lab.db');
+const appDb = () => resolvePaths().dbFile;
 
 /**
  * Aktive Administratoren der App (Demo-Konten nur, wenn erlaubt); [] ohne Datenbank bzw. ohne Tabelle „benutzer“.

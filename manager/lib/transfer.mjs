@@ -9,8 +9,9 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { InputError, countFiles } from './config.mjs';
 import { backupDatabase } from './backup.mjs';
+import { DB_NAME } from './settingsdb.mjs';
 
-const DB = 'mosaik3lab.db';
+const DB = DB_NAME;
 const PARTS = ['data', 'uploads', 'config'];
 const SKIP = /(\.lock|sessions\.json(\.bak)?)$/;
 

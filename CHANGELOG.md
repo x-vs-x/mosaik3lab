@@ -21,6 +21,24 @@ daraus die nächste Version.
 - **Schneller beim Start und beim Löschen von Stammdaten:** Zwei Start-Prüfungen aus der Zeit vor der Datenbank entfallen;
   neue Indizes (Datenbank-Migration 021, nur Indizes, keine Datenänderung, vorher automatische Sicherung).
 
+- **Sicherung bleibt gültig, wenn alte Sicherungen nicht gelöscht werden können:** Ist eine alte Sicherung unter Windows
+  kurz gesperrt (z. B. Virenscanner), wird die gerade erstellte und geprüfte Sicherung nicht mehr verworfen – ein Update
+  bricht deshalb nicht mehr mit „Sicherung vor dem Update fehlgeschlagen“ ab. Aufgeräumt wird beim nächsten Mal.
+- **Update robuster:** Scheitert das Umschalten auf die neue Version, zeigt das Programm wieder auf die bisherige Version
+  und die Dienste laufen weiter. Lassen sich alte Programmversionen nach einem gelungenen Update nicht löschen (z. B. ein
+  noch offenes Manager-Fenster), meldet das Installieren kein „fehlgeschlagen“ mehr.
+- **Wiederherstellen mit Rückfall:** Scheitert das Wiederherstellen einer Sicherung mittendrin (Datenträger voll, Datei
+  gesperrt), wird der Stand von direkt davor automatisch zurückgespielt – es bleibt nichts halb ersetzt.
+- **Dienst-Wrapper (Windows):** „Dienst-Wrapper aktualisieren“ ersetzt WinSW jetzt in allen Diensten (auch Portal und
+  Update-Helfer). Ein frisch geladenes WinSW wird zusätzlich an seiner festen Prüfsumme erkannt, eine fremde Datei verworfen.
+- **Linux:** Programm- und Datenordner mit Leerzeichen funktionieren jetzt auch in den Diensten und Verknüpfungen.
+- **Sicherheit:** Eine präparierte Sicherungsdatei kann beim Auspacken unter Windows keine Dateien mehr außerhalb des
+  Zielordners anlegen.
+- **Nur noch ein Update-Weg:** Updates kommen ausschließlich als Installer-Paket (per Knopfdruck im Server-Manager oder
+  per USB-Stick). Der frühere Update-Weg über Git und die Laufzeit-Zeile „Git“ sind entfernt; `cli update check|install`
+  nutzt jetzt ebenfalls die Paketquelle. Bestehende Installationen und Einstellungen bleiben unverändert.
+- `npm run backup` (Entwicklung) erstellt jetzt eine Sicherung wie der Server-Manager (eine geprüfte `.m3lbackup`-Datei).
+
 ## [1.7.0] – 2026-11-18
 
 - **Anzeige auf Handy, iPad und bei großer Schrift überarbeitet:** Alle Seiten, Dialoge und Meldungen – auch der

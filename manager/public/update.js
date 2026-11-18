@@ -1,34 +1,9 @@
-// Karte „Updates“: Paket-Installation (Stand, Änderungen, ein Knopf, Fortschritt, Neustart-Erkennung) und das bisherige
-// Git-Update für Arbeitskopien.
-import { $, action, api, changed, cmpVer, confirmBox, ctx, el, fmt, fmtBytes, fmtDay, icon, light, toast } from './ui.js';
+// Karte „Updates“: Paket-Installation (Stand, Änderungen, ein Knopf, Fortschritt, Neustart-Erkennung).
+import { $, action, api, changed, cmpVer, ctx, el, fmt, fmtBytes, fmtDay, icon, light, toast } from './ui.js';
 import { markdown } from './neuigkeiten.js';
 
 // ---------- Update, Laufzeit ----------
 export const stepList = (u) => [el('ol', { class: 'steps' }, u.steps.map((st) => el('li', {}, light(st.status === 'fertig' ? 'ok' : st.status === 'fehler' ? 'error' : 'warn', st.status), el('span', { class: 'detail' }, `${st.id}${st.detail ? ` – ${st.detail}` : ''}`)))), u.result ? el('p', { class: u.result.ok ? '' : 'error' }, u.result.message) : null, u.result && !u.result.ok && u.result.hint ? el('p', { class: 'small' }, `Was tun? ${u.result.hint}`) : null];
-export async function installUpdate() {
-  if (!(await confirmBox('Update installieren?', 'Vorher wird gesichert. Die Web-App ist kurz nicht erreichbar. Startet die neue Version nicht, wird automatisch zur bisherigen zurückgekehrt.', 'Installieren'))) return false;
-  await api('update/install', {});
-  for (let i = 0; i < 400; i++) {
-    await new Promise((r) => setTimeout(r, 2000));
-    const u = await api('update').catch(() => null);
-    if (!u) continue;
-    $('#updates').replaceChildren(...stepList(u));
-    if (u.phase !== 'running') return u.result?.ok ? (setTimeout(() => location.reload(), 4000), true) : false;
-  }
-  return false;
-}
-action($('#btn-check'), async () => {
-  const u = await api('update/check', {});
-  if (u?.paket) {
-    paketMode = true;
-    renderUpdate(u);
-    $('#update-info').replaceChildren(el('p', {}, u.behind ? `Neue Version verfügbar: ${u.latest.version} – siehe Karte „Updates“.` : u.error ? u.error : 'Mosaik³LAB ist aktuell.'));
-    return false;
-  }
-  $('#update-info').replaceChildren(el('p', {}, u.available ? `Neue Version verfügbar: ${u.id} – siehe Karte „Updates“.` : `Aktuell (${u.id}).`));
-  return false;
-});
-
 // ---------- Updates aus dem Installer-Paket (Karte „Updates“) ----------
 // GET api/update → { paket, installed, checkedAt, error, hint, unsupported, versions, behind, latest, download, lauf }.
 // Während des Updates startet der Manager selbst neu: Anfragen schlagen dann kurz fehl → ruhig warten und weiter fragen.
@@ -149,7 +124,7 @@ export async function loadUpdate() {
     return;
   }
   if (u === undefined) return; // abgemeldet → Anmeldung zeigt sich; nach dem Anmelden startet start() neu
-  if (!u?.paket) return; // Arbeitskopie/Git-Update: bisheriges Verhalten (Karte über den Status)
+  if (!u?.paket) return; // Arbeitskopie: keine Updates (git pull)
   paketMode = true;
   if (updWatch) Object.assign(updWatch, { restarting: false, fails: 0 });
   if (updActive(u) && !updWatch) updWatch = { from: u.installed?.version, restarted: false };

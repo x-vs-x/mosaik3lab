@@ -32,7 +32,8 @@ after(() => setup.removeTree(tmp));
 test('Altes Konfigurationsformat und Mail-Datei landen in der Datenbank, Dateien werden .bak', () => {
   const c = cfg.getConfig();
   assert.equal(cfg.configErrors().length, 0, cfg.configErrors().join());
-  assert.deepEqual([c.app.port, c.app.network, c.manager.port, c.backup.time, c.backup.keep, c.update.branch], [3044, true, 5199, '01:30', 5, 'dev']);
+  assert.deepEqual([c.app.port, c.app.network, c.manager.port, c.backup.time, c.backup.keep], [3044, true, 5199, '01:30', 5]);
+  assert.equal(c.update, undefined, 'frühere Git-Update-Einstellungen werden ignoriert');
   assert.equal(c.manager.passwordHash, undefined, 'eigenes Manager-Passwort gibt es nicht mehr (Admin-Konto der App)');
   assert.equal(sdb.readAll(path.join(storage, 'mosaik3lab.db')).manager['manager.passwordHash'], undefined, 'auch nicht in der Datenbank');
   assert.equal(c.backup.encrypt, false, 'bestehende Installationen bleiben unverschlüsselt, bis ein Passwort gesetzt wird');

@@ -114,7 +114,8 @@ export async function unpackTar(source, onEntry) {
       const name = prefix ? `${prefix}/${base}` : base;
       const size = h[124] & 0x80 ? Number(h.readBigUInt64BE(128)) : readOctal(h, 124, 12);
       if (h[156] !== 0x30 && h[156] !== 0) throw new Error(`Unerwarteter Eintragstyp in der Sicherung: ${name}`);
-      if (name.startsWith('/') || name.split('/').includes('..') || /^[A-Za-z]:/.test(name)) throw new Error(`Ungültiger Name in der Sicherung: ${name}`);
+      // Auch \ als Trenner prüfen: unter Windows macht path.join daraus einen Ordnerwechsel (z. B. ablage\..\..\x)
+      if (/^[\\/]/.test(name) || name.split(/[\\/]/).includes('..') || /^[A-Za-z]:/.test(name)) throw new Error(`Ungültiger Name in der Sicherung: ${name}`);
       sink = await onEntry(name, size);
       remaining = size;
       pad = size % BLOCK ? BLOCK - (size % BLOCK) : 0;

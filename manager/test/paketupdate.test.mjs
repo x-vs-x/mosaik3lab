@@ -16,7 +16,7 @@ process.env.MOSAIK3LAB_QUIET = '1';
 fs.writeFileSync(process.env.MANAGER_CONFIG, JSON.stringify({ paths: { dataDir: storage, ablageDir: path.join(tmp, 'ablage'), backupDir: backups, logDir: path.join(tmp, 'logs') }, backup: { keep: 10, encrypt: false } }));
 
 const pu = await import('../lib/paketupdate.mjs');
-const upd = await import('../lib/update.mjs');
+const upd = await import('../lib/releases.mjs');
 const schema = await import('../lib/schema.mjs');
 const { createBackup } = await import('../lib/backup.mjs');
 const { removeTree } = await import('../lib/setup.mjs');

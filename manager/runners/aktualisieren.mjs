@@ -11,7 +11,7 @@ const path = await import('node:path');
 const { INSTALL, getConfig, resolvePaths } = await import('../lib/config.mjs');
 const { logger } = await import('../lib/log.mjs');
 const { durchlauf, runPackageSetup, updatesDir, statusDatei } = await import('../lib/aktualisieren.mjs');
-const { currentRelease } = await import('../lib/update.mjs');
+const { currentRelease } = await import('../lib/releases.mjs');
 const { releases, officialSum, sha256File } = await import('../lib/paketquelle.mjs');
 const { rollBack, restoreDbFrom } = await import('../lib/paketupdate.mjs');
 const { dbSchemaVersion } = await import('../lib/schema.mjs');
@@ -34,7 +34,7 @@ const installed = () => {
   const r = currentRelease(INSTALL.programRoot);
   return r ? { id: r.id, version: r.version ?? r.id.split('-')[0] } : null;
 };
-const dbFile = () => path.join(resolvePaths().dataDir, 'mosaik3lab.db');
+const dbFile = () => resolvePaths().dbFile;
 const alleStarten = async () => {
   for (const k of DIENSTE) await platform.services.control(k, 'start').catch(() => false);
 };
@@ -74,7 +74,7 @@ async function recover(status) {
         },
         start: alleStarten,
         healthy: () => healthy(180_000),
-        restoreDb: (id) => restoreDbFrom({ backupDir: resolvePaths().backupDir, id, keyFile: path.join(INSTALL.dataRoot, 'backup.key'), dataDir: resolvePaths().dataDir, ablageDir: resolvePaths().ablageDir }),
+        restoreDb: (id) => restoreDbFrom({ backupDir: resolvePaths().backupDir, id, keyFile: resolvePaths().keyFile, dataDir: resolvePaths().dataDir, ablageDir: resolvePaths().ablageDir }),
       },
     );
   } catch (err) {

@@ -6,17 +6,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { InputError } from './config.mjs';
+import { lebt } from './hilfen.mjs';
 
 const MAX_ALTER_MS = 3 * 3600_000;
 
-const lebt = (pid) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    return err.code === 'EPERM'; // läuft, gehört aber einem anderen Konto
-  }
-};
 
 /** Sperre nehmen → Funktion zum Freigeben (mehrfach aufrufbar). Läuft schon eine Einrichtung: klare Meldung. */
 export function einrichtungSperren(programRoot, wer) {

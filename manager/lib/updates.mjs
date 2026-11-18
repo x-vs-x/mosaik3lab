@@ -1,11 +1,11 @@
 // Updates im Server-Manager (Paket-Installationen): prüfen, herunterladen, Update-Helfer beauftragen, Fortschritt melden.
 // Der Manager selbst hat keine Adminrechte – installiert wird vom Update-Helfer (runners/aktualisieren.mjs).
-// Installationen aus einer Arbeitskopie (ohne paket.json) nutzen weiter das Git-Update (update.mjs).
+// Der einzige Update-Weg; Installationen aus einer Arbeitskopie (ohne paket.json) aktualisiert man mit git pull + npm run paket.
 import fs from 'node:fs';
 import path from 'node:path';
 import { INSTALL, InputError, resolvePaths } from './config.mjs';
 import { logger } from './log.mjs';
-import { currentRelease } from './update.mjs';
+import { currentRelease } from './releases.mjs';
 import { checkPakete, downloadPaket } from './paketquelle.mjs';
 import { updatesDir, statusDatei } from './aktualisieren.mjs';
 import { laufAnzeige, zeitlimitsMinuten } from './zeitlimits.mjs';
@@ -140,6 +140,7 @@ async function startenIntern() {
         if (polkit) throw Object.assign(new Error(`Der Update-Helfer ließ sich nicht starten: ${polkit}`), { friendly: true, hint: 'Das neue Paket herunterladen und mit sudo ./installieren.sh installieren – es wurde nichts verändert.' });
         throw new Error('Der Update-Helfer ließ sich nicht starten.');
       }
+      download.gestartet = true; // Helfer läuft – cli update install wartet darauf
     } catch (err) {
       download.error = err.friendly ? err.message : 'Das Update konnte nicht gestartet werden – es wurde nichts verändert.';
       download.hint = err.friendly ? err.hint : 'Erneut „Jetzt aktualisieren“ versuchen; tritt es wieder auf, das Paket per USB-Stick installieren (Protokoll „Update“).';

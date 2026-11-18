@@ -5,7 +5,6 @@
 //   - nach Änderungen der Einstellungen: abgleichen (afterChange), dann erneut prüfen
 // Die Ergebnisse liegen nur im Speicher und erscheinen im Status nur, wenn etwas zu tun ist.
 import { reconcile } from './reconcile.mjs';
-import { checkUpdate } from './update.mjs';
 import { runtimeStatus } from './runtime.mjs';
 import { serviceStatus, readState, startService } from './services.mjs';
 import { configErrors, INSTALL } from './config.mjs';
@@ -24,28 +23,18 @@ export async function checkDrift() {
   return state.drift;
 }
 
-/** Updates prüfen – nur in einer Installation (in der Arbeitskopie: git pull). Paket-Installation: freigegebene Versionen
- *  aus der Paketquelle; sonst Git. Offline ist kein Fehler. */
-export async function checkUpdates(check = checkUpdate) {
-  if (!INSTALL) return (state.update = null);
+/** Updates prüfen – nur in einer Installation aus einem Installer-Paket: freigegebene Versionen aus der Paketquelle
+ *  (in der Arbeitskopie: git pull). Offline ist kein Fehler. */
+export async function checkUpdates() {
   const { istPaketInstallation, pruefen, zustand } = await import('./updates.mjs');
-  if (istPaketInstallation() && check === checkUpdate) {
-    const z = zustand().checkedAt && Date.now() - Date.parse(zustand().checkedAt) < 3600_000 ? zustand() : await pruefen();
-    state.update = { available: z.behind > 0, id: z.latest ? z.latest.version : null, behind: z.behind, changes: [], error: z.error ?? undefined, paket: true };
-    state.checkedAt.update = new Date().toISOString();
-    return state.update;
-  }
-  try {
-    const r = await check();
-    state.update = { available: r.updateAvailable, id: r.available.id, changes: r.available.changes.slice(0, 10) };
-  } catch (err) {
-    state.update = { available: false, error: err.message };
-  }
+  if (!INSTALL || !istPaketInstallation()) return (state.update = null);
+  const z = zustand().checkedAt && Date.now() - Date.parse(zustand().checkedAt) < 3600_000 ? zustand() : await pruefen();
+  state.update = { available: z.behind > 0, id: z.latest ? z.latest.version : null, behind: z.behind, changes: [], error: z.error ?? undefined, paket: true };
   state.checkedAt.update = new Date().toISOString();
   return state.update;
 }
 
-/** Laufzeit (Node.js, Git, Dienst-Wrapper) prüfen; gemerkt werden nur Zeilen mit neuerer Version oder Handlungsbedarf. */
+/** Laufzeit (Node.js, Dienst-Wrapper) prüfen; gemerkt werden nur Zeilen mit neuerer Version oder Handlungsbedarf. */
 export async function checkRuntime(status = runtimeStatus) {
   let full = { rows: [] };
   try {
