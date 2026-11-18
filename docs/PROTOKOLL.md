@@ -2,6 +2,26 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Link-Knöpfe am Druckteil, klickbare Links (Unter-Session, Branch: feature/link-knoepfe)
+- **Anlass:** Wunsch des Nutzers: Links in der Beschreibung waren nicht anklickbar; beim Druckteil Links mit Knopftext
+  und kurzer Beschreibung hinterlegen (z. B. Elektroteil zum Bestellen, Bestellliste), update-sicher.
+- **Gebaut:**
+  - Feld `links` (beliebig viele, Schutzgrenze 50, je `{ id, text, beschreibung, url }`, `url` nur http/https über `httpLink`) im
+    `itemInputSchema` (`shared/src/katalog.ts`).
+  - Migration `018_artikel_links.sql`: JSON-Spalte `artikel.links`, Standard `[]`. Dazu Abbildung im Repository und
+    IDs in `normalizeItemInput`.
+  - Export/Import: `links` im Paket (`artikelS` optional, Standard `[]`), im `fingerabdruck` und beim Einspielen. Ältere
+    Installationen ignorieren das Feld.
+  - Formular: Abschnitt „Links und Bestellhinweise“ (`LinksSection.tsx`) mit Hinzufügen, Entfernen, Hoch/Runter und
+    lokaler Prüfung.
+  - Detailseite: `ItemLinks.tsx` mit Knöpfen (neuer Tab, Symbol „extern“, mindestens 56 px hoch) und `TextMitLinks` für
+    Beschreibung und Materialinformationen. Die Links erkennt `client/src/lib/linkText.ts`, ohne HTML.
+- **Tests:** `client/test/linkText.test.ts`; `katalog.test.ts` prüft Speichern, Lesen und Ablehnen von `javascript:`,
+  `ftp:` und Links ohne Knopftext; die „Rundreise“ in `datenaustausch.test.ts` prüft `links` mit. Klicktest bei
+  320/375/768/1024/1440 px mit 14 langen Links und langen Adressen in der Beschreibung: kein seitliches Scrollen.
+  Verkleinerte Screenshots im Notizordner des Hauptchats (`link-knoepfe-screenshots`).
+- **Aufgeräumt:** Testserver gestoppt, `_testdaten/link-knoepfe` gelöscht.
+
 ## 2026-11-18 – Katalog: Scrollhöhe und Bilder wischen (Unter-Session, Branch: feature/katalog-bedienung)
 - **Anlass:** Zurück aus einem Druckteil sprang der Katalog nach oben; auf der Detailseite ließen sich Bilder nicht wischen.
 - **Ursache Scrollen:** Nach „Zurück“ lädt die Liste neu; beim Zurückspringen des Browsers war die Seite noch zu kurz.

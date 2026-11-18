@@ -52,6 +52,7 @@ export async function seedIfEmpty(storage: Storage): Promise<boolean> {
     const { key, ...data } = d;
     const item: Item = {
       kind: 'hilfsmittel',
+      links: [],
       ...productDefaults(data.colors),
       ...data,
       id: newId(),

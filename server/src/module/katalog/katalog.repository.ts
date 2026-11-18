@@ -2,7 +2,7 @@ import { allAreaColors, type ColorArea, type CustomField, type Item, type ItemVi
 import { all, b, bool, count, json, marks, nextNumber, one, run, str, syncRows, transaction, type Db, type Row } from '../../kern/db';
 import { conflict } from '../../kern/errors';
 import { dateiFromRow, dateiName, type Datei, type FileStore } from '../../kern/files';
-import { inGruppen } from '@mosaik3lab/shared/katalog';
+import { inGruppen, type ItemLink } from '@mosaik3lab/shared/katalog';
 
 // Druckteile (Tabelle artikel mit Einsatzbereichen, Farbbereichen, Feldern, Videos; Dateien in Tabelle datei).
 
@@ -121,6 +121,7 @@ export class ItemRepository {
         materialInfo: str(r.material_info),
         printTimeMinutes: Number(r.druckzeit_minuten),
         safetyNotes: json<string[]>(r.sicherheitshinweise, []),
+        links: json<ItemLink[]>(r.links, []),
         images: files.filter((d) => d.rolle === 'bild').map(dateiName),
         modelFiles,
         published: bool(r.veroeffentlicht),
@@ -172,12 +173,12 @@ export class ItemRepository {
     run(
       this.db,
       `INSERT INTO artikel (id, nummer, name, kurzbeschreibung, beschreibung, art, kategorie_id, material_id, material_info, preis,
-         druckzeit_minuten, groessen, sicherheitshinweise, veroeffentlicht, ist_demo, erstellt_am, geaendert_am)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         druckzeit_minuten, groessen, sicherheitshinweise, links, veroeffentlicht, ist_demo, erstellt_am, geaendert_am)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (id) DO UPDATE SET name = excluded.name, kurzbeschreibung = excluded.kurzbeschreibung,
          beschreibung = excluded.beschreibung, art = excluded.art, kategorie_id = excluded.kategorie_id, material_id = excluded.material_id,
          material_info = excluded.material_info, preis = excluded.preis, druckzeit_minuten = excluded.druckzeit_minuten,
-         groessen = excluded.groessen, sicherheitshinweise = excluded.sicherheitshinweise,
+         groessen = excluded.groessen, sicherheitshinweise = excluded.sicherheitshinweise, links = excluded.links,
          veroeffentlicht = excluded.veroeffentlicht, ist_demo = excluded.ist_demo, geaendert_am = excluded.geaendert_am`,
       item.id,
       item.number ?? '',
@@ -192,6 +193,7 @@ export class ItemRepository {
       Math.round(Number(item.printTimeMinutes) || 0),
       JSON.stringify(item.sizes ?? []),
       JSON.stringify(item.safetyNotes ?? []),
+      JSON.stringify(item.links ?? []),
       b(!!item.published),
       b(!!item.isDemo),
       item.createdAt,
