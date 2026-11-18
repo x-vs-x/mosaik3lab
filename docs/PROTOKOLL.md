@@ -554,7 +554,7 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 - **Geprüft:** typecheck ✔ · lint ✔ · test ✔ (keine Tests angepasst) · Funktionsabgleich ohne fehlendes Element · Überbreite bei
   320/360/375/390/393/412/430/768/844/932/1024/1280/1440 px: keine · alle Dialoge und Aufklapper bei 375 px.
 - **Aufgeräumt:** Testserver gestoppt, Basis-Worktree entfernt.
-- **Nachtrag E-Mail-Adressen:** wurden mit `break-all` mitten im Wort zerrissen („frau.beispiel@mosaik / schule-lu.de“). Neuer Baustein
+- **Nachtrag E-Mail-Adressen:** wurden mit `break-all` mitten im Wort zerrissen („frau.beispiel@schule / .example“). Neuer Baustein
   `Email` (`components/ui.tsx`, `<wbr>` vor dem @) statt `break-all` in Übersicht, Anfragen, Vorschläge, Personen, Lehrkräfte, Konto,
   Anmelden, Passwort festlegen; Übersicht: E-Mail in eigener Zeile unter Nummer · Menge · Klasse. Geprüft bei 320/390 px: kein Wortteil
   einer Adresse mehr umbrochen (Umbruch nur am @ oder Bindestrich), mit überlanger Adresse keine Überbreite.
@@ -1684,7 +1684,7 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   Angemeldet bleiben: Session-Cookie 30 Tage, bei Nutzung verlängert (vorher 8 h). Login-Seite mit `data-testid`. Neues `GET /api/orders/mine`
   (Status nur bei eingeschalteter Statusanzeige). `User.email` (Pflicht, eindeutig, klein); Konten nur noch für
   Admin/Druck-Team; Migration ergänzt E-Mails älterer Konten ohne Datenverlust (altes Demo-Konto `lehrkraft` →
-  bekannte Lehrkraft `demo.lehrkraft@mosaikschule-lu.de`). Rate-Limit für beide Schritte, Login-Bremse je E-Mail/IP,
+  bekannte Lehrkraft `demo.lehrkraft@schule.example`). Rate-Limit für beide Schritte, Login-Bremse je E-Mail/IP,
   neue Session-ID, CSRF und Demo-Sperre bleiben. Frontend: Login-Seite (E-Mail → ggf. Passwort), „Meine Anfragen“
   und Konto-Seite für Lehrkräfte, Benutzerverwaltung mit E-Mail (anlegen/ändern), Anfrageformular übernimmt die
   E-Mail der angemeldeten Lehrkraft. Nebenbei: `.gitignore` schloss `server/src/storage/` (Speicher-Code) aus –

@@ -11,7 +11,7 @@ import { ERREICHBARKEIT } from './erreichbarkeit';
 // Einmalige Übernahme alter Dateien (config/mail.json, settings.json → mail) siehe importLegacyMail.
 
 const isEmail = (v: string) => z.string().email().safeParse(v).success;
-/** „name@schule.de“ oder „Mosaik³LAB <name@schule.de>“ */
+/** „name@schule.example“ oder „Mosaik³LAB <name@schule.example>“ */
 const senderAddress = (v: string) => isEmail(v.match(/<([^<>]+)>\s*$/)?.[1] ?? v);
 
 export const mailConfigSchema = z
@@ -31,7 +31,7 @@ export const mailConfigSchema = z
       .max(20)
       // Dubletten (ohne Groß-/Kleinschreibung) entfernen, erste Schreibweise bleibt
       .transform((l) => l.filter((a, i) => l.findIndex((b) => b.toLowerCase() === a.toLowerCase()) === i)),
-    /** Adresse der App für Links in Mails, z. B. https://mosaik3lab.schule.de */
+    /** Adresse der App für Links in Mails, z. B. https://mosaik3lab.schule.example */
     appBaseUrl: z
       .string()
       .trim()

@@ -142,7 +142,7 @@ test('Mehrere Versionen übersprungen: alle Abschnitte, neueste zuerst; numerisc
     const { admin, r } = await adminNeuigkeiten(s.base);
     assert.deepEqual(r.json.abschnitte.map((a: { version: string }) => a.version), ['1.3.0', '1.2.0', '1.1.0']);
     // Ein zweiter Administrator, der noch nichts gelesen hat, sieht dasselbe – unabhängig vom ersten.
-    const zweiter = await personMitRechten(admin, s.base, 'zweite.admin@mosaikschule-lu.de', [], 'admin');
+    const zweiter = await personMitRechten(admin, s.base, 'zweite.admin@schule.example', [], 'admin');
     await admin.req('POST', '/api/neuigkeiten/gelesen');
     assert.equal((await zweiter.c.req('GET', '/api/neuigkeiten')).json.abschnitte.length, 3);
     await s.stop();

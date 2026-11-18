@@ -102,7 +102,7 @@ export function LoginPage() {
             Hilfs- und Lehrmittel aus dem 3D-Drucker – passend für jede Schülerin und jeden Schüler.
           </p>
           <p className="mt-5 text-lg text-white/90">
-            Der schulinterne Katalog der Mosaikschule. Lehrkräfte stöbern und fragen Hilfs- und Lehrmittel ohne Anmeldung an –
+            Der schulinterne Katalog für den 3D-Druck. Lehrkräfte stöbern und fragen Hilfs- und Lehrmittel ohne Anmeldung an –
             das 3D-Druck-Team kümmert sich um den Rest.
           </p>
           <div className="mt-10 inline-block bg-white px-6 py-5 shadow-xl">

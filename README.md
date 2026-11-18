@@ -131,14 +131,14 @@ Beide Ports lauschen nur auf `127.0.0.1`. Beenden mit Strg+C.
 
 | Rolle          | E-Mail (Anmeldung)                   | Passwort            |
 | -------------- | ------------------------------------ | ------------------- |
-| Administrator  | `demo.admin@mosaikschule-lu.de`      | `Mosaik-Admin-2026` |
-| 3D-Druck-Team  | `demo.druckteam@mosaikschule-lu.de`  | `Mosaik-Druck-2026` |
-| Lehrkraft      | `frau.beispiel@mosaikschule-lu.de`   | – (kein Passwort)   |
+| Administrator  | `demo.admin@schule.example`      | `Mosaik-Admin-2026` |
+| 3D-Druck-Team  | `demo.druckteam@schule.example`  | `Mosaik-Druck-2026` |
+| Lehrkraft      | `frau.beispiel@schule.example`   | – (kein Passwort)   |
 
-Weitere bekannte Lehrkräfte aus den Beispiel-Anfragen: `herr.muster@…`, `frau.sonnenschein@mosaikschule-lu.de`.
+Weitere bekannte Lehrkräfte aus den Beispiel-Anfragen: `herr.muster@…`, `frau.sonnenschein@schule.example`.
 Ältere Datenstände werden beim Start automatisch ergänzt: Konten ohne E-Mail erhalten ihre Demo-Adresse bzw.
 `<benutzername>@<erste erlaubte Domain>` (in „Personen“ sichtbar); das frühere Demo-Konto `lehrkraft`
-wird zur bekannten Lehrkraft `demo.lehrkraft@mosaikschule-lu.de` (ohne Passwort).
+wird zur bekannten Lehrkraft `demo.lehrkraft@schule.example` (ohne Passwort).
 
 ## Rollen und Rechte
 

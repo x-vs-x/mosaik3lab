@@ -16,7 +16,7 @@ export const emailDomainSchema = z
   .trim()
   .toLowerCase()
   .transform((d) => d.replace(/^@/, ''))
-  .pipe(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, 'Ungültige Domain, z. B. mosaikschule-lu.de'));
+  .pipe(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, 'Ungültige Domain, z. B. schule.example'));
 
 export const orderFormSchema = z.object({
   /** Erlaubte E-Mail-Domains für Anfragen, z. B. „schule.example“. Leer = jede Adresse. */

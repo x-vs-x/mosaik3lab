@@ -22,6 +22,14 @@ export interface AppSettings {
   statusAliases: Record<string, string>;
 }
 
+/**
+ * Voreinstellung der erlaubten Domains bis Version 1.6.3 – nur für die Update-Sicherheit, nie für neue Installationen:
+ * Datenstände aus dieser Zeit, die die Domain nie ausdrücklich gespeichert haben, behalten genau diesen Wert
+ * (einstellungen.repository.ts, legacyJson.ts) und gelten bei der Ersteinrichtung weiter als „unverändert“
+ * (einstellungen.service.ts).
+ */
+export const ORDERFORM_VORGABE_BIS_1_6: Readonly<OrderFormSettings> = Object.freeze({ allowedEmailDomains: ['mosaikschule-lu.de'] });
+
 export { newId } from './ids';
 import { newId } from './ids';
 
@@ -44,7 +52,8 @@ export function defaultSettings(): AppSettings {
       filaments: DEFAULT_FILAMENT_IDS.map((id) => filamentAusKatalog(katalogEintrag(id)!)),
       orderStatuses: defaultOrderStatuses(),
     },
-    orderForm: { allowedEmailDomains: ['mosaikschule-lu.de'] },
+    // Neue Installation: jede Adresse erlaubt, bis die Ersteinrichtung die Domain der Schule setzt (schulDomainUebernehmen).
+    orderForm: { allowedEmailDomains: [] },
     features: { requesterTracking: false },
     mailStatus: null,
     statusAliases: {},

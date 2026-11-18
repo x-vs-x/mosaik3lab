@@ -34,7 +34,7 @@ const SCHULNETZ = [
   'http://LOCALHOST:5180',
   'http://server/mosaik3lab',
   'http://mosaik3lab.local/mosaik3lab',
-  'http://drucker.schule.lan',
+  'http://drucker.werkstatt.lan',
   'https://app.intern',
   'https://app.schule.internal/x',
   'http://pc.home',
@@ -42,8 +42,8 @@ const SCHULNETZ = [
   'http://srv.firma.corp',
 ];
 const OEFFENTLICH = [
-  'https://mosaik3lab.schule.de/mosaik3lab',
-  'http://mosaik3lab.schule.de:8080',
+  'https://mosaik3lab.schule.example/mosaik3lab',
+  'http://mosaik3lab.schule.example:8080',
   'https://example.org',
   'http://8.8.8.8/mosaik3lab',
   'http://172.32.0.1',
@@ -52,14 +52,14 @@ const OEFFENTLICH = [
   'http://[2001:db8::1]/',
   'http://[::ffff:8.8.8.8]/',
   'https://localhost.example.com',
-  'https://local.schule.de',
+  'https://local.schule.example',
 ];
 
 test('Erkennung: private/lokale Adressen, Namen ohne Punkt und interne Endungen = nur Schulnetz', () => {
   for (const url of SCHULNETZ) assert.equal(erkenneErreichbarkeit(url).schulnetz, true, url);
   for (const url of OEFFENTLICH) assert.equal(erkenneErreichbarkeit(url).schulnetz, false, url);
   assert.deepEqual(erkenneErreichbarkeit('http://192.168.1.26/mosaik3lab'), { schulnetz: true, grund: '192.168.1.26 ist eine Adresse im lokalen Netz.' });
-  assert.deepEqual(erkenneErreichbarkeit('https://mosaik3lab.schule.de/mosaik3lab'), { schulnetz: false, grund: 'mosaik3lab.schule.de ist ein öffentlicher Name.' });
+  assert.deepEqual(erkenneErreichbarkeit('https://mosaik3lab.schule.example/mosaik3lab'), { schulnetz: false, grund: 'mosaik3lab.schule.example ist ein öffentlicher Name.' });
   assert.match(erkenneErreichbarkeit('http://server').grund, /ohne Domain/);
   assert.match(erkenneErreichbarkeit('http://x.local').grund, /„\.local“/);
   for (const bad of ['', 'kein link', 'http://']) assert.equal(erkenneErreichbarkeit(bad).schulnetz, false, bad);
@@ -67,7 +67,7 @@ test('Erkennung: private/lokale Adressen, Namen ohne Punkt und interne Endungen 
 
 test('Entscheidungstabelle: Einstellung × Erkennung → Hinweis in der Mail, Warnung im Server-Manager', () => {
   const lokal = 'http://192.168.1.26/mosaik3lab';
-  const oeffentlich = 'https://mosaik3lab.schule.de';
+  const oeffentlich = 'https://mosaik3lab.schule.example';
   const fall = (appBaseUrl: string, erreichbarkeit?: string) => {
     const r = pruefeLinks({ appBaseUrl, erreichbarkeit });
     return [r.hinweis, !!r.warnung];
@@ -86,9 +86,9 @@ test('Entscheidungstabelle: Einstellung × Erkennung → Hinweis in der Mail, Wa
   const w = pruefeLinks({ appBaseUrl: lokal, erreichbarkeit: 'oeffentlich' }).warnung;
   assert.match(w, /„Auch von außerhalb“ gewählt.*192.168.1.26 ist eine Adresse im lokalen Netz.*„Adresse in den Mails“/);
   // HTTPS-Empfehlung nur bei „Auch von außerhalb“ mit http://
-  assert.equal(pruefeLinks({ appBaseUrl: 'http://mosaik3lab.schule.de', erreichbarkeit: 'oeffentlich' }).httpsHinweis, HTTPS_EMPFOHLEN);
+  assert.equal(pruefeLinks({ appBaseUrl: 'http://mosaik3lab.schule.example', erreichbarkeit: 'oeffentlich' }).httpsHinweis, HTTPS_EMPFOHLEN);
   assert.equal(pruefeLinks({ appBaseUrl: oeffentlich, erreichbarkeit: 'oeffentlich' }).httpsHinweis, '');
-  assert.equal(pruefeLinks({ appBaseUrl: 'http://mosaik3lab.schule.de', erreichbarkeit: 'auto' }).httpsHinweis, '');
+  assert.equal(pruefeLinks({ appBaseUrl: 'http://mosaik3lab.schule.example', erreichbarkeit: 'auto' }).httpsHinweis, '');
   assert.equal(linksNurImSchulnetz({ appBaseUrl: lokal, erreichbarkeit: 'oeffentlich' }), true);
 });
 
@@ -139,10 +139,10 @@ test('Hinweis in HTML und Text aller Mails mit Link – nur bei „Schulnetz“'
   for (const m of mails({ appBaseUrl: 'http://192.168.1.26/mosaik3lab' })) {
     assert.ok(m.html.includes(SCHULNETZ_HINWEIS) && m.text.includes(SCHULNETZ_HINWEIS), m.subject);
   }
-  for (const s of [{ appBaseUrl: 'https://mosaik3lab.schule.de', erreichbarkeit: 'oeffentlich' as const }, { appBaseUrl: 'https://mosaik3lab.schule.de' }, { appBaseUrl: '', erreichbarkeit: 'schulnetz' as const }]) {
+  for (const s of [{ appBaseUrl: 'https://mosaik3lab.schule.example', erreichbarkeit: 'oeffentlich' as const }, { appBaseUrl: 'https://mosaik3lab.schule.example' }, { appBaseUrl: '', erreichbarkeit: 'schulnetz' as const }]) {
     for (const m of mails(s)) assert.ok(!m.html.includes(SCHULNETZ_HINWEIS) && !m.text.includes(SCHULNETZ_HINWEIS), `${m.subject} (${JSON.stringify(s)})`);
   }
-  for (const m of mails({ appBaseUrl: 'https://mosaik3lab.schule.de', erreichbarkeit: 'schulnetz' })) assert.ok(m.html.includes(SCHULNETZ_HINWEIS), m.subject);
+  for (const m of mails({ appBaseUrl: 'https://mosaik3lab.schule.example', erreichbarkeit: 'schulnetz' })) assert.ok(m.html.includes(SCHULNETZ_HINWEIS), m.subject);
   for (const m of mails({ appBaseUrl: 'http://192.168.1.26/mosaik3lab', erreichbarkeit: 'oeffentlich' })) assert.ok(m.html.includes(SCHULNETZ_HINWEIS), `Widerspruch: ${m.subject}`);
 });
 

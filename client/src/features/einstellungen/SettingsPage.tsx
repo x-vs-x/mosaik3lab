@@ -135,13 +135,13 @@ function OrderFormSection({ settings, onSaved }: SectionProps) {
       }
       description="Lehrkräfte geben beim Anfragen ihre Schul-E-Mail an. Hier legen Sie fest, welche Adressen angenommen werden."
     >
-      <Field label="Erlaubte E-Mail-Domains" hint="Nur der Teil nach dem @, z. B. mosaikschule-lu.de. Eingabe mit Enter bestätigen.">
+      <Field label="Erlaubte E-Mail-Domains" hint="Nur der Teil nach dem @, z. B. schule.example. Eingabe mit Enter bestätigen.">
         {({ id, describedBy }) => (
           <ListEditor
             id={id}
             values={domains}
             onChange={(v) => setDomains(normalize(v))}
-            placeholder="mosaikschule-lu.de"
+            placeholder="schule.example"
             describedBy={describedBy}
             itemLabel="Domain"
           />
