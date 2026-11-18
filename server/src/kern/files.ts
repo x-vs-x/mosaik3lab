@@ -130,6 +130,41 @@ export class FileStore {
     return datei;
   }
 
+  /**
+   * Ersetzt den Inhalt einer vorhandenen Datei (z. B. verkleinertes Bild). ID und Sortierung bleiben, die Endung darf
+   * sich ändern (PNG → JPG). Erst die neue Datei schreiben, dann den Datensatz ändern, zuletzt die alte Datei löschen.
+   */
+  async replace(id: string, buffer: Buffer, ext: string, originalname?: string): Promise<Datei> {
+    const alt = this.find(id);
+    if (!alt) throw new Error('Datei nicht gefunden.');
+    const e = ext.toLowerCase();
+    const pfad = this.relPath(alt.objekttyp, alt.objektId, alt.rolle, alt.id, e);
+    const neu: Datei = {
+      ...alt,
+      pfad,
+      mime: MIME_BY_EXT[e] ?? 'application/octet-stream',
+      groesse: buffer.length,
+      sha256: sha256(buffer),
+      originalname: originalname ?? alt.originalname,
+    };
+    const abs = this.absPath(neu);
+    const temp = `${abs}.${newId()}.neu`;
+    await fs.mkdir(path.dirname(abs), { recursive: true });
+    await fs.writeFile(temp, buffer, { flag: 'wx' });
+    try {
+      await fs.rename(temp, abs); // gleiche Endung: ersetzt die alte Datei in einem Schritt
+      this.db
+        .prepare('UPDATE datei SET pfad = ?, mime = ?, groesse = ?, sha256 = ?, originalname = ? WHERE id = ?')
+        .run(neu.pfad, neu.mime, neu.groesse, neu.sha256, neu.originalname, neu.id);
+    } catch (err) {
+      await fs.rm(temp, { force: true });
+      if (pfad !== alt.pfad) await fs.rm(abs, { force: true });
+      throw err;
+    }
+    if (pfad !== alt.pfad) await fs.rm(this.absPath(alt), { force: true }).catch(() => undefined);
+    return neu;
+  }
+
   /** Nur den Datensatz eintragen (Datei liegt bereits an ihrem Platz, z. B. bei der Übernahme). */
   insert(d: Datei) {
     this.db
