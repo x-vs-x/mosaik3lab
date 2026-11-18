@@ -41,8 +41,8 @@ export function LinkKnoepfe({ links }: { links: ItemLink[] }) {
               rel="noopener noreferrer"
               className="flex min-h-14 h-full flex-col justify-center gap-1 rounded-xl bg-brand-50 px-4 py-3 text-brand-900 ring-1 ring-brand-200 hover:bg-brand-100 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
             >
-              <span className="flex items-center gap-2 font-bold">
-                <ExternalLink className="size-5 shrink-0" aria-hidden />
+              <span className="flex items-start gap-2 font-bold">
+                <ExternalLink className="mt-0.5 size-5 shrink-0" aria-hidden />
                 {l.text}
                 <span className="sr-only"> (öffnet in neuem Tab)</span>
               </span>

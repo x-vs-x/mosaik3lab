@@ -6,7 +6,7 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 - **Anlass:** Wunsch des Nutzers: Links in der Beschreibung waren nicht anklickbar; beim Druckteil Links mit Knopftext
   und kurzer Beschreibung hinterlegen (z. B. Elektroteil zum Bestellen, Bestellliste), update-sicher.
 - **Gebaut:**
-  - Feld `links` (höchstens 10 × `{ id, text, beschreibung, url }`, `url` nur http/https über `httpLink`) im
+  - Feld `links` (beliebig viele, Schutzgrenze 50, je `{ id, text, beschreibung, url }`, `url` nur http/https über `httpLink`) im
     `itemInputSchema` (`shared/src/katalog.ts`).
   - Migration `018_artikel_links.sql`: JSON-Spalte `artikel.links`, Standard `[]`. Dazu Abbildung im Repository und
     IDs in `normalizeItemInput`.

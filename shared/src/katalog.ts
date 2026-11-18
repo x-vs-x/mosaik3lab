@@ -83,8 +83,8 @@ export const customFieldSchema = z
   });
 export type CustomField = z.infer<typeof customFieldSchema>;
 
-/** Höchstzahl der Link-Knöpfe je Druckteil. */
-export const MAX_ITEM_LINKS = 10;
+/** Schutzgrenze für Link-Knöpfe je Druckteil (praktisch beliebig viele). */
+export const MAX_ITEM_LINKS = 50;
 
 /** Link-Knopf am Druckteil, z. B. „Taster-Beispiel“ mit Link zum Bestellen eines Elektroteils. */
 export const itemLinkSchema = z.object({

@@ -21,7 +21,7 @@ export function LinksSection({ form, set, errors }: FormSectionProps) {
       id="links"
       icon={Link2}
       title="Links und Bestellhinweise"
-      summary={links.length ? `${plural(links.length, 'Link', 'Links')}: ${links.map((l) => l.text).join(', ')}` : 'Keine Links'}
+      summary={links.length ? `${plural(links.length, 'Link', 'Links')}: ${links.slice(0, 3).map((l) => l.text).join(', ')}${links.length > 3 ? ' …' : ''}` : 'Keine Links'}
       hasError={sectionHasError(errors, 'links')}
     >
       <div className="space-y-4">

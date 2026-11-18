@@ -98,14 +98,14 @@ test('Link-Knöpfe werden gespeichert und gelesen; nur http(s)-Links', async () 
     colors: ['bambu-pla-basic-red'], material: 'PLA', printTimeMinutes: 20, published: true,
   };
   const ohne = await team.req('POST', '/api/items', body);
-  assert.equal(ohne.status, 201, ohne.text);
+  assert.equal(ohne.status, 201, JSON.stringify(ohne.json));
   assert.deepEqual(ohne.json.links, [], 'ohne Angabe: keine Links');
   const links = [
     { id: '', text: 'Taster-Beispiel', beschreibung: 'Bitte vorher bestellen', url: 'https://shop.example.org/taster' },
     { id: '', text: 'Bestellliste', url: 'http://schule.example.org/liste' },
   ];
   const r = await team.req('PUT', `/api/items/${ohne.json.id}`, { ...body, links });
-  assert.equal(r.status, 200, r.text);
+  assert.equal(r.status, 200, JSON.stringify(r.json));
   const gelesen = (await teacher.req('GET', `/api/items/${ohne.json.id}`)).json.links;
   assert.deepEqual(gelesen.map((l: { text: string; beschreibung: string; url: string }) => [l.text, l.beschreibung, l.url]), [
     ['Taster-Beispiel', 'Bitte vorher bestellen', 'https://shop.example.org/taster'],
