@@ -56,7 +56,22 @@ function jpegMasse(b) {
   return null;
 }
 
+/** Warten, bis die App antwortet (nach dem Anlegen des Admins startet der Manager sie ggf. neu → kurz 502 am Portal). */
+async function bereit(sekunden = 120) {
+  const ende = Date.now() + sekunden * 1000;
+  let status = 0;
+  while (Date.now() < ende) {
+    status = await fetch(`${BASE}/api/health`, { signal: AbortSignal.timeout(10_000) }).then((r) => r.status, () => 0);
+    if (status === 200) return status;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  return status;
+}
+
 try {
+  const t = performance.now();
+  const h = await bereit();
+  pruefe(h === 200, `App antwortet (${BASE}/api/health → ${h} nach ${Math.round((performance.now() - t) / 1000)} s)`);
   const login = await api('POST', '/api/auth/login', LOGIN);
   pruefe(login.ok, `Anmeldung an der App (${BASE}) mit dem Admin-Konto → ${login.status}`);
   if (!login.ok) throw new Error('Anmeldung fehlgeschlagen');
