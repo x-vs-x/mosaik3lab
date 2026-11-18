@@ -320,6 +320,36 @@ export class ItemRepository {
     return this.findById(id);
   }
 
+  /**
+   * Mehrere Druckteile in einer Transaktion ändern; `change` liefert `undefined` = nichts zu tun. `danach` läuft im selben
+   * Schritt (z. B. Stammdaten schreiben) – wirft etwas, bleibt alles, wie es war. Fehlt ein Druckteil, wirft `fehlt` (sonst
+   * wird es übersprungen). Liefert die IDs der geänderten Druckteile.
+   */
+  async updateMany<T = void>(
+    ids: string[],
+    change: (current: Item) => Item | undefined,
+    opts: { danach?: () => T; fehlt?: (id: string) => Error } = {},
+  ): Promise<{ geaendert: string[]; ergebnis: T | undefined }> {
+    const { removed, geaendert, ergebnis } = transaction(this.db, () => {
+      const removed: Datei[] = [];
+      const geaendert: string[] = [];
+      for (const id of ids) {
+        const current = this.load('WHERE id = ?', id)[0];
+        if (!current) {
+          if (opts.fehlt) throw opts.fehlt(id);
+          continue;
+        }
+        const next = change(structuredClone(current));
+        if (!next) continue;
+        removed.push(...this.save({ ...next, id, number: current.number, createdAt: next.createdAt || current.createdAt }));
+        geaendert.push(id);
+      }
+      return { removed, geaendert, ergebnis: opts.danach?.() };
+    });
+    await this.files.unlink(removed);
+    return { geaendert, ergebnis };
+  }
+
   /** Löscht den Artikel samt Farbbereichen, Feldern, Videos und allen Dateien. Anfragen behalten ihren Schnappschuss. */
   async delete(id: string) {
     const item = await this.findById(id);

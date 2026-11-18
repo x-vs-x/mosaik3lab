@@ -13,6 +13,7 @@ import { SettingsRepository } from '../module/einstellungen/einstellungen.reposi
 import { MasterDataRepository } from '../module/stammdaten/stammdaten.repository';
 import { ItemRepository } from '../module/katalog/katalog.repository';
 import { OrderRepository } from '../module/anfragen/anfragen.repository';
+import { NeuigkeitenRepository } from '../module/neuigkeiten/neuigkeiten.repository';
 
 export type { Storage } from './repositories';
 
@@ -53,6 +54,7 @@ export async function createSqliteStorage(paths: StoragePaths): Promise<Storage 
       sessions: new SessionRepository(db),
       masterData,
       settings: new SettingsRepository(db, masterData),
+      neuigkeiten: new NeuigkeitenRepository(db),
     };
     repos.settings.init();
     const legacy: LegacyPaths = { dataDir: paths.dataDir, imagesDir: paths.imagesDir, modelsDir: paths.modelsDir, videosDir: paths.videosDir };
@@ -67,7 +69,7 @@ export async function createSqliteStorage(paths: StoragePaths): Promise<Storage 
       bilder,
       bildpflege,
       importReport,
-      sqlite: { db: conn, items: repos.items, settings: repos.settings },
+      sqlite: { db: conn },
       database: {
         file: paths.dbFile,
         info: () => dbInfo(conn, paths.dbFile),

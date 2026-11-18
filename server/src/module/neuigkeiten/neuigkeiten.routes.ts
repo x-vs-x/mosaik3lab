@@ -1,25 +1,23 @@
-import { Router, type RequestHandler } from 'express';
+import { Router } from 'express';
 import type { AppConfig } from '../../config';
-import { permissionsOf } from '../../kern/auth/middleware';
-import { forbidden, unauthorized } from '../../kern/errors';
-import type { NeuigkeitenRepository } from './neuigkeiten.repository';
+import type { Auth } from '../../kern/auth/middleware';
+import type { Storage } from '../../storage';
 import { neuigkeitenFuer } from './neuigkeiten.service';
 
-/** /api/neuigkeiten – „Was ist neu“ nach einem Update, nur für Administratoren (auch vom Server-Manager genutzt). */
-export function neuigkeitenRoutes(repo: NeuigkeitenRepository, config: AppConfig) {
+/**
+ * /api/neuigkeiten – „Was ist neu“ nach einem Update (auch vom Server-Manager genutzt). Prüfpunkt `settings:manage`
+ * (hat nur der Administrator): ohne Anmeldung 401, ohne Recht 403.
+ */
+export function neuigkeitenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
   const router = Router();
-  const nurAdmin: RequestHandler = (req, _res, next) => {
-    if (req.user?.role === 'admin') return next();
-    next(permissionsOf(req) ? forbidden() : unauthorized());
-  };
-  router.use(nurAdmin);
+  router.use(auth.requirePermission('settings:manage'));
 
   router.get('/', (req, res) => {
-    res.json(neuigkeitenFuer(repo, req.user!.id, { appVersion: config.appVersion, rootDir: config.rootDir }));
+    res.json(neuigkeitenFuer(storage.neuigkeiten, req.user!.id, { appVersion: config.appVersion, rootDir: config.rootDir }));
   });
 
   router.post('/gelesen', (req, res) => {
-    repo.setGesehen(req.user!.id, config.appVersion);
+    storage.neuigkeiten.setGesehen(req.user!.id, config.appVersion);
     res.json({ ok: true });
   });
   return router;

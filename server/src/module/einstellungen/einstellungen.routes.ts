@@ -3,7 +3,7 @@ import type { AppConfig } from '../../config';
 import type { Auth } from '../../kern/auth/middleware';
 import { mailConfigInfo } from '../../kern/mail/mailConfig';
 import type { Storage } from '../../storage';
-import { masterDataRoutes, MASTERDATA_PATHS } from '../stammdaten/stammdaten.routes';
+import { masterDataRoutes } from '../stammdaten/stammdaten.routes';
 import { featuresSchema, orderFormSchema } from '@mosaik3lab/shared/einstellungen';
 import { merkeDomainGesetzt } from './einstellungen.service';
 
@@ -22,13 +22,13 @@ export function publicConfigRoutes(storage: Storage, config: AppConfig) {
   return router;
 }
 
-/** /api/admin/settings – Einstellungen der App; Stammdaten hängen mit eigenem Recht darunter (module/stammdaten). */
+/**
+ * /api/admin/settings – Einstellungen der App („settings:manage“); Stammdaten hängen darunter, jede Route mit ihrem
+ * eigenen Prüfpunkt (module/stammdaten).
+ */
 export function adminSettingsRoutes(storage: Storage, auth: Auth) {
   const router = Router();
-  // Stammdaten (inkl. Bambu-Palette) können auch Druck-Team-Konten freigegeben werden; der Ablauf der Anfragen gehört zu den Einstellungen.
   const settingsRight = auth.requirePermission('settings:manage');
-  const masterDataRight = auth.requirePermission('masterdata:manage');
-  router.use((req, res, next) => (MASTERDATA_PATHS.test(req.path) ? masterDataRight : settingsRight)(req, res, next));
 
   const present = async () => {
     const s = await storage.settings.get();
@@ -43,14 +43,14 @@ export function adminSettingsRoutes(storage: Storage, auth: Auth) {
     };
   };
 
-  router.get('/', async (_req, res) => {
+  router.get('/', settingsRight, async (_req, res) => {
     res.json(await present());
   });
 
-  router.use(masterDataRoutes(storage));
+  router.use(masterDataRoutes(storage, auth));
 
   // --- Bestellformular -------------------------------------------------------------
-  router.put('/orderform', async (req, res) => {
+  router.put('/orderform', settingsRight, async (req, res) => {
     const orderForm = orderFormSchema.parse(req.body);
     await storage.settings.update((s) => ({ ...s, orderForm }));
     merkeDomainGesetzt(storage); // ab jetzt ändert die Ersteinrichtung die Domain nicht mehr
@@ -58,11 +58,13 @@ export function adminSettingsRoutes(storage: Storage, auth: Auth) {
   });
 
   // --- Schalter (für spätere Erweiterungen) -------------------------------------
-  router.put('/features', async (req, res) => {
+  router.put('/features', settingsRight, async (req, res) => {
     const features = featuresSchema.parse(req.body);
     await storage.settings.update((s) => ({ ...s, features }));
     res.json(await present());
   });
 
+  // Alles Übrige (unbekannte Pfade) wie bisher nur mit dem Einstellungsrecht – danach 404.
+  router.use(settingsRight);
   return router;
 }

@@ -73,9 +73,9 @@ export function itemRoutes(storage: Storage, auth: Auth) {
   });
 
   // Eine Farbrolle mehreren Druckteilen auf einmal hinzufügen (Farbrollen-Verwaltung → „Druckteilen zuordnen …“).
-  router.post('/farbe-zuordnen', manage, (req, res) => {
+  router.post('/farbe-zuordnen', manage, async (req, res) => {
     const { filamentId, ziele } = farbeZuordnenSchema.parse(req.body);
-    res.json(farbeZuordnen(storage, filamentId, ziele));
+    res.json(await farbeZuordnen(storage, filamentId, ziele));
   });
 
   router.put('/:id', manage, async (req, res) => {

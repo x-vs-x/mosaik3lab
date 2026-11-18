@@ -345,7 +345,7 @@ test('Ersetzen: vorhandenes Druckteil bekommt Texte und Dateien aus der Datei, b
 });
 
 test('Datei von einer anderen Installation: gleicher Name gilt als vorhanden; fehlende Bezüge werden angelegt, vorhandene nicht geändert', async () => {
-  const repo = targetSrv.storage.sqlite.settings;
+  const repo = targetSrv.storage.settings;
   const s = repo.read();
   const { kopf } = await entpacke(await exportZip(src, [itemId]));
   const kat = s.masterData.categories.find((k) => k.name === kopf.artikel[0].category)!;

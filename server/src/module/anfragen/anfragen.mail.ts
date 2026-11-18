@@ -366,6 +366,6 @@ export function notifyNewOrder(storage: Storage, db: Db, order: Order, item: Ite
       console.warn('[Mail]', status.message);
     }
     // nur diesen einen Wert schreiben (nicht alle Einstellungen und Stammdaten)
-    storage.sqlite.settings.setSetting('mailStatus', { at: new Date().toISOString(), ...status });
+    storage.settings.setSetting('mailStatus', { at: new Date().toISOString(), ...status });
   })().catch((err) => console.warn('[Mail] Unerwarteter Fehler:', err));
 }

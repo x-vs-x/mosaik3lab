@@ -105,4 +105,14 @@ export class MasterDataRepository {
   itemIdsUsing(list: MasterDataList, value: string) {
     return all(this.db, USAGE_SQL[list], value).map((r) => str(r.id));
   }
+
+  /** IDs der Druckteile, deren Farbbereiche eine der Gruppen („linie:…“, „art:…“) gewählt haben. */
+  itemIdsMitGruppen(gruppen: string[]) {
+    if (!gruppen.length) return [];
+    return all(
+      this.db,
+      `SELECT DISTINCT fb.artikel_id AS id FROM artikel_farbbereich fb, json_each(fb.gruppen) g WHERE g.value IN (${gruppen.map(() => '?').join(', ')})`,
+      ...gruppen,
+    ).map((r) => str(r.id));
+  }
 }

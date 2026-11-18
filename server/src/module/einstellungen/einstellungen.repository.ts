@@ -70,11 +70,15 @@ export class SettingsRepository {
     return this.read();
   }
 
-  /** Ändert die Einstellungen atomar; die Funktion darf Fehler werfen. */
-  async update(change: (current: AppSettings) => AppSettings) {
+  /** Ändert die Einstellungen atomar; die Funktion darf Fehler werfen. Synchron – auch innerhalb einer größeren Transaktion nutzbar. */
+  aendere(change: (current: AppSettings) => AppSettings) {
     return transaction(this.db, () => {
       this.write(withDefaults(change(this.read())));
       return this.read();
     });
+  }
+
+  async update(change: (current: AppSettings) => AppSettings) {
+    return this.aendere(change);
   }
 }

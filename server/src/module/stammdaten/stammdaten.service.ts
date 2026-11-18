@@ -2,6 +2,7 @@ import { BAMBU_KATALOG, filamentAusKatalog, katalogEintrag } from '../../domain/
 import { isRequiredStatus } from '../../domain/orderStatuses';
 import { filamentLabel, newId, type Filament, type MasterData } from '../../domain/settings';
 import type { Item } from '../../domain/types';
+import { linieVon, materialartVon } from '@mosaik3lab/shared/werte/katalog';
 import { badRequest, conflict, notFound } from '../../kern/errors';
 import type { Storage } from '../../storage';
 import { masterDataSchemas, type MasterDataList } from '@mosaik3lab/shared/stammdaten';
@@ -64,7 +65,7 @@ function parseEntries(list: MasterDataList, entries: unknown): Entry[] {
   throw badRequest(`${lines.slice(0, 3).join('; ')}${more}.`, fields);
 }
 
-/** Eine ganze Liste speichern: keine Dubletten, verwendete Einträge nicht löschen, Umbenennungen in Druckteile übernehmen. */
+/** Eine ganze Liste speichern: keine Dubletten, verwendete Einträge nicht löschen, Farbgruppen folgen umbenannten Linien. */
 export async function saveList(storage: Storage, list: MasterDataList, entries: unknown) {
   const incoming = parseEntries(list, entries);
   const label = LIST_LABELS[list];
@@ -96,35 +97,65 @@ export async function saveList(storage: Storage, list: MasterDataList, entries: 
   });
 
   const removed = current.filter((c) => !next.some((n) => n.id === c.id));
-  // Farbrollen werden per ID referenziert – Umbenennungen brauchen keine Kaskade.
-  const renamed =
-    list !== 'filaments'
-      ? next
-          .map((n) => ({ from: current.find((c) => c.id === n.id)?.name, to: n.name ?? '' }))
-          .filter((r): r is { from: string; to: string } => !!r.from && r.from !== r.to)
-      : [];
-
-  // Gelöschte Farbrollen verschwinden automatisch aus den Druckteilen (vor dem Löschen, wegen des Fremdschlüssels).
-  // Andere gelöschte Einträge dürfen nicht mehr verwendet werden (Zählung per SQL).
-  if (list === 'filaments' && removed.length) {
-    const weg = new Set(removed.map((r) => r.id));
-    const betroffen = [...new Set(removed.flatMap((r) => storage.masterData.itemIdsUsing(list, r.id)))];
-    for (const id of betroffen) await storage.items.update(id, (c) => ohneFarbrollen(c, weg));
+  // Kategorie, Material und Einsatzbereich hängen per ID am Druckteil – Umbenennen wirkt sofort, ohne Kaskade.
+  // Verwendete Einträge dürfen nicht gelöscht werden (Zählung per SQL).
+  if (list !== 'filaments') {
+    for (const r of removed) {
+      const usedBy = storage.masterData.countItemsUsing(list, r.name ?? '');
+      if (usedBy > 0) {
+        throw conflict(`${label} „${displayName(list, r)}“ wird noch von ${usedBy} Druckteil(en) verwendet und kann nicht gelöscht werden.`);
+      }
+    }
+    return (await storage.settings.update((s) => ({ ...s, masterData: { ...s.masterData, [list]: next } as MasterData }))).masterData;
   }
-  for (const r of list === 'filaments' ? [] : removed) {
-    const usedBy = storage.masterData.countItemsUsing(list, list === 'filaments' ? r.id : (r.name ?? ''));
-    if (usedBy > 0) {
-      throw conflict(`${label} „${displayName(list, r)}“ wird noch von ${usedBy} Druckteil(en) verwendet und kann nicht gelöscht werden.`);
+
+  // Farbrollen: gelöschte verschwinden aus den Druckteilen (vor dem Löschen, wegen des Fremdschlüssels), und gewählte
+  // Gruppen („linie:…“, „art:…“) folgen einer umbenannten Linie bzw. Materialart. Alles in einer Transaktion mit dem
+  // Speichern der Liste – scheitert etwas, bleiben Druckteile und Farbrollen, wie sie waren.
+  const weg = new Set(removed.map((r) => r.id));
+  const umbenannt = gruppenNachfolger(current as Filament[], next as Filament[]);
+  const betroffen = [
+    ...new Set([...removed.flatMap((r) => storage.masterData.itemIdsUsing(list, r.id)), ...storage.masterData.itemIdsMitGruppen([...umbenannt.keys()])]),
+  ];
+  const { ergebnis } = await storage.items.updateMany(
+    betroffen,
+    (c) => {
+      const mitGruppen = umbenannt.size ? mitNeuenGruppen(c, umbenannt) : c;
+      return weg.size ? ohneFarbrollen(mitGruppen, weg) : mitGruppen;
+    },
+    { danach: () => storage.settings.aendere((s) => ({ ...s, masterData: { ...s.masterData, filaments: next as Filament[] } })) },
+  );
+  return ergebnis!.masterData;
+}
+
+/**
+ * Welche Gruppen nach dem Speichern ins Leere zeigen und eindeutig weiterleben: Verschwindet eine Linie (bzw. Materialart)
+ * ganz und tragen ihre bisherigen Rollen danach alle dieselbe neue, zeigt die Gruppe dorthin. Sonst (Rollen gelöscht oder
+ * auf mehrere Linien verteilt) bleibt sie stehen – das Team wählt dann im Druckteil neu.
+ */
+export function gruppenNachfolger(vorher: Filament[], nachher: Filament[]): Map<string, string> {
+  const umbenannt = new Map<string, string>();
+  for (const [schluessel, gruppe] of [
+    [linieVon, (v: string) => `linie:${v}`],
+    [materialartVon, (v: string) => `art:${v}`],
+  ] as const) {
+    const neueWerte = new Set(nachher.map(schluessel).filter(Boolean));
+    for (const alt of new Set(vorher.map(schluessel).filter(Boolean))) {
+      if (neueWerte.has(alt)) continue;
+      const ids = new Set(vorher.filter((f) => schluessel(f) === alt).map((f) => f.id));
+      const nachfolger = new Set(nachher.filter((f) => ids.has(f.id)).map(schluessel));
+      const [einziger] = nachfolger;
+      if (nachfolger.size === 1 && einziger) umbenannt.set(gruppe(alt), gruppe(einziger));
     }
   }
-  // Betroffene Druckteile vor dem Speichern bestimmen (danach tragen sie schon den neuen Namen).
-  const renamedItems = [...new Set(renamed.flatMap((r) => storage.masterData.itemIdsUsing(list, r.from)))];
+  return umbenannt;
+}
 
-  const saved = await storage.settings.update((s) => ({ ...s, masterData: { ...s.masterData, [list]: next } as MasterData }));
-
-  // Umbenennungen in den Druckteilen nachziehen
-  for (const id of renamedItems) await storage.items.update(id, (c) => renameIn(c, list, renamed));
-  return saved.masterData;
+/** Gewählte Gruppen der Farbbereiche umschreiben (ohne Doppelte); unverändert, wenn das Druckteil keine davon nutzt. */
+function mitNeuenGruppen(item: Item, umbenannt: Map<string, string>): Item {
+  if (!item.colorAreas.some((a) => a.gruppen?.some((g) => umbenannt.has(g)))) return item;
+  const colorAreas = item.colorAreas.map((a) => (a.gruppen?.length ? { ...a, gruppen: [...new Set(a.gruppen.map((g) => umbenannt.get(g) ?? g))] } : a));
+  return { ...item, colorAreas, updatedAt: new Date().toISOString() };
 }
 
 /**
@@ -138,14 +169,6 @@ export function ohneFarbrollen(item: Item, weg: Set<string>): Item {
     return colors.length || a.gruppen?.length ? { ...a, colors } : { ...a, alleFarben: true, colors: [], gruppen: [] };
   });
   return { ...item, colorAreas, colors: [...new Set(colorAreas.flatMap((a) => a.colors))], updatedAt: new Date().toISOString() };
-}
-
-function renameIn(item: Item, list: MasterDataList, renamed: { from: string; to: string }[]): Item {
-  const map = (v: string) => renamed.find((r) => r.from === v)?.to ?? v;
-  if (list === 'categories') return { ...item, category: map(item.category) };
-  if (list === 'materials') return { ...item, material: map(item.material) };
-  if (list === 'useAreas') return { ...item, useAreas: item.useAreas.map(map) };
-  return item;
 }
 
 /** Bestellstatus an/aus (feste Liste). Anfragen behalten einen ausgeschalteten Status; er ist nur nicht mehr wählbar. */

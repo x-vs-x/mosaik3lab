@@ -138,7 +138,8 @@ function ordneZu(paket: Paket, vorher: Item[]) {
 
 /** Gesamte Datenbankarbeit des Imports; läuft synchron in einer Transaktion. */
 function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebnis {
-  const { db, items: itemRepo, settings: settingsRepo } = storage.sqlite;
+  const { db } = storage.sqlite;
+  const { items: itemRepo, settings: settingsRepo } = storage;
   const files = storage.files;
   const ersetzen = opt.modus === 'ersetzen';
   const details: Detail[] = [];

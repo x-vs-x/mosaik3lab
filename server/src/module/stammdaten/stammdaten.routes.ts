@@ -9,38 +9,40 @@ import { importFilaments, isMasterDataList, saveList, setFilamentAvailability, t
 import { statusToggleSchema } from '@mosaik3lab/shared/anfragen';
 import { filamentAvailabilitySchema, filamentImportSchema, type BambuKatalogAntwort } from '@mosaik3lab/shared/stammdaten';
 
-/** Pfade unter /api/admin/settings, die zum Recht „masterdata:manage“ gehören (Rest, auch der Ablauf der Anfragen: „settings:manage“). */
-export const MASTERDATA_PATHS = /^\/(masterdata|bambu-palette)(\/|$)/;
-
-/** Stammdaten, Bestellstatus-Schalter und Bambu-Palette – eingehängt in /api/admin/settings (Rechte prüft der Aufrufer). */
-export function masterDataRoutes(storage: Storage) {
+/**
+ * Stammdaten, Bestellstatus-Schalter und Bambu-Palette – eingehängt in /api/admin/settings. Jede Route nennt ihr Recht:
+ * Stammdaten und Bambu-Palette „masterdata:manage“ (auch für Druck-Team-Konten), der Ablauf der Anfragen „settings:manage“.
+ */
+export function masterDataRoutes(storage: Storage, auth: Auth) {
   const router = Router();
+  const stammdatenRecht = auth.requirePermission('masterdata:manage');
+  const einstellungenRecht = auth.requirePermission('settings:manage');
 
-  router.put('/masterdata/:list', async (req, res) => {
+  router.put('/masterdata/:list', stammdatenRecht, async (req, res) => {
     const list = param(req.params.list);
     if (!isMasterDataList(list)) throw notFound('Unbekannte Stammdatenliste.');
     res.json(await saveList(storage, list, req.body?.entries));
   });
 
   // --- Bestellstatus (feste Liste, nur an/aus) --------------------------------------
-  router.patch('/order-statuses/:id', async (req, res) => {
+  router.patch('/order-statuses/:id', einstellungenRecht, async (req, res) => {
     const { active } = statusToggleSchema.parse(req.body);
     res.json(await toggleStatus(storage, param(req.params.id), active));
   });
 
   // --- Farbrollen aus dem Bambu-Lab-Katalog -------------------------------------------
-  router.get('/bambu-palette', (_req, res) => {
+  router.get('/bambu-palette', stammdatenRecht, (_req, res) => {
     const { quelle, stand, eintraege } = BAMBU_KATALOG;
     res.json({ quelle, stand, eintraege, hinweis: leseHinweis(storage) } satisfies BambuKatalogAntwort);
   });
 
   /** Hinweis nach dem Abgleich gelesen → ausblenden. */
-  router.delete('/bambu-palette/hinweis', (_req, res) => {
+  router.delete('/bambu-palette/hinweis', stammdatenRecht, (_req, res) => {
     loescheHinweis(storage);
     res.status(204).end();
   });
 
-  router.post('/masterdata/filaments/import', async (req, res) => {
+  router.post('/masterdata/filaments/import', stammdatenRecht, async (req, res) => {
     const { ids } = filamentImportSchema.parse(req.body);
     const result = await importFilaments(storage, ids);
     ohneNeue(storage, ids);

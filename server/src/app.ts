@@ -20,7 +20,6 @@ import { proposalRoutes } from './module/vorschlaege/vorschlaege.routes';
 import { adminSettingsRoutes, publicConfigRoutes } from './module/einstellungen/einstellungen.routes';
 import { bambuAbgleichBeimStart } from './module/stammdaten/bambuAbgleich';
 import { filamentRoutes } from './module/stammdaten/stammdaten.routes';
-import { NeuigkeitenRepository } from './module/neuigkeiten/neuigkeiten.repository';
 import { neuigkeitenRoutes } from './module/neuigkeiten/neuigkeiten.routes';
 import { versionBeimStart } from './module/neuigkeiten/neuigkeiten.service';
 import { migrateLegacyStatuses, migrateUserEmails, seedIfEmpty } from './seed/seed';
@@ -43,8 +42,7 @@ export async function createApp(config: AppConfig) {
   // Übernahme erledigt (oder nicht nötig) → früher in der App eingestellte Ablagepfade sichern und entfernen.
   retirePathConfig(config.rootDir);
   // Versionswechsel merken (für „Was ist neu“) – vor den Demo-Daten, sonst sähe eine Neuinstallation wie ein Update aus.
-  const neuigkeiten = new NeuigkeitenRepository(db);
-  versionBeimStart(neuigkeiten, config.appVersion);
+  versionBeimStart(storage.neuigkeiten, config.appVersion);
   if (config.seedDemoData) await seedIfEmpty(storage);
   await migrateLegacyStatuses(storage);
   await migrateUserEmails(storage);
@@ -122,7 +120,7 @@ export async function createApp(config: AppConfig) {
   app.use('/api/personen', personRoutes(storage, auth));
   app.use('/api/dashboard', dashboardRoutes(storage, auth));
   app.use('/api/files', fileRoutes(storage, auth));
-  app.use('/api/neuigkeiten', neuigkeitenRoutes(neuigkeiten, config));
+  app.use('/api/neuigkeiten', neuigkeitenRoutes(storage, auth, config));
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Unbekannter API-Endpunkt.' });
   });

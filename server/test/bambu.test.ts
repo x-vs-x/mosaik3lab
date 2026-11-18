@@ -56,7 +56,7 @@ test('Migration: alte Farbrollen bekommen Herkunft, Nummer und Originalname; eig
     assert.equal(eigen.katalogId, null);
     assert.equal(eigen.colorName, 'Galaxy Black');
     assert.deepEqual(f.map((x) => x.id), ['bambu-pla-basic-jade-white', 'bambu-petg-hf-gray', 'eigen-1'], 'Reihenfolge bleibt');
-    const hinweis = instance.storage.sqlite.settings.getSetting('bambuAbgleichHinweis') as { aenderungen: string[]; neu: string[] };
+    const hinweis = instance.storage.settings.getSetting('bambuAbgleichHinweis') as { aenderungen: string[]; neu: string[] };
     assert.ok(hinweis.aenderungen.some((a) => a.includes('#A3A6A6')), JSON.stringify(hinweis));
     assert.deepEqual(hinweis.neu, [], 'beim ersten Abgleich gilt nichts als neu');
   } finally {
