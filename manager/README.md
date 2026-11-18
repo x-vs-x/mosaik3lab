@@ -177,6 +177,8 @@ Im Schulnetz soll die App ohne Portnummer erreichbar sein: `http://<Server>/mosa
   `/<pfad>/…` an die App auf `127.0.0.1:<interner Port>` weiter (Streaming für große Uploads/Downloads, Zeitlimit 10 Minuten
   ohne Datenfluss, `X-Forwarded-For/-Proto/-Host` – von außen mitgeschickte Angaben werden verworfen); `/` leitet auf `/<pfad>/`; alles
   andere → freundliche 404-Seite; antwortet die App nicht → Seite „antwortet gerade nicht“ (502). Kein WebSocket, kein Caching.
+- **App-Icons an der Wurzel:** `/apple-touch-icon.png` (auch `-precomposed`, `-180x180`) und `/favicon.ico` gibt das Portal an die App
+  unter `/<pfad>/…` weiter – iPhone/iPad („Zum Home-Bildschirm“) und Browser fragen dort, auch ohne `<link>`.
 - Die **App hört nur noch auf 127.0.0.1** (`trust proxy` nur für localhost); **Firewall** (`Im Netzwerk freigeben`) öffnet nur noch die
   Portal-Ports. Alte Regeln des früheren App-Ports werden beim „Abgleichen“ entfernt.
 - **Pfad der App** (`portal.basePath`, Standard bei neuer Einrichtung `/mosaik3lab`, leer = unter `/`): Die App bekommt ihn als
@@ -202,6 +204,8 @@ gesetzt – sonst würde `http://<IP>` im Schulnetz brechen):
   Zertifikat (`.cer`, ohne Schlüssel) und erklärt in vier Zeilen, wie man es auf Windows, iPad/iPhone, Android und Mac **einmalig** als
   vertrauenswürdig einträgt (danach keine Warnung mehr). Im Manager: „Zertifikat für Geräte herunterladen“.
 - HTTPS an: Sitzungs-Cookie `Secure`, HSTS, Port 80 → 301 auf HTTPS.
+- **iPhone/iPad:** Ohne vollständig vertrautes Zertifikat (nur „Website trotzdem besuchen“) lädt iOS beim „Zum Home-Bildschirm“ das
+  Logo nicht und zeigt nur einen Buchstaben. Abhilfe: Zertifikat über `/zertifikat` installieren und vertrauen, Icon danach neu hinzufügen.
 
 <details><summary>Beispiele: IIS / nginx statt Portal (Portal dann ausschalten)</summary>
 

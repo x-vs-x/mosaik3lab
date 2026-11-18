@@ -2,6 +2,7 @@
 //   /<basePath>/…  →  Web-App auf 127.0.0.1:<appPort> (Streaming, große Uploads/Downloads, X-Forwarded-For/-Proto/-Host)
 //   /<basePath>/manager…  →  Server-Manager auf 127.0.0.1:<managerPort> (ohne Präfix, Kopf X-Mosaik3lab-Manager)
 //   /              →  Weiterleitung auf /<basePath>/
+//   /apple-touch-icon*.png, /favicon.ico  →  Icons der App (iOS/Browser fragen an der Wurzel, auch ohne <link>)
 //   /zertifikat    →  Anleitung + Zertifikat zum Herunterladen (nur bei HTTPS; bleibt auch über HTTP erreichbar)
 // Bei HTTPS: Port 80 leitet auf HTTPS um, TLS endet hier. Die App selbst hört nur auf 127.0.0.1 (trust proxy: nur localhost).
 // Dies ist ein Weiterleitungs-Dienst für EINE App im Schulnetz – kein Allzweck-Reverse-Proxy (kein WebSocket, kein Caching).
@@ -11,6 +12,9 @@ import https from 'node:https';
 const HOP = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade', 'proxy-connection']);
 const MINUTES = 60_000;
 const TIMEOUT_MS = 10 * MINUTES; // Upload/Download darf lange dauern, aber nicht ewig stillstehen
+
+// Feste Icon-Adressen an der Wurzel: iOS „Zum Home-Bildschirm“ und Lesezeichen fragen dort; die App antwortet unter /<basePath>/…
+const ROOT_ICON = /^\/(apple-touch-icon(-\d+x\d+)?(-precomposed)?\.png|favicon\.ico)$/;
 
 const clientIp = (req) => (req.socket.remoteAddress ?? '').replace(/^::ffff:/, '');
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -29,6 +33,7 @@ const CERT_HELP = (cn, base) =>
     `<li><strong>iPad/iPhone:</strong> Datei laden → „Profil geladen“ in den Einstellungen installieren → danach unter Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen <em>vollständiges Vertrauen</em> aktivieren.</li>` +
     `<li><strong>Android:</strong> Einstellungen → Sicherheit → Verschlüsselung &amp; Anmeldedaten → Zertifikat installieren → CA-Zertifikat.</li>` +
     `<li><strong>Mac:</strong> Datei öffnen (Schlüsselbund) → Zertifikat doppelklicken → Vertrauen → „Immer vertrauen“.</li></ul>` +
+    `<p>Ohne vertrautes Zertifikat lädt iPhone/iPad beim „Zum Home-Bildschirm“ das Logo nicht (es erscheint nur ein Buchstabe).</p>` +
     `<p><a class="knopf" href="${esc(base || '/')}">Weiter zu Mosaik³LAB</a></p>`);
 
 function notFoundPage(basePath) {
@@ -67,6 +72,9 @@ export function handleRequest(req, res, opts) {
     res.writeHead(302, { Location: `${base}/${url.search}` });
     return res.end();
   }
+  if (base && (req.method === 'GET' || req.method === 'HEAD') && ROOT_ICON.test(p)) {
+    return proxy(req, res, opts, { port: opts.appPort, path: `${base}${p}${url.search}` });
+  }
   if (base && !(p === base || p.startsWith(`${base}/`))) {
     res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
     return res.end(notFoundPage(base));
@@ -74,7 +82,7 @@ export function handleRequest(req, res, opts) {
   proxy(req, res, opts);
 }
 
-/** Weiterleiten an die App (Standard) oder an den Manager (target: { port, path, host, manager }). */
+/** Weiterleiten an die App (Standard), an einen anderen App-Pfad (target: { port, path }) oder an den Manager (target: { port, path, host, manager }). */
 function proxy(req, res, opts, target = null) {
   const headers = {};
   for (const [k, v] of Object.entries(req.headers)) {
@@ -84,7 +92,7 @@ function proxy(req, res, opts, target = null) {
   headers['x-forwarded-for'] = clientIp(req);
   headers['x-forwarded-proto'] = opts.scheme;
   headers['x-forwarded-host'] = req.headers.host ?? '';
-  if (target) Object.assign(headers, { host: target.host, 'x-mosaik3lab-manager': target.manager });
+  if (target?.manager) Object.assign(headers, { host: target.host, 'x-mosaik3lab-manager': target.manager });
   const upstream = http.request({ host: '127.0.0.1', port: target?.port ?? opts.appPort, method: req.method, path: target?.path ?? req.url, headers, timeout: TIMEOUT_MS }, (up) => {
     const out = {};
     for (const [k, v] of Object.entries(up.headers)) if (!HOP.has(k)) out[k] = v;
@@ -95,7 +103,7 @@ function proxy(req, res, opts, target = null) {
   const fail = () => {
     if (!res.headersSent) {
       res.writeHead(502, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-      res.end(target ? page('Server-Manager antwortet nicht', '<h1>Der Server-Manager antwortet gerade nicht.</h1><p>Bitte in einer Minute noch einmal versuchen oder direkt am Server öffnen.</p>') : badGatewayPage());
+      res.end(target?.manager ? page('Server-Manager antwortet nicht', '<h1>Der Server-Manager antwortet gerade nicht.</h1><p>Bitte in einer Minute noch einmal versuchen oder direkt am Server öffnen.</p>') : badGatewayPage());
     } else res.destroy();
   };
   upstream.on('timeout', () => upstream.destroy(new Error('Zeitüberschreitung')));

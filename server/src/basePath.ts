@@ -23,7 +23,12 @@ export function indexHtmlHandler(distDir: string, basePath: string): RequestHand
   return (_req, res) => {
     const mtime = fs.statSync(file).mtimeMs;
     if (!cached || cached.mtime !== mtime) {
-      const html = fs.readFileSync(file, 'utf8').replace(/<base\s+href="[^"]*"\s*\/?>/i, `<base href="${basePath}/" />`);
+      // <link href="./…"> (Icons, Manifest, Schriften) zusätzlich absolut: iOS holt das Home-Bildschirm-Icon nicht
+      // in jedem Fall über <base> auf – mit vollem Pfad findet jedes Gerät die Datei.
+      const html = fs
+        .readFileSync(file, 'utf8')
+        .replace(/<base\s+href="[^"]*"\s*\/?>/i, `<base href="${basePath}/" />`)
+        .replace(/(<link\b[^>]*?\shref=")\.\//gi, `$1${basePath}/`);
       cached = { mtime, html };
     }
     res.setHeader('Cache-Control', 'no-cache');
