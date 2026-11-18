@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { emailSchema, text } from './basis';
 import { MAX_CUSTOM_VALUE_LENGTH } from './katalog';
 import type { ColorKey } from './stammdaten';
-import { MAX_ORDER_QUANTITY, type StatusPhase } from './werte/anfragen';
+import { MAX_ORDER_QUANTITY, MAX_ORDER_VARIANTS, ORDER_CLASS_MAX, ORDER_CUSTOMIZATION_MAX, type StatusPhase } from './werte/anfragen';
 
 // Anfragen (Bestellungen) der Lehrkräfte. Die feste Liste der Bearbeitungsstatus und Grenzen ohne zod stehen in
 // werte/anfragen.ts (auch für den Client) – hier wieder exportiert.
@@ -38,13 +38,13 @@ export const orderInputSchema = z.object({
   variants: z
     .array(z.object({ quantity: z.number().int().min(1).max(MAX_ORDER_QUANTITY), colors: colorMapSchema }))
     .min(1)
-    .max(10)
+    .max(MAX_ORDER_VARIANTS)
     .optional(),
   /** Leer, wenn das Druckteil keine Größen hat. */
   size: z.string().trim().max(60).default(''),
   requesterEmail: emailSchema,
-  classOrTeam: text(1, 60),
-  customization: z.string().trim().max(1000).default(''),
+  classOrTeam: text(1, ORDER_CLASS_MAX),
+  customization: z.string().trim().max(ORDER_CUSTOMIZATION_MAX).default(''),
   /** Feld-ID → Angabe (Personalisierung); Pflicht, Länge und Typ prüft der Server (module/anfragen/anfragen.service.ts) je Druckteil. */
   personalization: z
     .record(z.string().max(64), z.union([z.string(), z.number()]).transform((v) => String(v).trim()).pipe(z.string().max(MAX_CUSTOM_VALUE_LENGTH)))

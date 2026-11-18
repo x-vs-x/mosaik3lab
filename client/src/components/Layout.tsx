@@ -35,6 +35,7 @@ import { darfMeineAnfragen } from '../features/anfragen/zugang';
 import { meldeSeitenwechsel } from '../features/katalog/katalogScroll';
 import { Logo } from './Logo';
 import { Alert, Button, cx, Email } from './ui';
+import type { ProposalAnzahlNeu } from '@mosaik3lab/shared/vorschlaege';
 
 interface NavItem {
   to: string;
@@ -93,7 +94,7 @@ function useNewProposalCount() {
   const { pathname } = useLocation();
   const allowed = can('vorschlaege:sehen');
   // nur die Zahl (nicht die ganze Liste); `n` lädt sie bei jedem Seitenwechsel neu
-  const { data } = useApi<{ neu: number }>(allowed ? `/proposals/anzahl-neu?n=${encodeURIComponent(pathname)}` : null);
+  const { data } = useApi<ProposalAnzahlNeu>(allowed ? `/proposals/anzahl-neu?n=${encodeURIComponent(pathname)}` : null);
   return allowed ? (data?.neu ?? 0) : 0;
 }
 

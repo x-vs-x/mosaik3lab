@@ -1,5 +1,6 @@
 import { all, one, run, str, type Db } from '../../kern/db';
 import { aehnlichPaar } from '../katalog/katalog.repository';
+import type { VerknuepfungsZaehler } from '@mosaik3lab/shared/datenaustausch';
 
 // Ähnliche Druckteile (Tabelle artikel_aehnlich, Paar a < b) im Export/Import.
 //
@@ -37,12 +38,6 @@ export function aehnlicheFuerExport(db: Db, ids: string[]): Map<string, PaketAeh
   return map;
 }
 
-export interface VerknuepfungsZaehler {
-  /** Neu angelegte Verknüpfungen (auch früher vorgemerkte, deren Partner jetzt da ist). */
-  neu: number;
-  /** Verknüpfungen aus der Datei, deren Partner hier noch fehlt (vorgemerkt). */
-  wartend: number;
-}
 
 /** Druckteil hier zu einer ID aus einer Quelle: gleiche ID, sonst Herkunfts-ID. */
 function findePartner(db: Db, quellId: string): string | undefined {

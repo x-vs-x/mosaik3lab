@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { MAX_PROPOSAL_PHOTOS } from '@mosaik3lab/shared/vorschlaege';
+import { MAX_PROPOSAL_PHOTOS, type ProposalAnzahlNeu } from '@mosaik3lab/shared/vorschlaege';
 import { toOwnProposal } from './vorschlaege.sicht';
 import type { Auth } from '../../kern/auth/middleware';
 import { param, queryText, sendMissingImage } from '../../kern/http';
@@ -44,7 +44,7 @@ export function proposalRoutes(storage: Storage, auth: Auth) {
 
   // Nur die Zahl neuer Vorschläge (Zähler in der Seitenleiste, bei jedem Seitenwechsel)
   router.get('/anzahl-neu', auth.requirePermission('vorschlaege:sehen'), (_req, res) => {
-    res.json({ neu: storage.proposals.countByStatus('neu') });
+    res.json({ neu: storage.proposals.countByStatus('neu') } satisfies ProposalAnzahlNeu);
   });
 
   // Foto eines Vorschlags: die einreichende Lehrkraft und wer Vorschläge sehen darf

@@ -6,6 +6,7 @@ import { Alert, Button, cx, Field, Input } from '../../components/ui';
 import { api, ApiError, fehlerText } from '../../lib/api';
 import { ersteFehlerstelle } from '../../lib/fokus';
 import { BASE_PATH } from '../../lib/basePath';
+import type { EmailEingabe, PersonInput } from '@mosaik3lab/shared/konten';
 import type { Bereich, PasswortLinkErgebnis, Person, PersonGespeichert, Role } from '../../lib/types';
 
 // Dialoge der Seite „Personen“: Rechte ändern (auch Person hinzufügen), Person entfernen und Link zum Weitergeben.
@@ -88,7 +89,7 @@ export function RechteDialog({
     try {
       const bereiche = form.bereiche.filter((b) => form.role === 'druckteam' || !TEAM_BEREICHE.includes(b));
       const name = form.name && form.name !== form.email ? form.name : undefined;
-      onSaved(await api<PersonGespeichert>('/personen', { method: 'PUT', body: { email: form.email, name, role: form.role, bereiche } }));
+      onSaved(await api<PersonGespeichert>('/personen', { method: 'PUT', body: { email: form.email, name, role: form.role, bereiche } satisfies PersonInput }));
     } catch (err) {
       if (err instanceof ApiError) {
         setErrors(err.fields);
@@ -224,7 +225,7 @@ export function EntfernenDialog({ person, onClose, onRemoved }: { person?: Perso
     setBusy(true);
     setFehler(undefined);
     try {
-      await api('/personen/entfernen', { method: 'POST', body: { email: person.email } });
+      await api('/personen/entfernen', { method: 'POST', body: { email: person.email } satisfies EmailEingabe });
       onRemoved(person);
     } catch (err) {
       setFehler(fehlerText(err, 'Entfernen fehlgeschlagen.'));

@@ -8,11 +8,18 @@ export type { OwnProposal, Proposal, ProposalStatus, ProposalUrgency } from '@mo
 export {
   MAX_PROPOSAL_LINKS as MAX_LINKS,
   MAX_PROPOSAL_PHOTOS as MAX_PHOTOS,
+  MAX_PROPOSAL_QUANTITY,
+  PROPOSAL_DESC_MAX,
+  PROPOSAL_DESC_MIN,
+  PROPOSAL_TITLE_MAX,
+  PROPOSAL_TITLE_MIN,
+  PROPOSAL_USAGE_MAX,
   PROPOSAL_STATUS_LABELS as STATUS_LABELS,
   PROPOSAL_URGENCY_LABELS as URGENCY_LABELS,
 } from '@mosaik3lab/shared/werte/vorschlaege';
 
-export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+/** Fotos zu Vorschlägen: dieselbe Grenze wie bei Druckteil-Bildern. */
+export { MAX_IMAGE_BYTES as MAX_PHOTO_BYTES } from '@mosaik3lab/shared/werte/dateien';
 
 const STATUS_STYLE: Record<ProposalStatus, { icon: LucideIcon; className: string }> = {
   neu: { icon: Inbox, className: 'bg-sky-50 text-sky-900 ring-sky-300' },

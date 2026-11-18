@@ -9,6 +9,7 @@ import { ROLE_LABELS } from '../../lib/constants';
 import { formatDateTime } from '../../lib/format';
 import { useDocumentTitle } from '../../lib/useApi';
 import { MIN_PASSWORT } from '@mosaik3lab/shared/werte/konten';
+import type { PasswordChangeInput } from '@mosaik3lab/shared/konten';
 
 export function AccountPage() {
   useDocumentTitle('Mein Konto');
@@ -34,7 +35,7 @@ export function AccountPage() {
     setSaving(true);
     setErrors({});
     try {
-      await api('/auth/password', { method: 'POST', body: { currentPassword: current, newPassword: next } });
+      await api('/auth/password', { method: 'POST', body: { currentPassword: current, newPassword: next } satisfies PasswordChangeInput });
       toast('success', 'Ihr Passwort wurde geändert.');
       setCurrent('');
       setNext('');

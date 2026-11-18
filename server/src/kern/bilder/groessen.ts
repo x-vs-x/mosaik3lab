@@ -3,23 +3,23 @@
 // kleine Karten (Ähnliche Druckteile) ≈ 100 CSS-px × 3 → 360.
 // Die Breite steht im Ordnernamen (vorschau/karte-1080/): Ändert sich eine Größe, entsteht ein neuer Ordner, die Bildpflege
 // füllt ihn und löscht den alten – es bleiben nie veraltete Vorschaubilder liegen.
+// Die Breiten selbst stehen in shared/src/werte/bilder.ts (der Client braucht sie für srcset und das Verkleinern).
 import os from 'node:os';
+import { BILD_BREITE, JPEG_QUALITAET_ORIGINAL, VORSCHAU_GROESSEN, type VorschauGroesse } from '@mosaik3lab/shared/werte/bilder';
 
-export type VorschauGroesse = 'karte' | 'mini';
+export { istVorschauGroesse, VORSCHAU_GROESSEN, type VorschauGroesse } from '@mosaik3lab/shared/werte/bilder';
 
 /** Längste Kante des Originals (Galerie der Druckteil-Seite, Export). Größere Originale verkleinert der Server. */
-export const ORIGINAL_MAX_KANTE = 2000;
+export const ORIGINAL_MAX_KANTE = BILD_BREITE.original;
 /** Ein Original ≤ 2000 px gilt ab dieser Dateigröße als „deutlich zu groß“ und wird versuchsweise neu gespeichert. */
 export const ORIGINAL_ZU_GROSS_BYTES = 1536 * 1024;
 /** Verkleinertes Original nur übernehmen, wenn es mindestens 20 % kleiner ist. */
 export const MINDEST_ERSPARNIS = 0.2;
 
-export const VORSCHAU: Record<VorschauGroesse, { breite: number; ordner: string }> = {
-  karte: { breite: 1080, ordner: 'karte-1080' },
-  mini: { breite: 360, ordner: 'mini-360' },
-};
-export const VORSCHAU_GROESSEN = Object.keys(VORSCHAU) as VorschauGroesse[];
-export const istVorschauGroesse = (v: unknown): v is VorschauGroesse => typeof v === 'string' && Object.hasOwn(VORSCHAU, v);
+/** Breite und Ordner je Vorschaugröße, z. B. karte → { breite: 1080, ordner: 'karte-1080' }. */
+export const VORSCHAU = Object.fromEntries(
+  VORSCHAU_GROESSEN.map((g) => [g, { breite: BILD_BREITE[g], ordner: `${g}-${BILD_BREITE[g]}` }]),
+) as Record<VorschauGroesse, { breite: number; ordner: string }>;
 
 /** Ordner der Vorschaubilder in der Ablage (neben den Objekttyp-Ordnern; nie im Export, im Backup ausgenommen). */
 export const VORSCHAU_ORDNER = 'vorschau';
@@ -34,7 +34,7 @@ export const gescheitertRel = (id: string) => `${VORSCHAU_ORDNER}/${GESCHEITERT_
 
 /** JPEG-Qualität (0–100): Vorschaubilder etwas stärker komprimiert als ein neu gespeichertes Original. */
 export const QUALITAET_VORSCHAU = 80;
-export const QUALITAET_ORIGINAL = 85;
+export const QUALITAET_ORIGINAL = JPEG_QUALITAET_ORIGINAL;
 
 /**
  * Schutz gegen Speicherüberlauf: größere Bilder werden gar nicht erst dekodiert. Hängt vom Arbeitsspeicher ab – auf einem

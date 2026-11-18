@@ -7,7 +7,7 @@ import { Badge, Button, Field, Input, Switch } from '../../../components/ui';
 import { api } from '../../../lib/api';
 import type { BambuAbgleichHinweis, BambuKatalogAntwort, Filament, Item, MasterData } from '../../../lib/types';
 import { useApi } from '../../../lib/useApi';
-import { filamentRolle } from '@mosaik3lab/shared/werte/stammdaten';
+import { filamentRolle, HEX_FARBE } from '@mosaik3lab/shared/werte/stammdaten';
 import { BambuHinweis } from './BambuHinweis';
 import { FarbeZuordnenDialog } from './FarbeZuordnenDialog';
 import { Aufklappen } from './Aufklappen';
@@ -17,7 +17,6 @@ import { VorschlagFeld } from './VorschlagFeld';
 import { linienVorschlaege, markenVorschlaege } from './vorschlaege';
 import { ListPanel } from './ListPanel';
 
-const HEX = /^#[0-9a-fA-F]{6}$/;
 
 /**
  * Farbrollen (Filamente): Farbname, Rolle mit Bambu-Nummer und Vorrat sichtbar.
@@ -71,7 +70,7 @@ export function FilamentsPanel({ md, onDirty }: { md: MasterData; onDirty: (d: b
   const marken = useMemo(() => markenVorschlaege(md.filaments), [md.filaments]);
   const validate = useCallback((r: Row<Filament>) => {
     if (!r.colorName.trim()) return 'Bitte einen Farbnamen eingeben.';
-    if (!HEX.test(r.hex)) return 'Bitte einen Farbwert im Format #RRGGBB eingeben.';
+    if (!HEX_FARBE.test(r.hex)) return 'Bitte einen Farbwert im Format #RRGGBB eingeben.';
     return undefined;
   }, []);
 
@@ -169,7 +168,7 @@ export function FilamentsPanel({ md, onDirty }: { md: MasterData; onDirty: (d: b
         const kind = filamentRolle(row);
         return (
           <div className={RASTER}>
-            <ColorSwatch hex={HEX.test(row.hex) ? row.hex : '#ffffff'} className="size-10" />
+            <ColorSwatch hex={HEX_FARBE.test(row.hex) ? row.hex : '#ffffff'} className="size-10" />
             <div className="min-w-0">
               <Field label="Farbname" required error={!row.colorName.trim() ? error : undefined}>
                 {({ id, invalid, describedBy }) => (
@@ -230,7 +229,7 @@ export function FilamentsPanel({ md, onDirty }: { md: MasterData; onDirty: (d: b
                     <input
                       id={id}
                       type="color"
-                      value={HEX.test(row.hex) ? row.hex.toLowerCase() : '#000000'}
+                      value={HEX_FARBE.test(row.hex) ? row.hex.toLowerCase() : '#000000'}
                       onChange={(e) => update({ hex: e.target.value })}
                       className="block h-12 w-20 cursor-pointer rounded-xl border border-stone-300 bg-white p-1 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-600/20"
                     />

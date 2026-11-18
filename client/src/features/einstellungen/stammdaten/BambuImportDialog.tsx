@@ -7,6 +7,7 @@ import { LadeFehler } from '../../../components/Listenwerkzeug';
 import { Alert, Button, cx, Field, Input, Select, Spinner } from '../../../components/ui';
 import { api, ApiError, fehlerText } from '../../../lib/api';
 import { passtZurSuche } from '@mosaik3lab/shared/suche';
+import type { FilamentImportErgebnis } from '@mosaik3lab/shared/stammdaten';
 import type { BambuKatalogAntwort, BambuKatalogEintrag, Filament, MasterData } from '../../../lib/types';
 
 /**
@@ -80,7 +81,7 @@ export function BambuImportDialog({
     setBusy(true);
     try {
       const ids = [...chosen];
-      const res = await api<{ masterData: MasterData; added: number }>('/admin/settings/masterdata/filaments/import', {
+      const res = await api<FilamentImportErgebnis>('/admin/settings/masterdata/filaments/import', {
         method: 'POST',
         body: { ids },
       });

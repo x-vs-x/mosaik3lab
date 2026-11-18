@@ -2,7 +2,7 @@ import { BAMBU_KATALOG, filamentAusKatalog, katalogEintrag } from '../../domain/
 import { isRequiredStatus } from './orderStatuses';
 import { filamentLabel } from '../einstellungen/einstellungen.vorgaben';
 import { newId } from '../../kern/ids';
-import { type Filament, type MasterData } from '@mosaik3lab/shared/stammdaten';
+import { type Filament, type FilamentImportErgebnis, type MasterData } from '@mosaik3lab/shared/stammdaten';
 import type { Item } from '../../domain/types';
 import { linieVon, materialartVon } from '@mosaik3lab/shared/werte/katalog';
 import { badRequest, conflict, notFound } from '../../kern/errors';
@@ -192,7 +192,7 @@ export async function toggleStatus(storage: Storage, id: string, active: boolean
 }
 
 /** Farbrollen aus dem Bambu-Lab-Katalog übernehmen; schon vorhandene Katalogfarben werden übersprungen. */
-export async function importFilaments(storage: Storage, ids: string[]) {
+export async function importFilaments(storage: Storage, ids: string[]): Promise<FilamentImportErgebnis> {
   const unknown = ids.filter((id) => !katalogEintrag(id) || katalogEintrag(id)?.weggefallen);
   if (unknown.length) {
     throw badRequest(`Unbekannte Farbe(n) im Bambu-Katalog: ${unknown.join(', ')}`, { ids: 'Unbekannte Farbe' });

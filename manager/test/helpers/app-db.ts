@@ -14,7 +14,7 @@ put.run('t3', 'statusAliases', JSON.stringify({ fertig: 'gedruckt' }), now);
 db.prepare(
   "INSERT OR REPLACE INTO benutzer (id, benutzername, email, anzeigename, rolle, passwort_hash, aktiv, ist_demo, erstellt_am, geaendert_am) VALUES (?, ?, ?, ?, 'druckteam', ?, 1, 0, ?, ?)",
 ).run('u1', 'druck', 'druck@schule.example', 'Druck-Team', `scrypt$s$${crypto.createHash('sha256').update('x').digest('hex')}`, now, now);
-db.prepare('INSERT OR REPLACE INTO benutzer_recht (id, benutzer_id, recht, erlaubt) VALUES (?, ?, ?, 1)').run('r1', 'u1', 'catalog:view');
+db.prepare('INSERT OR REPLACE INTO benutzer_bereich (benutzer_id, bereich) VALUES (?, ?)').run('u1', 'team-druckteile');
 const sha = crypto.createHash('sha256').update('BILDINHALT').digest('hex');
 db.prepare(
   "INSERT OR REPLACE INTO datei (id, objekttyp, objekt_id, rolle, originalname, mime, groesse, sha256, pfad, sortierung, erstellt_am) VALUES ('d1', 'artikel', 'x', 'bild', 'f.jpg', 'image/jpeg', 10, ?, 'artikel/x/bild/f.jpg', 0, ?)",

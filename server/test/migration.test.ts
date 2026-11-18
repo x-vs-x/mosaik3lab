@@ -298,13 +298,13 @@ test('Migration 020 (ähnliche Druckteile im Austausch): bestehende Druckteile u
   }
 });
 
-test('Update 1.7.0 → Migration 021 (nur Indizes): Datenbank mit allen Demo-Daten bleibt Zeile für Zeile gleich, vorher Sicherung', async () => {
+test('Update 1.7.0 → Migrationen 021 (nur Indizes) und 022 (benutzer_recht weg): übrige Tabellen bleiben Zeile für Zeile gleich, vorher Sicherung', async () => {
   const storageDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mosaik3lab-mig021-'));
   const config = loadConfig({ storageDir, rootDir: storageDir, logRequests: false, seedDemoData: true, allowDemoAccounts: true, clientDistDir: path.join(storageDir, 'none') });
   const dbFile = path.join(storageDir, 'mosaik3lab.db');
   const INDIZES = ['artikel_farbbereich_filament_filament', 'artikel_einsatzbereich_einsatzbereich', 'artikel_kategorie', 'artikel_material', 'anfrage_erstellt'];
   const TABELLEN = [
-    'benutzer', 'benutzer_bereich', 'benutzer_recht', 'lehrkraft', 'passwort_link', 'kategorie', 'einsatzbereich', 'material', 'filament', 'statusart',
+    'benutzer', 'benutzer_bereich', 'lehrkraft', 'passwort_link', 'kategorie', 'einsatzbereich', 'material', 'filament', 'statusart',
     'artikel', 'artikel_einsatzbereich', 'artikel_farbbereich', 'artikel_farbbereich_filament', 'artikel_feld', 'artikel_video', 'artikel_aehnlich',
     'artikel_aehnlich_offen', 'anfrage', 'anfrage_farbe', 'anfrage_feldwert', 'anfrage_statusverlauf', 'vorschlag', 'datei', 'nummernkreis', 'einstellung',
   ];
@@ -317,24 +317,32 @@ test('Update 1.7.0 → Migration 021 (nur Indizes): Datenbank mit allen Demo-Dat
     }
   };
   try {
-    // 1) Stand wie 1.7.0: App mit Demo-Daten anlegen, danach Migration 021 zurücknehmen (Indizes weg, Schema 20).
+    // 1) Stand wie 1.7.0: App mit Demo-Daten anlegen, danach Migrationen 021 und 022 zurücknehmen (Indizes weg, alte Tabelle
+    //    benutzer_recht samt Zeile wieder da, Schema 20) – so sieht auch eine ältere Sicherung aus, die wiederhergestellt wird.
     const erst = await createApp(config);
     await erst.close();
     const alt = openDb(dbFile);
     for (const i of INDIZES) alt.exec(`DROP INDEX ${i}`);
-    alt.exec('DELETE FROM schema_version WHERE version = 21');
+    alt.exec(`CREATE TABLE benutzer_recht (
+      id TEXT PRIMARY KEY, benutzer_id TEXT NOT NULL REFERENCES benutzer (id) ON DELETE CASCADE, recht TEXT NOT NULL,
+      erlaubt INTEGER NOT NULL, UNIQUE (benutzer_id, recht))`);
+    const konto = (alt.prepare('SELECT id FROM benutzer LIMIT 1').get() as { id: string }).id;
+    alt.prepare('INSERT INTO benutzer_recht (id, benutzer_id, recht, erlaubt) VALUES (?, ?, ?, 1)').run('r1', konto, 'catalog:view');
+    alt.exec('DELETE FROM schema_version WHERE version >= 21');
     alt.close();
     const vorher = dump();
     assert.ok(vorher.artikel.length > 0 && vorher.anfrage.length > 0 && vorher.filament.length > 0, 'Demo-Daten vorhanden');
 
-    // 2) Neue Version startet: spielt 021 ein, sichert vorher, ändert keine Zeile.
+    // 2) Neue Version startet: spielt 021 und 022 ein, sichert vorher, ändert keine Zeile der übrigen Tabellen.
     const neu = await createApp(config);
     try {
       const db = openDb(dbFile, { readOnly: true });
       const da = db.prepare("SELECT name FROM sqlite_master WHERE type = 'index'").all().map((r: any) => r.name);
+      const tabellen = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r) => (r as { name: string }).name);
       const version = (db.prepare('SELECT MAX(version) AS v FROM schema_version').get() as any).v;
       db.close();
-      assert.equal(version, 21);
+      assert.equal(version, 22);
+      assert.ok(!tabellen.includes('benutzer_recht'), 'alte Tabelle benutzer_recht entfernt');
       for (const i of INDIZES) assert.ok(da.includes(i), `Index ${i}`);
       const nachher = dump();
       for (const t of TABELLEN) assert.deepEqual(nachher[t], vorher[t], `Tabelle ${t} unverändert`);

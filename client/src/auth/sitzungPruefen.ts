@@ -1,12 +1,9 @@
 import { isConnectionProblem, fehlerText } from '../lib/api';
-import type { Permission, SessionUser } from '../lib/types';
+import type { SessionAntwort as SessionResponse } from '@mosaik3lab/shared/konten';
 
 // Reine Logik der Sitzungsprüfung (ohne React), damit sie sich ohne Browser testen lässt.
 
-export interface SessionResponse {
-  user: SessionUser | null;
-  permissions: Permission[];
-}
+export type { SessionResponse };
 
 export const ME_TIMEOUT_MS = 8000;
 const PAUSEN_MS = [1000, 2500];

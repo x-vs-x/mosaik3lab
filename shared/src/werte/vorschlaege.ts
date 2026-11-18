@@ -20,4 +20,11 @@ export const PROPOSAL_URGENCY_LABELS: Record<ProposalUrgency, string> = {
 };
 
 export const MAX_PROPOSAL_PHOTOS = 5;
+/** Längen und Menge eines Vorschlags (Schema in ../vorschlaege.ts, Hinweise im Formular). */
+export const PROPOSAL_TITLE_MIN = 3;
+export const PROPOSAL_TITLE_MAX = 100;
+export const PROPOSAL_DESC_MIN = 10;
+export const PROPOSAL_DESC_MAX = 3000;
+export const PROPOSAL_USAGE_MAX = 1000;
+export const MAX_PROPOSAL_QUANTITY = 100;
 export const MAX_PROPOSAL_LINKS = 5;

@@ -1,11 +1,9 @@
 // Welche Fassung eines Druckteil-Bildes der Browser lädt: srcset/sizes, damit er je nach Bildschirm (Handy, Retina, PC)
 // selbst die passende wählt. Der Server liefert höchstens drei Größen: Original (≤ 2000 px), „karte“ (1080 px), „mini“ (360 px).
+import { BILD_BREITE, type BildGroesse } from '@mosaik3lab/shared/werte/bilder';
 import { imageUrl } from './api';
 
-export type BildGroesse = 'mini' | 'karte' | 'original';
-
-/** Breite der Fassungen in Pixeln (wie server/src/kern/bilder/groessen.ts). */
-export const BILD_BREITE = { mini: 360, karte: 1080, original: 2000 } as const;
+export type { BildGroesse };
 
 /** Übliche Anzeigebreite je Ort (CSS-Pixel) – der Browser rechnet die Pixeldichte selbst ein. */
 export const STANDARD_SIZES: Record<BildGroesse, string> = {

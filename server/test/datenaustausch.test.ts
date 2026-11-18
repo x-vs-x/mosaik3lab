@@ -245,6 +245,11 @@ test('Alle einspielen in leere Installation: gleiche Druckteile, identische Date
   const n = kopfMit.artikel.length;
   assert.equal(vor.json.kopf.artikel, n);
   assert.equal(vor.json.kopf.vorhanden, 0);
+  // Vertrag ImportVorschau (shared/src/datenaustausch.ts): genau diese Felder, Bericht mit Verknüpfungen
+  assert.deepEqual(Object.keys(vor.json).sort(), ['berichte', 'dateigroesse', 'gueltigBis', 'importId', 'kopf']);
+  assert.deepEqual(Object.keys(vor.json.kopf).sort(), ['appVersion', 'artikel', 'dateien', 'exportiertAm', 'hinweise', 'mitDateien', 'version', 'vorhanden']);
+  assert.ok(Date.parse(vor.json.gueltigBis) > Date.now());
+  assert.deepEqual(Object.keys(vor.json.berichte.ersetzen.verknuepfungen).sort(), ['neu', 'wartend']);
   assert.equal(vor.json.berichte.ueberspringen.abschnitte.artikel.neu, n);
   assert.ok(vor.json.berichte.ueberspringen.abschnitte.dateien.neu >= 4);
   assert.equal((await dst.req('GET', '/api/items?all=1')).json.length, 0, 'Vorschau ändert nichts');

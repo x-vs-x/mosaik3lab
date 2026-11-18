@@ -74,7 +74,7 @@ test('„Alle Farben“: neue Farbrolle kommt automatisch dazu, nicht vorrätige
   assert.ok(neu.colorAreas[0].colors.includes('bambu-pla-matte-sky-blue'), 'neue Farbe automatisch dabei');
 
   // Leer markiert → als nicht vorrätig gekennzeichnet; Katalog und Anfrageformular bieten nur vorrätige an
-  // (client/src/lib/filaments.ts), der Server lehnt Anfragen mit leerer Farbe ab (anfragen.service resolveColors).
+  // (client/src/lib/colors.ts, availableFilaments), der Server lehnt Anfragen mit leerer Farbe ab (anfragen.service resolveColors).
   assert.equal((await team.req('PATCH', '/api/filaments/bambu-pla-matte-sky-blue/availability', { available: false })).status, 200);
   const cfg = (await anon.req('GET', '/api/config')).json.masterData.filaments;
   assert.equal(cfg.find((f: any) => f.id === 'bambu-pla-matte-sky-blue').available, false, 'nicht vorrätig');

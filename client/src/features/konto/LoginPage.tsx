@@ -10,6 +10,7 @@ import { cookiesWork } from '../../lib/cookies';
 import { zielNachAnmeldung } from '../../lib/anmeldeZiel';
 import { CookieHinweis } from './CookieHinweis';
 import { useDocumentTitle } from '../../lib/useApi';
+import type { EmailEingabe } from '@mosaik3lab/shared/konten';
 
 export function LoginPage() {
   useDocumentTitle('Anmelden');
@@ -69,7 +70,7 @@ export function LoginPage() {
 
   const forgot = () =>
     run(async () => {
-      await api('/auth/passwort-vergessen', { method: 'POST', body: { email }, silent401: true });
+      await api('/auth/passwort-vergessen', { method: 'POST', body: { email } satisfies EmailEingabe, silent401: true });
       setLinkSent(true);
     });
 

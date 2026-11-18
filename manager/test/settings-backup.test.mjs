@@ -178,7 +178,7 @@ test('Leeres System aus älterer „daten“-Sicherung: alles identisch, Bilder 
   assert.deepEqual(b.mail, a.mail);
   assert.equal(b.mail.smtp.pass, 'Smtp-Geheim-9');
   assert.deepEqual(b.betrieb['portal.cert'], a.betrieb['portal.cert'], 'HTTPS-Zertifikat identisch');
-  assert.equal(rows(dbFileB, 'SELECT COUNT(*) AS n FROM benutzer_recht')[0].n, 1);
+  assert.equal(rows(dbFileB, 'SELECT COUNT(*) AS n FROM benutzer_bereich')[0].n, 1, 'Rechte (Bereiche) des Kontos');
   assert.equal(fs.readFileSync(path.join(B, 'root', 'backup.key'), 'utf8').trim(), BACKUP_PW, 'geplante Sicherungen laufen weiter');
 
   // Bilder fehlen: Datensatz bleibt, der doctor meldet es als Hinweis (nicht als Fehler)

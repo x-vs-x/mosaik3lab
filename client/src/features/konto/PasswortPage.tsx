@@ -7,21 +7,16 @@ import { Logo } from '../../components/Logo';
 import { Alert, Button, Field, Input, Spinner, Email } from '../../components/ui';
 import { api, fehlerText } from '../../lib/api';
 import { useDocumentTitle } from '../../lib/useApi';
+import type { PasswortLinkInfo, PasswortSetzenInput } from '@mosaik3lab/shared/konten';
 
 // Seite hinter dem Link aus der Mail (…/passwort#<token>): Passwort festlegen bzw. zurücksetzen, danach angemeldet.
 // Das Token steht hinter „#“ und wird so nie an den Server übertragen oder protokolliert – nur im Rumpf der Anfragen.
-
-interface LinkInfo {
-  email: string;
-  name: string;
-  zweck: 'einrichten' | 'zuruecksetzen';
-}
 
 export function PasswortPage() {
   useDocumentTitle('Passwort festlegen');
   const { setPasswordWithLink } = useAuth();
   const [token] = useState(() => window.location.hash.replace(/^#/, ''));
-  const [info, setInfo] = useState<LinkInfo>();
+  const [info, setInfo] = useState<PasswortLinkInfo>();
   const [linkError, setLinkError] = useState<string>();
   const [password, setPassword] = useState('');
   const [repeat, setRepeat] = useState('');
@@ -36,7 +31,7 @@ export function PasswortPage() {
       setLinkError('Der Link ist unvollständig. Bitte öffnen Sie ihn direkt aus der E-Mail.');
       return;
     }
-    api<LinkInfo>('/auth/passwort-link', { method: 'POST', body: { token }, silent401: true })
+    api<PasswortLinkInfo>('/auth/passwort-link', { method: 'POST', body: { token } satisfies Pick<PasswortSetzenInput, 'token'>, silent401: true })
       .then(setInfo)
       .catch((err) => setLinkError(fehlerText(err, 'Der Link konnte nicht geprüft werden.')));
   }, [token]);

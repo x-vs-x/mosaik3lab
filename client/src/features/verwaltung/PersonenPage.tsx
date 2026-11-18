@@ -8,6 +8,7 @@ import { Badge, Button, Card, EmptyState, KurzLang, PageHeader, Spinner, Email }
 import { api, fehlerText } from '../../lib/api';
 import { formatRelative } from '../../lib/format';
 import type { PasswortLinkErgebnis, Person, Role } from '../../lib/types';
+import type { EmailEingabe } from '@mosaik3lab/shared/konten';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
 import { EntfernenDialog, LinkDialog, RechteDialog } from './PersonDialogs';
 import { passtZurSuche } from '@mosaik3lab/shared/suche';
@@ -59,7 +60,7 @@ export function PersonenPage() {
   const sendLink = async (p: Person) => {
     setSending(p.email);
     try {
-      linkErgebnis(p.email, await api<PasswortLinkErgebnis>('/personen/passwort-link', { method: 'POST', body: { email: p.email } }));
+      linkErgebnis(p.email, await api<PasswortLinkErgebnis>('/personen/passwort-link', { method: 'POST', body: { email: p.email } satisfies EmailEingabe }));
     } catch (err) {
       toast('error', fehlerText(err, 'Link konnte nicht erzeugt werden.'));
     } finally {

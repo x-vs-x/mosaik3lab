@@ -1,7 +1,7 @@
 import { newId } from '../../kern/ids';
 import type { Bereich } from '@mosaik3lab/shared/konten';
 import type { Requester } from '@mosaik3lab/shared/anfragen';
-import type { Role } from '@mosaik3lab/shared/konten';
+import type { PasswortZweck, Role } from '@mosaik3lab/shared/konten';
 import type { User } from '../../domain/types';
 import { conflict } from '../../kern/errors';
 import { all, b, bool, count, one, run, str, transaction, type Db, type Row } from '../../kern/db';
@@ -174,8 +174,6 @@ export class UserRepository {
     run(this.db, 'DELETE FROM passwort_link WHERE benutzer_id = ?', benutzerId);
   }
 }
-
-export type PasswortZweck = 'einrichten' | 'zuruecksetzen';
 
 // --- Lehrkräfte ----------------------------------------------------------------------------------------
 

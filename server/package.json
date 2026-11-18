@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test --test-reporter=dot test/*.test.ts",
     "seed:reset": "tsx scripts/reset-data.ts",
-    "backup": "tsx scripts/backup.ts",
     "bundle": "tsx scripts/bundle.ts",
     "mail:test": "tsx scripts/mail-test.ts",
     "mail:vorschau": "tsx scripts/mail-vorschau.ts",

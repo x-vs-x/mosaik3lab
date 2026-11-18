@@ -19,6 +19,7 @@ import {
   type ProposalStatus,
 } from '../vorschlaege/proposals';
 import { passtZurSuche } from '@mosaik3lab/shared/suche';
+import type { ProposalUmgewandelt } from '@mosaik3lab/shared/vorschlaege';
 
 type Filter = 'offen' | 'alle' | ProposalStatus;
 
@@ -60,7 +61,7 @@ function ProposalCard({ proposal, highlight, onChange }: { proposal: Proposal; h
   const convert = async () => {
     setBusy('convert');
     try {
-      const r = await api<{ proposal: Proposal; itemId: string }>(`/proposals/${proposal.id}/convert`, { method: 'POST' });
+      const r = await api<ProposalUmgewandelt>(`/proposals/${proposal.id}/convert`, { method: 'POST' });
       onChange(r.proposal);
       toast('success', `${proposal.number} wurde als Entwurf in den Katalog übernommen. Bitte die Angaben ergänzen.`);
       navigate(`/verwaltung/hilfsmittel/${r.itemId}`);

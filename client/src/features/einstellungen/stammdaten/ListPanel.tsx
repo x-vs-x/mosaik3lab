@@ -4,7 +4,8 @@ import { useToast } from '../../../components/Toast';
 import { Alert, Badge, Button, Card, cx } from '../../../components/ui';
 import { api, ApiError, fehlerText } from '../../../lib/api';
 import { useConfig } from '../../../lib/config';
-import type { MasterData, MasterDataList } from '../../../lib/types';
+import type { MasterData, StammdatenSeite } from '../../../lib/types';
+import type { MasterDataPutBody } from '@mosaik3lab/shared/stammdaten';
 import { newKey, same, serverRowErrors, strip, toRows, type Entry, type Row } from './listRows';
 
 // Generische Listenbearbeitung (lokal bearbeiten, dann als Ganzes speichern)
@@ -35,7 +36,7 @@ export function ListPanel<T extends Entry>({
   onSaved,
   layout = 'cards',
 }: {
-  list: MasterDataList;
+  list: StammdatenSeite;
   source: T[];
   title: string;
   intro?: ReactNode;
@@ -141,7 +142,7 @@ export function ListPanel<T extends Entry>({
     try {
       const res = await api<MasterData>(`/admin/settings/masterdata/${list}`, {
         method: 'PUT',
-        body: { entries: strip(rows) },
+        body: { entries: strip(rows) } satisfies MasterDataPutBody,
       });
       const removed = base.filter((b) => b.id && !rows.some((r) => r.id === b.id));
       await applySaved(res);

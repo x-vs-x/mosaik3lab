@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { httpLink, text, uniqueList } from './basis';
-import { CUSTOM_FIELD_TYPES, ITEM_KINDS, MAX_CUSTOM_VALUE_LENGTH, MAX_ITEM_LINKS } from './werte/katalog';
+import { CUSTOM_FIELD_TYPES, ITEM_KINDS, MAX_COLOR_AREAS, MAX_CUSTOM_FIELDS, MAX_CUSTOM_VALUE_LENGTH, MAX_ITEM_LINKS } from './werte/katalog';
 
 // Katalog: Druckteile mit Farbbereichen, Personalisierung, Videos und Art (Glossar: docs/ARCHITEKTUR.md).
 // Listen, Grenzen und Farbgruppen-Hilfen ohne zod stehen in werte/katalog.ts (auch für den Client) – hier wieder exportiert.
@@ -40,6 +40,11 @@ export const farbeZuordnenSchema = z.object({
     .min(1)
     .max(1000),
 });
+/** Antwort auf POST /api/items/farbe-zuordnen: geänderte Druckteile und Farbbereiche. */
+export interface FarbeZuordnenErgebnis {
+  druckteile: number;
+  bereiche: number;
+}
 
 /** Angabe, die beim Anfragen eines personalisierbaren Druckteils abgefragt wird (z. B. „Beschriftung“). */
 export const customFieldSchema = z
@@ -86,10 +91,10 @@ export const itemInputSchema = z.object({
   // Filament-IDs aus den Stammdaten.
   // Ältere Clients senden nur colors (ein Bereich), neuere colorAreas; Item.colors wird daraus abgeleitet.
   colors: uniqueList(text(1, 64), 1, 30).optional(),
-  colorAreas: z.array(colorAreaSchema).min(1).max(8).optional(),
+  colorAreas: z.array(colorAreaSchema).min(1).max(MAX_COLOR_AREAS).optional(),
   /** Freier Preistext, z. B. „ca. 2 € Material“ – leer = keine Angabe. */
   price: z.string().trim().max(80).default(''),
-  customFields: z.array(customFieldSchema).max(10).default([]),
+  customFields: z.array(customFieldSchema).max(MAX_CUSTOM_FIELDS).default([]),
   /** Verfügbare Größen – freiwillig; leer = beim Anfragen keine Größenwahl. */
   sizes: uniqueList(text(1, 60), 0, 20).default([]),
   material: text(1, 60),

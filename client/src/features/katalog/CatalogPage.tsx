@@ -23,7 +23,7 @@ import { formatDuration } from '../../lib/format';
 import { isConnectionProblem } from '../../lib/api';
 import { useSuchParameter } from '../../lib/suchParameter';
 import { ITEM_KIND_LABELS, type Item, type ItemKind } from '../../lib/types';
-import { useApi, useDebounced, useDocumentTitle } from '../../lib/useApi';
+import { useApi, useDocumentTitle } from '../../lib/useApi';
 
 /** Höchstzahl Farbtupfer je Karte, der Rest als „+n“. */
 const MAX_SWATCHES = 6;
@@ -39,16 +39,15 @@ export function CatalogPage() {
   const category = params.get('kategorie') ?? '';
   const area = params.get('bereich') ?? '';
   const kind = params.get('art') ?? '';
-  const debouncedQ = useDebounced(q);
 
   const query = useMemo(() => {
     const s = new URLSearchParams();
-    if (debouncedQ.trim()) s.set('q', debouncedQ.trim());
+    if (q.trim()) s.set('q', q.trim());
     if (category) s.set('category', category);
     if (area) s.set('area', area);
     if (kind) s.set('kind', kind);
     return `/items?${s.toString()}`;
-  }, [debouncedQ, category, area, kind]);
+  }, [q, category, area, kind]);
 
   // Die Liste kommt immer vollständig (Suche und Filter über alle Druckteile), angezeigt wird nur der Anfang.
   const { data: items, error, loading, reload } = useApi<Item[]>(query);
@@ -98,6 +97,8 @@ export function CatalogPage() {
             label="Druckteile suchen"
             value={q}
             onChange={(v) => update('q', v)}
+            // Erst nach einer Tipp-Pause in die Adresse und an den Server: weniger Anfragen über schwaches WLAN.
+            verzoegerungMs={400}
             // Kurz genug für 320 px breite Handys (vorher „… oder „Essen““ abgeschnitten).
             placeholder="Suchen, z. B. „Stift“"
             className="md:col-span-2 xl:flex-1"

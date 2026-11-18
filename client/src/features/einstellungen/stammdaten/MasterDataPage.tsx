@@ -3,7 +3,7 @@ import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } f
 import { Link } from 'react-router-dom';
 import { Alert, cx, PageHeader, Spinner } from '../../../components/ui';
 import { useConfig, useMasterData } from '../../../lib/config';
-import type { MasterDataList } from '../../../lib/types';
+import type { StammdatenSeite } from '../../../lib/types';
 import { useSuchParameter } from '../../../lib/suchParameter';
 import { useDocumentTitle } from '../../../lib/useApi';
 import { useVerlassenWarnung } from '../../../lib/useEntwurf';
@@ -16,14 +16,14 @@ import { SimplePanel } from './SimplePanel';
 
 type TabKey = 'categories' | 'useAreas' | 'materials';
 
-const TABS: { key: TabKey; label: string; icon: LucideIcon; lists: MasterDataList[] }[] = [
+const TABS: { key: TabKey; label: string; icon: LucideIcon; lists: StammdatenSeite[] }[] = [
   { key: 'categories', label: 'Kategorien', icon: Tags, lists: ['categories'] },
   { key: 'useAreas', label: 'Einsatzbereiche', icon: Layers, lists: ['useAreas'] },
   { key: 'materials', label: 'Material & Farben', icon: Palette, lists: ['materials', 'filaments'] },
 ];
 
 /** Auch alte Links (?liste=filaments) führen zum passenden Tab. */
-const tabFor = (v: string | null): TabKey => TABS.find((t) => t.key === v || t.lists.includes(v as MasterDataList))?.key ?? 'categories';
+const tabFor = (v: string | null): TabKey => TABS.find((t) => t.key === v || t.lists.includes(v as StammdatenSeite))?.key ?? 'categories';
 
 export function MasterDataPage() {
   useDocumentTitle('Stammdaten');
@@ -31,7 +31,7 @@ export function MasterDataPage() {
   const md = useMasterData();
   const [params, setze] = useSuchParameter();
   const active = tabFor(params.get('liste'));
-  const [dirty, setDirty] = useState<Partial<Record<MasterDataList, boolean>>>({});
+  const [dirty, setDirty] = useState<Partial<Record<StammdatenSeite, boolean>>>({});
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const baseId = useId();
 
@@ -63,7 +63,7 @@ export function MasterDataPage() {
   useVerlassenWarnung(anyDirty);
 
   const markDirty = useCallback(
-    (key: MasterDataList, value: boolean) => setDirty((d) => (d[key] === value ? d : { ...d, [key]: value })),
+    (key: StammdatenSeite, value: boolean) => setDirty((d) => (d[key] === value ? d : { ...d, [key]: value })),
     [],
   );
 
