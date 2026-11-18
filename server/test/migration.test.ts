@@ -270,3 +270,30 @@ test('Datenbank aus einer neueren Version (z. B. zurückgespielte Sicherung): Ap
     await fs.rm(dir, { recursive: true, force: true });
   }
 });
+
+test('Migration 020 (ähnliche Druckteile im Austausch): bestehende Druckteile und Verknüpfungen bleiben, Herkunft leer, Vormerkungen mit Druckteil weg', async () => {
+  const { migrate, listMigrations } = await import('../src/kern/db');
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'mosaik3lab-mig020-'));
+  const db = openDb(path.join(dir, 'test.db'));
+  try {
+    const alle = listMigrations();
+    migrate(db, { migrations: alle.filter((m) => m.version <= 19), log: () => {} });
+    const jetzt = new Date().toISOString();
+    for (const [id, nr] of [['teil-a', 'ART-0001'], ['teil-b', 'ART-0002']]) {
+      db.prepare('INSERT INTO artikel (id, nummer, name, erstellt_am, geaendert_am) VALUES (?, ?, ?, ?, ?)').run(id, nr, `Teil ${nr}`, jetzt, jetzt);
+    }
+    db.prepare('INSERT INTO artikel_aehnlich (a, b) VALUES (?, ?)').run('teil-a', 'teil-b');
+    const vorher = db.prepare('SELECT id, nummer, name, erstellt_am FROM artikel ORDER BY id').all();
+    migrate(db, { migrations: alle, log: () => {} });
+    assert.ok(alle.some((m) => m.version === 20));
+    assert.deepEqual(db.prepare('SELECT id, nummer, name, erstellt_am FROM artikel ORDER BY id').all(), vorher, 'Druckteile unverändert');
+    assert.deepEqual(db.prepare('SELECT DISTINCT herkunft_id FROM artikel').all().map((r: any) => r.herkunft_id), [''], 'Standard: keine Herkunft');
+    assert.equal((db.prepare('SELECT COUNT(*) AS n FROM artikel_aehnlich').get() as any).n, 1, 'Verknüpfung bleibt');
+    db.prepare("INSERT INTO artikel_aehnlich_offen (artikel_id, partner_herkunft) VALUES ('teil-a', 'fehlt-noch')").run();
+    db.prepare("DELETE FROM artikel WHERE id = 'teil-a'").run();
+    assert.equal((db.prepare('SELECT COUNT(*) AS n FROM artikel_aehnlich_offen').get() as any).n, 0, 'Vormerkung mit dem Druckteil gelöscht');
+  } finally {
+    db.close();
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});

@@ -2,6 +2,41 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Export als ZIP, ähnliche Druckteile im Austausch (Unter-Session, Branch: feature/zip-export)
+- **Anlass:** Zwei Wünsche des Nutzers: (A) Export als ZIP statt JSON mit Base64 (+33 %), Bilder in der Datei ansehbar;
+  (B) Verknüpfungen „Ähnliche Druckteile“ mit exportieren und beim Einspielen anlegen bzw. vormerken.
+- **Gebaut (A):** Neue Abhängigkeiten `yazl`/`yauzl` (reines JavaScript, werden in `server/dist` gebündelt).
+  `datenaustausch.zip.ts`: ZIP im Strom schreiben (paket.json zuerst, Dateien nacheinander von der Platte,
+  JPG/PNG/WebP/MP4/WebM/3MF „stored“, Rest Deflate) und aus der hochgeladenen Datei lesen mit Sicherheitsregeln
+  (nur erwartete Namen, kein Zip-Slip, keine doppelten/verschlüsselten Einträge, ≤ 20.000 Einträge, paket.json ≤ 64 MB,
+  Summe < 4 GB, Größe je Datei vor dem Entpacken geprüft). `datenaustausch.paket.ts`: Format an den ersten Bytes erkannt
+  (ZIP = Format 2, sonst JSON = Format 1), gemeinsame Kopfprüfung, je Datei gleiche Prüfung (Größe, SHA-256, Magic Bytes).
+  `datenaustausch.export.ts`: `PAKET_VERSION` 2, Dateiname `.zip`, je Datei `pfad`. Routen: `application/zip`.
+  Oberfläche: Datei-Auswahl nimmt `.zip` und `.json`, Hinweis beim Export „mindestens Mosaik³LAB 1.7.0“.
+- **Gebaut (B):** Migration `020_aehnlich_austausch.sql` (nur hinzufügend: `artikel.herkunft_id` Standard `''`, Tabelle
+  `artikel_aehnlich_offen` mit `ON DELETE CASCADE`). `datenaustausch.aehnliche.ts`: Export je Druckteil `aehnliche`
+  (ID, Name, Nummer, auch Partner außerhalb des Exports); Import merkt Herkunfts-IDs (nur wenn leer), legt Verknüpfungen
+  an (`INSERT OR IGNORE`) oder merkt sie vor und löst frühere Vormerkungen auf – nur hinzufügen, beide Modi.
+  `datenaustausch.service.ts`: Zuordnung Datei-ID → Druckteil hier, `Bericht.verknuepfungen { neu, wartend }`;
+  Verknüpfungen bewusst nicht im `fingerabdruck` (sonst „ersetzt“ nur wegen eines neuen Partners, und Partner außerhalb
+  des Exports machen den Vergleich instabil). Vorschau/Ergebnis: „Ähnliche Druckteile: N Verknüpfungen werden angelegt,
+  M warten auf Druckteile, die noch fehlen.“
+- **Gemessen:** 11 Demo-Druckteile mit 48 Bildern aus `C:\Mosaik3LAB\ablage` (Kopien, 99,4 MB): alt (JSON + Base64)
+  132,6 MB → neu (ZIP) 99,5 MB (−25 %). Einspielen dieser ZIP: Vorschau 0,9 s, Ausführen 0,7 s. ZIP geprüft mit
+  `tar -tf` (bsdtar), `Expand-Archive` (.NET) und `unzip -t`; Bild entpackt und geöffnet.
+- **1.6.3 mit ZIP:** `leseKopf` liest die Binärdatei als erste Zeile → „Das ist keine Export-Datei von Mosaik³LAB. Bitte
+  die Datei wählen, die beim Exportieren heruntergeladen wurde.“ (mit dem Code von 1.6.3 nachgeprüft); der Dialog dort
+  bietet nur `.json` an. Deshalb der Hinweis beim Export.
+- **Tests:** `server/test/datenaustausch.test.ts` auf ZIP umgestellt und erweitert (ZIP-Aufbau und Bytes, Rundreise,
+  alte JSON-Datei weiter einspielbar, Sicherheit: Zip-Slip `..`/absolut/Laufwerk/Backslash, unerwartete und fehlende
+  Einträge, fehlende paket.json, Zip-Bombe, falscher Ordner, falsche Prüfsumme; ähnliche Druckteile: Teilexport →
+  vorgemerkt → Partner unter neuer ID (Namenszuordnung) → verknüpft, nur hinzufügen, „unverändert“ trotz neuer Verknüpfung,
+  ältere Datei ohne Verknüpfungen, Löschen räumt Vormerkungen auf). Hilfen `server/test/zippaket.ts`. Schema-Test in
+  `migration.test.ts` (Stand 19 → 20, Daten unverändert). `test/fixtures/export-windows.json` (Format 1) bleibt grün.
+  Gebündelter Server (`npm run bundle`) mit Export/Vorschau geprüft. Klicktest headless Chrome (frisches Profil) 1440 und
+  375 px: Hinweis, `accept`, Vorschau- und Ergebniszeile, kein seitliches Scrollen.
+- **Aufgeräumt:** Testserver (5181/3011) und headless Chrome gestoppt, `_testdaten\zip-export` gelöscht, Hilfsskripte gelöscht.
+
 ## 2026-11-18 – Ähnliche Druckteile (Unter-Session, Branch: feature/aehnliche-druckteile)
 - **Anlass:** Entscheidung des Nutzers (ersetzt Adapter/Aufsätze): ähnliche Druckteile gegenseitig verknüpfen, Anzeige
   ganz unten auf der Druckteil-Seite als kleine Karten, nicht exportierbar.

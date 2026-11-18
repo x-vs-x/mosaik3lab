@@ -46,10 +46,11 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 | `kategorie`, `einsatzbereich`, `material` | Stammdaten |
 | `filament` | Farbrolle (Marke, Linie, Farbname, Hex, verfügbar). Seit 012: `katalog_id` (ID im mitgelieferten Bambu-Lab-Katalog, NULL = eigene Rolle), `hersteller_nummer` (Bambu-Nr. bzw. freiwillige eigene Nummer), `hersteller_name` (Originalname, englisch), `weggefallen` (nicht mehr im Bambu-Katalog). Abgleich beim Start: `module/stammdaten/bambuAbgleich.ts`; Hinweis für den Admin und bekannte Katalog-IDs in `einstellung` (`bambuAbgleichHinweis`, `bambuKatalogBekannt`) |
 | `statusart` | feste Bestellstatus (Schlüssel, aktiv) – Inhalte aus dem Code, nur `aktiv` änderbar |
-| `artikel` | Druckteil (nummer, Name, Beschreibung, Preis-Text, veröffentlicht …; seit 018 `links`: JSON-Liste der Link-Knöpfe `{ id, text, beschreibung, url }`, nur http/https, höchstens 50, bestehende Druckteile `[]`) |
+| `artikel` | Druckteil (nummer, Name, Beschreibung, Preis-Text, veröffentlicht …; seit 018 `links`: JSON-Liste der Link-Knöpfe `{ id, text, beschreibung, url }`, nur http/https, höchstens 50, bestehende Druckteile `[]`; seit 020 `herkunft_id`: ID des Druckteils in der Quelle eines Imports, wenn es hier eine andere ID hat, sonst leer) |
 | `artikel_farbbereich` | Farbbereiche je Artikel (Name, Sortierung, seit 013 `alle_farben`: 1 = alle Farbrollen, auch später angelegte – dann keine Einzelverweise; seit 017 `gruppen`: JSON-Liste ganzer Linien/Materialarten wie `art:PLA`, auch später angelegte Rollen) + `artikel_farbbereich_filament` (erlaubte Farben bei „Nur bestimmte Farben“) |
+| `artikel_aehnlich_offen` | seit 020: vorgemerkte Verknüpfung aus einem Import, deren Partner hier noch fehlt (`artikel_id` → `artikel` `ON DELETE CASCADE`, `partner_herkunft` = ID des Partners in der Quelle, `partner_name`/`partner_nummer` nur als Hilfe, `vorgemerkt_am`) |
 | `artikel_feld` | Personalisierungsfelder je Artikel (Bezeichnung, Typ, Pflicht, max. Länge) |
-| `artikel_aehnlich` | seit 019: ähnliche Druckteile, gegenseitig (A ↔ B). Paar ohne Richtung `(a, b)` mit `a < b` (eine Zeile je Paar), beide `ON DELETE CASCADE` (Löschen eines Druckteils räumt auf), Index auf `b`. **Nicht** im Export/Import. API: `GET/POST /api/items/:id/aehnliche`, `DELETE /api/items/:id/aehnliche/:andereId` (`module/katalog/aehnliche.ts`) |
+| `artikel_aehnlich` | seit 019: ähnliche Druckteile, gegenseitig (A ↔ B). Paar ohne Richtung `(a, b)` mit `a < b` (eine Zeile je Paar), beide `ON DELETE CASCADE` (Löschen eines Druckteils räumt auf), Index auf `b`. Seit 020 im Export/Import (nur hinzufügen, siehe Migration 020). API: `GET/POST /api/items/:id/aehnliche`, `DELETE /api/items/:id/aehnliche/:andereId` (`module/katalog/aehnliche.ts`) |
 | `anfrage` | Bestellung (nummer, lehrkraft_id, artikel_id, Klasse, Menge, Bemerkung, status) |
 | `anfrage_farbe` | gewählte Farbe je Farbbereich |
 | `anfrage_feldwert` | Werte der Personalisierungsfelder |
@@ -152,3 +153,17 @@ Neue Tabelle `artikel_aehnlich (a, b)`: Verknüpfung zweier Druckteile, gilt fü
 sortiert (`CHECK (a < b)`), so gibt es jede Verknüpfung nur einmal. Bestehende Daten: keine Verknüpfungen. Löschen eines
 Druckteils entfernt seine Paare per Fremdschlüssel. Bewusst nicht im Export/Import (Entscheidung des Nutzers, 2026-11-18).
 Besucher bekommen nur veröffentlichte Teile; Pflegen mit `catalog:manage`.
+
+## Migration 020 – Ähnliche Druckteile im Export/Import (`artikel.herkunft_id`, `artikel_aehnlich_offen`)
+Nur hinzufügend, bestehende Daten bleiben unverändert (Entscheidung des Nutzers, 2026-11-18, ersetzt „nicht im Export“ aus 019):
+- `artikel.herkunft_id` (TEXT, Standard `''`, Teilindex auf nicht-leere Werte): ID, die ein eingespieltes Druckteil in der Quelle
+  hatte, wenn es hier eine andere ID hat (neue ID oder über den Namen zugeordnet). Wird nur gesetzt, solange leer – nie überschrieben.
+- `artikel_aehnlich_offen (artikel_id, partner_herkunft)`: Verknüpfung aus einer Export-Datei, deren Partner hier noch fehlt.
+  Jeder Import löst vorgemerkte Verknüpfungen auf, sobald es ein Druckteil mit `id` oder `herkunft_id` = `partner_herkunft` gibt
+  (→ Zeile in `artikel_aehnlich`, Vormerkung entfällt). Löschen des Druckteils löscht seine Vormerkungen mit.
+- Export-Datei Format 2 (ZIP): je Druckteil `aehnliche: [{ id, name, nummer }]` – auch Partner außerhalb des Exports; Name und
+  Nummer nur als Hilfe. Import: Partner über das Druckteil der Datei, gleiche ID oder Herkunfts-ID, sonst vormerken. Nur hinzufügen,
+  nie löschen (beide Modi). Verknüpfungen zählen nicht in den Vergleich „gleich/ersetzt“ eines Druckteils (`fingerabdruck`).
+- **Paketformat 2** (ZIP, `module/datenaustausch/datenaustausch.zip.ts`): `paket.json` (Kopf, Stammdaten, Druckteile mit
+  Datei-Metadaten samt SHA-256 und `pfad`) + `bilder/`, `druckdateien/`, `videos/` mit `<Datei-ID>.<Endung>`. Format 1
+  (JSON-Zeilen-Datei mit Base64) wird weiter gelesen; Details in ARCHITEKTUR.md, Abschnitt „Druckteile exportieren und einspielen“.
