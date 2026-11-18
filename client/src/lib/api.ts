@@ -10,6 +10,9 @@ export class ApiError extends Error {
   }
 }
 
+/** Meldung für Toasts und Hinweise: die verständliche Meldung des Servers, sonst der Ersatztext (z. B. „Speichern fehlgeschlagen.“). */
+export const fehlerText = (err: unknown, ersatz: string) => (err instanceof ApiError ? err.message : ersatz);
+
 let unauthorizedHandler: (() => void) | undefined;
 
 /** Wird vom AuthContext gesetzt: abgelaufene Sitzungen führen zurück zum Login. */

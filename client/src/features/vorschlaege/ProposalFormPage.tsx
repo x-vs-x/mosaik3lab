@@ -3,10 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { EntwurfHinweis } from '../../components/EntwurfHinweis';
-import { ActionBar, Alert, Button, EmptyState, Field, Input, LinkButton, PageHeader, Panel, Select, Textarea } from '../../components/ui';
+import { ActionBar, Alert, Button, Field, Input, LinkButton, PageHeader, Panel, Select, Textarea } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 import { apiUpload, ApiError, UPLOAD_ABGEBROCHEN } from '../../lib/api';
 import { bildVerkleinern } from '../../lib/bildVerkleinern';
+import { ersteFehlerstelle } from '../../lib/fokus';
 import { entwurfSchluessel } from '../../lib/entwurfSpeicher';
 import { useDocumentTitle } from '../../lib/useApi';
 import { useEntwurf } from '../../lib/useEntwurf';
@@ -82,7 +83,7 @@ export function ProposalFormPage() {
       setError('Bitte prüfen Sie die markierten Angaben.');
       // Direkt zum ersten markierten Feld
       const form = e.currentTarget as HTMLFormElement;
-      requestAnimationFrame(() => form.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+      requestAnimationFrame(() => ersteFehlerstelle<HTMLElement>(form)?.focus());
       return;
     }
 
@@ -309,14 +310,5 @@ export function ProposalFormPage() {
         </Panel>
       </form>
     </>
-  );
-}
-
-/** Für Gäste und Konten ohne Lehrkraft-Rolle: freundlicher Hinweis statt leerer Seite. */
-export function ProposalNeedsTeacher() {
-  return (
-    <EmptyState icon={Lightbulb} title="Vorschläge sind für Lehrkräfte gedacht" action={<LinkButton to="/katalog" variant="secondary">Zum Katalog</LinkButton>}>
-      Melden Sie sich mit Ihrer Schul-E-Mail-Adresse an, um ein Druckteil vorzuschlagen.
-    </EmptyState>
   );
 }

@@ -1,11 +1,12 @@
 import { ClipboardList, LayoutGrid, Lightbulb, Search } from 'lucide-react';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAuth } from '../../auth/AuthContext';
+import { LadeFehler, Suchfeld } from '../../components/Listenwerkzeug';
 import { Alert, Button, Card, cx, Email, EmptyState, Input, LinkButton, PageHeader, Spinner } from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { api, fehlerText } from '../../lib/api';
 import { useMasterData } from '../../lib/config';
 import { statusMeta } from '../../lib/constants';
-import { getSavedCodes, normalizeCode, saveCode } from '../../lib/guestOrders';
+import { getSavedCodes, normalizeCode, saveCode } from './guestOrders';
 import type { Item, Order, OwnOrder, RequestTemplate } from '../../lib/types';
 import { useDocumentTitle } from '../../lib/useApi';
 import { isTracked, OrderCard, type TrackedOrder } from './OrderCard';
@@ -21,28 +22,40 @@ type Tab = 'offen' | 'abgeschlossen' | 'alle';
 function useMyOrders(teacher: boolean) {
   const [orders, setOrders] = useState<OwnOrder[]>();
   const [error, setError] = useState<string>();
+  const [loading, setLoading] = useState(true);
+  // Wie useApi: Eine neue Anfrage (An-/Abmelden, „Erneut anfragen“) bricht die laufende ab – sonst überschreibt eine
+  // ältere, langsamere Antwort die neuere.
+  const laufend = useRef<AbortController | undefined>(undefined);
 
   const load = useCallback(async () => {
+    laufend.current?.abort();
+    const ctrl = new AbortController();
+    laufend.current = ctrl;
+    setLoading(true);
     try {
       const codes = getSavedCodes();
       const list = teacher
-        ? await api<OwnOrder[]>('/orders/mine')
+        ? await api<OwnOrder[]>('/orders/mine', { signal: ctrl.signal })
         : codes.length
           ? // Abruf per Code: nur ansehen, Ändern nur angemeldet.
-            (await api<Order[]>('/orders/track', { method: 'POST', body: { codes } })).map((o) => ({ ...o, editable: false }))
+            (await api<Order[]>('/orders/track', { method: 'POST', body: { codes }, signal: ctrl.signal })).map((o) => ({ ...o, editable: false }))
           : [];
+      if (laufend.current !== ctrl) return;
       setOrders([...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
       setError(undefined);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Anfragen konnten nicht geladen werden.');
+      if (laufend.current === ctrl) setError(fehlerText(err, 'Anfragen konnten nicht geladen werden.'));
+    } finally {
+      if (laufend.current === ctrl) setLoading(false);
     }
   }, [teacher]);
 
   useEffect(() => {
     void load();
+    return () => laufend.current?.abort();
   }, [load]);
 
-  return { orders, error, reload: load };
+  return { orders, error, loading, reload: load };
 }
 
 function CodeLookup({ onFound }: { onFound: () => void }) {
@@ -69,7 +82,7 @@ function CodeLookup({ onFound }: { onFound: () => void }) {
         onFound();
       }
     } catch (err) {
-      setMessage(err instanceof ApiError ? err.message : 'Abruf fehlgeschlagen.');
+      setMessage(fehlerText(err, 'Abruf fehlgeschlagen.'));
     } finally {
       setBusy(false);
     }
@@ -117,8 +130,7 @@ export function MyOrdersPage() {
   useDocumentTitle('Meine Anfragen');
   const { user, can } = useAuth();
   const teacher = can('orders:own');
-  const { orders, error, reload } = useMyOrders(teacher);
-  const loading = !orders && !error;
+  const { orders, error, loading, reload } = useMyOrders(teacher);
   const [tab, setTab] = useState<Tab>('offen');
   const [query, setQuery] = useState('');
   const md = useMasterData();
@@ -145,7 +157,7 @@ export function MyOrdersPage() {
       setRepeat({ item, template, edit, opened: Date.now() });
       setRepeatOpen(true);
     } catch (err) {
-      setRepeatNotice(err instanceof ApiError ? err.message : 'Die Anfrage konnte nicht vorbereitet werden. Bitte versuchen Sie es erneut.');
+      setRepeatNotice(fehlerText(err, 'Die Anfrage konnte nicht vorbereitet werden. Bitte versuchen Sie es erneut.'));
     } finally {
       setRepeating(undefined);
     }
@@ -198,7 +210,7 @@ export function MyOrdersPage() {
         }
       />
 
-      {error && <Alert kind="error">{error}</Alert>}
+      <LadeFehler error={error} onRetry={() => void reload()} loading={loading} />
       {repeatNotice && (
         <Alert kind="warning" className="mb-4 sm:mb-6">
           {repeatNotice}
@@ -209,7 +221,7 @@ export function MyOrdersPage() {
           <span role="status">{savedNotice}</span>
         </Alert>
       )}
-      {loading && <Spinner />}
+      {loading && !orders && <Spinner />}
 
       {orders && orders.length === 0 && (
         <EmptyState
@@ -252,21 +264,7 @@ export function MyOrdersPage() {
                 ))}
               </div>
             )}
-            <div className="relative lg:w-96">
-              <label htmlFor="orders-search" className="sr-only">
-                Anfragen durchsuchen
-              </label>
-              <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-stone-500" aria-hidden />
-              <Input
-                id="orders-search"
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Suchen: Name, Nummer, Klasse, Farbe …"
-                autoComplete="off"
-                className="pl-12"
-              />
-            </div>
+            <Suchfeld id="orders-search" label="Anfragen durchsuchen" value={query} onChange={setQuery} placeholder="Suchen: Name, Nummer, Klasse, Farbe …" className="lg:w-96" />
           </div>
 
           <p className="sr-only" role="status">

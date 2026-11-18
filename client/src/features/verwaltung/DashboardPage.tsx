@@ -1,8 +1,9 @@
 import { ArrowRight, Boxes, Plus, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
+import { LadeFehler } from '../../components/Listenwerkzeug';
 import { StatusBadge } from '../../components/StatusBadge';
-import { Alert, Card, LinkButton, PageHeader, Spinner, Email } from '../../components/ui';
+import { Card, LinkButton, PageHeader, Spinner, Email } from '../../components/ui';
 import { useMasterData } from '../../lib/config';
 import { activeStatuses, statusMeta } from '../../lib/constants';
 import { formatRelative } from '../../lib/format';
@@ -19,7 +20,7 @@ export function DashboardPage() {
   useDocumentTitle('Übersicht');
   const { user, can } = useAuth();
   const md = useMasterData();
-  const { data, error, loading } = useApi<DashboardData>('/dashboard');
+  const { data, error, loading, reload } = useApi<DashboardData>('/dashboard');
 
   // Nur eingeschaltete Status erscheinen als Kachel (Einstellungen → Ablauf der Anfragen).
   const statuses = activeStatuses(md);
@@ -39,7 +40,7 @@ export function DashboardPage() {
         }
       />
 
-      {error && <Alert kind="error">{error.message}</Alert>}
+      <LadeFehler error={error} onRetry={() => void reload()} loading={loading} />
       {loading && !data && <Spinner />}
 
       {data && (

@@ -1,6 +1,7 @@
 import { ArrowLeft, Save } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { EntwurfHinweis } from '../../../components/EntwurfHinweis';
+import { LadeFehler } from '../../../components/Listenwerkzeug';
 import { Alert, Button, DemoBadge, PageHeader, Spinner } from '../../../components/ui';
 import { useDocumentTitle } from '../../../lib/useApi';
 import { AehnlicheSection } from './AehnlicheSection';
@@ -18,11 +19,11 @@ import { VisibilityPanel } from './VisibilityPanel';
 /** Druckteil anlegen oder bearbeiten: Laden, Speichern, Navigation – die Abschnitte liegen in eigenen Dateien. */
 export function ItemEditPage() {
   const { id } = useParams();
-  const { isNew, loading, loadError, item, setItem, form, set, errors, formError, saving, submit, entwurf } = useItemForm(id);
+  const { isNew, loading, loadError, reload, item, setItem, form, set, errors, formError, saving, submit, entwurf } = useItemForm(id);
   useDocumentTitle(isNew ? 'Neues Druckteil' : item?.name ? `„${item.name}“ bearbeiten` : 'Druckteil bearbeiten');
 
   if (!isNew && loading && !item) return <Spinner />;
-  if (!isNew && loadError) return <Alert kind="error">{loadError.message}</Alert>;
+  if (!isNew && loadError) return <LadeFehler error={loadError} onRetry={() => void reload()} className="" />;
 
   const sectionProps = { form, set, errors };
 

@@ -4,7 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { Logo, LogoMark, SchoolLogo, Wordmark } from '../../components/Logo';
 import { Alert, Button, Field, Input, Email } from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { api, fehlerText } from '../../lib/api';
 import { useConfig } from '../../lib/config';
 import { cookiesWork } from '../../lib/cookies';
 import { zielNachAnmeldung } from '../../lib/anmeldeZiel';
@@ -44,7 +44,7 @@ export function LoginPage() {
     try {
       await action();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Anmeldung fehlgeschlagen.');
+      setError(fehlerText(err, 'Anmeldung fehlgeschlagen.'));
     } finally {
       setSubmitting(false);
     }
@@ -201,6 +201,7 @@ export function LoginPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       className={step === 'password' ? 'bg-stone-50 pr-28' : undefined}
                       required
+                      // eslint-disable-next-line jsx-a11y/no-autofocus -- bewusst: einziges Feld der Seite bzw. des Dialogs, spart Tab-Wege
                       autoFocus
                       data-testid="login-email"
                     />
@@ -232,6 +233,7 @@ export function LoginPage() {
                         onChange={(e) => setPassword(e.target.value)}
                         className="pr-14"
                         required
+                        // eslint-disable-next-line jsx-a11y/no-autofocus -- bewusst: einziges Feld der Seite bzw. des Dialogs, spart Tab-Wege
                         autoFocus
                         data-testid="login-password"
                       />

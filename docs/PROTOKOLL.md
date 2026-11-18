@@ -51,6 +51,24 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   Manager-Tests und Installer-Test (Windows, Linux x64, arm64) in der CI über `installer-test/hygiene-manager`.
 - **Aufgeräumt:** Testordner `_testdaten/paket-a-manager` gelöscht.
 
+## 2026-11-18 – Code-Hygiene Client C2–C13, C17–C26 (Unter-Session H-Client, Branch: refactor/client)
+- **Auftrag:** Funde C2–C13 und C17–C26 aus `_konzepte/code-hygiene/client.md` prüfen und abarbeiten (nicht C1, C14–C16).
+- **Gebaut:** Gemeinsame Bausteine `components/Listenwerkzeug.tsx` (FilterKnopf, Suchfeld, LadeFehler) statt 7 Suchfeld-,
+  6 Filterknopf- und 12 Ladefehler-Kopien; `lib/suchParameter.ts` (useSuchParameter/mitParametern) statt 7 Kopien;
+  `fehlerText()` in `lib/api.ts` statt 24 Kopien; Bereich `features/anfragen/` (MyOrdersPage, OrderCard, RequestDialog,
+  AnfrageFelder, guestOrders, anfrageEmail verschoben; neu anfragePruefung.ts, farbAnzeige.ts, AnfrageVerlauf.tsx, zugang.ts);
+  `OrderRow.tsx` aus OrdersAdminPage; Farbrollen-Hilfen in `lib/colors.ts` (filaments.ts aufgelöst); useMyOrders mit Abbruch;
+  feste leere Stammdaten; Bambu-Katalog nur einmal geladen (useApi); Manager-Abruf ohne AbortSignal.timeout; passtZurSuche in
+  Farbwahl und Bambu-Import; Datumsformate über lib/format.ts; tote Exporte entfernt (DangerZone, FormSection, PHASE_LABELS,
+  formatCode, forgetCode, ProposalNeedsTeacher, .no-scrollbar, mindestErsparnis); doppelte Fortschritts-/Verlaufsanzeige in
+  OrderCard durch die gemeinsame ersetzt; FilamentPicker/FilamentsPanel/FarbeZuordnenDialog im Projektstil (Syntaxbaum vorher
+  und nachher verglichen: gleich); Lint: Fehlalarme begründet markiert bzw. Regel für eigene Felder eingestellt (übrig nur
+  2× fehlende Untertitel); Fokus auf das erste fehlerhafte Feld in Vorschlag, Druckteil-Editor und Person-Dialog.
+- **Getestet:** typecheck, lint (0 Fehler), alle Tests (neu `client/test/aufraeumen.test.ts`); Vorher/Nachher-Aufnahmen von
+  25 Ansichten (4 Rollen) in 375/768/1440 und 375 mit 200 % Schrift mit Pixelvergleich; automatischer Klicktest (headless
+  Chrome, frisches Profil) aller angefassten Funktionen – Bilder in `C:\Entwicklung\_testdaten\hygiene-client\bilder\`.
+- **Aufgeräumt:** Dev-Server (5182/3012) gestoppt, Testdaten und Werkzeuge gelöscht, nur der Bilder-Ordner bleibt.
+
 ## 2026-11-18 – UI-Durchsicht aller Ansichten in allen Größen (Unter-Session, Branch: fix/ui-durchsicht)
 - **Auftrag:** Jedes Fenster, jede Abfrage in unterschiedlichen Größen durchsehen, Anzeigefehler finden und beheben
   (Lehrkräfte und Druck-Team auf Handy, iPad, PC; viele mit motorischen Einschränkungen).

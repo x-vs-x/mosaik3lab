@@ -39,6 +39,15 @@ daraus die nächste Version.
   nutzt jetzt ebenfalls die Paketquelle. Bestehende Installationen und Einstellungen bleiben unverändert.
 - `npm run backup` (Entwicklung) erstellt jetzt eine Sicherung wie der Server-Manager (eine geprüfte `.m3lbackup`-Datei).
 
+- **Ladefehler mit „Erneut versuchen“:** Bricht das WLAN kurz ab, bieten jetzt alle Verwaltungsseiten, „Meine Anfragen“,
+  „Meine Vorschläge“, die Druckteil-Seite und der Bambu-Import einen Knopf „Erneut versuchen“ statt nur einer Meldung.
+- **Farbsuche wie überall:** In der Farbwahl eines Druckteils und im Bambu-Import findet „gruen“ jetzt „Grün“, und
+  mehrere Wörter („PLA rot“) grenzen die Suche ein.
+- **Einheitliche Filterknöpfe:** Personen, Farbrollen und Vorschläge zeigen ihre Filter wie Katalog und Anfragen als
+  runde Knöpfe, die Anzahl steht einheitlich daneben.
+- **Fokus auf das erste fehlerhafte Feld** auch im Druckteil-Editor und beim Anlegen einer Person (wie schon im
+  Anfrageformular) – spart Tab-Wege mit Tastatur oder Taster.
+
 ## [1.7.0] – 2026-11-18
 
 - **Anzeige auf Handy, iPad und bei großer Schrift überarbeitet:** Alle Seiten, Dialoge und Meldungen – auch der

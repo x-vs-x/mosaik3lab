@@ -1,6 +1,6 @@
-import { ChevronDown, Clock, Layers, Lightbulb, PackageOpen, RotateCw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, Clock, Layers, Lightbulb, PackageOpen, RotateCw, SlidersHorizontal, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigationType } from 'react-router-dom';
 import {
   KATALOG_SEITE,
   ladeAnzahl,
@@ -13,17 +13,20 @@ import {
 import { NachladenFuss } from './Nachladen';
 import { ItemImage } from '../../components/ItemImage';
 import { useAuth } from '../../auth/AuthContext';
-import { Alert, Badge, Button, Card, cx, DemoBadge, LinkButton, PageHeader, Select, Spinner } from '../../components/ui';
+import { FilterKnopf, Suchfeld } from '../../components/Listenwerkzeug';
+import { Alert, Badge, Button, Card, cx, DemoBadge, EmptyState, LinkButton, PageHeader, Select, Spinner } from '../../components/ui';
 import { ColorSwatch } from '../../components/ColorSwatch';
 import { useMasterData } from '../../lib/config';
-import { availableFilaments } from '../../lib/filaments';
+import { availableFilaments } from '../../lib/colors';
 import { categoryMeta } from '../../lib/constants';
 import { formatDuration } from '../../lib/format';
 import { isConnectionProblem } from '../../lib/api';
+import { useSuchParameter } from '../../lib/suchParameter';
 import { ITEM_KIND_LABELS, type Item, type ItemKind } from '../../lib/types';
-
-const MAX_SWATCHES = 6;
 import { useApi, useDebounced, useDocumentTitle } from '../../lib/useApi';
+
+/** Höchstzahl Farbtupfer je Karte, der Rest als „+n“. */
+const MAX_SWATCHES = 6;
 
 export function CatalogPage() {
   useDocumentTitle('Katalog');
@@ -31,7 +34,7 @@ export function CatalogPage() {
   // Lehrkräfte und Gäste (Gäste melden sich beim Klick an); das Druck-Team reicht nichts ein.
   const canPropose = !user || can('vorschlaege:eigene');
   const md = useMasterData();
-  const [params, setParams] = useSearchParams();
+  const [params, setze] = useSuchParameter();
   const q = params.get('q') ?? '';
   const category = params.get('kategorie') ?? '';
   const area = params.get('bereich') ?? '';
@@ -64,12 +67,7 @@ export function CatalogPage() {
   const mehr = useCallback(() => startMehr(() => setAnzahl((a) => naechsteAnzahl(a, gesamt))), [gesamt]);
   useScrollPositionMerken(!!items, anzahl, setAnzahl);
 
-  const update = (key: string, value: string) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    setParams(next, { replace: true });
-  };
+  const update = (key: string, value: string) => setze({ [key]: value });
 
   const hasFilters = !!(q || category || area || kind);
   // Handy: Art, Einsatzbereich und Kategorien hinter „Filter“ (offen, wenn schon gefiltert); ab sm immer sichtbar.
@@ -95,21 +93,16 @@ export function CatalogPage() {
       {/* Suche & Filter */}
       <Card className="mb-5 p-3 sm:mb-8 sm:p-5">
         <div className="grid gap-2.5 sm:gap-4 md:grid-cols-2 xl:flex xl:flex-row">
-          <div className="relative md:col-span-2 xl:flex-1">
-            <label htmlFor="catalog-search" className="sr-only">
-              Druckteile suchen
-            </label>
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-stone-500" aria-hidden />
-            <input
-              id="catalog-search"
-              type="search"
-              value={q}
-              onChange={(e) => update('q', e.target.value)}
-              // Kurz genug für 320 px breite Handys (vorher „… oder „Essen““ abgeschnitten).
-              placeholder="Suchen, z. B. „Stift“"
-              className="block min-h-11 w-full rounded-xl border border-stone-300 bg-stone-50/60 pl-12 pr-4 text-base sm:min-h-13 sm:rounded-2xl placeholder:text-stone-500 hover:border-stone-400 focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-600/20"
-            />
-          </div>
+          <Suchfeld
+            id="catalog-search"
+            label="Druckteile suchen"
+            value={q}
+            onChange={(v) => update('q', v)}
+            // Kurz genug für 320 px breite Handys (vorher „… oder „Essen““ abgeschnitten).
+            placeholder="Suchen, z. B. „Stift“"
+            className="md:col-span-2 xl:flex-1"
+            inputClassName="block min-h-11 w-full rounded-xl border border-stone-300 bg-stone-50/60 pl-12 pr-4 text-base sm:min-h-13 sm:rounded-2xl placeholder:text-stone-500 hover:border-stone-400 focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-600/20"
+          />
           <button
             type="button"
             onClick={() => setFilterOpen((o) => !o)}
@@ -153,9 +146,9 @@ export function CatalogPage() {
 
         <div id="catalog-filter-kategorie" className={cx('mt-3 sm:mt-4', filterClass)} role="group" aria-label="Nach Kategorie filtern">
           <div className="flex flex-wrap gap-2">
-            <CategoryChip label="Alle" active={!category} onClick={() => update('kategorie', '')} />
+            <FilterKnopf label="Alle" active={!category} onClick={() => update('kategorie', '')} />
             {md.categories.map((c) => (
-              <CategoryChip
+              <FilterKnopf
                 key={c.id}
                 label={c.name}
                 icon={categoryMeta(md, c.name).icon}
@@ -173,7 +166,7 @@ export function CatalogPage() {
           {hasFilters && items && !veraltet ? ' gefunden' : ''}
         </p>
         {hasFilters && (
-          <Button variant="ghost" size="sm" icon={X} onClick={() => setParams({}, { replace: true })}>
+          <Button variant="ghost" size="sm" icon={X} onClick={() => setze({ q: null, kategorie: null, bereich: null, art: null })}>
             Filter zurücksetzen
           </Button>
         )}
@@ -193,16 +186,19 @@ export function CatalogPage() {
       {loading && !items && <Spinner label="Katalog wird geladen …" />}
 
       {items && items.length === 0 && (
-        <div className="rounded-3xl border-2 border-dashed border-stone-200 bg-white/60 px-4 py-10 text-center sm:px-6 sm:py-14">
-          <PackageOpen className="mx-auto mb-3 size-10 text-stone-400" aria-hidden />
-          <p className="text-abschnitt font-bold text-stone-800">Keine passenden Druckteile gefunden.</p>
-          <p className="mt-1 text-stone-600">Versuchen Sie einen anderen Suchbegriff oder entfernen Sie Filter.</p>
-          {canPropose && (
-            <LinkButton to="/vorschlag/neu" icon={Lightbulb} className="mt-5">
-              Nicht gefunden? Vorschlag machen
-            </LinkButton>
-          )}
-        </div>
+        <EmptyState
+          icon={PackageOpen}
+          title="Keine passenden Druckteile gefunden."
+          action={
+            canPropose && (
+              <LinkButton to="/vorschlag/neu" icon={Lightbulb}>
+                Nicht gefunden? Vorschlag machen
+              </LinkButton>
+            )
+          }
+        >
+          Versuchen Sie einen anderen Suchbegriff oder entfernen Sie Filter.
+        </EmptyState>
       )}
 
       {items && items.length > 0 && (
@@ -289,35 +285,6 @@ function useScrollPositionMerken(geladen: boolean, anzahl: number, setAnzahl: (n
       window.removeEventListener('scroll', onScroll);
     };
   }, [bereit, search]);
-}
-
-function CategoryChip({
-  label,
-  active,
-  onClick,
-  icon: Icon,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  icon?: typeof Layers;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cx(
-        'inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-3.5 text-base font-bold transition-colors sm:gap-2 sm:px-4',
-        active
-          ? 'bg-stone-900 text-white'
-          : 'bg-white text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-stone-50 hover:ring-stone-400',
-      )}
-    >
-      {Icon && <Icon className="size-4" aria-hidden />}
-      {label}
-    </button>
-  );
 }
 
 function ItemCard({ item }: { item: Item }) {

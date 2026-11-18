@@ -1,9 +1,10 @@
 import { Layers, Palette, Tags, type LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Alert, cx, PageHeader, Spinner } from '../../../components/ui';
 import { useConfig, useMasterData } from '../../../lib/config';
 import type { MasterDataList } from '../../../lib/types';
+import { useSuchParameter } from '../../../lib/suchParameter';
 import { useDocumentTitle } from '../../../lib/useApi';
 import { useVerlassenWarnung } from '../../../lib/useEntwurf';
 import { CategoriesPanel } from './CategoriesPanel';
@@ -28,16 +29,14 @@ export function MasterDataPage() {
   useDocumentTitle('Stammdaten');
   const { config, error } = useConfig();
   const md = useMasterData();
-  const [params, setParams] = useSearchParams();
+  const [params, setze] = useSuchParameter();
   const active = tabFor(params.get('liste'));
   const [dirty, setDirty] = useState<Partial<Record<MasterDataList, boolean>>>({});
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const baseId = useId();
 
   const select = (key: TabKey, focus = false) => {
-    const next = new URLSearchParams(params);
-    next.set('liste', key);
-    setParams(next, { replace: true });
+    setze({ liste: key });
     if (focus) tabRefs.current[key]?.focus();
   };
 
@@ -81,6 +80,8 @@ export function MasterDataPage() {
 
       {config && (
         <>
+          {/* Fehlalarm: Die Tabs selbst sind fokussierbar (roving tabindex), die Liste fängt nur die Pfeiltasten ab. */}
+          {/* eslint-disable-next-line jsx-a11y/interactive-supports-focus */}
           <div
             role="tablist"
             aria-label="Stammdaten-Listen"

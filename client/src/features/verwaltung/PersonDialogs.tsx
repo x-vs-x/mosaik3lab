@@ -3,7 +3,8 @@ import { useId, useRef, useState, type FormEvent } from 'react';
 import { BEREICHE, ROLE_LABELS, ROLE_SAETZE, ROLES, STANDARD_BEREICHE, TEAM_BEREICHE } from '@mosaik3lab/shared/werte/konten';
 import { Dialog } from '../../components/Dialog';
 import { Alert, Button, cx, Field, Input } from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { api, ApiError, fehlerText } from '../../lib/api';
+import { ersteFehlerstelle } from '../../lib/fokus';
 import { BASE_PATH } from '../../lib/basePath';
 import type { Bereich, PasswortLinkErgebnis, Person, PersonGespeichert, Role } from '../../lib/types';
 
@@ -80,6 +81,7 @@ export function RechteDialog({
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    const formular = e.currentTarget as HTMLFormElement;
     setSaving(true);
     setErrors({});
     setFormError(undefined);
@@ -91,6 +93,8 @@ export function RechteDialog({
       if (err instanceof ApiError) {
         setErrors(err.fields);
         setFormError(err.message);
+        // Zum ersten markierten Feld (z. B. ungültige E-Mail), sobald die Fehler gezeichnet sind.
+        requestAnimationFrame(() => ersteFehlerstelle<HTMLElement>(formular)?.focus());
       }
     } finally {
       setSaving(false);
@@ -103,7 +107,18 @@ export function RechteDialog({
         {neu && (
           <Field label="Schul-E-Mail" required hint="Mit dieser Adresse meldet sich die Person an." error={errors.email}>
             {({ id, describedBy, invalid }) => (
-              <Input id={id} type="email" autoCapitalize="none" spellCheck={false} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} aria-describedby={describedBy} invalid={invalid} autoFocus />
+              <Input
+                id={id}
+                type="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                aria-describedby={describedBy}
+                invalid={invalid}
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- bewusst: einziges Feld der Seite bzw. des Dialogs, spart Tab-Wege
+                autoFocus
+              />
             )}
           </Field>
         )}
@@ -212,7 +227,7 @@ export function EntfernenDialog({ person, onClose, onRemoved }: { person?: Perso
       await api('/personen/entfernen', { method: 'POST', body: { email: person.email } });
       onRemoved(person);
     } catch (err) {
-      setFehler(err instanceof ApiError ? err.message : 'Entfernen fehlgeschlagen.');
+      setFehler(fehlerText(err, 'Entfernen fehlgeschlagen.'));
     } finally {
       setBusy(false);
     }

@@ -1,7 +1,8 @@
-import { ChevronRight, Search, Users } from 'lucide-react';
+import { ChevronRight, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Alert, Card, EmptyState, inputClass, PageHeader, Spinner, Email } from '../../components/ui';
+import { LadeFehler, Suchfeld } from '../../components/Listenwerkzeug';
+import { Alert, Card, EmptyState, PageHeader, Spinner, Email } from '../../components/ui';
 import { formatDate, formatRelative } from '../../lib/format';
 import type { Requester } from '../../lib/types';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
@@ -9,7 +10,7 @@ import { passtZurSuche } from '@mosaik3lab/shared/suche';
 
 export function RequestersPage() {
   useDocumentTitle('Lehrkräfte');
-  const { data, error, loading } = useApi<Requester[]>('/orders/requesters');
+  const { data, error, loading, reload } = useApi<Requester[]>('/orders/requesters');
   const [q, setQ] = useState('');
 
   const list = useMemo(() => {
@@ -30,7 +31,7 @@ export function RequestersPage() {
         Lehrkräfte werden beim ersten Bestellen mit ihrer Schul-E-Mail automatisch angelegt – ohne Passwort.
       </Alert>
 
-      {error && <Alert kind="error">{error.message}</Alert>}
+      <LadeFehler error={error} onRetry={() => void reload()} loading={loading} />
       {loading && !data && <Spinner />}
 
       {data && data.length === 0 && (
@@ -41,20 +42,7 @@ export function RequestersPage() {
 
       {data && data.length > 0 && (
         <>
-          <div className="relative mb-5 max-w-md">
-            <label htmlFor="requester-search" className="sr-only">
-              Lehrkräfte nach E-Mail filtern
-            </label>
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-stone-500" aria-hidden />
-            <input
-              id="requester-search"
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Nach E-Mail filtern"
-              className={`${inputClass()} pl-12`}
-            />
-          </div>
+          <Suchfeld id="requester-search" label="Lehrkräfte nach E-Mail filtern" value={q} onChange={setQ} placeholder="Nach E-Mail filtern" className="mb-5 max-w-md" />
 
           <Card as="section" className="overflow-hidden">
             <h2 className="sr-only">Liste der Lehrkräfte</h2>

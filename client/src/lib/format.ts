@@ -1,5 +1,6 @@
 const dateTime = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
 const dateOnly = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium' });
+const timeOnly = new Intl.DateTimeFormat('de-DE', { timeStyle: 'short' });
 const relative = new Intl.RelativeTimeFormat('de-DE', { numeric: 'auto' });
 
 export function formatDateTime(iso: string) {
@@ -8,6 +9,11 @@ export function formatDateTime(iso: string) {
 
 export function formatDate(iso: string) {
   return dateOnly.format(new Date(iso));
+}
+
+/** Nur die Uhrzeit, z. B. „14:05“. */
+export function formatTime(iso: string) {
+  return timeOnly.format(new Date(iso));
 }
 
 export function formatRelative(iso: string) {

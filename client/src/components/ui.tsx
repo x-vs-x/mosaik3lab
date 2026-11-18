@@ -456,7 +456,7 @@ export function Panel({
 
 /**
  * Aktionsleiste am Ende eines Vorgangs: die primäre Aktion steht zuerst/rechts (auf dem Handy oben, volle Breite),
- * Abbrechen o. ä. als ruhige Schaltfläche daneben. Gefährliche Aktionen gehören in eine `DangerZone`.
+ * Abbrechen o. ä. als ruhige Schaltfläche daneben.
  */
 export function ActionBar({
   primary,
@@ -477,36 +477,6 @@ export function ActionBar({
         {primary}
       </div>
     </div>
-  );
-}
-
-/** Abgesetzter Bereich für Aktionen, die Daten löschen oder nicht rückgängig zu machen sind. */
-export function DangerZone({ title = 'Gefahrenbereich', description, children }: { title?: string; description?: ReactNode; children: ReactNode }) {
-  return (
-    <Panel title={title} description={description} tone="danger" headingLevel="h2" className="mt-6 sm:mt-10">
-      {children}
-    </Panel>
-  );
-}
-
-/** Zusammengehörende Felder innerhalb eines Panels: sichtbare Zwischenüberschrift, semantisch ein fieldset. */
-export function FormSection({
-  legend,
-  description,
-  children,
-  className,
-}: {
-  legend: string;
-  description?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <fieldset className={cx('min-w-0 space-y-4 border-0 p-0', className)}>
-      <legend className="mb-1 w-full border-b border-stone-200 pb-2 text-base font-bold text-stone-900">{legend}</legend>
-      {description && <p className="text-hinweis text-stone-700">{description}</p>}
-      {children}
-    </fieldset>
   );
 }
 

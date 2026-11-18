@@ -31,6 +31,7 @@ import type { Permission } from '../lib/types';
 import { Dialog } from './Dialog';
 import { useToast } from './Toast';
 import { NeuigkeitenDialog } from '../features/neuigkeiten/NeuigkeitenDialog';
+import { darfMeineAnfragen } from '../features/anfragen/zugang';
 import { meldeSeitenwechsel } from '../features/katalog/katalogScroll';
 import { Logo } from './Logo';
 import { Alert, Button, cx, Email } from './ui';
@@ -72,7 +73,7 @@ const ADMIN_NAV: NavItem[] = [
 function useMainNav() {
   const { config } = useConfig();
   const { can } = useAuth();
-  return MAIN_NAV.filter((i) => (i.permission ? can(i.permission) : i.to !== '/anfragen' || can('orders:own') || config?.features.requesterTracking));
+  return MAIN_NAV.filter((i) => (i.permission ? can(i.permission) : i.to !== '/anfragen' || darfMeineAnfragen(can, config)));
 }
 
 /** Plakette mit Anzahl; der Text steht für Screenreader dabei. */

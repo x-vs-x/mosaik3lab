@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp, ChevronDown, Plus, RotateCcw, Save, Trash2, type Lu
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useToast } from '../../../components/Toast';
 import { Alert, Badge, Button, Card, cx } from '../../../components/ui';
-import { api, ApiError } from '../../../lib/api';
+import { api, ApiError, fehlerText } from '../../../lib/api';
 import { useConfig } from '../../../lib/config';
 import type { MasterData, MasterDataList } from '../../../lib/types';
 import { newKey, same, serverRowErrors, strip, toRows, type Entry, type Row } from './listRows';
@@ -157,7 +157,7 @@ export function ListPanel<T extends Entry>({
         if (err instanceof ApiError) setServerErrors(serverRowErrors(rows, err.fields));
         setSaveError({
           title: 'Speichern fehlgeschlagen',
-          message: err instanceof ApiError ? err.message : 'Unbekannter Fehler.',
+          message: fehlerText(err, 'Unbekannter Fehler.'),
         });
       }
     } finally {
