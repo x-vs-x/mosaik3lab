@@ -2,6 +2,31 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Stabilität Server und Server-Manager vor 1.7.0 (Unter-Session, Branch: fix/stabilitaet-server)
+- **Anlass:** Prüfung vor 1.7.0 (Stand eacfcbb), 14 Funde in Server und Server-Manager.
+- **Gebaut:** `kern/bilder/`: Abruf `?groesse=` wartet höchstens 2,5 s; ist der Rechen-Thread belegt, sofort Original
+  (`private, max-age=60`) und Bild in die Bildpflege (`dienst.vorschau(…, vormerken)`); der Rechen-Thread liest die
+  Datei selbst (`Auftrag.datei`). Bildpflege startet nach 60 s, wenn ≥ 10 Vorschaubilder fehlen. Speichergrenzen nach
+  `os.totalmem()` (≤ 2,2 GiB: 16 MP/256 MB, sonst 40 MP/512 MB, `speicherGrenzen`), PNG-Bedarf vor dem Dekodieren
+  geschätzt. Fehlschläge dauerhaft in `vorschau/.gescheitert/<id>` (SHA), vorübergehende (Beenden, Dateifehler,
+  geändert) nicht. „Erledigt“ auch, wenn Vorschaubilder nicht älter als das Original (Ersparnis < 20 %). Sperre
+  `austauschLaeuft()` (vorher `importLaeuft`) auch beim Export bis Ende der `pipeline`; während Austausch/Sicherung nur
+  Vorschaubilder, keine Originale ersetzt (Vorschaubilder dann zurückdatiert → Bildpflege verkleinert später);
+  Sicherungs-Markierung älter als 6 h zählt nicht. `Bildpflege.beenden()`: abbrechen → Rechen-Thread beenden → warten.
+  `FileStore.init()` löscht verwaiste `*.neu`; `replace()` löscht neue Datei, wenn der Datensatz weg ist.
+  `app.ts`: `compression` (Filter: nicht `/api/files/`, Export, Range). `index.ts`: `unhandledRejection` → Log;
+  `.catch` an `nachholen`/`pruneExpired`/`planeStart`. Datenaustausch: Aufräum-Timer (5 min, `unref`), eine Vorschau
+  je Person, `rmSync` mit `maxRetries` + Warnung, `zipStrom` schließt den aktuellen Lesestrom bei Abbruch.
+  `katalog.service.ts`: Sortieren/Löschen gleicht Bildnamen über die Datei-ID ab. `istVorschauGroesse`: `Object.hasOwn`.
+  Manager `backup.mjs`: `*.neu` und `.import-tmp` ausgenommen. Tests: `server/test/stabilitaet.test.ts` (neu),
+  `bilder.test.ts`, `helfer.ts` (`storage`, `roh()`), `manager/test/manager.test.mjs`, `portal.test.mjs` (gzip durch).
+- **Gemessen** (Testserver 3011, 8 Bilder 3000 × 2000, Vorschaubilder gelöscht, alle Karten gleichzeitig): alle Antworten
+  nach 325 ms (vorher bis 15 s Warten je Bild möglich), Bildpflege hatte alle Vorschaubilder nach 4,4 s, `/api/health`
+  2 ms. gzip: `/api/items` 13,6 → 3,9 KB, `/api/config` 6,0 → 1,5 KB, Programm (JS+CSS) 759 → 230 KB.
+- **Geprüft, gelassen:** Fund 15 (Import-Vorschau rechnet zwei Probe-Transaktionen synchron) – Umbau lohnt das Risiko
+  nicht. `manager/runners/webapp.mjs` unverändert (20 s bis killTree bleiben als Rückfall, die App endet jetzt sofort).
+- **Aufgeräumt:** Testserver gestoppt, `C:\Entwicklung\_testdaten\stabil-server` gelöscht, Skripte im Scratchpad.
+
 ## 2026-11-18 – CI-Altlasten (Unter-Session, Branch: fix/ci-altlasten)
 - **Anlass:** Installer-Test-Lauf 44275682317 (PR 26) scheiterte mit „Artifact not found“, weil der gleichzeitig endende
   Lauf von PR 28 im Job `aufraeumen` die Artefakte **aller** anderen Läufe gelöscht hatte. Dazu Warnungen in den Logs

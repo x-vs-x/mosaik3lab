@@ -4,7 +4,9 @@
 // beendet (gibt Speicher frei, wichtig auf dem Pi).
 import { Worker } from 'node:worker_threads';
 import type { Auftrag, Ergebnis } from './verarbeitung';
-import { ZEITGRENZE_MS } from './groessen';
+import { MAX_SPEICHER_MB, ZEITGRENZE_MS } from './groessen';
+
+const beendetFehler = () => new BildFehler('Bildverarbeitung ist beendet.', false, true);
 
 export type Prioritaet = 'sofort' | 'hintergrund';
 
@@ -13,6 +15,8 @@ export class BildFehler extends Error {
     message: string,
     /** Format/Inhalt wird nicht unterstützt (CMYK, 16 Bit, beschädigt …) – erneut versuchen lohnt nicht. */
     readonly nichtUnterstuetzt = false,
+    /** Liegt nicht am Bild (Server wird beendet, Datei fehlt/gesperrt, inzwischen geändert) – nicht dauerhaft merken. */
+    readonly voruebergehend = false,
   ) {
     super(message);
   }
@@ -50,7 +54,7 @@ export class BildRechner {
   }
 
   rechne(auftrag: Auftrag, prio: Prioritaet = 'sofort'): Promise<Ergebnis> {
-    if (this.beendet) return Promise.reject(new BildFehler('Bildverarbeitung ist beendet.'));
+    if (this.beendet) return Promise.reject(beendetFehler());
     return new Promise((ok, fehler) => {
       const job: Job = { id: this.naechsteId++, auftrag, prio, ok, fehler };
       // „sofort“ hinter die anderen „sofort“-Aufträge, aber vor alle Hintergrund-Aufträge
@@ -64,10 +68,10 @@ export class BildRechner {
   async beenden() {
     this.beendet = true;
     clearTimeout(this.ruheTimer);
-    for (const j of this.schlange.splice(0)) j.fehler(new BildFehler('Bildverarbeitung ist beendet.'));
+    for (const j of this.schlange.splice(0)) j.fehler(beendetFehler());
     if (this.laufend) {
       clearTimeout(this.laufend.timer);
-      this.laufend.job.fehler(new BildFehler('Bildverarbeitung ist beendet.'));
+      this.laufend.job.fehler(beendetFehler());
       this.laufend = undefined;
     }
     const w = this.worker;
@@ -79,15 +83,15 @@ export class BildRechner {
     if (this.worker) return this.worker;
     // execArgv wird geerbt (in der Entwicklung lädt tsx so auch worker.ts). Grenze für den JS-Speicher des Threads:
     // läuft er voll, endet nur der Thread (ERR_WORKER_OUT_OF_MEMORY), nicht die App.
-    const w = new Worker(this.opts.datei ?? workerDatei(), { resourceLimits: { maxOldGenerationSizeMb: 512 } });
+    const w = new Worker(this.opts.datei ?? workerDatei(), { resourceLimits: { maxOldGenerationSizeMb: MAX_SPEICHER_MB } });
     w.unref();
-    w.on('message', (m: { id: number; ok: boolean; ergebnis?: Ergebnis; fehler?: string; nichtUnterstuetzt?: boolean }) => {
+    w.on('message', (m: { id: number; ok: boolean; ergebnis?: Ergebnis; fehler?: string; nichtUnterstuetzt?: boolean; voruebergehend?: boolean }) => {
       const l = this.laufend;
       if (!l || l.job.id !== m.id) return;
       clearTimeout(l.timer);
       this.laufend = undefined;
       if (m.ok && m.ergebnis) l.job.ok(m.ergebnis);
-      else l.job.fehler(new BildFehler(m.fehler ?? 'Unbekannter Fehler', !!m.nichtUnterstuetzt));
+      else l.job.fehler(new BildFehler(m.fehler ?? 'Unbekannter Fehler', !!m.nichtUnterstuetzt, !!m.voruebergehend));
       this.weiter();
     });
     w.on('error', (err) => this.absturz(w, `Rechen-Thread abgestürzt: ${err.message}`));

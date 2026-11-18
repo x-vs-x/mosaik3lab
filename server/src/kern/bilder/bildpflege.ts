@@ -1,13 +1,14 @@
 // „Bildpflege“: Hintergrund-Aufgabe der Web-App (kein eigener Dienst, nicht im Installer/Update-Schritt).
-// Läuft einmal einige Minuten nach dem Start und für nachgereichte Bilder (Import). Geht alle Druckteil-Bilder durch:
-// erledigte werden schnell übersprungen (Vorschaubilder da, Original ≤ 2000 px), sonst verarbeitet (dienst.ts).
-// Ein Bild zur Zeit mit kurzer Pause, pausiert bei Import/Sicherung, bricht beim Beenden sauber ab und macht beim nächsten
+// Läuft einmal einige Minuten nach dem Start (fehlen viele Vorschaubilder, z. B. nach Update oder Wiederherstellen: nach
+// einer Minute) und für nachgereichte Bilder (Import, Abruf bei belegtem Rechen-Thread). Geht alle Druckteil-Bilder durch:
+// erledigte werden schnell übersprungen (Vorschaubilder da, Original ≤ 2000 px oder schon geprüft), sonst verarbeitet (dienst.ts).
+// Ein Bild zur Zeit mit kurzer Pause, pausiert bei Import/Export/Sicherung, bricht beim Beenden sauber ab und macht beim nächsten
 // Lauf weiter. Fehler bei einem Bild → überspringen und ins Log, die App läuft immer weiter.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { FileStore } from '../files';
 import { BildDienst, istDruckteilBild } from './dienst';
-import { VORSCHAU, VORSCHAU_ORDNER } from './groessen';
+import { GESCHEITERT_ORDNER, VORSCHAU, VORSCHAU_ORDNER } from './groessen';
 import { bildpflegeWartetAuf } from './sperre';
 
 export interface BildpflegeBericht {
@@ -19,6 +20,9 @@ export interface BildpflegeBericht {
   fehler: number;
   aufgeraeumt: number;
 }
+
+/** Ab so vielen fehlenden Vorschaubildern startet die Bildpflege früher. */
+const VIELE_FEHLEN = 10;
 
 const leer = (): BildpflegeBericht => ({ geprueft: 0, verkleinert: 0, vorher: 0, nachher: 0, vorschau: 0, fehler: 0, aufgeraeumt: 0 });
 const mb = (b: number) => `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
@@ -47,11 +51,23 @@ export class Bildpflege {
     private readonly opts: { pauseMs?: number; warteMs?: number; log?: (text: string) => void; warn?: (text: string) => void } = {},
   ) {}
 
-  /** Start-Lauf nach `nachMs` (negativ = nie). Der Timer hält den Prozess nicht am Leben. */
-  planeStart(nachMs: number) {
+  /**
+   * Start-Lauf nach `nachMs` (negativ = nie); fehlen viele Vorschaubilder, schon nach `baldMs`. Der Timer hält den Prozess
+   * nicht am Leben.
+   */
+  async planeStart(nachMs: number, baldMs = 60_000) {
     if (nachMs < 0) return;
-    this.startTimer = setTimeout(() => void this.alle(), nachMs);
+    const warte = (await this.fehlendeVorschau()) >= VIELE_FEHLEN ? Math.min(nachMs, baldMs) : nachMs;
+    if (this.abbruch.signal.aborted) return;
+    this.startTimer = setTimeout(() => void this.alle(), warte);
     this.startTimer.unref();
+  }
+
+  /** Grobe Zahl fehlender Vorschaubilder (Bilder minus Dateien im Ordner „karte“) – ein Verzeichnis lesen, kein stat je Bild. */
+  async fehlendeVorschau(): Promise<number> {
+    const bilder = this.files.listByTyp('artikel').filter(istDruckteilBild).length;
+    const da = (await fs.readdir(path.join(this.files.root, VORSCHAU_ORDNER, VORSCHAU.karte.ordner)).catch(() => [])).length;
+    return Math.max(0, bilder - da);
   }
 
   /** Alle Druckteil-Bilder prüfen (Start-Lauf). Erst aufräumen, dann der Reihe nach. Ergebnis: Ende des Laufs. */
@@ -60,9 +76,9 @@ export class Bildpflege {
     try {
       const bilder = this.files.listByTyp('artikel').filter(istDruckteilBild);
       this.bericht.aufgeraeumt += await this.raeumeAuf(new Set(bilder.map((d) => d.id)));
-      return this.nachholen(bilder.map((d) => d.id));
+      return await this.nachholen(bilder.map((d) => d.id));
     } catch (err) {
-      this.warn(`Bildpflege: Aufräumen fehlgeschlagen – ${(err as Error).message}`);
+      this.warn(`Bildpflege: Lauf fehlgeschlagen – ${(err as Error).message}`);
     }
   }
 
@@ -73,10 +89,15 @@ export class Bildpflege {
     return this.lauf;
   }
 
+  /**
+   * Beenden ohne Warten aufs laufende Bild: erst den Lauf abbrechen, dann den Rechen-Thread sofort beenden (das laufende
+   * Bild scheitert vorübergehend und kommt beim nächsten Start dran), zuletzt auf das Ende des Laufs warten.
+   */
   async beenden() {
     clearTimeout(this.startTimer);
     this.abbruch.abort();
     this.schlange = [];
+    await this.dienst.beenden();
     await this.lauf?.catch(() => undefined);
   }
 
@@ -98,7 +119,7 @@ export class Bildpflege {
       if (!d || !istDruckteilBild(d)) continue;
       this.bericht.geprueft++;
       try {
-        if (this.dienst.istGescheitert(d) || (await this.dienst.erledigt(d))) continue;
+        if ((await this.dienst.istGescheitert(d)) || (await this.dienst.erledigt(d))) continue;
         const r = await this.dienst.verarbeite(d, 'hintergrund');
         this.bericht.vorschau += r.vorschauNeu;
         if (r.verkleinert) {
@@ -120,11 +141,11 @@ export class Bildpflege {
     else if (b.geprueft || b.aufgeraeumt) this.log(berichtText(b, Date.now() - t0));
   }
 
-  /** Während Import/Sicherung warten (abfragen alle 30 s), beim Beenden sofort zurück. */
+  /** Während Import/Export/Sicherung warten (abfragen alle 30 s), beim Beenden sofort zurück. */
   private async warteBisFrei() {
     let gemeldet = false;
     for (let grund = bildpflegeWartetAuf(this.files.root); grund && !this.abbruch.signal.aborted; grund = bildpflegeWartetAuf(this.files.root)) {
-      if (!gemeldet) this.log(`Bildpflege: wartet, bis ${grund === 'Import' ? 'der Import' : 'die Sicherung'} fertig ist.`);
+      if (!gemeldet) this.log(`Bildpflege: wartet, bis ${grund === 'Austausch' ? 'Import bzw. Export' : 'die Sicherung'} fertig ist.`);
       gemeldet = true;
       await pause(this.opts.warteMs ?? 30_000, this.abbruch.signal);
     }
@@ -143,6 +164,11 @@ export class Bildpflege {
     }
     for (const o of ordner) {
       const p = path.join(wurzel, o);
+      if (o === GESCHEITERT_ORDNER) {
+        // Merker gelöschter Bilder entfernen
+        for (const f of await fs.readdir(p).catch(() => [] as string[])) if (!bekannt.has(f)) await fs.rm(path.join(p, f), { force: true });
+        continue;
+      }
       if (!aktuell.has(o)) {
         n += (await fs.readdir(p).catch(() => [])).length;
         await fs.rm(p, { recursive: true, force: true, maxRetries: 3 });
