@@ -73,7 +73,9 @@ export class UserRepository {
   }
 
   /** Schreibt Konto + Druck-Team-Bereiche (Einfügen oder Aktualisieren). */
-  save(u: User) {
+  save(entity: User) {
+    // Wie bei Lehrkräften: E-Mail immer klein speichern – findByEmail sucht klein.
+    const u = { ...entity, email: entity.email ? entity.email.trim().toLowerCase() : entity.email };
     this.assertUnique(u);
     run(
       this.db,

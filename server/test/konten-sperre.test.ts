@@ -1,8 +1,10 @@
-// Kontosperre bei gleichzeitigen Fehlversuchen (eigene Datei: eigener Server, damit die Login-Bremse je IP aus
+// Konten: E-Mail-Schreibweise und Kontosperre bei gleichzeitigen Fehlversuchen (eigene Datei: eigener Server, damit die Login-Bremse je IP aus
 // konten.test.ts hier nicht mitzählt).
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { after, test } from 'node:test';
+import { newId } from '../src/domain/ids';
+import { hashPassword } from '../src/kern/auth/password';
 import { openDb } from '../src/kern/db';
 import { Client, mail, mailConfig, personMitRechten, pw, SCHOOL, sentMails, startServer, TEST_PASSWORT, writeMailFile } from './helfer';
 
@@ -71,4 +73,21 @@ test('Abgelaufene Sperre: gleichzeitige Fehlversuche beginnen bei 1 und zählen 
   assert.deepEqual(antworten.map((a) => a.status), [401, 401]);
   assert.equal(stand(email).fehlversuche, 2);
   assert.equal(stand(email).gesperrt_seit, null);
+});
+
+test('Konto mit Großbuchstaben in der E-Mail wird klein gespeichert und kann sich anmelden', async () => {
+  const id = newId();
+  await srv.storage.users.create({
+    id, username: 'gross.schreibung', email: '  Gross.Schreibung@Schule.Example ', displayName: 'Groß', role: 'druckteam',
+    passwordHash: await hashPassword('Gross-Passwort-1'), active: true, isDemo: false,
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), lastLoginAt: null, teamBereiche: [], fehlversuche: 0,
+  });
+  assert.equal((await srv.storage.users.findById(id))?.email, `gross.schreibung@${SCHOOL}`);
+  assert.equal((await srv.storage.users.findByEmail('GROSS.schreibung@schule.example'))?.id, id);
+  // Doppelte Adresse in anderer Schreibweise wird erkannt.
+  await assert.rejects(
+    srv.storage.users.create({ ...(await srv.storage.users.findById(id))!, id: newId(), username: 'gross.zwei', email: 'GROSS.SCHREIBUNG@schule.example' }),
+    /bereits zu einem anderen Konto/,
+  );
+  assert.equal((await new Client(srv.base).login('Gross.Schreibung@schule.example', 'Gross-Passwort-1')).status, 200);
 });
