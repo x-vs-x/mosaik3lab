@@ -140,6 +140,7 @@ async function draftItem(storage: Storage, p: Proposal, itemId: string, images: 
     materialInfo: '',
     printTimeMinutes: 60,
     safetyNotes: [],
+    links: [],
     images,
     modelFiles: [],
     published: false,

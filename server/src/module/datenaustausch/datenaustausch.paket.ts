@@ -46,6 +46,8 @@ const artikelS = z.object({
   materialInfo: z.string().max(5000).default(''),
   printTimeMinutes: z.number().default(1),
   safetyNotes: z.array(z.string().max(1000)).max(100).default([]),
+  // Link-Knöpfe (Migration 018); ältere Dateien haben keine. Geprüft wird beim Einspielen über itemInputSchema.
+  links: z.array(z.object({ id: z.string().max(64).default(''), text: z.string().max(300), beschreibung: z.string().max(2000).default(''), url: z.string().max(2000) })).max(200).default([]),
   published: z.boolean().default(false),
   isDemo: z.boolean().default(false),
   createdAt: z.string().max(40).default(''),

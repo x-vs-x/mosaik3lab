@@ -11,6 +11,13 @@ daraus die nächste Version.
   hochladen. Neu unter Verwaltung → Druckteile: „Bilder verkleinern …“ verkleinert einmalig alle vorhandenen Bilder –
   das macht Exporte deutlich kleiner und den Katalog auf dem Handy schneller.
 
+- **Links am Druckteil:** Beim Anlegen und Bearbeiten eines Druckteils gibt es den neuen Abschnitt „Links und
+  Bestellhinweise“. Jeder Link bekommt einen Knopftext und eine kurze Beschreibung und erscheint auf der Seite des
+  Druckteils als Knopf, z. B. „Taster-Beispiel“ mit dem Link zu einem Elektroteil, das man dazu bestellen muss. Die Links
+  kommen beim Exportieren und Einspielen mit.
+- **Links in der Beschreibung sind anklickbar:** Adressen mit `https://`, `http://` oder `www.` in der Beschreibung und
+  den Materialinformationen öffnen sich in einem neuen Tab.
+
 - **Katalog:** Wer ein Druckteil öffnet und zurückgeht, landet wieder auf derselben Höhe im Katalog statt ganz oben –
   mit der Zurück-Taste oder -Geste, mit „Zurück zum Katalog“ und über die Navigation, auch mit Suche und Filtern.
 

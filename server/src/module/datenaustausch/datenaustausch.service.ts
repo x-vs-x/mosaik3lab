@@ -76,7 +76,7 @@ interface Ergebnis {
 }
 
 /** Vergleichswert eines Druckteils (ohne technische IDs von Dateien, mit Prüfsummen der Dateien). */
-function fingerabdruck(i: Pick<Item, 'name' | 'shortDescription' | 'description' | 'category' | 'kind' | 'useAreas' | 'sizes' | 'colorAreas' | 'price' | 'customFields' | 'material' | 'materialInfo' | 'printTimeMinutes' | 'safetyNotes' | 'published'>, videos: { title: string; url: string; sha: string }[], dateien: { rolle: string; sha: string }[] | null, farben: (a: ColorArea) => unknown) {
+function fingerabdruck(i: Pick<Item, 'name' | 'shortDescription' | 'description' | 'category' | 'kind' | 'useAreas' | 'sizes' | 'colorAreas' | 'price' | 'customFields' | 'material' | 'materialInfo' | 'printTimeMinutes' | 'safetyNotes' | 'links' | 'published'>, videos: { title: string; url: string; sha: string }[], dateien: { rolle: string; sha: string }[] | null, farben: (a: ColorArea) => unknown) {
   return JSON.stringify({
     n: i.name,
     k: i.shortDescription,
@@ -92,6 +92,7 @@ function fingerabdruck(i: Pick<Item, 'name' | 'shortDescription' | 'description'
     mi: i.materialInfo,
     t: i.printTimeMinutes,
     s: i.safetyNotes,
+    l: i.links.map((l) => [l.text, l.beschreibung, l.url]),
     v: i.published,
     vid: videos.map((v) => [v.title, v.url, v.sha]),
     d: dateien,
@@ -252,6 +253,7 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
       materialInfo: a.materialInfo,
       printTimeMinutes: a.printTimeMinutes,
       safetyNotes: a.safetyNotes,
+      links: a.links,
       published: a.published,
     });
     if (!parsed.success) {
@@ -385,6 +387,7 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
       materialInfo: data.materialInfo,
       printTimeMinutes: data.printTimeMinutes,
       safetyNotes: data.safetyNotes,
+      links: data.links,
       images: paket.mitDateien ? bild.sort((x, y) => x.sort - y.sort).map((b) => b.name) : (aktuell?.images ?? []),
       modelFiles: paket.mitDateien ? modelle : (aktuell?.modelFiles ?? []),
       published: data.published,

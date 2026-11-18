@@ -92,6 +92,35 @@ test('Druck-Team legt Druckteil an (mit Validierung)', async () => {
   assert.deepEqual(r.json.colors, ['bambu-pla-basic-red', 'bambu-pla-basic-cyan'], 'doppelte Werte werden entfernt');
   newItem = r.json;
 });
+test('Link-Knöpfe werden gespeichert und gelesen; nur http(s)-Links', async () => {
+  const body = {
+    name: 'Teil mit Links', shortDescription: 'Kurzbeschreibung für den Link-Test.', category: 'Sonstiges',
+    colors: ['bambu-pla-basic-red'], material: 'PLA', printTimeMinutes: 20, published: true,
+  };
+  const ohne = await team.req('POST', '/api/items', body);
+  assert.equal(ohne.status, 201, JSON.stringify(ohne.json));
+  assert.deepEqual(ohne.json.links, [], 'ohne Angabe: keine Links');
+  const links = [
+    { id: '', text: 'Taster-Beispiel', beschreibung: 'Bitte vorher bestellen', url: 'https://shop.example.org/taster' },
+    { id: '', text: 'Bestellliste', url: 'http://schule.example.org/liste' },
+  ];
+  const r = await team.req('PUT', `/api/items/${ohne.json.id}`, { ...body, links });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const gelesen = (await teacher.req('GET', `/api/items/${ohne.json.id}`)).json.links;
+  assert.deepEqual(gelesen.map((l: { text: string; beschreibung: string; url: string }) => [l.text, l.beschreibung, l.url]), [
+    ['Taster-Beispiel', 'Bitte vorher bestellen', 'https://shop.example.org/taster'],
+    ['Bestellliste', '', 'http://schule.example.org/liste'],
+  ]);
+  assert.ok(gelesen.every((l: { id: string }) => l.id.length > 0), 'der Server vergibt IDs');
+  for (const url of ['javascript:alert(1)', 'ftp://example.org/x', 'kein Link']) {
+    const bad = await team.req('PUT', `/api/items/${ohne.json.id}`, { ...body, links: [{ text: 'Böse', url }] });
+    assert.equal(bad.status, 400, url);
+  }
+  const ohneText = await team.req('PUT', `/api/items/${ohne.json.id}`, { ...body, links: [{ text: '', url: 'https://example.org' }] });
+  assert.equal(ohneText.status, 400, 'Knopftext ist Pflicht');
+  await team.req('DELETE', `/api/items/${ohne.json.id}`);
+});
+
 test('Art (Hilfsmittel/Lehrmittel/beides) wird gespeichert und im Katalog filterbar', async () => {
   assert.equal(newItem.kind, 'hilfsmittel', 'Standard-Art');
   const bad = await team.req('PUT', `/api/items/${newItem.id}`, { ...newItem, kind: 'sonstiges' });
