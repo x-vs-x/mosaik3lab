@@ -16,12 +16,14 @@ const datumDeutsch = (d: string) => (/^\d{4}-\d{2}-\d{2}$/.test(d) ? d.split('-'
  * Schließen ohne „Gelesen“ ist erlaubt – dann kommt das Fenster beim nächsten Laden wieder.
  */
 export function NeuigkeitenDialog() {
-  const { user } = useAuth();
-  const { data } = useApi<Neuigkeiten>(user?.role === 'admin' ? `/neuigkeiten?u=${user.id}` : null);
+  const { user, can } = useAuth();
+  // Wie der Server (neuigkeiten.routes.ts): Prüfpunkt settings:manage – hat nur der Administrator.
+  const darf = !!user && can('settings:manage');
+  const { data } = useApi<Neuigkeiten>(darf ? `/neuigkeiten?u=${user.id}` : null);
   const [geschlossen, setGeschlossen] = useState(false);
   const [speichert, setSpeichert] = useState(false);
 
-  if (!data?.anzeigen || user?.role !== 'admin') return null;
+  if (!data?.anzeigen || !darf) return null;
 
   const gelesen = async () => {
     setSpeichert(true);
