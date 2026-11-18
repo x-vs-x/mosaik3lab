@@ -7,7 +7,7 @@ import { bilderVerkleinern } from '../../../lib/bildVerkleinern';
 import type { Item } from '../../../lib/types';
 
 /** Fortschritt beim Hochladen: erst die Übertragung, danach – bei Bildern – das Erzeugen der Vorschaubilder auf dem Server. */
-export function uploadStatus(kind: 'images' | 'models', anteil: number | null) {
+export function uploadStatus(kind: 'images' | 'models' | 'videos', anteil: number | null) {
   if (anteil === null) return '';
   if (anteil < 1) return `Wird hochgeladen … ${Math.round(anteil * 100)} %`;
   return kind === 'images' ? 'Vorschau wird erzeugt … bitte warten' : 'Wird gespeichert … bitte warten';

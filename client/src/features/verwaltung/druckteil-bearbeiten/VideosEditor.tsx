@@ -1,11 +1,11 @@
 import { Link2, Trash2, Upload, Video } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useToast } from '../../../components/Toast';
 import { Button, Field, Input } from '../../../components/ui';
-import { api, ApiError, videoUrl } from '../../../lib/api';
+import { api, apiUpload, ApiError, UPLOAD_ABGEBROCHEN, videoUrl } from '../../../lib/api';
 import { formatBytes, formatDate } from '../../../lib/format';
 import type { Item } from '../../../lib/types';
-import { FilePicker } from './FilePicker';
+import { FilePicker, uploadStatus } from './FilePicker';
 import { MAX_VIDEOS } from './itemForm';
 
 /** Videos: Datei hochladen (MP4/WebM, ohne Autoplay angezeigt) oder Link hinterlegen. */
@@ -16,6 +16,9 @@ export function VideosEditor({ item, onChange }: { item: Item; onChange: (i: Ite
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [linkError, setLinkError] = useState<string>();
+  // Video-Upload: Fortschritt und Abbrechen wie bei Bildern (Videos sind die größten Dateien im schwachen WLAN).
+  const [anteil, setAnteil] = useState<number | null>(null);
+  const hochladen = useRef<AbortController | undefined>(undefined);
   const videos = item.videos ?? [];
   const full = videos.length >= MAX_VIDEOS;
 
@@ -29,6 +32,7 @@ export function VideosEditor({ item, onChange }: { item: Item; onChange: (i: Ite
       setLinkError(undefined);
       return true;
     } catch (err) {
+      if (err instanceof ApiError && err.message === UPLOAD_ABGEBROCHEN) return false; // selbst abgebrochen
       const message = err instanceof ApiError ? (err.fields.url ?? err.message) : 'Speichern fehlgeschlagen.';
       toast('error', message);
       return false;
@@ -43,7 +47,13 @@ export function VideosEditor({ item, onChange }: { item: Item; onChange: (i: Ite
     const fd = new FormData();
     fd.append('title', title.trim());
     fd.append('file', file);
-    run(() => api<Item>(`/items/${item.id}/videos`, { method: 'POST', form: fd }), 'Video hochgeladen.');
+    const ctrl = new AbortController();
+    hochladen.current = ctrl;
+    setAnteil(0);
+    void run(() => apiUpload<Item>(`/items/${item.id}/videos`, fd, setAnteil, { signal: ctrl.signal }), 'Video hochgeladen.').finally(() => {
+      hochladen.current = undefined;
+      setAnteil(null);
+    });
   };
 
   const addLink = () => {
@@ -115,6 +125,8 @@ export function VideosEditor({ item, onChange }: { item: Item; onChange: (i: Ite
             label="Video hochladen"
             hint="MP4 oder WebM · max. 50 MB · ein Video pro Upload"
             uploading={busy}
+            status={uploadStatus('videos', anteil)}
+            onAbbrechen={anteil !== null ? () => hochladen.current?.abort() : undefined}
             onFiles={uploadFile}
             icon={Upload}
             multiple={false}

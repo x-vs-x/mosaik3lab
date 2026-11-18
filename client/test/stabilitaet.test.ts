@@ -135,3 +135,15 @@ test('shared/werte: ohne zod, und die bisherigen Dateien exportieren alles wiede
     for (const [name, wert] of Object.entries(werte)) assert.equal(alt[name], wert, `${bereich}: ${name} fehlt in der alten Datei`);
   }
 });
+
+test('Video-Upload: über apiUpload (Wächter, Abbrechen) mit Fortschrittsanzeige wie bei Bildern', async () => {
+  const { uploadStatus } = await import('../src/features/verwaltung/druckteil-bearbeiten/FilePicker.tsx');
+  assert.equal(uploadStatus('videos', null), '');
+  assert.equal(uploadStatus('videos', 0.42), 'Wird hochgeladen … 42 %');
+  assert.equal(uploadStatus('videos', 1), 'Wird gespeichert … bitte warten');
+  const { readFileSync } = await import('node:fs');
+  const quelle = readFileSync(new URL('../src/features/verwaltung/druckteil-bearbeiten/VideosEditor.tsx', import.meta.url), 'utf8');
+  assert.match(quelle, /apiUpload<Item>\(`\/items\/\$\{item\.id\}\/videos`, fd, setAnteil, \{ signal: ctrl\.signal \}\)/);
+  assert.match(quelle, /onAbbrechen=/);
+  assert.doesNotMatch(quelle, /form: fd/, 'kein Upload mehr über api() ohne Zeitgrenze');
+});
