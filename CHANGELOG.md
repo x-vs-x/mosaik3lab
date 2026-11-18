@@ -6,6 +6,21 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Kontosperre zählt jeden falschen Versuch:** Kamen mehrere falsche Passwörter gleichzeitig an, zählte die Sperre nach
+  zehn Fehlversuchen nur einen davon. Jetzt zählt jeder; eine gerade gesetzte Sperre wird nicht wieder aufgehoben.
+- **Vorschlag mit Fotos: Fortschritt und „Senden abbrechen“:** Beim Senden eines Vorschlags mit Fotos zeigt die Seite
+  „Wird gesendet … %“, bricht bei abgerissener Verbindung von selbst ab statt endlos zu laden und lässt sich abbrechen –
+  die Angaben bleiben stehen.
+- **Farbrollen umbenennen ohne Farbverlust:** Wählt ein Druckteil eine ganze Linie (z. B. „alle Farben von Werkstatt PLA
+  Matt“) und wird bei eigenen Farbrollen Marke oder Linie umbenannt, folgt die Auswahl im Druckteil jetzt mit. Vorher boten
+  solche Druckteile diese Farben ohne Hinweis nicht mehr an.
+- **Suche über die Schnittstelle wie im Katalog:** Anfragen- und Vorschlagsliste finden „Muller“ auch bei „Müller“ und
+  verstehen mehrere Suchwörter in beliebiger Reihenfolge.
+- **Bilder und Druckdateien:** Zwei gleichzeitige Uploads können die Höchstzahl je Druckteil nicht mehr überschreiten;
+  abgelehnte oder abgebrochene Uploads hinterlassen keine Dateien in der Ablage.
+- **Schneller beim Start und beim Löschen von Stammdaten:** Zwei Start-Prüfungen aus der Zeit vor der Datenbank entfallen;
+  neue Indizes (Datenbank-Migration 021, nur Indizes, keine Datenänderung, vorher automatische Sicherung).
+
 ## [1.7.0] – 2026-11-18
 
 - **Anzeige auf Handy, iPad und bei großer Schrift überarbeitet:** Alle Seiten, Dialoge und Meldungen – auch der

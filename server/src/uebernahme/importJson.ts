@@ -1,18 +1,18 @@
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { newId, UUID_PATTERN } from '../../domain/ids';
-import { MIME_BY_EXT } from '../../domain/objekttypen';
-import { isCatalogStatus, LEGACY_STATUS_MAP } from '../../domain/orderStatuses';
-import { initialStatus } from '../../domain/settings';
-import type { Item, Order } from '../../domain/types';
+import { newId, UUID_PATTERN } from '../kern/ids';
+import { MIME_BY_EXT } from '../kern/objekttypen';
+import { isCatalogStatus, LEGACY_STATUS_MAP } from '../module/stammdaten/orderStatuses';
+import { ANFANGSSTATUS } from '../module/einstellungen/einstellungen.vorgaben';
+import { productDefaults, type Item } from '../domain/types';
+import { type Order } from '@mosaik3lab/shared/anfragen';
 import { STANDARD_BEREICHE, TEAM_BEREICHE } from '@mosaik3lab/shared/konten';
-import { productDefaults } from '../../seed/migrateProductData';
-import { dateiName, sha256, type Datei, type FileStore } from '../../kern/files';
-import { hasLegacyData, readLegacyData } from '../json/legacyJson';
-import { transaction, type Db } from '../../kern/db';
-import { nextNumber } from '../../kern/db';
-import type { Storage } from '../repositories';
+import { dateiName, SAFE_ID, sha256, type Datei, type FileStore } from '../kern/files';
+import { hasLegacyData, readLegacyData } from './legacyJson';
+import { transaction, type Db } from '../kern/db';
+import { nextNumber } from '../kern/db';
+import type { Storage } from '../storage/repositories';
 
 // Einmalige Übernahme der bisherigen JSON-Daten und Upload-Ordner in Datenbank und neue Ablagestruktur.
 // Idempotent: das Ergebnis steht in einstellung „json_uebernahme“ – danach läuft sie nie wieder.
@@ -94,9 +94,9 @@ export async function importLegacyJson(
   report.gelesen = data.gelesen;
   const hint = (t: string) => report.hinweise.push(t);
 
-  // 1) Ältere Datenstände vereinheitlichen (wie migrateLegacyStatuses/migrateProductData es beim Start täten),
+  // 1) Ältere Datenstände vereinheitlichen (Status auf die feste Liste, fehlende Produktdaten ergänzen),
   //    damit Fremdschlüssel (z. B. Status) passen.
-  const fallback = initialStatus(data.settings.masterData);
+  const fallback = ANFANGSSTATUS;
   const fixStatus = (s: string) => (isCatalogStatus(s) ? s : (data.settings.statusAliases[s] ?? LEGACY_STATUS_MAP[s] ?? fallback));
   const items: Item[] = data.items.map((i) => {
     const d = productDefaults(i.colors ?? []);
@@ -128,7 +128,7 @@ export async function importLegacyJson(
   const written: string[] = [];
   const usedIds = new Set<string>();
   const takeId = (wanted: string | undefined) => {
-    const id = wanted && /^[A-Za-z0-9_-]{1,64}$/.test(wanted) && !usedIds.has(wanted) ? wanted : newId();
+    const id = wanted && SAFE_ID.test(wanted) && !usedIds.has(wanted) ? wanted : newId();
     usedIds.add(id);
     return id;
   };

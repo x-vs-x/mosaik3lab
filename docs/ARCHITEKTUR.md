@@ -116,11 +116,11 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
   (`storage/index.ts`, Typ in `storage/repositories.ts`). Einzelzugriffe und Filter laufen als gezielte Abfrage
   (`WHERE`, Indizes aus Migration 008), Zählungen per SQL – nicht „ganze Tabelle laden und in JS filtern“. `update(id, change)` läuft synchron in einer
   Transaktion (lesen → ändern → schreiben), Kindzeilen behalten beim Abgleich ihre ID.
-- **IDs/Nummern:** `newId()` (`domain/ids.ts`, UUID v7) für neue Datensätze; Nummernkreise (`domain/objekttypen.ts`
+- **IDs/Nummern:** `newId()` (`kern/ids.ts`, UUID v7) für neue Datensätze; Nummernkreise (`kern/objekttypen.ts`
   → `NUMMERNKREISE`, Tabelle `nummernkreis`): `ANF-JJJJ-NNNN`, `ART-NNNN`, `VOR-JJJJ-NNNN`. `Item.number` ist neu (lesend).
 - **Dateien:** `storage.files` (`FileStore`, `kern/files.ts`): `save({ objekttyp, objektId, rolle, buffer, ext, … })`
   schreibt nach `<ablage>/<objekttyp>/<objekt-id>/<rolle>/<datei-id>.<endung>` und legt den Datensatz an.
-  Objekttypen und Rollen nur in `domain/objekttypen.ts` (+ CHECK in der Migration). `Item.images`,
+  Objekttypen und Rollen nur in `kern/objekttypen.ts` (+ CHECK in der Migration). `Item.images`,
   `modelFiles`, `videos[].file` werden aus `datei` abgeleitet (öffentlicher Name `<datei-id>.<endung>`); was beim
   Speichern eines Artikels nicht mehr darin steht, wird samt Datei gelöscht (erst DB, dann Datei).
   Auslieferung nur über `/api/files/…` mit Rechteprüfung anhand des Datensatzes.
@@ -143,7 +143,7 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
     weiter. Log: „Bildpflege: 22 Bilder geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder erzeugt (…)“.
   - **Client:** `ItemImage` mit `groesse` (`karte` Katalogkarte, `mini` kleine Vorschauen, `original` Galerie) und
     `sizes`; `client/src/lib/bildQuellen.ts` baut `srcset` (mini 360w, karte 1080w, Original 2000w als oberste Stufe; der Browser nimmt die kleinste ausreichende Fassung).
-- **Übernahme JSON → SQLite** (`storage/sqlite/importJson.ts`): einmalig beim Start, Ergebnis in
+- **Übernahme JSON → SQLite** (`uebernahme/importJson.ts`): einmalig beim Start, Ergebnis in
   `einstellung` „json_uebernahme“ (Anzahlen, Dateien, Hinweise). JSON-Dateien und alte Upload-Ordner bleiben liegen.
   Früher in der App eingestellte Ordner (`mosaik3lab.config.json` in der Projektwurzel) gelten dabei als Quelle;
   danach wird die Datei gesichert (`….vor-ablage-umzug-<zeit>.bak`) und entfernt (`retirePathConfig`).
@@ -154,7 +154,7 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
 
 ```
 server/src/
-  domain/        types.ts (Server-Sicht der Entitäten), settings.ts (Stammdaten/Einstellungen), permissions.ts (Rechte-Prüfung), orderStatuses.ts (Status-Migration), bambuPalette.ts, ids.ts (UUID v7), objekttypen.ts (Objekttypen, Datei-Rollen, Nummernkreise)
+  domain/        types.ts (Server-Sicht der Entitäten: Passwort-Hash, Ablagename), bambuKatalog.ts/.json (mitgelieferter Bambu-Lab-Katalog) – Rest seit 1.7.x bei den Bereichen: Rechte `module/konten/rechte.ts`, Vorgaben `module/einstellungen/einstellungen.vorgaben.ts`, Status `module/stammdaten/orderStatuses.ts`; `kern/ids.ts` (UUID v7), `kern/objekttypen.ts` (Objekttypen, Datei-Rollen, Nummernkreise)
   module/<bereich>/   je Fachbereich: <bereich>.routes.ts (nur parsen → Service → antworten),
                       <bereich>.service.ts (Regeln), <bereich>.repository.ts (SQLite-Zugriff)
     katalog/          Druckteile, Bilder/Videos/Druckdateien, /api/items + /api/files
@@ -171,10 +171,12 @@ server/src/
                  mail/ (SMTP-Versand, Mail-Einstellungen, Vorlagen-Hilfen), uploads.ts, rateLimit.ts, errors.ts, http.ts,
                  bilder/ (Bildverarbeitung, siehe „Bilder und Bildpflege“)
   storage/       index.ts (Speicher zusammenbauen, Sperrdatei), repositories.ts (Typ `Storage`),
-                 sqlite/migrations/ (global nummeriert, fester Ort – der Server-Manager liest sie dort),
-                 sqlite/importJson.ts + json/ (einmalige Übernahme der alten JSON-Daten)
-  seed/          Beispieldaten und Start-Migrationen (nutzt Services/Repositories, nie Routen)
-  app.ts, index.ts, config.ts, bootstrapConfig.ts, basePath.ts
+                 sqlite/migrations/ (global nummeriert, fester Ort – der Server-Manager liest sie dort)
+  uebernahme/    alles für Datenstände aus der Zeit vor SQLite (kann mit einer späteren Hauptversion weg): importJson.ts +
+                 legacyJson.ts (einmalige Übernahme der JSON-Daten), betriebsdateien.ts (mail.json, settings.json → mail,
+                 .session-secret), bootstrapConfig.ts (alte mosaik3lab.config.json mit Ablagepfaden)
+  seed/          Beispieldaten und migrateUserEmails (Konten ohne E-Mail; nutzt Services/Repositories, nie Routen)
+  app.ts, index.ts, config.ts, basePath.ts
 server/scripts/  Skripte (tsx); bundle.ts bündelt für das Installer-Paket nach server/dist/ (siehe unten)
 client/src/
   lib/           api.ts, types.ts (Sammel-Export der Typen aus shared/), config.tsx (ConfigProvider/useMasterData), constants.ts (Farben/Symbole/Helfer), format.ts, useApi.ts
@@ -216,7 +218,7 @@ Import z. B. `import { itemInputSchema } from '@mosaik3lab/shared/katalog'`.
 
 Typen entstehen per `z.infer` aus den Eingabe-Schemas; Felder, die nur der Server vergibt (ID, Nummer, Zeitstempel),
 kommen per `&` dazu. Reine Antwort-Typen ohne Eingabe (z. B. `Order`) stehen dort als `interface`. Nur Server-intern
-bleiben `server/src/domain/types.ts` (Passwort-Hash, Ablagename der Druckdateien) und die Prüf-Logik in `permissions.ts`.
+bleiben `server/src/domain/types.ts` (Passwort-Hash, Ablagename der Druckdateien) und die Prüf-Logik in `module/konten/rechte.ts`.
 Der Client sammelt die Typen in `client/src/lib/types.ts` (nur Re-Exporte). Export/Import (`stammdatenImport.ts`) prüft
 Artikel mit `itemInputSchema` und Stammdaten mit `masterDataSchemas`; das Paketformat selbst bleibt dort bewusst nachsichtig.
 zod läuft dadurch auch im Client-Bundle mit (≈ 15 KB gzip).
@@ -364,4 +366,4 @@ weggelassen (Hinweis); Druckteile mit ungültigen Angaben werden mit Grund über
 - Weitere Status: in `STATUS_CATALOG` (`shared/src/anfragen.ts`) ergänzen, dazu ein Symbol in `client/src/lib/constants.ts` (sonst Symbol der Phase).
 - Statusanzeige für Lehrkräfte: `features.requesterTracking` einschalten (Backend + `MyOrdersPage` vorhanden).
 - Datenbank: neue Tabelle/Spalte = neue Migration `server/src/storage/sqlite/migrations/NNN_name.sql` + Abbildung im
-  Repository des Bereichs (`module/<bereich>/<bereich>.repository.ts`). Neue Dateiart: Objekttyp/Rolle in `domain/objekttypen.ts` (+ CHECK per Migration).
+  Repository des Bereichs (`module/<bereich>/<bereich>.repository.ts`). Neue Dateiart: Objekttyp/Rolle in `kern/objekttypen.ts` (+ CHECK per Migration).

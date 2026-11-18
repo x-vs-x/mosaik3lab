@@ -2,18 +2,6 @@
 // Typen, Listen und Schemas: shared/src/vorschlaege.ts.
 import type { OwnProposal, Proposal } from '@mosaik3lab/shared/vorschlaege';
 
-export {
-  MAX_PROPOSAL_LINKS,
-  MAX_PROPOSAL_PHOTOS,
-  PROPOSAL_STATUSES,
-  PROPOSAL_STATUS_LABELS,
-  PROPOSAL_URGENCIES,
-  PROPOSAL_URGENCY_LABELS,
-  type Proposal,
-  type ProposalStatus,
-  type ProposalUrgency,
-} from '@mosaik3lab/shared/vorschlaege';
-
 /** Sicht der Lehrkraft auf ihren Vorschlag – ohne interne Felder. */
 export function toOwnProposal(p: Proposal): OwnProposal {
   return {

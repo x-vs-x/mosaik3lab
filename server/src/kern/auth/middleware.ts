@@ -1,7 +1,9 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { forbidden, unauthorized } from '../errors';
-import { permissionsForRequester, permissionsForUser, type Permission } from '../../domain/permissions';
-import type { Requester, User } from '../../domain/types';
+import { permissionsForRequester, permissionsForUser } from '../../module/konten/rechte';
+import { type Permission } from '@mosaik3lab/shared/konten';
+import type { Requester } from '@mosaik3lab/shared/anfragen';
+import type { User } from '../../domain/types';
 import type { Storage } from '../../storage';
 
 declare module 'express-session' {

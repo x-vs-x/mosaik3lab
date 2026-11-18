@@ -34,6 +34,7 @@ export function readPathConfig(rootDir: string): PathConfig {
 export function retirePathConfig(rootDir: string): string | undefined {
   const file = configFilePath(rootDir);
   if (!fs.existsSync(file)) return undefined;
+  // Zeitstempel hier selbst (stamp() aus kern/db ginge nicht: config.ts lädt diese Datei, kern/db wiederum config.ts).
   const backup = `${file}.vor-ablage-umzug-${new Date().toISOString().replace(/[:.]/g, '-')}.bak`;
   fs.copyFileSync(file, backup);
   fs.rmSync(file);

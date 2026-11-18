@@ -8,8 +8,8 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { createApp } from '../src/app';
 import { loadConfig } from '../src/config';
-import { uuidv7 } from '../src/domain/ids';
-import { nummerText } from '../src/domain/objekttypen';
+import { uuidv7 } from '../src/kern/ids';
+import { nummerText } from '../src/kern/objekttypen';
 import { currentBootTime, lockContent, lockHolder } from '../src/kern/lock';
 import { listMigrations, migrate, openDb, schemaVersion, transaction } from '../src/kern/db';
 import { baseItem, MP4, now, PNG, SCHOOL, sha, STL, storageAt, tmp } from './helfer';
@@ -260,6 +260,44 @@ test('Sperrdatei: PID + Systemstart – veraltete Sperre nach Neustart wird erka
     await fs.writeFile(path.join(dir, 'data', '.lock'), `${process.ppid} ${boot}`);
     await assert.rejects(() => storageAt(dir), /wird bereits von einem anderen Serverprozess/);
   } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('transaction: hat SQLite schon selbst zurückgerollt, kommt der ursprüngliche Fehler an (nicht „no transaction is active“)', async () => {
+  const dir = await tmp('tx');
+  const db = openDb(path.join(dir, 'tx.db'));
+  try {
+    db.exec('CREATE TABLE t (x INTEGER)');
+    const echt = new Error('Platte voll (Test)');
+    assert.throws(
+      () =>
+        transaction(db, () => {
+          db.exec('INSERT INTO t VALUES (1)');
+          db.exec('ROLLBACK'); // wie SQLite bei SQLITE_FULL: Transaktion ist schon weg
+          throw echt;
+        }),
+      (err) => err === echt,
+    );
+    assert.equal(db.isTransaction, false);
+    // Verschachtelt: Savepoint schon weg → ebenfalls der ursprüngliche Fehler, die äußere Transaktion rollt sauber zurück.
+    assert.throws(
+      () =>
+        transaction(db, () => {
+          db.exec('INSERT INTO t VALUES (2)');
+          transaction(db, () => {
+            db.exec('ROLLBACK');
+            throw echt;
+          });
+        }),
+      (err) => err === echt,
+    );
+    assert.equal((db.prepare('SELECT COUNT(*) AS n FROM t').get() as { n: number }).n, 0);
+    // Normaler Fehler: zurückgerollt, Fehler kommt an.
+    assert.throws(() => transaction(db, () => { db.exec('INSERT INTO t VALUES (3)'); throw new Error('fachlich'); }), /fachlich/);
+    assert.equal((db.prepare('SELECT COUNT(*) AS n FROM t').get() as { n: number }).n, 0);
+  } finally {
+    db.close();
     await fs.rm(dir, { recursive: true, force: true });
   }
 });

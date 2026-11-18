@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readPathConfig } from './bootstrapConfig';
+import { readPathConfig } from './uebernahme/bootstrapConfig';
 import { normalizeBasePath } from './basePath';
 import { APP_VERSION } from './kern/version';
 
@@ -26,7 +26,7 @@ export interface AppConfig {
   imagesDir: string;
   modelsDir: string;
   videosDir: string;
-  /** Größtes erlaubtes Stammdaten-Importpaket in Bytes (IMPORT_MAX_MB, Standard 1024). */
+  /** Größtes erlaubtes Importpaket für Druckteile (Datenaustausch) in Bytes (IMPORT_MAX_MB, Standard 1024). */
   importMaxBytes: number;
   /** Basis-Pfad der App („“ = unter /, sonst z. B. /mosaik3lab) – BASE_PATH, vom Server-Manager gesetzt. */
   basePath: string;
@@ -61,7 +61,7 @@ export function dataRoot(): string {
 }
 
 /** Standardordner, wenn nichts anderes eingestellt ist: <Wurzel>\daten und <Wurzel>\ablage. Mit STORAGE_DIR liegt die Ablage darin. */
-export function defaultPaths(_rootDir: string, storageDir?: string) {
+export function defaultPaths(storageDir?: string) {
   const root = dataRoot();
   const ablageDir = storageDir ? path.join(storageDir, 'ablage') : path.join(root, 'ablage');
   storageDir ??= path.join(root, 'daten');
@@ -84,7 +84,7 @@ export function loadConfig(overrides: Partial<AppConfig> & { storageDir?: string
 
   // Pfade stellt der Server-Manager ein (STORAGE_DIR, ABLAGE_DIR). Test-Overrides gehen vor.
   const envStorage = process.env.STORAGE_DIR ? path.resolve(process.env.STORAGE_DIR) : undefined;
-  const defaults = defaultPaths(rootDir, storageDir ?? envStorage);
+  const defaults = defaultPaths(storageDir ?? envStorage);
   const envAblage = !storageDir && process.env.ABLAGE_DIR ? path.resolve(process.env.ABLAGE_DIR) : undefined;
   // Früher in der Verwaltung eingestellte Ordner (mosaik3lab.config.json) – nur noch Quelle der Übernahme.
   const legacy = storageDir ? {} : readPathConfig(rootDir);

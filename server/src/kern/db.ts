@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { ROOT_DIR } from '../config';
-import { newId } from '../domain/ids';
-import { nummerText, NUMMERNKREISE, type NummerTyp } from '../domain/objekttypen';
+import { newId } from './ids';
+import { nummerText, NUMMERNKREISE, type NummerTyp } from './objekttypen';
 
 // SQLite über das in Node eingebaute Modul node:sqlite (keine nativen npm-Module, läuft auf Windows/Linux/Raspberry Pi).
 // Migrationen: server/src/storage/sqlite/migrations/NNN_name.sql (fester Ort, der Server-Manager liest sie dort),
@@ -59,7 +59,11 @@ export function transaction<T>(db: Db, fn: () => T): T {
     db.exec(nested ? `RELEASE ${sp}` : 'COMMIT');
     return result;
   } catch (err) {
-    db.exec(nested ? `ROLLBACK TO ${sp}; RELEASE ${sp}` : 'ROLLBACK');
+    try {
+      db.exec(nested ? `ROLLBACK TO ${sp}; RELEASE ${sp}` : 'ROLLBACK');
+    } catch {
+      // SQLite hat schon selbst zurückgerollt (z. B. Platte voll) – der ursprüngliche Fehler zählt.
+    }
     throw err;
   }
 }

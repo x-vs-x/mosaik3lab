@@ -1,11 +1,14 @@
-import { initialStatus, type Filament } from '../../domain/settings';
+import { ANFANGSSTATUS } from '../einstellungen/einstellungen.vorgaben';
+import { type Filament } from '@mosaik3lab/shared/stammdaten';
 import type { Storage } from '../../storage';
-import { openDb, type Db } from '../../kern/db';
+import { openDb } from '../../kern/db';
+import { benachrichtigeImHintergrund } from '../../kern/mail/hintergrund';
 import { readMailConfig } from '../../kern/mail/mailConfig';
-import { baseUrl, escapeHtml, formatMailDate, sendMail, type BuiltMail } from '../../kern/mail/mailer';
+import { adminLink, baseUrl, escapeHtml, formatMailDate, sendMail, type BuiltMail } from '../../kern/mail/mailer';
 import { linksNurImSchulnetz, type MailLinks } from '../../kern/mail/erreichbarkeit';
 import { badge, button, C, fieldTable, FONT, FOOTER_TEAM, html, NO_LINK, renderLayout, schulnetzText, small, textFooter } from '../../kern/mail/layout';
-import type { Item, Order, OrderColorChoice } from '../../domain/types';
+import type { Item } from '../../domain/types';
+import type { Order, OrderColorChoice } from '@mosaik3lab/shared/anfragen';
 import { EGAL_FARBE } from '@mosaik3lab/shared/anfragen';
 import { filamentRolle } from '@mosaik3lab/shared/stammdaten';
 import { emailSchema } from '@mosaik3lab/shared/basis';
@@ -50,10 +53,7 @@ export interface OrderMailOptions {
 
 const isAnyColor = (c: Pick<OrderColorChoice, 'colorId'>) => c.colorId === EGAL_FARBE;
 
-export function orderAdminUrl(order: Order, appUrl: string) {
-  const base = baseUrl(appUrl);
-  return base ? `${base}/verwaltung/bestellungen?offen=${encodeURIComponent(order.id)}` : '';
-}
+export const orderAdminUrl = (order: Order, appUrl: string) => adminLink(appUrl, 'bestellungen', order.id);
 
 const validEmail = (email: string | undefined) => {
   const r = emailSchema.safeParse(email ?? '');
@@ -313,7 +313,7 @@ export function sampleOrder(): Order {
     classOrTeam: 'Klasse 5a (Beispiel)',
     customization: 'Dies ist eine Testnachricht – keine echte Anfrage.\nBitte nicht drucken.',
     personalization: [{ fieldId: 'beschriftung', label: 'Beschriftung', value: 'TEST' }],
-    status: initialStatus(),
+    status: ANFANGSSTATUS,
     history: [],
     requesterId: null,
     requesterEmail: 'lehrkraft@example.org',
@@ -349,23 +349,11 @@ export async function sendTestMail(dbFile: string, to?: string) {
 
 /**
  * Benachrichtigt bei neuen Anfragen bzw. – mit `previous` (Stand vor der Änderung) – bei von der Lehrkraft geänderten.
- * Läuft im Hintergrund: Ein Mailfehler verhindert nie die Anfrage, wird aber ins Log geschrieben und in den
- * Einstellungen angezeigt.
+ * Läuft im Hintergrund (kern/mail/hintergrund.ts): Ein Mailfehler verhindert nie die Anfrage.
  */
-export function notifyNewOrder(storage: Storage, db: Db, order: Order, item: Item | null = null, previous?: Order) {
-  void (async () => {
-    const r = readMailConfig(db);
-    if (r.state !== 'ok' || !r.config.enabled) return;
-    let status: { ok: boolean; message: string };
-    try {
-      const { filaments } = (await storage.settings.get()).masterData;
-      await sendMail(r.config, r.config.recipients, buildOrderMail(order, item, r.config, filaments, { previous }));
-      status = { ok: true, message: `Benachrichtigung zu ${order.number} versendet.` };
-    } catch (err) {
-      status = { ok: false, message: `Versand zu ${order.number} fehlgeschlagen: ${(err as Error).message}` };
-      console.warn('[Mail]', status.message);
-    }
-    // nur diesen einen Wert schreiben (nicht alle Einstellungen und Stammdaten)
-    storage.sqlite.settings.setSetting('mailStatus', { at: new Date().toISOString(), ...status });
-  })().catch((err) => console.warn('[Mail] Unerwarteter Fehler:', err));
+export function notifyNewOrder(storage: Storage, order: Order, item: Item | null = null, previous?: Order) {
+  benachrichtigeImHintergrund(storage, order.number, async (config) => {
+    const { filaments } = (await storage.settings.get()).masterData;
+    return buildOrderMail(order, item, config, filaments, { previous });
+  });
 }

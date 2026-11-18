@@ -1,17 +1,10 @@
-import { newId } from '../../domain/ids';
-import { userCan } from '../../domain/permissions';
-import { allAreaColors, singleColorArea, type ColorArea, type CustomField, type Item, type ItemVideo, type ModelFile, type User } from '../../domain/types';
+import { newId } from '../../kern/ids';
+import { userCan } from '../konten/rechte';
+import { allAreaColors, singleColorArea, type Item, type ModelFile, type User } from '../../domain/types';
+import { type ColorArea, type CustomField, type ItemVideo } from '@mosaik3lab/shared/katalog';
 import { badRequest, notFound } from '../../kern/errors';
-import { dateiName } from '../../kern/files';
-import {
-  detectImage,
-  detectModel,
-  detectVideo,
-  MAX_IMAGES_PER_ITEM,
-  MAX_MODELS_PER_ITEM,
-  MAX_VIDEOS_PER_ITEM,
-  originalName,
-} from '../../kern/uploads';
+import { dateiName, SAFE_ID, type Datei } from '../../kern/files';
+import { detectImage, detectModel, detectVideo, MAX_IMAGES_PER_ITEM, MAX_MODELS_PER_ITEM, MAX_VIDEOS_PER_ITEM, originalName } from '../../kern/uploads';
 import type { Storage } from '../../storage';
 import type { ParsedItemInput } from '@mosaik3lab/shared/katalog';
 import { passtZurSuche } from '@mosaik3lab/shared/suche';
@@ -25,13 +18,11 @@ type ItemData = Omit<ParsedItemInput, 'colors' | 'colorAreas' | 'customFields'> 
   customFields: CustomField[];
 };
 
-const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-
 /** Behält gültige, eindeutige IDs (damit Anfragen zuordenbar bleiben), vergibt sonst neue. */
 function withIds<T extends { id: string }>(list: T[]): T[] {
   const seen = new Set<string>();
   return list.map((entry) => {
-    const id = ID_PATTERN.test(entry.id) && !seen.has(entry.id) ? entry.id : newId();
+    const id = SAFE_ID.test(entry.id) && !seen.has(entry.id) ? entry.id : newId();
     seen.add(id);
     return { ...entry, id };
   });
@@ -46,12 +37,12 @@ export function normalizeItemInput(input: ParsedItemInput): ItemData {
   return { ...rest, colorAreas: areas, colors: allAreaColors(areas), customFields: withIds(customFields), links: withIds(links) };
 }
 
-export const canManage = (user: User | undefined) => userCan(user, 'catalog:view');
+export const siehtEntwuerfe = (user: User | undefined) => userCan(user, 'catalog:view');
 
 /** Nur das Druck-Team sieht Details zu Druckdateien. */
 export function presentItem(item: Item, user: User | undefined) {
   const base = { ...item, modelFileCount: item.modelFiles.length };
-  return canManage(user) ? base : { ...base, modelFiles: [] };
+  return siehtEntwuerfe(user) ? base : { ...base, modelFiles: [] };
 }
 
 const touched = () => new Date().toISOString();
@@ -81,7 +72,7 @@ export interface ItemFilter {
 
 /** Katalog mit Suche und Filtern; Entwürfe nur mit Verwaltungsrecht und `all`. */
 export async function listItems(storage: Storage, user: User | undefined, f: ItemFilter) {
-  const includeUnpublished = f.all && canManage(user);
+  const includeUnpublished = f.all && siehtEntwuerfe(user);
   const items = (includeUnpublished ? await storage.items.list() : storage.items.listPublished())
     .filter((i) => !f.category || i.category === f.category)
     .filter((i) => !f.area || i.useAreas.includes(f.area))
@@ -95,7 +86,7 @@ export async function listItems(storage: Storage, user: User | undefined, f: Ite
 
 export async function loadVisible(storage: Storage, id: string, user: User | undefined) {
   const item = await storage.items.findById(id);
-  if (!item || (!item.published && !canManage(user))) throw notFound('Druckteil nicht gefunden.');
+  if (!item || (!item.published && !siehtEntwuerfe(user))) throw notFound('Druckteil nicht gefunden.');
   return item;
 }
 
@@ -137,21 +128,25 @@ export async function addImages(storage: Storage, id: string, files: Express.Mul
     throw badRequest(`Pro Druckteil sind höchstens ${MAX_IMAGES_PER_ITEM} Bilder möglich.`);
   }
   const exts = files.map(detectImage); // erst alles prüfen, dann speichern
-  const saved: string[] = [];
-  for (let i = 0; i < files.length; i++) {
-    const d = await storage.files.save({
-      objekttyp: 'artikel',
-      objektId: item.id,
-      rolle: 'bild',
-      buffer: files[i].buffer,
-      ext: exts[i],
-      originalname: originalName(files[i]),
-      erstelltVon: userId,
-    });
-    saved.push(dateiName(d));
-  }
+  const gespeichert: Datei[] = [];
   // Erst eintragen (ein gleichzeitiges Speichern des Formulars darf die neuen Bilder nicht verwerfen), dann verarbeiten.
-  const eingetragen = await change(storage, item.id, (c) => ({ ...c, images: [...new Set([...c.images, ...saved])], updatedAt: touched() }));
+  // Scheitert das Eintragen (Druckteil inzwischen gelöscht, Höchstzahl durch gleichzeitigen Upload erreicht), werden die
+  // Dateien wieder entfernt.
+  const eingetragen = await mitAufraeumen(storage, gespeichert, async () => {
+    for (let i = 0; i < files.length; i++) {
+      gespeichert.push(
+        await storage.files.save({ objekttyp: 'artikel', objektId: item.id, rolle: 'bild', buffer: files[i].buffer, ext: exts[i], originalname: originalName(files[i]), erstelltVon: userId }),
+      );
+    }
+    const namen = gespeichert.map(dateiName);
+    return change(storage, item.id, (c) => {
+      // c.images enthält schon alle gespeicherten Bilder (auch die eines gleichzeitigen Uploads) – zusammen zählen.
+      const images = [...new Set([...c.images, ...namen])];
+      if (images.length > MAX_IMAGES_PER_ITEM) throw badRequest(`Pro Druckteil sind höchstens ${MAX_IMAGES_PER_ITEM} Bilder möglich.`);
+      return { ...c, images, updatedAt: touched() };
+    });
+  });
+  const saved = gespeichert.map(dateiName);
   const geaendert = await bilderVerarbeiten(storage, saved);
   return geaendert ? ((await storage.items.findById(item.id)) ?? eingetragen) : eingetragen;
 }
@@ -257,24 +252,30 @@ export async function addModels(storage: Storage, id: string, files: Express.Mul
     throw badRequest(`Pro Druckteil sind höchstens ${MAX_MODELS_PER_ITEM} Druckdateien möglich.`);
   }
   const formats = files.map(detectModel);
-  const added: ModelFile[] = [];
-  for (let i = 0; i < files.length; i++) {
-    const d = await storage.files.save({
-      objekttyp: 'artikel',
-      objektId: item.id,
-      rolle: 'druckdatei',
-      buffer: files[i].buffer,
-      ext: formats[i],
-      originalname: originalName(files[i]),
-      erstelltVon: userId,
+  const gespeichert: Datei[] = [];
+  return mitAufraeumen(storage, gespeichert, async () => {
+    const added: ModelFile[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const d = await storage.files.save({ objekttyp: 'artikel', objektId: item.id, rolle: 'druckdatei', buffer: files[i].buffer, ext: formats[i], originalname: originalName(files[i]), erstelltVon: userId });
+      gespeichert.push(d);
+      added.push({ id: d.id, storedName: dateiName(d), originalName: d.originalname, format: formats[i], sizeBytes: d.groesse, uploadedAt: d.erstelltAm });
+    }
+    return change(storage, item.id, (c) => {
+      const modelFiles = [...c.modelFiles.filter((m) => !added.some((a) => a.id === m.id)), ...added];
+      if (modelFiles.length > MAX_MODELS_PER_ITEM) throw badRequest(`Pro Druckteil sind höchstens ${MAX_MODELS_PER_ITEM} Druckdateien möglich.`);
+      return { ...c, modelFiles, updatedAt: touched() };
     });
-    added.push({ id: d.id, storedName: dateiName(d), originalName: d.originalname, format: formats[i], sizeBytes: d.groesse, uploadedAt: d.erstelltAm });
+  });
+}
+
+/** Führt `fn` aus; wirft es, werden die bis dahin gespeicherten Dateien (Datensatz + Datei) wieder entfernt. */
+async function mitAufraeumen<T>(storage: Storage, gespeichert: Datei[], fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    for (const d of gespeichert) await storage.files.delete(d.id).catch(() => undefined);
+    throw err;
   }
-  return change(storage, item.id, (c) => ({
-    ...c,
-    modelFiles: [...c.modelFiles.filter((m) => !added.some((a) => a.id === m.id)), ...added],
-    updatedAt: touched(),
-  }));
 }
 
 export const removeModel = (storage: Storage, itemId: string, modelId: string) =>
@@ -291,7 +292,7 @@ export async function visibleItemFile(storage: Storage, name: string, rolle: 'bi
   const datei = storage.files.findByName(name, rolle) ?? (rolle === 'bild' ? storage.files.findByName(name, rolle, { endungEgal: true }) : undefined);
   if (!datei || datei.objekttyp !== 'artikel') return undefined;
   // nur die Sichtbarkeit lesen – nicht das ganze Druckteil (eine Abfrage je Bild statt rund zehn)
-  const row = storage.sqlite.db.prepare('SELECT veroeffentlicht FROM artikel WHERE id = ?').get(datei.objektId) as { veroeffentlicht: number } | undefined;
-  if (!row || (!row.veroeffentlicht && !userCan(user, 'catalog:view'))) return undefined;
+  const veroeffentlicht = storage.items.istVeroeffentlicht(datei.objektId);
+  if (veroeffentlicht === undefined || (!veroeffentlicht && !siehtEntwuerfe(user))) return undefined;
   return datei;
 }

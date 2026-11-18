@@ -1,4 +1,6 @@
-import type { ACCOUNT_ROLES, ColorArea, CustomField, Item } from '../domain/types';
+import type { ACCOUNT_ROLES } from '@mosaik3lab/shared/konten';
+import type { ColorArea, CustomField } from '@mosaik3lab/shared/katalog';
+import type { Item } from '../domain/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BEISPIELDATEN – nur für die lokale Entwicklung.

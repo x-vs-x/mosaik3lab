@@ -1,5 +1,5 @@
 import { BAMBU_KATALOG, katalogFelder } from '../../domain/bambuKatalog';
-import type { Filament } from '../../domain/settings';
+import type { Filament } from '@mosaik3lab/shared/stammdaten';
 import { transaction } from '../../kern/db';
 import type { Storage } from '../../storage';
 import type { BambuAbgleichHinweis, BambuKatalogEintrag } from '@mosaik3lab/shared/stammdaten';
@@ -52,7 +52,7 @@ export function gleicheAb(filaments: Filament[], katalog: Katalog) {
 
 /** Abgleich beim Start: schreibt nur, wenn sich etwas geändert hat, und hinterlegt dann einen Hinweis für den Admin. */
 export function bambuAbgleichBeimStart(storage: Storage, katalog: Katalog = BAMBU_KATALOG) {
-  const repo = storage.sqlite.settings;
+  const repo = storage.settings;
   return transaction(storage.sqlite.db, () => {
     const settings = repo.read();
     const { liste, aenderungen, geaendert } = gleicheAb(settings.masterData.filaments, katalog);
@@ -79,13 +79,13 @@ export function bambuAbgleichBeimStart(storage: Storage, katalog: Katalog = BAMB
   });
 }
 
-export const leseHinweis = (storage: Storage) => (storage.sqlite.settings.getSetting(HINWEIS_KEY) as BambuAbgleichHinweis | null | undefined) ?? null;
-export const loescheHinweis = (storage: Storage) => storage.sqlite.settings.setSetting(HINWEIS_KEY, null);
+export const leseHinweis = (storage: Storage) => (storage.settings.getSetting(HINWEIS_KEY) as BambuAbgleichHinweis | null | undefined) ?? null;
+export const loescheHinweis = (storage: Storage) => storage.settings.setSetting(HINWEIS_KEY, null);
 
 /** Übernommene Farben sind nicht mehr „neu“; ein leerer Hinweis verschwindet. */
 export function ohneNeue(storage: Storage, ids: string[]) {
   const h = leseHinweis(storage);
   if (!h?.neu.some((id) => ids.includes(id))) return;
   const neu = h.neu.filter((id) => !ids.includes(id));
-  storage.sqlite.settings.setSetting(HINWEIS_KEY, neu.length || h.aenderungen.length ? { ...h, neu } : null);
+  storage.settings.setSetting(HINWEIS_KEY, neu.length || h.aenderungen.length ? { ...h, neu } : null);
 }

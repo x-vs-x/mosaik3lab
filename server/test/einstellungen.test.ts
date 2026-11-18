@@ -9,10 +9,7 @@ import { ROOT_DIR } from '../src/config';
 import { sendTestMail } from '../src/module/anfragen/anfragen.mail';
 import { merkeDomainGesetzt, ORDERFORM_GESETZT } from '../src/module/einstellungen/einstellungen.service';
 import { createAdminAccount } from '../src/module/konten/konten.service';
-import {
-  anmelden, demoTeile, mailConfig, orderBodyFor, realConfigBefore, realConfigNow, SCHOOL, sentMails, setFailMail, sleep, startServer,
-  storageAt, tmp, writeMailFile as schreibeMail,
-} from './helfer';
+import { anmelden, demoTeile, mailConfig, orderBodyFor, realConfigBefore, realConfigNow, SCHOOL, sentMails, setFailMail, sleep, startServer, storageAt, tmp, writeMailFile as schreibeMail } from './helfer';
 
 const srv = await startServer({ allowDemoAccounts: true, seedDemoData: true });
 after(() => srv.stop());

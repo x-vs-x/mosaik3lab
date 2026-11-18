@@ -79,10 +79,20 @@ test('Anfrage: Farbe je Bereich und Personalisierung werden geprüft', async () 
   assert.ok(missing.json.fields?.[`color.${griff.id}`]);
   const wrong = await pdAnon.req('POST', '/api/orders', { ...base, colors: { [lineal.id]: YELLOW, [griff.id]: YELLOW } });
   assert.ok(wrong.json.fields?.[`color.${lineal.id}`], 'Farbe aus anderem Bereich ist nicht erlaubt');
-  for (const personalization of [{}, { [text.id]: 'zu lang!!' }, { [text.id]: 'ok', [select.id]: 'C' }, { [text.id]: 'ok', [num.id]: 'zehn' }]) {
+  // Je Fehler die Meldung am richtigen Feld (Pflicht, Länge, Auswahl, Zahl – auch „1.2.“ ist keine Zahl).
+  const faelle: [Record<string, string>, string, string][] = [
+    [{}, text.id, 'Pflichtfeld'],
+    [{ [text.id]: 'zu lang!!' }, text.id, 'Höchstens 8 Zeichen'],
+    [{ [text.id]: 'ok', [select.id]: 'C' }, select.id, 'Bitte einen Eintrag aus der Liste wählen'],
+    [{ [text.id]: 'ok', [num.id]: 'zehn' }, num.id, 'Bitte eine Zahl eingeben'],
+    [{ [text.id]: 'ok', [num.id]: '1.2.' }, num.id, 'Bitte eine Zahl eingeben'],
+    [{ [text.id]: 'ok', [num.id]: '12345' }, num.id, 'Höchstens 4 Zeichen'],
+  ];
+  for (const [personalization, feld, meldung] of faelle) {
     const r = await pdAnon.req('POST', '/api/orders', { ...base, personalization });
     assert.equal(r.status, 400, JSON.stringify(personalization));
-    assert.ok(Object.keys(r.json.fields ?? {}).some((k) => k.startsWith('custom.')), JSON.stringify(r.json));
+    assert.equal(r.json.error, 'Bitte prüfen Sie die Angaben zur Personalisierung.');
+    assert.deepEqual(r.json.fields, { [`custom.${feld}`]: meldung }, JSON.stringify(personalization));
   }
   const ok = await pdAnon.req('POST', '/api/orders', { ...base, personalization: { [text.id]: ' 2a ', [select.id]: 'B', [num.id]: '12,5', fremd: 'x' } });
   assert.equal(ok.status, 201, JSON.stringify(ok.json));

@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { test } from 'node:test';
-import { defaultSettings, isAllowedEmail, ORDERFORM_VORGABE_BIS_1_6 } from '../src/domain/settings';
+import { defaultSettings, isAllowedEmail, ORDERFORM_VORGABE_BIS_1_6 } from '../src/module/einstellungen/einstellungen.vorgaben';
 import { createAdminAccount } from '../src/module/konten/konten.service';
-import { readLegacyData } from '../src/storage/json/legacyJson';
+import { readLegacyData } from '../src/uebernahme/legacyJson';
 import { storageAt, tmp } from './helfer';
 
 type TestStorage = Awaited<ReturnType<typeof storageAt>>['storage'];
@@ -94,4 +94,27 @@ test('Alte JSON-Daten ohne erlaubte Domains bekommen beim Einlesen die damalige 
     await fs.writeFile(path.join(dir, 'settings.json'), JSON.stringify({ orderForm: { allowedEmailDomains: ['eigene.example'] } }));
     assert.deepEqual(readLegacyData(dir).settings.orderForm.allowedEmailDomains, ['eigene.example']);
   });
+});
+
+test('normalizeOrderStatuses: frei angelegte Status über Namen bzw. Phase auf feste Status, Schalter bleiben', async () => {
+  const { normalizeOrderStatuses, defaultOrderStatuses } = await import('../src/module/stammdaten/orderStatuses');
+  assert.deepEqual(normalizeOrderStatuses(undefined), { statuses: defaultOrderStatuses(), aliases: {} }, 'nichts gespeichert → Vorgabe');
+  assert.deepEqual(normalizeOrderStatuses([]).aliases, {});
+  const r = normalizeOrderStatuses([
+    { id: 'offen', name: 'Offen', phase: 'open', active: true },
+    { id: 'x1', name: '  ABHOLBEREIT ', phase: 'done', active: false }, // Name passt (Groß/Klein, Leerzeichen egal)
+    { id: 'x2', name: 'Wird gedruckt bei Frau M.', phase: 'active', active: false }, // nur Phase passt
+    { id: 'x3', name: 'Irgendwas', phase: 'unbekannt' as never }, // weder noch → offen
+    { id: 'fertig', name: 'Fertig' }, // sehr alter Status
+    { id: 'storniert', name: 'Storniert', phase: 'done', active: false }, // fester Status, aus
+    { id: 42 as never, name: 'kaputt' }, // ungültig → ignoriert
+  ]);
+  assert.deepEqual(r.aliases, { x1: 'abholbereit', x2: 'in_druck', x3: 'offen', fertig: 'gedruckt' });
+  const an = Object.fromEntries(r.statuses.map((s) => [s.id, s.active]));
+  assert.equal(an.abholbereit, true, 'zugeordnete Status werden eingeschaltet');
+  assert.equal(an.in_druck, true);
+  assert.equal(an.gedruckt, true);
+  assert.equal(an.storniert, false, 'Schalter des festen Status bleibt');
+  assert.equal(an.offen, true, '„Offen“ ist immer an');
+  assert.deepEqual(r.statuses.map((s) => s.id), defaultOrderStatuses().map((s) => s.id), 'immer die feste Liste in fester Reihenfolge');
 });

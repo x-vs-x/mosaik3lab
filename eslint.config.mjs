@@ -28,6 +28,11 @@ export default tseslint.config(
     },
   },
   {
+    // Keine neuen Riesendateien (CLAUDE.md: Ziel ≤ 300, höchstens 500 Zeilen) – vorerst nur im Server-Code.
+    files: ['server/src/**/*.ts'],
+    rules: { 'max-lines': ['error', { max: 500 }] },
+  },
+  {
     rules: {
       // Heute verletzt → vorerst nur Hinweis (Anzahl beim Einführen in Klammern, siehe docs/PROTOKOLL.md).
       '@typescript-eslint/no-explicit-any': 'warn', // (108, alle in server/test)

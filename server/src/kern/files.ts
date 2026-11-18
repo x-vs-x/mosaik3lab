@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { newId } from '../domain/ids';
-import { MIME_BY_EXT, type DateiRolle, type Objekttyp } from '../domain/objekttypen';
+import { newId } from './ids';
+import { MIME_BY_EXT, type DateiRolle, type Objekttyp } from './objekttypen';
 import type { Db, Row } from './db';
 import { str } from './db';
 import { gescheitertRel, VORSCHAU_GROESSEN, vorschauRel } from './bilder/groessen';
@@ -11,13 +11,8 @@ export type ImageExt = 'jpg' | 'png' | 'webp';
 export type ModelExt = 'stl' | '3mf';
 export type VideoExt = 'mp4' | 'webm';
 
-/** Öffentlicher Dateiname einer Datei: <datei-id>.<endung> (so stehen Bilder in Item.images). */
-export const IMAGE_NAME = /^[a-f0-9-]{36}\.(jpg|png|webp)$/;
-export const MODEL_NAME = /^[a-f0-9-]{36}\.(stl|3mf)$/;
-export const VIDEO_NAME = /^[a-f0-9-]{36}\.(mp4|webm)$/;
-
-/** IDs, die als Ordnername taugen (keine Pfadzeichen). */
-const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+/** Erlaubte IDs, die auch als Ordnername taugen (keine Pfadzeichen): Buchstaben, Ziffern, _ und -, höchstens 64 Zeichen. */
+export const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const SAFE_EXT = /^[a-z0-9]{1,8}$/;
 /** Zwischendatei beim sicheren Ersetzen: <ziel>.<id>.neu (hier und in kern/bilder/dienst.ts). */
 const ZWISCHENDATEI = /\.[A-Za-z0-9_-]{1,64}\.neu$/;

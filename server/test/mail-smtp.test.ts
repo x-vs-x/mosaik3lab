@@ -14,8 +14,9 @@ import { sendMail, type BuiltMail } from '../src/kern/mail/mailer';
 import { buildOrderMail, sampleOrder, sendTestMail } from '../src/module/anfragen/anfragen.mail';
 import { buildProposalMail } from '../src/module/vorschlaege/vorschlaege.mail';
 import { buildPasswortMail } from '../src/module/konten/passwortlink';
-import type { Order, User } from '../src/domain/types';
-import type { Proposal } from '../src/domain/proposals';
+import type { Order } from '@mosaik3lab/shared/anfragen';
+import type { User } from '../src/domain/types';
+import type { Proposal } from '@mosaik3lab/shared/vorschlaege';
 
 interface Received {
   from: string;

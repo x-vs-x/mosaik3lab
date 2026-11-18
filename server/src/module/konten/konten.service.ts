@@ -1,7 +1,8 @@
-import { newId } from '../../domain/ids';
-import { type Permission } from '../../domain/permissions';
-import { isAllowedEmail } from '../../domain/settings';
-import { type SessionUser, type User } from '../../domain/types';
+import { newId } from '../../kern/ids';
+import { type Permission } from '@mosaik3lab/shared/konten';
+import { isAllowedEmail } from '../einstellungen/einstellungen.vorgaben';
+import { type SessionUser } from '@mosaik3lab/shared/konten';
+import { type User } from '../../domain/types';
 import { canUseAccount, type AuthOptions } from '../../kern/auth/middleware';
 import { hashPassword, verifyPassword } from '../../kern/auth/password';
 import { badRequest, conflict, forbidden, unauthorized } from '../../kern/errors';
@@ -58,16 +59,22 @@ export async function checkLogin(storage: Storage, email: string, password: stri
   const valid = await verifyPassword(password, user?.passwordHash);
   if (!user) throw unauthorized('E-Mail oder Passwort ist falsch.');
   if (!valid) {
-    // Abgelaufene Sperre: Zählung beginnt von vorn.
-    const fehlversuche = (user.fehlversuche >= MAX_FEHLVERSUCHE ? 0 : user.fehlversuche) + 1;
-    const gesperrtSeit = fehlversuche >= MAX_FEHLVERSUCHE ? new Date().toISOString() : null;
-    await storage.users.update(user.id, (u) => ({ ...u, fehlversuche, gesperrtSeit }));
-    if (gesperrtSeit) {
+    // Zählen im update-Callback aus dem aktuellen Stand – gleichzeitige Fehlversuche (bcrypt dauert) zählen so alle.
+    let gesperrtVonMir = false;
+    const next = await storage.users.update(user.id, (u) => {
+      if (istGesperrt(u)) return u; // inzwischen von einem parallelen Versuch gesperrt: Sperre nicht anfassen
+      // Abgelaufene Sperre: Zählung beginnt von vorn.
+      const fehlversuche = (u.fehlversuche >= MAX_FEHLVERSUCHE ? 0 : u.fehlversuche) + 1;
+      gesperrtVonMir = fehlversuche >= MAX_FEHLVERSUCHE;
+      return { ...u, fehlversuche, gesperrtSeit: gesperrtVonMir ? new Date().toISOString() : null };
+    });
+    if (gesperrtVonMir) {
       const r = await linkVerschicken(storage, user, 'zuruecksetzen', true, 'gesperrt');
       if (!r.gesendet) console.warn(`[Anmeldung] ${user.email} gesperrt, Mail nicht gesendet: ${r.grund}`);
       throw forbidden(r.gesendet ? GESPERRT : GESPERRT_OHNE_MAIL);
     }
-    const rest = MAX_FEHLVERSUCHE - fehlversuche;
+    if (next && istGesperrt(next)) throw forbidden(GESPERRT);
+    const rest = MAX_FEHLVERSUCHE - (next?.fehlversuche ?? 0);
     throw unauthorized(`E-Mail oder Passwort ist falsch.${rest <= 3 ? ` Noch ${rest} ${rest === 1 ? 'Versuch' : 'Versuche'}, dann wird das Konto gesperrt.` : ''}`);
   }
   if (!canUseAccount(user, opts)) throw forbidden('Demo-Zugänge sind in dieser Umgebung deaktiviert.');

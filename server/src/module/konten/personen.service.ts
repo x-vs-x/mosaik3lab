@@ -1,6 +1,7 @@
-import { newId } from '../../domain/ids';
-import { lehrkraftBereiche } from '../../domain/permissions';
-import type { Requester, User } from '../../domain/types';
+import { newId } from '../../kern/ids';
+import { lehrkraftBereiche } from './rechte';
+import type { Requester } from '@mosaik3lab/shared/anfragen';
+import type { User } from '../../domain/types';
 import { badRequest, notFound } from '../../kern/errors';
 import type { Storage } from '../../storage';
 import { istGesperrt, TEAM_BEREICHE, type PasswortStand, type Person, type PersonGespeichert, type PersonInput } from '@mosaik3lab/shared/konten';

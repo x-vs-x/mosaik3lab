@@ -1,4 +1,4 @@
-import type { Proposal, ProposalStatus, ProposalUrgency } from '../../domain/proposals';
+import type { Proposal, ProposalStatus, ProposalUrgency } from '@mosaik3lab/shared/vorschlaege';
 import { conflict } from '../../kern/errors';
 import { dateiFromRow, dateiName, type FileStore } from '../../kern/files';
 import { all, count, json, marks, nextNumber, one, run, str, transaction, type Db } from '../../kern/db';

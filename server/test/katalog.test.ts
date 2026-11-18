@@ -216,3 +216,39 @@ test('Neue Uploads landen in <ablage>/artikel/<id>/bild/<datei-id>.<endung>', as
   assert.ok(existsSync(path.join(srv.storageDir, 'ablage', 'artikel', publishedItem.id, 'bild', file)));
   assert.equal((await anon.req('GET', `/api/files/images/${file}`)).status, 200);
 });
+
+test('Gleichzeitige Bild-Uploads: Höchstzahl hält, abgelehnte Bilder hinterlassen keine Dateien; gelöschtes Druckteil räumt auf', async () => {
+  const body = {
+    name: 'Teil für Upload-Rennen', shortDescription: 'Kurzbeschreibung für den Upload-Test.', category: 'Sonstiges',
+    colors: ['bambu-pla-basic-red'], material: 'PLA', printTimeMinutes: 20, published: false,
+  };
+  const teil = (await team.req('POST', '/api/items', body)).json;
+  const fuenf = () => {
+    const fd = new FormData();
+    for (let i = 0; i < 5; i++) fd.append('files', new Blob([PNG_1PX], { type: 'image/png' }), `b${i}.png`);
+    return fd;
+  };
+  const antworten = await Promise.all([1, 2].map(() => team.req('POST', `/api/items/${teil.id}/images`, undefined, { form: fuenf() })));
+  // Je nach Reihenfolge wird einer (oder, wenn beide gleichzeitig eintragen wollen, beide) abgelehnt – nie mehr als 8.
+  const status = antworten.map((a) => a.status);
+  assert.ok(status.includes(400) && status.every((x) => x === 201 || x === 400), JSON.stringify(antworten.map((a) => a.json)));
+  for (const a of antworten.filter((x) => x.status === 400)) assert.match(a.json.error, /höchstens 8 Bilder/);
+  const angenommen = status.filter((x) => x === 201).length * 5;
+  const bilder = () => srv.storage.files.listByTyp('artikel').filter((d) => d.objektId === teil.id && d.rolle === 'bild');
+  const item = (await team.req('GET', `/api/items/${teil.id}`)).json;
+  assert.equal(item.images.length, angenommen);
+  assert.equal(bilder().length, angenommen, 'nur die Datensätze der angenommenen Bilder');
+  for (const d of bilder()) assert.ok(existsSync(srv.storage.files.absPath(d)));
+  const ordner = path.join(srv.storage.files.root, 'artikel', teil.id, 'bild');
+  const inAblage = await fs.readdir(ordner).catch(() => [] as string[]);
+  assert.equal(inAblage.filter((f) => !f.startsWith('.')).length, angenommen, 'keine verwaisten Dateien in der Ablage');
+
+  // Druckteil wird gelöscht, während ein Upload läuft: Datensatz und Datei des Uploads verschwinden wieder.
+  const zweites = (await team.req('POST', '/api/items', { ...body, name: 'Teil wird gleich gelöscht' })).json;
+  const [hoch] = await Promise.all([
+    team.req('POST', `/api/items/${zweites.id}/images`, undefined, { form: fuenf() }),
+    team.req('DELETE', `/api/items/${zweites.id}`),
+  ]);
+  assert.ok([201, 404].includes(hoch.status), String(hoch.status));
+  assert.equal(srv.storage.files.listByTyp('artikel').filter((d) => d.objektId === zweites.id).length, 0, 'nach dem Löschen keine Datensätze');
+});

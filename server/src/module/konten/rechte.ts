@@ -1,5 +1,6 @@
 import { LEHRKRAFT_BEREICHE, rechteFuer, type Bereich, type Permission } from '@mosaik3lab/shared/konten';
-import type { Requester, User } from './types';
+import type { Requester } from '@mosaik3lab/shared/anfragen';
+import type { User } from '../../domain/types';
 
 // Prüf-Logik der Rechte für angemeldete Personen. Das Backend prüft ausschließlich gegen diese Funktionen;
 // das Frontend erhält die wirksamen Prüfpunkte (/api/auth/me), um Seiten und Knöpfe ein- oder auszublenden.
@@ -9,7 +10,6 @@ import type { Requester, User } from './types';
 // Eine Person = eine E-Mail: die Lehrkraft-Häkchen stehen an der Lehrkraft (Tabelle lehrkraft), die
 // Druck-Team-Häkchen am Konto (Tabelle benutzer). Neuer Bereich: Eintrag in BEREICHE (shared/src/konten.ts).
 
-export type { Bereich, Permission };
 
 /** Angehakte Lehrkraft-Bereiche; ohne Eintrag im Lehrkräfte-Verzeichnis gelten die Standards (alles an). */
 export function lehrkraftBereiche(requester: Pick<Requester, 'darfAnfragen' | 'darfVorschlagen'> | undefined): Bereich[] {

@@ -1,14 +1,10 @@
 import type { Features, MailStatus, OrderFormSettings } from '@mosaik3lab/shared/einstellungen';
 import type { Filament, MasterData } from '@mosaik3lab/shared/stammdaten';
-import { DEFAULT_FILAMENT_IDS, filamentAusKatalog, katalogEintrag } from './bambuKatalog';
-import { defaultOrderStatuses, normalizeOrderStatuses } from './orderStatuses';
+import { DEFAULT_FILAMENT_IDS, filamentAusKatalog, katalogEintrag } from '../../domain/bambuKatalog';
+import { defaultOrderStatuses, normalizeOrderStatuses } from '../stammdaten/orderStatuses';
 
 // Einstellungen und Stammdaten, die die Administration in der Oberfläche pflegt (Tabellen siehe docs/DATENMODELL.md).
 // Die gemeinsamen Typen und Schemas stehen in shared/src/stammdaten.ts, einstellungen.ts und anfragen.ts.
-
-export { COLOR_KEYS, ICON_KEYS, type Category, type ColorKey, type Filament, type IconKey, type MasterData, type SimpleEntry } from '@mosaik3lab/shared/stammdaten';
-export { STATUS_PHASES, type OrderStatusDef, type StatusPhase } from '@mosaik3lab/shared/anfragen';
-export type { Features, OrderFormSettings } from '@mosaik3lab/shared/einstellungen';
 
 export const filamentLabel = (f: Pick<Filament, 'colorName' | 'brand' | 'line'>) => `${f.colorName} · ${f.brand} ${f.line}`.trim();
 
@@ -16,7 +12,7 @@ export interface AppSettings {
   masterData: MasterData;
   orderForm: OrderFormSettings;
   features: Features;
-  /** Letztes Ergebnis des Mailversands – zur Fehlersuche in der Verwaltung. SMTP-Daten liegen in mail.json (Server-Manager). */
+  /** Letztes Ergebnis des Mailversands – zur Fehlersuche in der Verwaltung. SMTP-Daten liegen in der Datenbank (betrieb_einstellung, gepflegt vom Server-Manager). */
   mailStatus: MailStatus;
   /** Frühere, frei angelegte Status-IDs → feste Status (für die Migration der Anfragen). */
   statusAliases: Record<string, string>;
@@ -30,8 +26,7 @@ export interface AppSettings {
  */
 export const ORDERFORM_VORGABE_BIS_1_6: Readonly<OrderFormSettings> = Object.freeze({ allowedEmailDomains: ['mosaikschule-lu.de'] });
 
-export { newId } from './ids';
-import { newId } from './ids';
+import { newId } from '../../kern/ids';
 
 const entries = (names: string[]) => names.map((name) => ({ id: newId(), name }));
 
@@ -94,6 +89,4 @@ export function withDefaults(data: Partial<AppSettings>): AppSettings {
 }
 
 /** Statusvorgabe für neue Anfragen: immer „Offen“ (kann nicht ausgeschaltet werden). */
-export function initialStatus(_md?: MasterData): string {
-  return 'offen';
-}
+export const ANFANGSSTATUS = 'offen';

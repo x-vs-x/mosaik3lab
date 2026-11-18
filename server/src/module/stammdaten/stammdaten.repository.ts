@@ -1,5 +1,6 @@
-import { defaultOrderStatuses, STATUS_CATALOG } from '../../domain/orderStatuses';
-import type { MasterData } from '../../domain/settings';
+import { defaultOrderStatuses } from './orderStatuses';
+import { STATUS_CATALOG } from '@mosaik3lab/shared/anfragen';
+import type { MasterData } from '@mosaik3lab/shared/stammdaten';
 import { all, b, bool, count, run, str, type Db } from '../../kern/db';
 import { conflict } from '../../kern/errors';
 import type { MasterDataList } from '@mosaik3lab/shared/stammdaten';
@@ -104,5 +105,15 @@ export class MasterDataRepository {
   /** IDs der Druckteile, die den Eintrag verwenden. */
   itemIdsUsing(list: MasterDataList, value: string) {
     return all(this.db, USAGE_SQL[list], value).map((r) => str(r.id));
+  }
+
+  /** IDs der Druckteile, deren Farbbereiche eine der Gruppen („linie:…“, „art:…“) gewählt haben. */
+  itemIdsMitGruppen(gruppen: string[]) {
+    if (!gruppen.length) return [];
+    return all(
+      this.db,
+      `SELECT DISTINCT fb.artikel_id AS id FROM artikel_farbbereich fb, json_each(fb.gruppen) g WHERE g.value IN (${gruppen.map(() => '?').join(', ')})`,
+      ...gruppen,
+    ).map((r) => str(r.id));
   }
 }

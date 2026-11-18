@@ -20,14 +20,12 @@ import { proposalRoutes } from './module/vorschlaege/vorschlaege.routes';
 import { adminSettingsRoutes, publicConfigRoutes } from './module/einstellungen/einstellungen.routes';
 import { bambuAbgleichBeimStart } from './module/stammdaten/bambuAbgleich';
 import { filamentRoutes } from './module/stammdaten/stammdaten.routes';
-import { NeuigkeitenRepository } from './module/neuigkeiten/neuigkeiten.repository';
 import { neuigkeitenRoutes } from './module/neuigkeiten/neuigkeiten.routes';
 import { versionBeimStart } from './module/neuigkeiten/neuigkeiten.service';
-import { migrateLegacyStatuses, migrateUserEmails, seedIfEmpty } from './seed/seed';
-import { migrateProductData } from './seed/migrateProductData';
-import { importLegacyMail, importLegacySessionSecret } from './kern/mail/mailConfig';
+import { migrateUserEmails, seedIfEmpty } from './seed/seed';
+import { importLegacyMail, importLegacySessionSecret } from './uebernahme/betriebsdateien';
 import { sessionGeheimnis, setBetriebWennNeu } from './kern/betrieb';
-import { retirePathConfig } from './bootstrapConfig';
+import { retirePathConfig } from './uebernahme/bootstrapConfig';
 import { createSqliteStorage } from './storage';
 import { MAX_IMAGE_BYTES, MAX_MODEL_BYTES, MAX_VIDEO_BYTES } from './kern/uploads';
 import { zodFieldErrors } from '@mosaik3lab/shared/basis';
@@ -43,12 +41,9 @@ export async function createApp(config: AppConfig) {
   // Übernahme erledigt (oder nicht nötig) → früher in der App eingestellte Ablagepfade sichern und entfernen.
   retirePathConfig(config.rootDir);
   // Versionswechsel merken (für „Was ist neu“) – vor den Demo-Daten, sonst sähe eine Neuinstallation wie ein Update aus.
-  const neuigkeiten = new NeuigkeitenRepository(db);
-  versionBeimStart(neuigkeiten, config.appVersion);
+  versionBeimStart(storage.neuigkeiten, config.appVersion);
   if (config.seedDemoData) await seedIfEmpty(storage);
-  await migrateLegacyStatuses(storage);
   await migrateUserEmails(storage);
-  await migrateProductData(storage);
   // Bambu-Farbrollen mit dem mitgelieferten Katalog abgleichen (wirkt nach Updates; eigene Farbrollen bleiben unberührt).
   bambuAbgleichBeimStart(storage);
   // Bildpflege einige Minuten nach dem Start (wenn /api/health längst grün ist) – nie im Installer/Update-Schritt.
@@ -122,7 +117,7 @@ export async function createApp(config: AppConfig) {
   app.use('/api/personen', personRoutes(storage, auth));
   app.use('/api/dashboard', dashboardRoutes(storage, auth));
   app.use('/api/files', fileRoutes(storage, auth));
-  app.use('/api/neuigkeiten', neuigkeitenRoutes(neuigkeiten, config));
+  app.use('/api/neuigkeiten', neuigkeitenRoutes(storage, auth, config));
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Unbekannter API-Endpunkt.' });
   });

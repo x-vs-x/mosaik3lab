@@ -1,13 +1,13 @@
 import { hashPassword } from '../kern/auth/password';
-import { newId } from '../domain/ids';
+import { newId } from '../kern/ids';
 import { STANDARD_BEREICHE, TEAM_BEREICHE } from '@mosaik3lab/shared/konten';
-import { isCatalogStatus, LEGACY_STATUS_MAP } from '../domain/orderStatuses';
-import { initialStatus } from '../domain/settings';
-import type { Item, StatusEntry } from '../domain/types';
+import { ANFANGSSTATUS } from '../module/einstellungen/einstellungen.vorgaben';
+import { productDefaults, type Item } from '../domain/types';
+import { type StatusEntry } from '@mosaik3lab/shared/anfragen';
 import { createTrackingCode } from '../module/anfragen/anfragen.service';
 import type { Storage } from '../storage';
 import { DEMO_ITEMS, DEMO_ORDERS, DEMO_USERS, LEGACY_DEMO_EMAILS } from './demoData';
-import { productDefaults } from './migrateProductData';
+
 
 /**
  * Legt beim allerersten Start (alle Datendateien leer) Demo-Benutzer,
@@ -66,7 +66,7 @@ export async function seedIfEmpty(storage: Storage): Promise<boolean> {
   }
 
   const { masterData } = await storage.settings.get();
-  const start = initialStatus(masterData);
+  const start = ANFANGSSTATUS;
 
   // Älteste Anfrage zuerst, damit Nummern und „letzte Anfrage“ der Lehrkräfte stimmen.
   for (const d of [...DEMO_ORDERS].sort((a, b) => b.daysAgo - a.daysAgo)) {
@@ -118,47 +118,6 @@ export async function seedIfEmpty(storage: Storage): Promise<boolean> {
     `[Seed] ${DEMO_USERS.length} Demo-Benutzer, ${DEMO_ITEMS.length} Druckteile und ${DEMO_ORDERS.length} Anfragen angelegt.`,
   );
   return true;
-}
-
-/**
- * Bringt Anfragen aus älteren Versionen auf den aktuellen Stand (läuft bei jedem Start):
- * - Statuswerte werden auf die feste Statusliste abgebildet: frühere, frei angelegte Status über
- *   `statusAliases` (siehe normalizeOrderStatuses), sehr alte über LEGACY_STATUS_MAP,
- *   unbekannte Werte erhalten den Anfangsstatus.
- * - Fehlende neue Felder (requesterEmail, colorId, colorHex) werden leer ergänzt.
- */
-export async function migrateLegacyStatuses(storage: Storage) {
-  const settings = await storage.settings.get();
-  const fallback = initialStatus(settings.masterData);
-  const fix = (s: string) => (isCatalogStatus(s) ? s : (settings.statusAliases[s] ?? LEGACY_STATUS_MAP[s] ?? fallback));
-  const missing = (v: unknown) => typeof v !== 'string';
-  let changed = 0;
-  for (const order of await storage.orders.list()) {
-    const needsFix =
-      !isCatalogStatus(order.status) ||
-      order.history.some((h) => !isCatalogStatus(h.status)) ||
-      missing(order.trackingCode) ||
-      missing(order.requesterEmail) ||
-      missing(order.requesterName) ||
-      missing(order.colorId) ||
-      missing(order.colorHex);
-    if (!needsFix) continue;
-    await storage.orders.update(order.id, (o) => ({
-      ...o,
-      status: fix(o.status),
-      history: o.history.map((h) => ({ ...h, status: fix(h.status) })),
-      trackingCode: o.trackingCode ?? '',
-      requesterEmail: o.requesterEmail ?? '',
-      requesterName: o.requesterName ?? '',
-      requesterId: o.requesterId ?? null,
-      colorId: o.colorId ?? '',
-      colorHex: o.colorHex ?? '',
-    }));
-    changed++;
-  }
-  if (changed) console.log(`[Migration] ${changed} Anfrage(n) auf den aktuellen Datenstand gebracht.`);
-  // Normalisierte Statusliste (fest, mit Schaltern) und Farbrollen-Schalter dauerhaft speichern.
-  await storage.settings.update((s) => s);
 }
 
 /**

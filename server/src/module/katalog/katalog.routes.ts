@@ -3,27 +3,10 @@ import type { Auth } from '../../kern/auth/middleware';
 import { badRequest, notFound } from '../../kern/errors';
 import { dateiName } from '../../kern/files';
 import { istVorschauGroesse } from '../../kern/bilder';
-import { param, sendMissingImage } from '../../kern/http';
-import { imageUpload, MAX_IMAGES_PER_ITEM, modelUpload, videoUpload } from '../../kern/uploads';
+import { param, queryText, sendMissingImage } from '../../kern/http';
+import { imageUpload, MAX_IMAGES_PER_ITEM, MAX_MODELS_PER_REQUEST, modelUpload, videoUpload } from '../../kern/uploads';
 import type { Storage } from '../../storage';
-import {
-  addImages,
-  addModels,
-  addVideoLink,
-  createItem,
-  deleteItem,
-  listItems,
-  loadVisible,
-  presentItem,
-  removeImage,
-  removeModel,
-  removeVideo,
-  reorderImages,
-  setPublished,
-  updateItem,
-  uploadVideo,
-  visibleItemFile,
-} from './katalog.service';
+import { addImages, addModels, addVideoLink, createItem, deleteItem, listItems, loadVisible, presentItem, removeImage, removeModel, removeVideo, reorderImages, setPublished, updateItem, uploadVideo, visibleItemFile } from './katalog.service';
 import { farbeZuordnen } from './farbeZuordnen';
 import { addAehnlich, listAehnliche, removeAehnlich } from './aehnliche';
 import { aehnlichSchema, farbeZuordnenSchema, imageOrderSchema, itemInputSchema, publishSchema, videoLinkSchema, videoUploadSchema } from '@mosaik3lab/shared/katalog';
@@ -33,7 +16,6 @@ const VORSCHAU_WARTEN_MS = 2_500;
 /** Original als Ersatz für ein fehlendes Vorschaubild: kurz zwischenspeichern (kein Abruf-Sturm), bald neu fragen. */
 const ERSATZ_CACHE = 'private, max-age=60';
 
-const text = (v: unknown) => (typeof v === 'string' ? v : '');
 const uploaded = (files: unknown) => (files as Express.Multer.File[] | undefined) ?? [];
 
 /** /api/items – Katalog. Lesen ohne Anmeldung (nur veröffentlichte Druckteile), Verwaltung mit „catalog:manage“. */
@@ -42,7 +24,7 @@ export function itemRoutes(storage: Storage, auth: Auth) {
 
   router.get('/', async (req, res) => {
     const { q, category, area, kind } = req.query;
-    res.json(await listItems(storage, req.user, { q: text(q), category: text(category), area: text(area), kind: text(kind), all: req.query.all === '1' }));
+    res.json(await listItems(storage, req.user, { q: queryText(q), category: queryText(category), area: queryText(area), kind: queryText(kind), all: req.query.all === '1' }));
   });
 
   router.get('/:id', async (req, res) => {
@@ -73,9 +55,9 @@ export function itemRoutes(storage: Storage, auth: Auth) {
   });
 
   // Eine Farbrolle mehreren Druckteilen auf einmal hinzufügen (Farbrollen-Verwaltung → „Druckteilen zuordnen …“).
-  router.post('/farbe-zuordnen', manage, (req, res) => {
+  router.post('/farbe-zuordnen', manage, async (req, res) => {
     const { filamentId, ziele } = farbeZuordnenSchema.parse(req.body);
-    res.json(farbeZuordnen(storage, filamentId, ziele));
+    res.json(await farbeZuordnen(storage, filamentId, ziele));
   });
 
   router.put('/:id', manage, async (req, res) => {
@@ -126,7 +108,7 @@ export function itemRoutes(storage: Storage, auth: Auth) {
   });
 
   // --- Druckdateien (STL / 3MF) -----------------------------------------------
-  router.post('/:id/models', manage, modelUpload.array('files', 5), async (req, res) => {
+  router.post('/:id/models', manage, modelUpload.array('files', MAX_MODELS_PER_REQUEST), async (req, res) => {
     const updated = await addModels(storage, param(req.params.id), uploaded(req.files), req.user!.id);
     res.status(201).json(presentItem(updated, req.user!));
   });

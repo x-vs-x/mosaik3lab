@@ -1,10 +1,14 @@
 import crypto from 'node:crypto';
-import { newId } from '../../domain/ids';
-import { userCan } from '../../domain/permissions';
-import { initialStatus, isAllowedEmail, type Filament, type StatusPhase } from '../../domain/settings';
-import { singleColorArea, type Item, type Order, type OrderColorChoice, type OrderCustomValue, type Requester, type User } from '../../domain/types';
+import { newId } from '../../kern/ids';
+import { userCan } from '../konten/rechte';
+import { ANFANGSSTATUS, isAllowedEmail } from '../einstellungen/einstellungen.vorgaben';
+import { type Filament } from '@mosaik3lab/shared/stammdaten';
+import { type StatusPhase } from '@mosaik3lab/shared/anfragen';
+import { singleColorArea, type Item, type User } from '../../domain/types';
+import { type Order, type OrderColorChoice, type OrderCustomValue, type Requester } from '@mosaik3lab/shared/anfragen';
 import { badRequest, conflict, forbidden, notFound } from '../../kern/errors';
 import type { Storage } from '../../storage';
+import { passtZurSuche } from '@mosaik3lab/shared/suche';
 import { notifyNewOrder } from './anfragen.mail';
 import {
   colorChoicesText,
@@ -123,7 +127,7 @@ export function createTrackingCode(): string {
   return Array.from(crypto.randomBytes(8), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
 }
 
-export const canManage = (user: User | undefined) => userCan(user, 'orders:view');
+export const siehtAlleAnfragen = (user: User | undefined) => userCan(user, 'orders:view');
 
 /** Anfrage stellen – ohne Anmeldung möglich. Schul-E-Mail und Klasse werden eingetragen. */
 export async function createOrder(storage: Storage, input: OrderInputData, user: User | undefined, loggedIn: Requester | undefined) {
@@ -152,7 +156,7 @@ export async function createOrder(storage: Storage, input: OrderInputData, user:
   }
   // Unbekannte Adresse → Lehrkraft wird automatisch neu angelegt (ohne Passwort/Profil).
   const requester = await storage.requesters.upsertByEmail(email, now);
-  const status = initialStatus(settings.masterData);
+  const status = ANFANGSSTATUS;
   const order = await storage.orders.create({
     id: newId(),
     itemId: item.id,
@@ -169,15 +173,15 @@ export async function createOrder(storage: Storage, input: OrderInputData, user:
     createdAt: now,
     updatedAt: now,
   });
-  notifyNewOrder(storage, storage.sqlite.db, order, item);
+  notifyNewOrder(storage, order, item);
 
   // Lehrkräfte reichen nur ein – Status und Code erhalten sie nur, wenn das eingeschaltet ist.
-  if (!settings.features.requesterTracking && !canManage(user)) return { id: order.id, number: order.number, itemName: order.itemName };
+  if (!settings.features.requesterTracking && !siehtAlleAnfragen(user)) return { id: order.id, number: order.number, itemName: order.itemName };
   return order;
 }
 
 /** Nur offene Anfragen (vom Team noch nicht angesehen) darf die Lehrkraft selbst ändern. */
-const isEditable = (o: Order) => o.status === initialStatus();
+const isEditable = (o: Order) => o.status === ANFANGSSTATUS;
 
 /**
  * Eigene Anfrage ändern, solange sie offen ist. Gleiche Prüfung wie beim Anlegen; Druckteil, E-Mail und
@@ -200,7 +204,7 @@ export async function updateOwnOrder(storage: Storage, id: string, input: OrderI
     return { ...current, ...values, history: [...current.history, entry], updatedAt: at };
   });
   if (!updated) throw notFound('Anfrage nicht gefunden.');
-  notifyNewOrder(storage, storage.sqlite.db, updated, item, order);
+  notifyNewOrder(storage, updated, item, order);
   return toOwnOrder(updated, features.requesterTracking);
 }
 
@@ -310,12 +314,11 @@ export async function listRequesters(storage: Storage) {
     .sort((a, b) => b.lastOrderAt.localeCompare(a.lastOrderAt));
 }
 
-/** Alle Anfragen, optional nach Status und Suchtext gefiltert, neueste zuerst. */
+/** Alle Anfragen, optional nach Status und Suchtext gefiltert (wie im Katalog: jedes Wort, Umlaute egal), neueste zuerst. */
 export function listOrders(storage: Storage, status: string, query: string) {
-  const q = query.trim().toLocaleLowerCase('de-DE');
   return storage.orders
     .listByStatus(status)
-    .filter((o) => !q || [o.number, o.itemName, o.classOrTeam, o.color, o.requesterName, o.requesterEmail].join(' ').toLocaleLowerCase('de-DE').includes(q))
+    .filter((o) => passtZurSuche([o.number, o.itemName, o.classOrTeam, o.color, o.requesterName, o.requesterEmail], query))
     .sort(byNewest);
 }
 

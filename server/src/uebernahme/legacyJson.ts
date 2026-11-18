@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ORDERFORM_VORGABE_BIS_1_6, withDefaults, type AppSettings } from '../../domain/settings';
-import type { Item, Order, Requester, User } from '../../domain/types';
-import type { StoredSession } from '../../kern/auth/sitzungen';
+import { ORDERFORM_VORGABE_BIS_1_6, withDefaults, type AppSettings } from '../module/einstellungen/einstellungen.vorgaben';
+import type { Item, User } from '../domain/types';
+import type { Order, Requester } from '@mosaik3lab/shared/anfragen';
+import type { StoredSession } from '../kern/auth/sitzungen';
 
 // Lesen der bisherigen JSON-Dateien (bis Schema 1 der Speicher von Mosaik³LAB) – nur noch für die einmalige
 // Übernahme in die Datenbank. Es wird nie in diese Dateien geschrieben; sie bleiben als Sicherung liegen.

@@ -1,8 +1,9 @@
-import { newId } from '../../domain/ids';
+import { newId } from '../../kern/ids';
 import type { Bereich } from '@mosaik3lab/shared/konten';
-import type { Requester, Role, User } from '../../domain/types';
+import type { Requester } from '@mosaik3lab/shared/anfragen';
+import type { Role } from '@mosaik3lab/shared/konten';
+import type { User } from '../../domain/types';
 import { conflict } from '../../kern/errors';
-import type { FileStore } from '../../kern/files';
 import { all, b, bool, count, one, run, str, transaction, type Db, type Row } from '../../kern/db';
 
 // Konten (Tabelle benutzer + benutzer_bereich) und Lehrkräfte (Tabelle lehrkraft, Besteller-Verzeichnis).
@@ -10,10 +11,7 @@ import { all, b, bool, count, one, run, str, transaction, type Db, type Row } fr
 // --- Benutzer ------------------------------------------------------------------------------------------
 
 export class UserRepository {
-  constructor(
-    private readonly db: Db,
-    private readonly files: FileStore,
-  ) {}
+  constructor(private readonly db: Db) {}
 
   /** `bereiche` vorgeladen (Liste: eine Abfrage für alle statt einer je Konto). */
   private toUser(r: Row, bereiche = all(this.db, 'SELECT bereich FROM benutzer_bereich WHERE benutzer_id = ? ORDER BY bereich', r.id)): User {
@@ -73,7 +71,9 @@ export class UserRepository {
   }
 
   /** Schreibt Konto + Druck-Team-Bereiche (Einfügen oder Aktualisieren). */
-  save(u: User) {
+  save(entity: User) {
+    // Wie bei Lehrkräften: E-Mail immer klein speichern – findByEmail sucht klein.
+    const u = { ...entity, email: entity.email ? entity.email.trim().toLowerCase() : entity.email };
     this.assertUnique(u);
     run(
       this.db,
@@ -143,17 +143,6 @@ export class UserRepository {
     });
   }
 
-  async delete(id: string) {
-    const user = await this.findById(id);
-    if (!user) return undefined;
-    const removed = transaction(this.db, () => {
-      run(this.db, 'DELETE FROM benutzer WHERE id = ?', id);
-      return this.files.removeRowsFor('benutzer', id);
-    });
-    await this.files.unlink(removed);
-    return user;
-  }
-
   // --- Passwort-Links (Tabelle passwort_link, nur der Hash des Tokens) ---
 
   /** Neuer Link für das Konto; ältere Links des Kontos werden dabei ungültig. */
@@ -200,10 +189,7 @@ const toRequester = (r: Row): Requester => ({
 });
 
 export class RequesterRepository {
-  constructor(
-    private readonly db: Db,
-    private readonly files: FileStore,
-  ) {}
+  constructor(private readonly db: Db) {}
 
   async list() {
     return all(this.db, 'SELECT * FROM lehrkraft WHERE entfernt_am IS NULL ORDER BY angelegt_am, id').map(toRequester);
@@ -265,17 +251,6 @@ export class RequesterRepository {
       at,
       id,
     );
-  }
-
-  async delete(id: string) {
-    const found = await this.findById(id);
-    if (!found) return undefined;
-    const removed = transaction(this.db, () => {
-      run(this.db, 'DELETE FROM lehrkraft WHERE id = ?', id);
-      return this.files.removeRowsFor('lehrkraft', id);
-    });
-    await this.files.unlink(removed);
-    return found;
   }
 
   async upsertByEmail(email: string, at: string) {
