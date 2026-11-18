@@ -4,9 +4,12 @@
     <meta charset="UTF-8" />
     <!-- Basis-Adresse: der Server setzt hier beim Ausliefern den Pfad ein (z. B. /mosaik3lab/), siehe server/src/basePath.ts -->
     <base href="/" />
+    <!-- Tab/Lesezeichen: favicon.ico (16/32/48 px, für ältere Browser und Windows) und SVG für scharfe Darstellung -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <!-- Home-Bildschirm (iPhone/Android): Icon ohne Transparenz, Manifest mit maskable-Icon -->
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Home-Bildschirm (iPhone/Android): Icon ohne Transparenz, Manifest mit maskable-Icon. Der Server macht die Pfade
+         absolut (/mosaik3lab/…), das Portal beantwortet zusätzlich /apple-touch-icon.png und /favicon.ico an der Wurzel (manager/lib/portalserver.mjs). -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="apple-mobile-web-app-title" content="Mosaik³LAB" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

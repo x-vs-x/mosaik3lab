@@ -2,6 +2,22 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Web-App-Icon auf allen Geräten (Unter-Session, Branch: fix/webapp-icon)
+- **Meldung:** iPhone „Zum Home-Bildschirm“ zeigt nur ein großes „M“ statt des Logos (iPad zeigt das Logo).
+- **Befund (installierte 1.8.0, nur HTTP):** Icons selbst in Ordnung (180×180, deckend weiß). Aber `<link href="./apple-touch-icon.png">`
+  hing allein an `<base href>`; jede unbekannte Adresse unter /mosaik3lab lieferte die Startseite (z. B. `/mosaik3lab/katalog/x/apple-touch-icon.png`
+  und `/mosaik3lab/favicon.ico` → 200 text/html), Wurzel `/apple-touch-icon.png`, `/favicon.ico` → 404 vom Portal. Löst iOS das Icon
+  relativ zur aktuellen (Unter-)Seite auf oder fragt die festen Wurzel-Namen, bekommt es HTML bzw. 404 → Buchstaben-Kachel.
+- **Geändert:** `server/src/basePath.ts` (alle `<link href="./…">` beim Ausliefern absolut mit Basis-Pfad), neu `server/src/appIcons.ts`
+  (Apple-Varianten `-precomposed`/`-180x180` → Touch-Icon; fehlende Bild-/Icon-/Manifest-Dateien → 404 statt Startseite), `server/src/app.ts`;
+  `manager/lib/portalserver.mjs` (Wurzel `/apple-touch-icon*.png`, `/favicon.ico` → App unter `/<pfad>/`; Hinweis auf der Zertifikatsseite:
+  ohne vertrautes Zertifikat kein Logo auf iPhone/iPad); `client/index.html` (`sizes`, favicon.ico), neu `client/public/favicon.ico`
+  (16/32/48 px), `manifest.webmanifest` mit `id: "/mosaik3lab/"` (= Chromes bisherige Kennung, bestehende Installationen bleiben); `manager/README.md`.
+- **Tests:** `server/test/betrieb.test.ts` (iPhone-Abruf ohne Cookies von tiefer Seite, Varianten → image/*, fehlende Bilder 404, Manifest/
+  Icon-Größen/Deckkraft), neu `manager/test/portal-icons.test.mjs` (reiner Test, lokal gelaufen). Headless Chrome (frisches Profil) gegen den
+  gebauten Client auf 3013: `getAppManifest` ohne Fehler, `getInstallabilityErrors` leer, App-ID `/mosaik3lab/`.
+- **Aufgeräumt:** Testserver gestoppt, Testdaten gelöscht; Vorschau `_testdatenwebapp-iconicon-vorschau.png` bleibt.
+
 ## 2026-11-18 – Druckteil-Seite: kein Weißraum unter dem Bild auf dem iPad (Unter-Session, Branch: fix/druckteil-ipad)
 - **Meldung:** Auf dem iPad steht unter dem Vorschaubild eines Druckteils sehr viel leerer Platz, erst dann kommt die Beschreibung.
 - **Ursache:** Zweispaltiges Raster (`md` = iPad hoch 768–1023 px und ab `xl` = iPad Pro quer, PC): links nur die Galerie (4:3),
