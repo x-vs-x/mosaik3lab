@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.8.0] – 2026-11-18
+
 - **Fotovorschau im Vorschlagsformular:** Ausgewählte Fotos erscheinen jetzt als Vorschaubild (die
   Sicherheitsregeln der Seite hatten sie blockiert).
 - **Katalog bei großer Schrift:** Auf dem Handy mit großer Schrift werden die Karten nicht mehr rechts abgeschnitten;

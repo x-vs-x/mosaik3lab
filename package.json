@@ -1,6 +1,6 @@
 {
   "name": "mosaik3lab",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "private": true,
   "description": "Mosaik³LAB – schulinterner 3D-Druck-Hilfsmittelkatalog (lokaler Prototyp)",
   "workspaces": [
