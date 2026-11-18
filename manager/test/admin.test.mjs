@@ -4,12 +4,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { einrichten } from './helpers/einrichtung.mjs';
 
 const TESTROOT = path.resolve(import.meta.dirname, '..', '..', '..', '_testdaten', 'admin-sicherheit');
 fs.mkdirSync(TESTROOT, { recursive: true });
 const tmp = fs.mkdtempSync(path.join(TESTROOT, 'mgr-'));
 process.env.MANAGER_CONFIG = path.join(tmp, 'manager.config.json');
-fs.writeFileSync(process.env.MANAGER_CONFIG, JSON.stringify({ paths: { dataDir: path.join(tmp, 'storage'), ablageDir: path.join(tmp, 'ablage'), backupDir: path.join(tmp, 'backups'), logDir: path.join(tmp, 'logs') } }));
+einrichten(process.env.MANAGER_CONFIG, { paths: { dataDir: path.join(tmp, 'storage'), ablageDir: path.join(tmp, 'ablage'), backupDir: path.join(tmp, 'backups'), logDir: path.join(tmp, 'logs') } });
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 const { activeAdminCount, checkAdminInput, createAdmin, normalizeDomain } = await import('../lib/admin.mjs');

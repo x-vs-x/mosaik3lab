@@ -11,6 +11,9 @@ daraus die nächste Version.
   Zurück/Vor im Browser und Links mit Suchbegriff funktionieren wie bisher.
 - **Aufgeräumt:** Eine seit Längerem ungenutzte Tabelle der Datenbank (alte Einzelrechte) wird entfernt
   (Datenbank-Migration 022, vorher automatische Sicherung; Rechte und Häkchen bleiben unverändert).
+
+- **Updates ab Version 1.6.3:** Aktualisiert wird nur noch von 1.6.3 oder neuer. Ältere Stände bitte zuerst auf 1.6.3
+  bringen (Paket 1.6.3 installieren), dann auf diese Version. Übernahmen aus noch älteren Ständen sind entfernt.
 - **Kontosperre zählt jeden falschen Versuch:** Kamen mehrere falsche Passwörter gleichzeitig an, zählte die Sperre nach
   zehn Fehlversuchen nur einen davon. Jetzt zählt jeder; eine gerade gesetzte Sperre wird nicht wieder aufgehoben.
 - **Vorschlag mit Fotos: Fortschritt und „Senden abbrechen“:** Beim Senden eines Vorschlags mit Fotos zeigt die Seite

@@ -6,7 +6,7 @@ import { productDefaults, type Item } from '../domain/types';
 import { type StatusEntry } from '@mosaik3lab/shared/anfragen';
 import { createTrackingCode } from '../module/anfragen/anfragen.service';
 import type { Storage } from '../storage';
-import { DEMO_ITEMS, DEMO_ORDERS, DEMO_USERS, LEGACY_DEMO_EMAILS } from './demoData';
+import { DEMO_ITEMS, DEMO_ORDERS, DEMO_USERS } from './demoData';
 
 
 /**
@@ -118,31 +118,4 @@ export async function seedIfEmpty(storage: Storage): Promise<boolean> {
     `[Seed] ${DEMO_USERS.length} Demo-Benutzer, ${DEMO_ITEMS.length} Druckteile und ${DEMO_ORDERS.length} Anfragen angelegt.`,
   );
   return true;
-}
-
-/**
- * Ergänzt Konten aus älteren Versionen um die Anmelde-E-Mail (läuft bei jedem Start, ohne Datenverlust):
- * - Demo-Konten erhalten ihre Demo-Adresse, andere Konten <benutzername>@<erste erlaubte Schul-Domain>.
- * - Konten mit Rolle „lehrkraft“ bleiben erhalten; ihre E-Mail wird als bekannte Lehrkraft
- *   eingetragen, damit sie sich künftig ohne Passwort anmelden können.
- */
-export async function migrateUserEmails(storage: Storage) {
-  const users = await storage.users.list();
-  const legacy = users.filter((u) => typeof u.email !== 'string' || !u.email);
-  if (legacy.length === 0) return;
-  const { orderForm } = await storage.settings.get();
-  const domain = orderForm.allowedEmailDomains[0] ?? 'schule.example';
-  const taken = new Set(users.map((u) => u.email).filter(Boolean));
-
-  for (const user of legacy) {
-    const preferred = (user.isDemo && LEGACY_DEMO_EMAILS[user.username]) || `${user.username}@${domain}`;
-    let email = preferred;
-    for (let n = 2; taken.has(email); n++) email = preferred.replace('@', `.${n}@`);
-    taken.add(email);
-    await storage.users.update(user.id, (u) => ({ ...u, email }));
-    if (user.role === 'lehrkraft' && !(await storage.requesters.findByEmail(email))) {
-      await storage.requesters.create({ id: newId(), email, createdAt: user.createdAt, lastOrderAt: '', darfAnfragen: true, darfVorschlagen: true });
-    }
-  }
-  console.log(`[Migration] ${legacy.length} Konto/Konten um eine Anmelde-E-Mail ergänzt (siehe Benutzer & Rollen).`);
 }

@@ -109,12 +109,12 @@ z. B. C:\Mosaik3LAB\ablage\artikel\0193…\bild\0193…a1.jpg
 - **`statusart.id`** ist der feste Schlüssel aus dem Code (`offen`, `gedruckt` …); nur `aktiv` wird gespeichert. Die Liste
   steht heute in `shared/src/werte/anfragen.ts` (der Kommentar in `001_grundschema.sql` nennt noch `domain/orderStatuses.ts`;
   eingespielte Migrationen bleiben unverändert).
-- **Einstellungen** (`orderForm`, `features`, `mailStatus`, `statusAliases`, Ergebnis der JSON-Übernahme
-  `json_uebernahme`) liegen als JSON-Wert je Schlüssel in `einstellung`.
+- **Einstellungen** (`orderForm`, `features`, `mailStatus`, `statusAliases`; der Schlüssel
+  `json_uebernahme` aus der früheren JSON-Übernahme wird nicht mehr geschrieben) liegen als JSON-Wert je Schlüssel in `einstellung`.
 - **Schema 2 (`002_vorschlag.sql`):** Tabelle `vorschlag` (Titel, Beschreibung, Einsatz, Links als JSON, Menge, Dringlichkeit,
   Status, Antwort, `umgesetzt_artikel_id` → `artikel` ON DELETE SET NULL, `lehrkraft_id` ON DELETE SET NULL mit E-Mail-Schnappschuss). Fotos: `datei` (`vorschlag`/`foto`).
 - **Ablageordner** stellt nur der Server-Manager ein (`ABLAGE_DIR`, nur bei gestoppter App, optional mit Kopieren der
-  Dateien); früher in der App eingestellte Ordner (`mosaik3lab.config.json`) dienen nur noch als Quelle der Übernahme.
+  Dateien). Die frühere Datei `mosaik3lab.config.json` wird nicht mehr gelesen.
   Waisen-Prüfung (Datei ↔ Datensatz) im Manager-`doctor`.
 
 ## Migration 003 – Erneut anfragen

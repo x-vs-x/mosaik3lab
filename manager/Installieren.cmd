@@ -115,7 +115,7 @@ echo.
 goto :ende
 
 :altinstall
-echo Auf diesem Rechner ist Mosaik3LAB schon an einem anderen Ort eingerichtet (aeltere Version).
+echo Auf diesem Rechner ist Mosaik3LAB schon an einem anderen Ort eingerichtet (nicht im Ordner Programme).
 echo Bitte zuerst: Startmenue - Mosaik3LAB - "Mosaik3LAB deinstallieren" (Daten BEHALTEN),
 echo danach "Installieren.cmd" erneut starten. Daten und Einstellungen bleiben erhalten.
 if not defined STILL pause

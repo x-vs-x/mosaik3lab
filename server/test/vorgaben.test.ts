@@ -2,11 +2,9 @@
 // Bestehende Datenstände verhalten sich genau wie vorher – auch wenn sie die Domain nie ausdrücklich gespeichert haben.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import path from 'node:path';
 import { test } from 'node:test';
 import { defaultSettings, isAllowedEmail, ORDERFORM_VORGABE_BIS_1_6 } from '../src/module/einstellungen/einstellungen.vorgaben';
 import { createAdminAccount } from '../src/module/konten/konten.service';
-import { readLegacyData } from '../src/uebernahme/legacyJson';
 import { storageAt, tmp } from './helfer';
 
 type TestStorage = Awaited<ReturnType<typeof storageAt>>['storage'];
@@ -84,15 +82,6 @@ test('Noch nicht eingerichtete ältere Installation: erster Administrator übern
       await createAdminAccount(s, { email: 'chefin@andere-schule.example', name: 'Chefin', password: 'Langes-Passwort-1' });
       assert.deepEqual(await domains(s), ['andere-schule.example']);
     });
-  });
-});
-
-test('Alte JSON-Daten ohne erlaubte Domains bekommen beim Einlesen die damalige Vorgabe', async () => {
-  await imOrdner(async (dir) => {
-    await fs.writeFile(path.join(dir, 'settings.json'), JSON.stringify({ features: { requesterTracking: true } }));
-    assert.deepEqual(readLegacyData(dir).settings.orderForm.allowedEmailDomains, ALT);
-    await fs.writeFile(path.join(dir, 'settings.json'), JSON.stringify({ orderForm: { allowedEmailDomains: ['eigene.example'] } }));
-    assert.deepEqual(readLegacyData(dir).settings.orderForm.allowedEmailDomains, ['eigene.example']);
   });
 });
 

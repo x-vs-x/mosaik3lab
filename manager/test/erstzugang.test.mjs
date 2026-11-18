@@ -22,7 +22,6 @@ const TESTROOT = path.resolve(MANAGER, '..', '..', '_testdaten', 'server-manager
 const tmp = (fs.mkdirSync(TESTROOT, { recursive: true }), fs.mkdtempSync(path.join(TESTROOT, 'erstzugang-')));
 const STORAGE = path.join(tmp, 'storage');
 const DB = path.join(STORAGE, 'mosaik3lab.db');
-const ALTCODE = path.join(tmp, 'logs', 'einrichtungscode.txt'); // Rest aus Versionen bis 1.1.3
 const ADMIN = { email: 'chefin@schule.example', name: 'Chefin', password: 'Erstzugang-2026' };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** cli.mjs erstzugang wie am Ende der Installer → { code (Exit), out } */
@@ -71,8 +70,6 @@ before(async () => {
   fs.mkdirSync(STORAGE, { recursive: true });
   const configFile = path.join(tmp, 'mosaik3lab.json');
   fs.writeFileSync(configFile, JSON.stringify({ dataDir: STORAGE, managerPort }));
-  fs.mkdirSync(path.dirname(ALTCODE), { recursive: true });
-  fs.writeFileSync(ALTCODE, 'ABCD-EFGH\n');
   // wie nach der Installation: Portal an, im Netzwerk – aber noch keine Konten (Tabelle „benutzer“ fehlt ganz)
   writeBereich(DB, 'betrieb', { 'app.port': appPort, 'app.network': true, 'portal.enabled': true, 'portal.basePath': '/mosaik3lab', 'portal.httpPort': portalPort, 'portal.httpsPort': await freePort(), 'paths.backupDir': path.join(tmp, 'backups'), 'paths.logDir': path.join(tmp, 'logs') });
   proc = spawn(process.execPath, [path.join(MANAGER, 'server.mjs')], { env: { ...process.env, MANAGER_CONFIG: configFile, MOSAIK3LAB_QUIET: '1', MOSAIK3LAB_NO_AUTOMATION: '1', DISABLE_DEMO_ACCOUNTS: 'true', MOSAIK3LAB_SYSTEM_DRY_RUN: path.join(tmp, 'system.json') }, stdio: 'ignore', windowsHide: true });
@@ -102,7 +99,6 @@ test('Noch kein Administrator: über das Netz nur die Einrichtung erreichbar', a
   assert.match(page.text, /<base href="\/mosaik3lab\/manager\/" \/>/);
   assert.match(page.text, /first-email/);
   assert.doesNotMatch(page.text, /Einrichtungscode/);
-  assert.equal(fs.existsSync(ALTCODE), false, 'alte Code-Datei beim Start entfernt');
   for (const f of ['/app.js', '/app.css', '/icon.svg', '/ui.js', '/update.js', '/neuigkeiten.js', '/erweitert.js', '/einstellungen.js']) assert.equal((await viaPortal('GET', f)).status, 200, f);
   for (const p of ['/api/status', '/api/settings', '/api/mail', '/api/logs', '/api/auth/erstzugang']) {
     const r = await viaPortal('GET', p);

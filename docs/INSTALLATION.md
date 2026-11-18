@@ -69,16 +69,16 @@ Windows-Einstellungen → Netzwerk und Internet → Eigenschaften → „Privat�
 - **Neue Version – ab 1.1.0 per Knopfdruck:** Der Server-Manager meldet freigegebene neue Versionen selbst (Karte „Updates“,
   täglich geprüft). **„Jetzt aktualisieren“** → bestätigen → fertig: Er lädt das Paket für dieses System, prüft es, sichert
   vorher und installiert über den Update-Helfer. Klappt etwas nicht, läuft automatisch die bisherige Version weiter. Danach
-  zeigt „Was ist neu“, was sich geändert hat. Ohne Internet am Server oder bei Versionen vor 1.1.0: wie bisher das neue Paket
-  entpacken und wieder **`Installieren.cmd`** doppelklicken – einfach drüberinstallieren. Details: [Update per Paket](#update-per-paket-windows-und-linux).
+  zeigt „Was ist neu“, was sich geändert hat. Ohne Internet am Server: das neue Paket entpacken und wieder
+  **`Installieren.cmd`** doppelklicken – einfach drüberinstallieren. **Updates gibt es ab Version 1.6.3** – ein älterer Stand
+  kommt zuerst mit dem Paket 1.6.3 auf diesen Stand. Details: [Update per Paket](#update-per-paket-windows-und-linux).
 - **Ganz entfernen:** Startmenü → Mosaik³LAB → **„Mosaik³LAB deinstallieren“**. Es fragt, ob die Daten bleiben sollen
   (Standard: ja). Mit „n“ ist auch `C:\Mosaik3LAB` mit allen Daten weg – vorher eine Sicherung auf einen USB-Stick kopieren.
 
 Hilfe bei Problemen: Server-Manager → „Erweitert“ → Protokoll; Logs liegen in `C:\Mosaik3LAB\logs`.
 
-> **Ältere Installation** (Programm noch unter `C:\Mosaik3LAB\programm`): `Installieren.cmd` meldet das und ändert nichts.
-> Erst „Mosaik³LAB deinstallieren“ mit Daten **behalten**, dann `Installieren.cmd` – die Daten in `C:\Mosaik3LAB`
-> werden weiterverwendet. Danach kann der leere Ordner `C:\Mosaik3LAB\manager` gelöscht werden.
+> **Installation an einem anderen Ort** (Dienste da, aber kein `C:\Program Files\Mosaik3LAB\install.json`): `Installieren.cmd`
+> meldet das und ändert nichts. Erst „Mosaik³LAB deinstallieren“ mit Daten **behalten**, dann `Installieren.cmd`.
 
 ## Update per Paket (Windows und Linux)
 
@@ -146,8 +146,8 @@ Manager nie Admin-Rechte bekommt, führt das Admin-Konto nichts aus, was das ein
 
 - **Linux:** Unit-Dateien (`/etc/systemd/system/mosaik3lab-*.service`) und die polkit-Regel
   (`/etc/polkit-1/rules.d/50-mosaik3lab.rules`) erzeugt die Einrichtung selbst und schreibt sie als root direkt dorthin
-  (gehören root, Rechte 644) – nicht mehr über `/var/lib/mosaik3lab/manager/dienste` (gehört `mosaik3lab`; Reste älterer
-  Versionen dort werden entfernt). Programmordner `/opt/mosaik3lab` gehört root und ist nur für root beschreibbar.
+  (gehören root, Rechte 644) – nie über `/var/lib/mosaik3lab/manager/dienste` (gehört `mosaik3lab`).
+  Programmordner `/opt/mosaik3lab` gehört root und ist nur für root beschreibbar.
 - **Windows:** Dienstdateien (WinSW `.exe`/`.xml` in `dienste\`, WinSW in `werkzeuge\`) und `node.exe` liegen im
   Programmordner. Unter „Programme“ gelten die Windows-Standardrechte (nur Administratoren/System schreiben); liegt der
   Programmordner woanders, setzt die Einrichtung diese Rechte ausdrücklich. Besitzer: Administratoren.
@@ -275,21 +275,15 @@ die `package.json`-Dateien und `package-lock.json` (Version, `npm audit`). Dazu 
 Node-Version und -Prüfsumme) und `README.txt` (Kurzanleitung für genau dieses Paket, Vorlagen je Ziel in
 `scripts/paket-readme/`, Version und Commit werden eingesetzt).
 
-| Paket (Windows) | Größe ZIP | Dateien | entpackt |
-| --- | --- | --- | --- |
-| bis 2026-11-02 (mit `node_modules`, Server über tsx) | 95,4 MB | 18.538 (davon 18.205 in `node_modules`) | ≈ 300 MB |
-| gebündelt | 40,4 MB | 126 (mit dieser Anleitung) | ≈ 100 MB (davon 96 MB `node.exe`) |
+Das Paket (Windows) hat rund 40 MB als ZIP und gut 120 Dateien (entpackt ≈ 100 MB, davon 96 MB `node.exe`) – schnell
+entpackt und kopiert, kaum Arbeit für den Virenscanner. Das Setup kopiert das Programm **direkt** nach `releases\<version>`
+(kein Umbenennen, das Virenscanner gern mit EPERM blockieren). `current` zeigt erst nach dem vollständigen Kopieren darauf.
 
-Weniger Dateien heißt: schneller entpacken und kopieren, kaum Arbeit für den Virenscanner. Das Setup kopiert das Programm
-außerdem **direkt** nach `releases\<version>` (früher erst nach `<version>.unfertig` und dann umbenennen – genau dieses
-Umbenennen hat ein Virenscanner einmal mit EPERM blockiert). `current` zeigt erst nach dem vollständigen Kopieren darauf.
-
-Wie gestartet wird, entscheidet `manager/lib/appstart.mjs`: Liegt `node_modules/tsx` vor (Arbeitskopie,
-ältere Pakete), läuft die App wie bisher aus TypeScript; sonst aus `server/dist/`. Ein Update von einem älteren Paket
-(mit `node_modules`) auf ein gebündeltes und der Rückfall dorthin funktionieren deshalb ohne Sonderweg.
+Wie gestartet wird, entscheidet `manager/lib/appstart.mjs`: Liegt `node_modules/tsx` vor (Arbeitskopie in der Entwicklung),
+läuft die App aus TypeScript; sonst aus dem Bündel `server/dist/` (Installer-Paket).
 
 `Installieren.cmd` holt einmal Adminrechte und ruft `node\node.exe manager\cli.mjs setup --config Installieren.json` auf.
-`"prebuilt": true` kopiert das fertige Programm (gebündelter Server, fertige Oberfläche, bei älteren Paketen `node_modules`)
+`"prebuilt": true` kopiert das fertige Programm (gebündelter Server, fertige Oberfläche)
 und `node\node.exe` mit in die Version – kein `npm ci`, kein Build, kein systemweites Node. Die Dienste starten `C:\Program Files\Mosaik3LAB\current\node\node.exe`; ein
 Zurückschalten nimmt so auch die passende Node-Version mit. Der Server-Manager zeigt bei Node.js „kommt mit dem
 Paket“ statt winget anzubieten; Updates kommen nur als Paket (einen Git-Update-Weg gibt es nicht mehr).
@@ -310,10 +304,9 @@ das Setup legt den Benutzer `mosaik3lab` an, übergibt ihm die Datenordner und r
 ### Echter Test auf frischen Rechnern (GitHub Actions)
 
 **Aufbau (seit 2026-11-16 parallel):** Je System baut ein Job `…-paket` das Paket des getesteten Stands **einmal** und legt
-es als Artifact ab (`Mosaik3LAB-Installer-windows-x64` bzw. `…-linux-<arch>`), parallel holt `…-altpaket` das Paket im alten
-Format (Cache bzw. Bau). Dann laufen die Runden auf je einem eigenen, frischen Rechner gleichzeitig: **`neu`** (Neuinstallation,
-Update, Rückfall, Downgrade, Update per Knopfdruck, Deinstallation), **`altformat`** (zweite Runde unten) und **`v100`**
-(dritte Runde unten), daneben `npm run manager:test` auf einem Rechner ohne Installation (`manager-windows`, `linux-<arch> /
+es als Artifact ab (`Mosaik3LAB-Installer-windows-x64` bzw. `…-linux-<arch>`). Dann laufen die Runden auf je einem eigenen,
+frischen Rechner gleichzeitig: **`neu`** (Neuinstallation, Update, Rückfall, Downgrade, Update per Knopfdruck,
+Deinstallation) und **`v163`** (Update von 1.6.3, zweite Runde unten), daneben `npm run manager:test` auf einem Rechner ohne Installation (`manager-windows`, `linux-<arch> /
 manager`). Erst wenn **alle** Jobs eines Systems bestanden sind, legt `windows-release` bzw. `linux-<arch> / release` genau das
 gebaute Paket ins Release (nicht bei Pull Requests). Linux steht in `.github/workflows/installer-linux.yml`, das für x64 und
 arm64 je einmal aufgerufen wird – jede Architektur veröffentlicht unabhängig von der anderen. Dauer insgesamt etwa 5–6 Minuten.
@@ -327,12 +320,11 @@ und an `server/dist/server.mjs` ist ein Ende mit Code 3 nach dem Einspielen ange
 Ihr Update muss mit Fehler enden, danach läuft wieder die vorige Version, die Datenbank hat ihr Schema (keine Tabelle
 `ci_kaputt`), Konto und Datei sind da (`pruefen.ps1 zurueck`). Zum Schluss der **Downgrade-Test**: eine Kopie ohne die neueste
 Migration muss mit „Downgrade verweigert“ abgelehnt werden, ohne etwas zu ändern. Danach `uninstall --yes` (Daten behalten) mit Prüfung.
-**Zweite Runde, altes Paketformat:** ein Paket vom Commit `ALTFORMAT` (letzter Stand mit `node_modules`, im Test gebaut,
-danach je Branch/PR aus dem Actions-Cache)
-mit frischen Daten installieren, das kaputte gebündelte Paket muss **auf das alte Format zurückfallen**, dann das
-**Update vom alten auf das gebündelte Format** (Konto, Datei, Sicherung bleiben; danach `server/dist` und keine
-`node_modules` in `current`), wieder deinstallieren. **Dritte Runde:** das Paket aus dem Release `v1.0.0` (genau das,
-was Schulen bekommen haben) installieren und auf den neuen Stand aktualisieren. `npm run manager:test` läuft im Job
+**Zweite Runde `v163`:** das Paket aus dem Release `v1.6.3` von `x-vs-x/mosaik3lab-pakete` (genau das, was die Schule hat;
+ältere Stände werden nicht mehr unterstützt) mit frischen Daten installieren, Admin-Konto, Markerdatei und ein Druckteil
+mit Bildern anlegen (`bilder-pruefen.mjs --testdaten`, unter Linux auch die Mail-Einstellungen), Zeilen je Tabelle und alle
+Dateien der Ablage merken (`daten-stand.mjs`), auf den neuen Stand aktualisieren und vergleichen: Konto, Datei, Sicherung,
+fachliche Datensätze und Ablage (SHA-256) unverändert, danach Bildverarbeitung der neuen Version. `npm run manager:test` läuft im Job
 `manager-windows` auf eigenem Rechner (auf einem Rechner mit echter Installation stoppt dieser Test Dienste) – das
 Release-Paket kommt nur nach bestandenen Manager-Tests.
 Die Prüfungen stehen in `.github/installer-test/pruefen.ps1`, bei Fehlern gibt es die Logs als Artifact
@@ -344,7 +336,7 @@ Genauso laufen die Jobs **`linux-x64`** auf `ubuntu-latest` und **`linux-arm64`*
 Raspberry Pi 4/5, Ubuntu statt Raspberry Pi OS): Paket bauen und als Artifact `Mosaik3LAB-Installer-linux-<arch>` hochladen
 (7 Tage, ältere Läufe räumt `aufraeumen` weg), entpacken, `sudo ./installieren.sh --still`, Prüfungen aus `.github/installer-test/pruefen.sh` (zusätzlich: Dienste
 laufen als `mosaik3lab`, Portal mit `CAP_NET_BIND_SERVICE`, App nur auf 127.0.0.1, keine root-Dateien in Daten/Sicherungen/
-Protokollen, ufw-Regel, Menüeintrag), dieselben drei Runden, `npm run manager:test`. Logs bei Fehlern: `installer-logs-linux-<arch>-<runde>`
+Protokollen, ufw-Regel, Menüeintrag), dieselben zwei Runden, `npm run manager:test`. Logs bei Fehlern: `installer-logs-linux-<arch>-<runde>`
 (inkl. `journalctl` der Dienste). Steht `[nur-linux]` in der Commit-Nachricht (Push auf `installer-test/**`) oder im Titel des Pull Requests, entfallen die Windows-Jobs (spart Zeit beim
 Arbeiten an Linux).
 

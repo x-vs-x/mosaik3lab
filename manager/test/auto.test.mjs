@@ -17,7 +17,6 @@ const cfg = await import('../lib/config.mjs');
 const { platform } = await import('../platform/index.mjs');
 const auto = await import('../lib/auto.mjs');
 const { summarize, appAddresses, pageStatus, portalBusyNote } = await import('../lib/status.mjs');
-const sdb = await import('../lib/settingsdb.mjs');
 const { createBackup } = await import('../lib/backup.mjs');
 const { reconcile } = await import('../lib/reconcile.mjs');
 const services = await import('../lib/services.mjs');
@@ -125,13 +124,6 @@ test('Standard für neue Einrichtungen: http://<Server>/mosaik3lab ohne Port –
   assert.deepEqual([c.portal.enabled, c.portal.basePath, c.portal.httpPort], [true, '/mosaik3lab', 80]);
   assert.equal(services.localAppUrl(c), 'http://127.0.0.1/mosaik3lab/', 'auf diesem Rechner ohne Port');
   assert.deepEqual(appAddresses({ ...c, app: { ...c.app, network: true } }, { hostname: 'srv', ips: [] }).network, ['http://srv/mosaik3lab/']);
-
-  const alt = path.join(tmp, 'alt'); // Einstellungen von früher: Betriebswerte da, aber noch keine Portal-Werte
-  fs.mkdirSync(alt);
-  sdb.writeBereich(sdb.dbFileOf(alt), 'betrieb', { 'app.port': 3001, 'app.network': true });
-  const a = cfg.configFromDb(alt);
-  assert.deepEqual([a.portal.enabled, a.portal.basePath, a.app.port], [false, '', 3001], 'nicht überschrieben: App weiter direkt auf ihrem Port');
-  assert.deepEqual(cfg.keepLegacyPortal({ app: {}, portal: { enabled: true, basePath: '/x' } }).portal, { enabled: true, basePath: '/x' }, 'gespeicherte Portal-Werte bleiben');
 });
 
 test('Port 80 belegt: klarer Hinweis mit freiem Ausweich-Port und Knopf', async () => {

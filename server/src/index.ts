@@ -20,8 +20,7 @@ const { app, close } = await createApp(config);
 
 const server = app.listen(config.port, config.host, () => {
   console.log(`\nMosaik³LAB API läuft auf http://${config.host}:${config.port}`);
-  console.log(`Datenordner: ${config.dataDir}`);
-  // Bilder, Druckdateien und Videos liegen in der Ablage (die alten uploads…-Ordner nutzt nur noch die Übernahme alter Stände).
+  console.log(`Datenordner: ${config.storageDir}`);
   console.log(`Ablage (Bilder, Druckdateien, Videos): ${config.ablageDir}`);
   console.log(`Demo-Zugänge: ${config.allowDemoAccounts ? 'aktiv (Passwörter stehen im README – nicht im Schulbetrieb!)' : 'deaktiviert'}\n`);
 });

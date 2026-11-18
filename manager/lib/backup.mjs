@@ -4,8 +4,8 @@
 // nie Bilder verlieren. Ältere Sicherungen der Art „daten“ (nur Datenbank) bleiben les- und wiederherstellbar.
 // Aufbau der Datei: Kopf (Magic, JSON: Art, Zeit, App-Version, Schema, Verschlüsselung) + tar-Strom mit manifest.json
 // (Prüfsummen) und den Dateien; mit Backup-Passwort ist der ganze tar-Strom AES-256-GCM-verschlüsselt (backupcrypto.mjs).
-// Jede Sicherung wird direkt nach dem Schreiben geprüft; vor dem Wiederherstellen ebenfalls. Ältere Sicherungen als
-// Ordner (backup.json) bleiben les- und wiederherstellbar. Es bleiben die neuesten <backup.keep> Sicherungen, ältere werden gelöscht.
+// Jede Sicherung wird direkt nach dem Schreiben geprüft; vor dem Wiederherstellen ebenfalls. Es bleiben die neuesten
+// <backup.keep> Sicherungen, ältere werden gelöscht.
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync, realpathSync, createReadStream, createWriteStream, writeFileSync, rmSync } from 'node:fs';
 import crypto from 'node:crypto';
@@ -101,14 +101,14 @@ async function checksums(dir) {
   const out = [];
   if (!existsSync(dir)) return out;
   for (const e of await fs.readdir(dir, { withFileTypes: true, recursive: true })) {
-    if (!e.isFile() || e.name === 'backup.json') continue;
+    if (!e.isFile()) continue;
     const full = path.join(e.parentPath ?? e.path, e.name);
     out.push({ path: path.relative(dir, full).split(path.sep).join('/'), size: (await fs.stat(full)).size, sha256: await sha256(full) });
   }
   return out;
 }
 
-/** Was gesichert wird: frühere JSON-Dateien (data/), bei „komplett“ auch uploads/ (frühere Ablage) und die Ablage. */
+/** Was neben der Datenbank gesichert wird: <Daten>/data (ohne Sperrdatei), bei „komplett“ auch uploads/ (falls vorhanden) und die Ablage. */
 function sources(kind) {
   const { dataDir, ablageDir } = resolvePaths();
   const list = [{ name: 'data', dir: path.join(dataDir, 'data') }];
@@ -182,12 +182,11 @@ async function readHead(file) {
 }
 
 // ---------- Auffinden ----------
-/** id → { type: 'datei' | 'ordner', path }; wirft InputError, wenn es die Sicherung nicht gibt. */
+/** id → { path } der Sicherungsdatei; wirft InputError, wenn es die Sicherung nicht gibt. */
 function locate(id) {
   const { backupDir } = resolvePaths();
   if (typeof id !== 'string' || !NAME.test(id)) throw new InputError('Sicherung nicht gefunden.');
-  if (existsSync(path.join(backupDir, id + EXT))) return { type: 'datei', path: path.join(backupDir, id + EXT) };
-  if (existsSync(path.join(backupDir, id, 'backup.json'))) return { type: 'ordner', path: path.join(backupDir, id) };
+  if (existsSync(path.join(backupDir, id + EXT))) return { path: path.join(backupDir, id + EXT) };
   throw new InputError('Sicherung nicht gefunden.');
 }
 
@@ -202,9 +201,6 @@ export async function listBackups(limit = 1000) {
         if (!head) continue;
         const h = head.header;
         out.push({ id: n.slice(0, -EXT.length), created: h.created, reason: h.reason, kind: h.kind, files: h.fileCount, bytes: h.bytes, encrypted: !!h.encryption, app: h.app, schemaVersion: h.schemaVersion });
-      } else if (NAME.test(n) && existsSync(path.join(backupDir, n, 'backup.json'))) {
-        const meta = JSON.parse(await fs.readFile(path.join(backupDir, n, 'backup.json'), 'utf8'));
-        out.push({ id: n, created: meta.created, reason: meta.reason, kind: meta.files.some((f) => f.path.startsWith('ablage/')) ? 'komplett' : 'daten', files: meta.files.length, bytes: meta.bytes, encrypted: false, legacy: true });
       }
     } catch {
       /* unvollständig */
@@ -277,19 +273,8 @@ async function readArchive(file, { key, dest = null }) {
   return { manifest, problems };
 }
 
-/** Prüft Dateien gegen die Prüfsummen einer Ordner-Sicherung (ältere Form); liefert Liste der Probleme. */
-async function compare(dir, files) {
-  const actual = new Map((await checksums(dir)).map((f) => [f.path, f.sha256]));
-  return files.filter((f) => actual.get(f.path) !== f.sha256).map((f) => (actual.has(f.path) ? `Prüfsumme falsch: ${f.path}` : `fehlt: ${f.path}`));
-}
-
 export async function verifyBackup(id, opts = {}) {
   const loc = locate(id);
-  if (loc.type === 'ordner') {
-    const meta = JSON.parse(await fs.readFile(path.join(loc.path, 'backup.json'), 'utf8'));
-    const problems = await compare(loc.path, meta.files);
-    return { id, ok: !problems.length, checked: meta.files.length, problems: problems.slice(0, 10) };
-  }
   const head = await readHead(loc.path);
   if (!head) return { id, ok: false, checked: 0, problems: ['keine Sicherungsdatei'] };
   const key = needKey(head.header, opts.password);
@@ -403,7 +388,7 @@ export function refuseNewerBackup(meta, programDir = resolvePaths().programDir) 
 }
 const installedAppVersion = paketVersion;
 
-const PARTS = ['db', 'ablage', 'data', 'uploads', 'config'];
+const PARTS = ['db', 'ablage', 'data', 'uploads'];
 // Löschen mit Wiederholung: Windows gibt die Datenbank der eben gestoppten App bzw. eine frisch gelesene Datei manchmal erst
 // nach einem Moment frei (EBUSY/EPERM – Prozessende, Virenscanner, Indexer). maxRetries wirkt nur mit recursive.
 const RM = { recursive: true, force: true, maxRetries: 10, retryDelay: 200 };
@@ -417,7 +402,6 @@ export async function applyBackup({ folder, meta, dirs, only = PARTS }) {
   const targets = [
     { name: 'data', dir: path.join(dirs.dataDir, 'data') },
     { name: 'uploads', dir: path.join(dirs.dataDir, 'uploads') },
-    { name: 'config', dir: path.join(dirs.dataDir, 'config') }, // nur ältere Sicherungen (mail.json) – wird beim Laden in die Datenbank übernommen
     { name: 'ablage', dir: dirs.ablageDir },
     { name: 'db', dir: dirs.dataDir, file: DB_FILE },
   ].filter((t) => only.includes(t.name));
@@ -447,18 +431,10 @@ export async function applyBackup({ folder, meta, dirs, only = PARTS }) {
 }
 
 /**
- * Sicherung zum Lesen bereitstellen: Dateien → in einen Zwischenordner ausgepackt (und geprüft), alte Ordner-Sicherungen
- * direkt. → { folder, meta, header, cleanup() }. Ein falsches Passwort wird abgelehnt, bevor etwas ausgepackt wird.
+ * Sicherung zum Lesen bereitstellen: in einen Zwischenordner ausgepackt (und geprüft). → { folder, meta, header, cleanup() }. Ein falsches Passwort wird abgelehnt, bevor etwas ausgepackt wird.
  */
 export async function openBackup(location, { password, stagingBase }) {
-  const isFile = (await fs.stat(location)).isFile();
-  if (!isFile) {
-    const meta = JSON.parse(await fs.readFile(path.join(location, 'backup.json'), 'utf8'));
-    const problems = await compare(location, meta.files);
-    if (problems.length) throw new InputError(`Die Sicherung ist beschädigt (${problems[0]}) – abgebrochen.`, 'Eine andere Sicherung wählen.');
-    return { folder: location, meta: { ...meta, kind: meta.files.some((f) => f.path.startsWith('ablage/')) ? 'komplett' : 'daten' }, header: null, cleanup: async () => {} };
-  }
-  const head = await readHead(location);
+  const head = (await fs.stat(location)).isFile() ? await readHead(location) : null;
   if (!head) throw new InputError('Das ist keine Sicherungsdatei von Mosaik³LAB.');
   if (Number(head.header.format) > FORMAT) throw new InputError(`Diese Sicherung stammt aus einer neueren Version von Mosaik³LAB${head.header.app?.version ? ` (${head.header.app.version})` : ''} und kann hier nicht gelesen werden. Es wurde nichts verändert.`, 'Zuerst Mosaik³LAB auf die neueste Version aktualisieren, dann wiederherstellen.');
   const key = needKey(head.header, password);

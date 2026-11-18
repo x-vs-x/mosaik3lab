@@ -22,28 +22,20 @@ import { bambuAbgleichBeimStart } from './module/stammdaten/bambuAbgleich';
 import { filamentRoutes } from './module/stammdaten/stammdaten.routes';
 import { neuigkeitenRoutes } from './module/neuigkeiten/neuigkeiten.routes';
 import { versionBeimStart } from './module/neuigkeiten/neuigkeiten.service';
-import { migrateUserEmails, seedIfEmpty } from './seed/seed';
-import { importLegacyMail, importLegacySessionSecret } from './uebernahme/betriebsdateien';
-import { sessionGeheimnis, setBetriebWennNeu } from './kern/betrieb';
-import { retirePathConfig } from './uebernahme/bootstrapConfig';
+import { seedIfEmpty } from './seed/seed';
+import { sessionGeheimnis } from './kern/betrieb';
 import { createSqliteStorage } from './storage';
 import { MAX_IMAGE_BYTES, MAX_MODEL_BYTES, MAX_VIDEO_BYTES, mbText } from '@mosaik3lab/shared/werte/dateien';
 import { zodFieldErrors } from '@mosaik3lab/shared/basis';
 
 
 export async function createApp(config: AppConfig) {
-  // Datenbank, Tabellen und Ablage legt die App selbst an; Migrationen und die einmalige JSON-Übernahme laufen hier.
+  // Datenbank, Tabellen und Ablage legt die App selbst an; die Migrationen laufen hier.
   const storage = await createSqliteStorage(config);
   const db = storage.sqlite.db;
-  // Betriebseinstellungen liegen in der Datenbank: alte Dateien (mail.json, settings.json, .session-secret) einmalig übernehmen.
-  importLegacyMail(db, { storageDir: config.storageDir, dataDir: config.dataDir });
-  importLegacySessionSecret(config.dataDir, (s) => setBetriebWennNeu(db, 'betrieb', 'sessionSecret', s, true));
-  // Übernahme erledigt (oder nicht nötig) → früher in der App eingestellte Ablagepfade sichern und entfernen.
-  retirePathConfig(config.rootDir);
   // Versionswechsel merken (für „Was ist neu“) – vor den Demo-Daten, sonst sähe eine Neuinstallation wie ein Update aus.
   versionBeimStart(storage.neuigkeiten, config.appVersion);
   if (config.seedDemoData) await seedIfEmpty(storage);
-  await migrateUserEmails(storage);
   // Bambu-Farbrollen mit dem mitgelieferten Katalog abgleichen (wirkt nach Updates; eigene Farbrollen bleiben unberührt).
   bambuAbgleichBeimStart(storage);
   // Bildpflege einige Minuten nach dem Start (wenn /api/health längst grün ist) – nie im Installer/Update-Schritt.

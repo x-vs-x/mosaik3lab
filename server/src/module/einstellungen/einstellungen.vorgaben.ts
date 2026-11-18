@@ -21,7 +21,7 @@ export interface AppSettings {
 /**
  * Voreinstellung der erlaubten Domains bis Version 1.6.3 – nur für die Update-Sicherheit, nie für neue Installationen:
  * Datenstände aus dieser Zeit, die die Domain nie ausdrücklich gespeichert haben, behalten genau diesen Wert
- * (einstellungen.repository.ts, legacyJson.ts) und gelten bei der Ersteinrichtung weiter als „unverändert“
+ * (einstellungen.repository.ts) und gelten bei der Ersteinrichtung weiter als „unverändert“
  * (einstellungen.service.ts).
  */
 export const ORDERFORM_VORGABE_BIS_1_6: Readonly<OrderFormSettings> = Object.freeze({ allowedEmailDomains: ['mosaikschule-lu.de'] });

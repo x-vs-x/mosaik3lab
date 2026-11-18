@@ -4,6 +4,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { einrichten } from './helpers/einrichtung.mjs';
 
 // Testdaten liegen fest unter C:\Entwicklung\_testdaten\server-manager (nicht im Temp-Verzeichnis).
 const TESTROOT = path.resolve(import.meta.dirname, '..', '..', '..', '_testdaten', 'server-manager');
@@ -13,7 +14,7 @@ const storage = path.join(tmp, 'storage');
 const backups = path.join(tmp, 'backups');
 process.env.MANAGER_CONFIG = path.join(tmp, 'manager.config.json');
 process.env.MOSAIK3LAB_QUIET = '1';
-fs.writeFileSync(process.env.MANAGER_CONFIG, JSON.stringify({ paths: { dataDir: storage, ablageDir: path.join(tmp, 'ablage'), backupDir: backups, logDir: path.join(tmp, 'logs') }, backup: { keep: 10 } }));
+einrichten(process.env.MANAGER_CONFIG, { paths: { dataDir: storage, ablageDir: path.join(tmp, 'ablage'), backupDir: backups, logDir: path.join(tmp, 'logs') }, backup: { keep: 10 } });
 
 const cfg = await import('../lib/config.mjs');
 const settingsdb = await import('../lib/settingsdb.mjs');
@@ -41,7 +42,6 @@ test('Konfiguration: Prüfregeln, Speicherung in der Datenbank, kaputte Startdat
   const rows = settingsdb.readAll(cfg.resolvePaths().dbFile);
   assert.equal(rows.betrieb['app.port'], 3021, 'Einstellung steht in der Datenbank');
   assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(cfg.CONFIG_FILE, 'utf8'))).sort(), ['dataDir', 'managerPort'], 'Startdatei enthält nur dataDir und managerPort');
-  assert.ok(fs.readdirSync(path.dirname(cfg.CONFIG_FILE)).some((n) => /.vor-datenbank-.*.bak$/.test(n)), 'alte Konfigurationsdatei als .bak');
   const keep = fs.readFileSync(cfg.CONFIG_FILE);
   fs.writeFileSync(cfg.CONFIG_FILE, '{ kaputt');
   cfg.reloadConfig();
@@ -260,14 +260,18 @@ test('Mail: Prüfung, Speicherung in der Datenbank für die App, Passwort nie zu
 });
 
 test('Fehlerhafte Konfiguration sperrt Schreibaktionen (kein Ausweichen auf Standardordner)', async () => {
-  const keep = fs.readFileSync(cfg.CONFIG_FILE);
-  fs.writeFileSync(cfg.CONFIG_FILE, JSON.stringify({ paths: { backupDir: 'kaputt' } }));
+  // Ungültiger Wert in der Datenbank (Port unter 1024) → Standardwerte, aber der Datenordner aus der Startdatei bleibt
+  const dbFile = cfg.resolvePaths().dbFile;
+  const keep = settingsdb.readBereich(dbFile, 'betrieb')['app.port'];
+  settingsdb.writeBereich(dbFile, 'betrieb', { 'app.port': 80 });
   cfg.reloadConfig();
   try {
+    assert.match(cfg.configErrors()[0] ?? '', /ungültig/);
+    assert.equal(cfg.resolvePaths().dataDir, storage, 'kein Ausweichen auf den Standardordner');
     await assert.rejects(bk.createBackup('test'), /gesperrt/);
     assert.throws(() => mail.saveMail({ host: 'x' }), /gesperrt/);
   } finally {
-    fs.writeFileSync(cfg.CONFIG_FILE, keep);
+    settingsdb.writeBereich(dbFile, 'betrieb', { 'app.port': keep });
     cfg.reloadConfig();
   }
 });
