@@ -1,4 +1,5 @@
 import type { SessionRepository } from '../kern/auth/sitzungen';
+import type { BildDienst, Bildpflege } from '../kern/bilder';
 import type { Db } from '../kern/db';
 import type { FileStore } from '../kern/files';
 import type { RequesterRepository, UserRepository } from '../module/konten/konten.repository';
@@ -22,6 +23,9 @@ export interface Storage {
   masterData: MasterDataRepository;
   /** Dateiablage (Tabelle `datei` + Ordner <ablage>/<objekttyp>/<objekt-id>/<rolle>/). */
   files: FileStore;
+  /** Bilder der Druckteile: Vorschaubilder, Verkleinern (Rechen-Thread), Hintergrund-Lauf „Bildpflege“ (kern/bilder). */
+  bilder: BildDienst;
+  bildpflege: Bildpflege;
   /** Für Export/Import: direkter Zugriff auf die Datenbank (nur synchron in Transaktionen nutzen). */
   sqlite: { db: Db; items: ItemRepository; settings: SettingsRepository };
   database: {

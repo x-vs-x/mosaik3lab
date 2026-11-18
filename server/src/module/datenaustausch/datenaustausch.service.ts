@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { istDruckteilBild } from '../../kern/bilder';
 import { BAMBU_MARKE, katalogEintrag, katalogFelder, katalogNachNummer } from '../../domain/bambuKatalog';
 import path from 'node:path';
 import { newId, UUID_PATTERN } from '../../domain/ids';
@@ -75,7 +76,7 @@ class Trocken extends Error {
 
 interface Ergebnis {
   bericht: Bericht;
-  verschiebe: { von: string; nach: string }[];
+  verschiebe: { von: string; nach: string; bildId?: string }[];
   loeschen: Datei[];
 }
 
@@ -142,7 +143,7 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
   const ersetzen = opt.modus === 'ersetzen';
   const details: Detail[] = [];
   const z = { artikel: leer(), kategorien: leer(), einsatzbereiche: leer(), materialien: leer(), filamente: leer(), dateien: leer() };
-  const verschiebe: { von: string; nach: string }[] = [];
+  const verschiebe: Ergebnis['verschiebe'] = [];
   const loeschen: Datei[] = [];
   const settings = settingsRepo.read();
   const md = settings.masterData;
@@ -360,7 +361,7 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
     for (const n of neueDateien) {
       files.insert(n.datei);
       belegtePfade.add(n.datei.pfad);
-      if (opt.tmpDir) verschiebe.push({ von: path.join(opt.tmpDir, n.von), nach: files.absPath(n.datei) });
+      if (opt.tmpDir) verschiebe.push({ von: path.join(opt.tmpDir, n.von), nach: files.absPath(n.datei), bildId: istDruckteilBild(n.datei) ? n.datei.id : undefined });
       z.dateien.neu++;
     }
     z.dateien.unveraendert += dateiMap.size - neueDateien.length;
@@ -474,5 +475,9 @@ export async function fuehreAus(storage: Storage, paket: Paket, modus: Modus, in
     throw err;
   }
   await storage.files.unlink(ergebnis.loeschen);
+  // Eingespielte Bilder: alte Vorschaubilder (gleiche ID, anderer Inhalt) weg, neue im Hintergrund erzeugen.
+  const bilder = ergebnis.verschiebe.flatMap((m) => (m.bildId ? [m.bildId] : []));
+  for (const id of bilder) await storage.files.entferneVorschau(id);
+  if (bilder.length) void storage.bildpflege.nachholen(bilder);
   return ergebnis.bericht;
 }

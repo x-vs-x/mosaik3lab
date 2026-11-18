@@ -63,6 +63,8 @@ test('Backup: eine Datei, Standard vollständig, ältere Art „daten“ lesbar,
   write('uploads/images/a.png', 'bild');
   fs.mkdirSync(path.join(tmp, 'ablage', 'bilder'), { recursive: true });
   fs.writeFileSync(path.join(tmp, 'ablage', 'bilder', 'b.jpg'), 'ablage');
+  fs.mkdirSync(path.join(tmp, 'ablage', 'vorschau', 'karte-720'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, 'ablage', 'vorschau', 'karte-720', 'b.jpg'), 'VORSCHAUBILD-NICHT-SICHERN');
   const full = await bk.createBackup('test'); // Standard: vollständig (Datenbank + Ablage)
   const small = await bk.createBackup('klein', { kind: 'daten' }); // ältere Art, wie bisherige tägliche Sicherungen
   assert.equal(full.kind, 'komplett');
@@ -73,6 +75,8 @@ test('Backup: eine Datei, Standard vollständig, ältere Art „daten“ lesbar,
   assert.deepEqual(list.map((x) => x.kind).sort(), ['daten', 'komplett']);
   assert.ok(list.find((x) => x.id === full.id).files > list.find((x) => x.id === small.id).files, 'komplett enthält mehr (Ablage)');
   assert.ok(!fs.readFileSync(file).includes('999999'), 'Sperrdatei nicht gesichert');
+  assert.ok(!fs.readFileSync(file).includes('VORSCHAUBILD-NICHT-SICHERN'), 'Vorschaubilder (abgeleitet) nicht gesichert');
+  assert.ok(!fs.existsSync(path.join(tmp, 'ablage', '.sicherung.lock')), 'Markierung „Sicherung läuft“ wieder entfernt');
   await assert.rejects(bk.restoreBackup(full.id, 'falsch'), /bestätigen/);
   await assert.rejects(bk.restoreBackup('../x', '../x'), /nicht gefunden/);
   // „komplett“ ersetzt Daten UND Ablage
@@ -313,8 +317,11 @@ test('Ablageordner: Prüfung beim Speichern, Waisen-Prüfung im doctor', async (
   fs.mkdirSync(path.join(ablage, 'artikel', '1', 'bild'), { recursive: true });
   fs.writeFileSync(path.join(ablage, 'artikel', '1', 'bild', 'a.png'), 'x');
   fs.writeFileSync(path.join(ablage, 'artikel', '1', 'bild', 'waise.png'), 'x');
+  fs.mkdirSync(path.join(ablage, 'vorschau', 'mini-240'), { recursive: true });
+  fs.writeFileSync(path.join(ablage, 'vorschau', 'mini-240', 'a.jpg'), 'x'); // Vorschaubild: keine Waise
   const o = await st.ablageOrphans({ dataDir, ablageDir: ablage });
   assert.deepEqual(o, { total: 2, missing: ['artikel/1/bild/b.png'], extra: ['artikel/1/bild/waise.png'] });
+  fs.rmSync(path.join(ablage, 'vorschau'), { recursive: true });
   assert.equal(await st.ablageOrphans({ dataDir: path.join(tmp, 'ohne-db'), ablageDir: ablage }), null);
   assert.equal(cfg.countFiles(ablage), 2);
 });

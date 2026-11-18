@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { FileStore } from '../kern/files';
+import { BildDienst, Bildpflege } from '../kern/bilder';
 import { lockContent, lockHolder } from '../kern/lock';
 import type { Storage } from './repositories';
 import { backupInto, dbInfo, migrate, openDb } from '../kern/db';
@@ -58,9 +59,13 @@ export async function createSqliteStorage(paths: StoragePaths): Promise<Storage 
     const importReport = await importLegacyJson(db, files, repos, legacy);
 
     const conn = db;
+    const bilder = new BildDienst(files);
+    const bildpflege = new Bildpflege(files, bilder);
     return {
       ...repos,
       files,
+      bilder,
+      bildpflege,
       importReport,
       sqlite: { db: conn, items: repos.items, settings: repos.settings },
       database: {
@@ -69,6 +74,9 @@ export async function createSqliteStorage(paths: StoragePaths): Promise<Storage 
         backupInto: (target: string) => backupInto(conn, target),
       },
       async close() {
+        // Hintergrund-Arbeit zuerst beenden (bricht sauber ab, geht beim nächsten Start weiter)
+        await bildpflege.beenden();
+        await bilder.beenden();
         if (conn.isOpen) {
           try {
             conn.exec('PRAGMA wal_checkpoint(TRUNCATE)');

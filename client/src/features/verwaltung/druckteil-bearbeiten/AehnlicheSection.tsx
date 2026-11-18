@@ -137,7 +137,7 @@ function AehnlicheEditor({ item, verknuepft, onChange }: { item: Item; verknuepf
 function Vorschau(props: { name: string; category: string; images: string[] }) {
   return (
     <span className="size-12 shrink-0 overflow-hidden rounded-xl bg-stone-100" aria-hidden>
-      <ItemImage item={props} iconSize="size-5" className="[&>div]:p-2" />
+      <ItemImage item={props} groesse="mini" sizes="48px" iconSize="size-5" className="[&>div]:p-2" />
     </span>
   );
 }

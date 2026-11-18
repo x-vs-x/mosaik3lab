@@ -1,33 +1,44 @@
-import { Upload } from 'lucide-react';
+import { LoaderCircle, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useToast } from '../../../components/Toast';
 import { buttonClass, cx } from '../../../components/ui';
-import { api, ApiError } from '../../../lib/api';
+import { apiUpload, ApiError } from '../../../lib/api';
 import { bilderVerkleinern } from '../../../lib/bildVerkleinern';
 import type { Item } from '../../../lib/types';
+
+/** Fortschritt beim Hochladen: erst die Übertragung, danach – bei Bildern – das Erzeugen der Vorschaubilder auf dem Server. */
+export function uploadStatus(kind: 'images' | 'models', anteil: number | null) {
+  if (anteil === null) return '';
+  if (anteil < 1) return `Wird hochgeladen … ${Math.round(anteil * 100)} %`;
+  return kind === 'images' ? 'Vorschau wird erzeugt … bitte warten' : 'Wird gespeichert … bitte warten';
+}
 
 /** Mehrere Bilder oder Druckdateien auf einmal hochladen; liefert das aktualisierte Druckteil. */
 export function useUpload(item: Item, kind: 'images' | 'models', onChange: (i: Item) => void) {
   const [uploading, setUploading] = useState(false);
+  const [anteil, setAnteil] = useState<number | null>(null);
   const toast = useToast();
   const upload = async (files: FileList | null) => {
     if (!files?.length) return;
     const count = files.length; // FileList ist „live“ und nach dem Leeren des Felds (onChange) leer
     const liste = Array.from(files);
     setUploading(true);
+    setAnteil(0);
     try {
       // Bilder vorher im Browser verkleinern (kleinere Ablage und Exporte, schneller auf dem Handy)
       const fd = new FormData();
       (kind === 'images' ? await bilderVerkleinern(liste) : liste).forEach((f) => fd.append('files', f));
-      onChange(await api<Item>(`/items/${item.id}/${kind}`, { method: 'POST', form: fd }));
+      // Erst wenn der Server fertig ist (bei Bildern: Vorschaubilder erzeugt), erscheint das Bild in der Liste.
+      onChange(await apiUpload<Item>(`/items/${item.id}/${kind}`, fd, setAnteil));
       toast('success', count === 1 ? 'Datei hochgeladen.' : `${count} Dateien hochgeladen.`);
     } catch (err) {
       toast('error', err instanceof ApiError ? err.message : 'Upload fehlgeschlagen.');
     } finally {
       setUploading(false);
+      setAnteil(null);
     }
   };
-  return { uploading, upload };
+  return { uploading, upload, status: uploadStatus(kind, anteil) };
 }
 
 /** Dateiauswahl per Knopf oder Drag & Drop. */
@@ -39,6 +50,7 @@ export function FilePicker({
   onFiles,
   icon: Icon,
   multiple = true,
+  status = '',
 }: {
   accept: string;
   label: string;
@@ -47,6 +59,8 @@ export function FilePicker({
   onFiles: (f: FileList | null) => void;
   icon: typeof Upload;
   multiple?: boolean;
+  /** Fortschritt („Wird hochgeladen … 40 %“, „Vorschau wird erzeugt … bitte warten“). */
+  status?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -84,6 +98,11 @@ export function FilePicker({
         <Icon className="size-5" aria-hidden />
         {uploading ? 'Wird hochgeladen …' : label}
       </button>
+      {/* immer vorhanden, damit Bildschirmleser die Änderungen ansagen */}
+      <p role="status" aria-live="polite" className={cx('text-center font-bold text-balance text-stone-800', status && 'mt-3')}>
+        {status && <LoaderCircle className="mr-2 inline size-5 animate-spin align-[-4px] text-brand-700 motion-reduce:animate-none" aria-hidden />}
+        {status}
+      </p>
       <p className="mt-2 text-hinweis text-stone-600">{hint}</p>
     </div>
   );

@@ -32,7 +32,7 @@ export function MediaSection({ item, onChange }: { item?: Item; onChange: (i: It
 }
 
 function ImagesEditor({ item, onChange }: { item: Item; onChange: (i: Item) => void }) {
-  const { uploading, upload } = useUpload(item, 'images', onChange);
+  const { uploading, upload, status } = useUpload(item, 'images', onChange);
   const toast = useToast();
 
   const [busyFile, setBusyFile] = useState<string>();
@@ -68,7 +68,7 @@ function ImagesEditor({ item, onChange }: { item: Item; onChange: (i: Item) => v
           {item.images.map((file, i) => (
             <li key={file} className="overflow-hidden rounded-2xl ring-1 ring-stone-200">
               <div className="relative aspect-[4/3]">
-                <ItemImage item={item} index={i} />
+                <ItemImage item={item} index={i} sizes="(min-width: 640px) 33vw, 50vw" />
                 {i === 0 && (
                   <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2.5 py-1 text-hinweis font-bold text-stone-800">
                     Titelbild
@@ -105,6 +105,7 @@ function ImagesEditor({ item, onChange }: { item: Item; onChange: (i: Item) => v
         label="Bilder auswählen"
         hint="JPG, PNG oder WebP · große Bilder werden automatisch verkleinert · max. 8 Bilder · auch per Drag & Drop"
         uploading={uploading}
+        status={status}
         onFiles={upload}
         icon={ImagePlus}
       />

@@ -44,7 +44,7 @@ export function OrderCard({
       <article aria-labelledby={`order-${order.id}`}>
         <div className="flex flex-col sm:flex-row">
           <div className="h-28 shrink-0 sm:h-auto sm:w-44">
-            <ItemImage item={{ name: order.itemName, category: order.itemCategory ?? '', images: order.itemImages ?? [] }} iconSize="size-12" />
+            <ItemImage item={{ name: order.itemName, category: order.itemCategory ?? '', images: order.itemImages ?? [] }} sizes="(min-width: 640px) 176px, calc(100vw - 24px)" iconSize="size-12" />
           </div>
           <div className="min-w-0 flex-1 p-4 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">

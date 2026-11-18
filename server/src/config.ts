@@ -42,6 +42,11 @@ export interface AppConfig {
   sessionMaxAgeMs: number;
   clientDistDir: string;
   logRequests: boolean;
+  /**
+   * Start der Bildpflege (Vorschaubilder, zu große Originale) so lange nach dem Start der App; negativ = nie.
+   * Standard 5 Minuten (BILDPFLEGE_NACH_MIN), in Tests aus.
+   */
+  bildpflegeNachMs: number;
   /** Versionsnummer der App (oberste package.json); in Tests austauschbar. CHANGELOG.md liegt in rootDir. */
   appVersion: string;
 }
@@ -110,6 +115,7 @@ export function loadConfig(overrides: Partial<AppConfig> & { storageDir?: string
     sessionMaxAgeMs: 30 * 24 * 60 * 60 * 1000,
     clientDistDir: path.join(ROOT_DIR, 'client', 'dist'),
     logRequests: !isProduction,
+    bildpflegeNachMs: storageDir ? -1 : Math.max(0, Number(process.env.BILDPFLEGE_NACH_MIN ?? 5) || 0) * 60_000,
     appVersion: APP_VERSION,
     ...rest,
   };

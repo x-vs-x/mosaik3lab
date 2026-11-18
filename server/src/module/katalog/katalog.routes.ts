@@ -2,8 +2,8 @@ import { Router } from 'express';
 import type { Auth } from '../../kern/auth/middleware';
 import { badRequest, notFound } from '../../kern/errors';
 import { dateiName } from '../../kern/files';
+import { istVorschauGroesse } from '../../kern/bilder';
 import { param, sendMissingImage } from '../../kern/http';
-import { rateLimit } from '../../kern/rateLimit';
 import { imageUpload, MAX_IMAGES_PER_ITEM, modelUpload, videoUpload } from '../../kern/uploads';
 import type { Storage } from '../../storage';
 import {
@@ -25,9 +25,11 @@ import {
   visibleItemFile,
 } from './katalog.service';
 import { farbeZuordnen } from './farbeZuordnen';
-import { replaceImage } from './bildErsetzen';
 import { addAehnlich, listAehnliche, removeAehnlich } from './aehnliche';
 import { aehnlichSchema, farbeZuordnenSchema, imageOrderSchema, itemInputSchema, publishSchema, videoLinkSchema, videoUploadSchema } from '@mosaik3lab/shared/katalog';
+
+/** So lange wartet ein Abruf höchstens auf ein noch fehlendes Vorschaubild (danach: Original). */
+const VORSCHAU_WARTEN_MS = 15_000;
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
 const uploaded = (files: unknown) => (files as Express.Multer.File[] | undefined) ?? [];
@@ -100,12 +102,6 @@ export function itemRoutes(storage: Storage, auth: Auth) {
     res.json(presentItem(await reorderImages(storage, param(req.params.id), images), req.user!));
   });
 
-  // Bildinhalt ersetzen (z. B. „Vorhandene Bilder verkleinern“): gleiche ID und Reihenfolge, gleiche Prüfungen.
-  const ersetzenLimit = rateLimit({ windowMs: 10 * 60_000, max: 300, message: 'Zu viele Bilder auf einmal ersetzt. Bitte in einigen Minuten erneut versuchen.' });
-  router.put('/:id/images/:file', manage, ersetzenLimit, imageUpload.single('file'), async (req, res) => {
-    res.json(presentItem(await replaceImage(storage, param(req.params.id), param(req.params.file), req.file), req.user!));
-  });
-
   router.delete('/:id/images/:file', manage, async (req, res) => {
     res.json(presentItem(await removeImage(storage, param(req.params.id), param(req.params.file)), req.user!));
   });
@@ -145,10 +141,24 @@ export function fileRoutes(storage: Storage, auth: Auth) {
   const router = Router();
 
   // Bilder veröffentlichter Druckteile sind ohne Anmeldung abrufbar, Bilder von Entwürfen nur für das Druck-Team.
+  // ?groesse=karte|mini: Vorschaubild (JPEG) mit denselben Rechten; fehlt es, rechnet der Server es sofort (kurz warten),
+  // sonst – oder bei Fehler – kommt das Original (nicht zwischenspeichern, damit der nächste Abruf das Vorschaubild holt).
   router.get('/images/:file', async (req, res, next) => {
     const datei = await visibleItemFile(storage, param(req.params.file), 'bild', req.user);
     if (!datei) return next(notFound('Bild nicht gefunden.'));
-    res.setHeader('Cache-Control', 'private, max-age=86400');
+    const groesse = req.query.groesse;
+    if (groesse !== undefined && !istVorschauGroesse(groesse)) return next(badRequest('Unbekannte Bildgröße (karte oder mini).'));
+    if (groesse) {
+      const vorschau = await storage.bilder.vorschau(datei, groesse, VORSCHAU_WARTEN_MS);
+      if (vorschau) {
+        res.setHeader('Cache-Control', 'private, max-age=86400');
+        res.type('image/jpeg');
+        return res.sendFile(vorschau, (err) => {
+          if (err && !res.headersSent) sendMissingImage(res);
+        });
+      }
+    }
+    res.setHeader('Cache-Control', groesse ? 'no-store' : 'private, max-age=86400');
     res.type(datei.mime);
     res.sendFile(storage.files.absPath(datei), (err) => {
       if (err && !res.headersSent) sendMissingImage(res); // Datensatz da, Datei fehlt (z. B. Backup ohne Dateien)

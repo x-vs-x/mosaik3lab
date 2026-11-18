@@ -56,7 +56,7 @@ export function BildGalerie({ item }: { item: Bilder }) {
           onKeyDown,
         })}
       >
-        <ItemImage item={item} index={index} iconSize="size-16 sm:size-24" />
+        <ItemImage item={item} index={index} groesse="original" iconSize="size-16 sm:size-24" />
         {mehrere && (
           <>
             <button type="button" onClick={() => gehe(-1)} aria-label="Vorheriges Bild" className={cx(pfeil, 'left-2 sm:left-3')}>
@@ -85,7 +85,7 @@ export function BildGalerie({ item }: { item: Bilder }) {
                   i === index ? 'ring-brand-600' : 'ring-transparent hover:ring-stone-300',
                 )}
               >
-                <ItemImage item={item} index={i} />
+                <ItemImage item={item} index={i} groesse="mini" sizes="80px" />
               </button>
             </li>
           ))}
