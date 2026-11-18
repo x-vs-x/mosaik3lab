@@ -6,7 +6,6 @@ import { ERREICHBARKEIT } from './erreichbarkeit';
 // Mail-Konfiguration in der Datenbank (Tabelle betrieb_einstellung, Bereich „mail“, Migration 006) – gepflegt
 // ausschließlich im Server-Manager. Die App liest sie nur (bei jedem Versand, ohne Neustart).
 // Schlüssel: enabled, smtp { host, port, secure, user, pass }, from, recipients[], appBaseUrl, erreichbarkeit.
-// Einmalige Übernahme alter Dateien (config/mail.json, settings.json → mail): uebernahme/betriebsdateien.ts.
 
 const isEmail = (v: string) => z.string().email().safeParse(v).success;
 /** „name@schule.example“ oder „Mosaik³LAB <name@schule.example>“ */

@@ -24,13 +24,6 @@ export const DEMO_USERS: DemoUser[] = [
   { key: 'druck', username: 'druckteam', email: 'demo.druckteam@schule.example', displayName: 'Demo 3D-Druck-Team', role: 'druckteam', password: 'Mosaik-Druck-2026' },
 ];
 
-/** E-Mail-Adressen für Demo-Konten älterer Datenstände (ohne E-Mail), nach Benutzername. */
-export const LEGACY_DEMO_EMAILS: Record<string, string> = {
-  admin: 'demo.admin@schule.example',
-  druckteam: 'demo.druckteam@schule.example',
-  lehrkraft: 'demo.lehrkraft@schule.example',
-};
-
 export interface DemoItem {
   key: string;
   name: string;

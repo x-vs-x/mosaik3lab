@@ -5,7 +5,6 @@ import { BildDienst, Bildpflege } from '../kern/bilder';
 import { lockContent, lockHolder } from '../kern/lock';
 import type { Storage } from './repositories';
 import { backupInto, dbInfo, migrate, openDb } from '../kern/db';
-import { importLegacyJson, type ImportReport, type LegacyPaths } from '../uebernahme/importJson';
 import { ProposalRepository } from '../module/vorschlaege/vorschlaege.repository';
 import { SessionRepository } from '../kern/auth/sitzungen';
 import { RequesterRepository, UserRepository } from '../module/konten/konten.repository';
@@ -22,19 +21,12 @@ export interface StoragePaths {
   dbFile: string;
   /** Wurzel der Dateiablage, Standard <STORAGE_DIR>/ablage (Server-Manager: ABLAGE_DIR) */
   ablageDir: string;
-  /** Bisheriger JSON-Datenordner (Sperrdatei, Session-Geheimnis, Quelle der einmaligen Übernahme) */
+  /** Ordner der Sperrdatei (.lock; der Server-Manager prüft dieselbe Datei) */
   dataDir: string;
-  /** Bisherige Upload-Ordner – nur noch Quelle der einmaligen Übernahme */
-  imagesDir: string;
-  modelsDir: string;
-  videosDir: string;
 }
 
-/**
- * Plug & Play: legt Datenbank, Tabellen und Ablage selbst an, spielt ausstehende Migrationen ein (vorher Sicherung)
- * und übernimmt beim ersten Start einmalig die bisherigen JSON-Daten samt Dateien.
- */
-export async function createSqliteStorage(paths: StoragePaths): Promise<Storage & { importReport?: ImportReport }> {
+/** Plug & Play: legt Datenbank, Tabellen und Ablage selbst an und spielt ausstehende Migrationen ein (vorher Sicherung). */
+export async function createSqliteStorage(paths: StoragePaths): Promise<Storage> {
   fs.mkdirSync(paths.dataDir, { recursive: true });
   const releaseLock = acquireLock(paths.dataDir);
   let db: ReturnType<typeof openDb> | undefined;
@@ -58,8 +50,6 @@ export async function createSqliteStorage(paths: StoragePaths): Promise<Storage 
       neuigkeiten: new NeuigkeitenRepository(db),
     };
     repos.settings.init();
-    const legacy: LegacyPaths = { dataDir: paths.dataDir, imagesDir: paths.imagesDir, modelsDir: paths.modelsDir, videosDir: paths.videosDir };
-    const importReport = await importLegacyJson(db, files, repos, legacy);
 
     const conn = db;
     const bilder = new BildDienst(files);
@@ -69,7 +59,6 @@ export async function createSqliteStorage(paths: StoragePaths): Promise<Storage 
       files,
       bilder,
       bildpflege,
-      importReport,
       sqlite: { db: conn },
       database: {
         file: paths.dbFile,

@@ -1,6 +1,5 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readPathConfig } from './uebernahme/bootstrapConfig';
 import { normalizeBasePath } from './basePath';
 import { APP_VERSION } from './kern/version';
 
@@ -20,12 +19,8 @@ export interface AppConfig {
   dbFile: string;
   /** Dateiablage (ABLAGE_DIR, vom Server-Manager gesetzt; Standard <storageDir>/ablage). */
   ablageDir: string;
-  /** Bisheriger JSON-Datenordner (<storageDir>/data): Sperrdatei, Session-Geheimnis, Quelle der einmaligen Übernahme. */
+  /** Ordner der Sperrdatei (<storageDir>/data/.lock) – der Server-Manager prüft dieselbe Datei. */
   dataDir: string;
-  /** Bisherige Upload-Ordner – nur noch Quelle der einmaligen Übernahme in die Ablage. */
-  imagesDir: string;
-  modelsDir: string;
-  videosDir: string;
   /** Größtes erlaubtes Importpaket für Druckteile (Datenaustausch) in Bytes (IMPORT_MAX_MB, Standard 1024). */
   importMaxBytes: number;
   /** Basis-Pfad der App („“ = unter /, sonst z. B. /mosaik3lab) – BASE_PATH, vom Server-Manager gesetzt. */
@@ -70,9 +65,6 @@ export function defaultPaths(storageDir?: string) {
     dbFile: path.join(storageDir, 'mosaik3lab.db'),
     ablageDir,
     dataDir: path.join(storageDir, 'data'),
-    imagesDir: path.join(storageDir, 'uploads', 'images'),
-    modelsDir: path.join(storageDir, 'uploads', 'models'),
-    videosDir: path.join(storageDir, 'uploads', 'videos'),
   };
 }
 
@@ -86,8 +78,6 @@ export function loadConfig(overrides: Partial<AppConfig> & { storageDir?: string
   const envStorage = process.env.STORAGE_DIR ? path.resolve(process.env.STORAGE_DIR) : undefined;
   const defaults = defaultPaths(storageDir ?? envStorage);
   const envAblage = !storageDir && process.env.ABLAGE_DIR ? path.resolve(process.env.ABLAGE_DIR) : undefined;
-  // Früher in der Verwaltung eingestellte Ordner (mosaik3lab.config.json) – nur noch Quelle der Übernahme.
-  const legacy = storageDir ? {} : readPathConfig(rootDir);
 
   return {
     // Standard: nur localhost – keine Bereitstellung im Netz ohne Sicherheitsprüfung.
@@ -98,10 +88,7 @@ export function loadConfig(overrides: Partial<AppConfig> & { storageDir?: string
     storageDir: defaults.storageDir,
     dbFile: defaults.dbFile,
     ablageDir: envAblage ?? defaults.ablageDir,
-    dataDir: legacy.dataDir ?? defaults.dataDir,
-    imagesDir: legacy.imagesDir ?? defaults.imagesDir,
-    modelsDir: legacy.modelsDir ?? defaults.modelsDir,
-    videosDir: legacy.videosDir ?? defaults.videosDir,
+    dataDir: defaults.dataDir,
     importMaxBytes: Math.max(1, Number(process.env.IMPORT_MAX_MB) || 1024) * 1024 * 1024,
     basePath: storageDir ? '' : normalizeBasePath(process.env.BASE_PATH),
     https: !storageDir && process.env.PUBLIC_HTTPS === 'true',
