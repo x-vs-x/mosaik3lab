@@ -32,7 +32,7 @@ export function MediaSection({ item, onChange }: { item?: Item; onChange: (i: It
 }
 
 function ImagesEditor({ item, onChange }: { item: Item; onChange: (i: Item) => void }) {
-  const { uploading, upload, status } = useUpload(item, 'images', onChange);
+  const { uploading, upload, status, abbrechen } = useUpload(item, 'images', onChange);
   const toast = useToast();
 
   const [busyFile, setBusyFile] = useState<string>();
@@ -107,6 +107,7 @@ function ImagesEditor({ item, onChange }: { item: Item; onChange: (i: Item) => v
         uploading={uploading}
         status={status}
         onFiles={upload}
+        onAbbrechen={abbrechen}
         icon={ImagePlus}
       />
     </div>

@@ -1,11 +1,11 @@
-import { MAX_ORDER_QUANTITY } from '@mosaik3lab/shared/anfragen';
+import { MAX_ORDER_QUANTITY } from '@mosaik3lab/shared/werte/anfragen';
 import { CircleCheck, LayoutGrid, Plus, Save, Send } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { Dialog } from '../../components/Dialog';
 import { EntwurfHinweis } from '../../components/EntwurfHinweis';
 import { Alert, Button, Field, Input, LinkButton, Textarea } from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { api, ApiError, isConnectionProblem } from '../../lib/api';
 import { useConfig, useMasterData } from '../../lib/config';
 import { aufAngeboteneFarben, initialColorChoice, itemColorAreas } from '../../lib/colors';
 import { anfrageEmail } from '../../lib/anfrageEmail';
@@ -213,6 +213,11 @@ export function RequestDialog({
         setLocked(true);
         entwurf.clear();
         setFormError(`${err.message} Änderungen bitte direkt beim Druck-Team melden.`);
+      } else if (!edit && isConnectionProblem(err)) {
+        // Keine Antwort (z. B. Zeitüberschreitung im WLAN) heißt nicht „nicht angekommen“ – sonst entstünden doppelte Anfragen.
+        setFormError(
+          'Der Server hat nicht rechtzeitig geantwortet. Die Anfrage ist vielleicht trotzdem angekommen: Bitte zuerst unter „Meine Anfragen“ nachsehen (oder beim Druck-Team nachfragen), bevor Sie sie erneut senden. Ihre Eingaben bleiben hier erhalten.',
+        );
       } else if (err instanceof ApiError) {
         setErrors(err.fields);
         setFormError(err.message);

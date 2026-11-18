@@ -14,20 +14,28 @@ import { ToastProvider } from './components/Toast';
 import { ConfigProvider } from './lib/config';
 import { BASE_PATH } from './lib/basePath';
 import { ersteinrichtungPruefen } from './lib/ersteinrichtung';
+import { nachladeFehlerBehandeln } from './lib/neuLaden';
+import { Fehlergrenze } from './components/Fehlergrenze';
 
-const render = () => createRoot(document.getElementById('root')!).render(
+// Zuerst: Programmteil nicht nachladbar (alter Tab nach Update, WLAN weg) → einmal automatisch neu laden.
+nachladeFehlerBehandeln();
+
+createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter basename={BASE_PATH || undefined}>
-      <ConfigProvider>
-        <AuthProvider>
-          <ToastProvider>
-            <App />
-          </ToastProvider>
-        </AuthProvider>
-      </ConfigProvider>
-    </BrowserRouter>
+    <Fehlergrenze ganzeSeite>
+      <BrowserRouter basename={BASE_PATH || undefined}>
+        <ConfigProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <App />
+            </ToastProvider>
+          </AuthProvider>
+        </ConfigProvider>
+      </BrowserRouter>
+    </Fehlergrenze>
   </StrictMode>,
 );
 
-// Noch kein Administrator → direkt zur Einrichtung (lib/ersteinrichtung.ts), sonst App starten.
-void ersteinrichtungPruefen().then((starten) => starten && render());
+// Noch kein Administrator → zur Einrichtung (lib/ersteinrichtung.ts). Läuft neben dem ersten Anzeigen, damit die App auf
+// langsamem WLAN nicht bis zu 3 s auf die Antwort des Server-Managers wartet.
+void ersteinrichtungPruefen();

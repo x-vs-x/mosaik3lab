@@ -6,6 +6,15 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Stabiler bei schwachem WLAN und nach Updates:** Statt einer weißen Seite erscheint bei einem Fehler „Etwas ist
+  schiefgelaufen – Seite neu laden“; ein alter Tab nach einem Update lädt sich einmal selbst neu. Der Katalog erscheint
+  schneller (kleineres Programm, Schriften werden früh geladen, keine Wartezeit mehr auf die Prüfung der Ersteinrichtung;
+  gemessen auf langsamem Mobilfunk: beim ersten Aufruf 6,0 → 5,1 s, danach 1,9 → 1,3 s). Lädt der Katalog nicht, gibt es
+  „Erneut versuchen“ (bei Verbindungsfehlern versucht er es einmal selbst). Beim Wechsel zu einem ähnlichen Druckteil ist
+  nie mehr kurz das vorige zu sehen. Hochladen lässt sich abbrechen und bricht ab, wenn es eine Minute lang stehen bleibt.
+  Fehlermeldungen bleiben stehen, bis man sie schließt. Antwortet der Server beim Absenden einer Anfrage nicht, weist die
+  Meldung darauf hin, erst unter „Meine Anfragen“ nachzusehen (keine doppelten Anfragen).
+
 - **Bilder macht der Server selbst – Katalog auf dem Handy viel schneller:** Zu jedem Druckteil-Bild legt der Server
   zwei kleine Vorschaubilder an (für die Katalogkarte und für kleine Vorschauen wie „Ähnliche Druckteile“); der Browser
   wählt je nach Bildschirm selbst die passende Größe. Im Test lud der Katalog auf dem Handy statt 11,9 MB nur noch

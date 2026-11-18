@@ -25,7 +25,10 @@ export function Dialog({
   const titleId = useId();
   const pressedOnBackdrop = useRef(false);
 
+  const offen = useRef(open);
+
   useEffect(() => {
+    offen.current = open;
     const el = ref.current;
     if (!el) return;
     if (open && !el.open) el.showModal();
@@ -39,8 +42,22 @@ export function Dialog({
       e.preventDefault();
       onClose();
     };
+    // Der Browser kann den Dialog trotz preventDefault schließen (Chrome: zweites Escape ohne Klick dazwischen). Dann
+    // wie „Schließen“ behandeln; will die Seite ihn offen halten (z. B. während des Einspielens), wieder öffnen –
+    // sonst bliebe ein unsichtbarer, „offener“ Dialog zurück, der sich nicht mehr öffnen ließe.
+    const geschlossen = () => {
+      if (!offen.current) return;
+      onClose();
+      setTimeout(() => {
+        if (offen.current && el.isConnected && !el.open) el.showModal();
+      });
+    };
     el.addEventListener('cancel', handle);
-    return () => el.removeEventListener('cancel', handle);
+    el.addEventListener('close', geschlossen);
+    return () => {
+      el.removeEventListener('cancel', handle);
+      el.removeEventListener('close', geschlossen);
+    };
   }, [onClose]);
 
   return (

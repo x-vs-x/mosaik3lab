@@ -1,5 +1,5 @@
-import { ChevronDown, Clock, Layers, Lightbulb, PackageOpen, Search, SlidersHorizontal, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { ChevronDown, Clock, Layers, Lightbulb, PackageOpen, RotateCw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
 import {
   KATALOG_SEITE,
@@ -19,6 +19,7 @@ import { useMasterData } from '../../lib/config';
 import { availableFilaments } from '../../lib/filaments';
 import { categoryMeta } from '../../lib/constants';
 import { formatDuration } from '../../lib/format';
+import { isConnectionProblem } from '../../lib/api';
 import { ITEM_KIND_LABELS, type Item, type ItemKind } from '../../lib/types';
 
 const MAX_SWATCHES = 6;
@@ -47,7 +48,10 @@ export function CatalogPage() {
   }, [debouncedQ, category, area, kind]);
 
   // Die Liste kommt immer vollständig (Suche und Filter über alle Druckteile), angezeigt wird nur der Anfang.
-  const { data: items, error, loading } = useApi<Item[]>(query);
+  const { data: items, error, loading, reload } = useApi<Item[]>(query);
+  useEinmalWiederholen(query, error, loading, reload);
+  // Fehler beim Aktualisieren: Die alte Liste bleibt sichtbar, aber als „nicht aktuell“ (keine Zahl, abgeblendet).
+  const veraltet = !!error && !loading;
   const [anzahl, setAnzahl] = useState(KATALOG_SEITE);
   // Neue Suche oder neuer Filter: wieder mit der ersten Seite beginnen.
   const [anzahlFuer, setAnzahlFuer] = useState(query);
@@ -165,8 +169,8 @@ export function CatalogPage() {
 
       <div className="mb-3 flex min-h-10 flex-wrap items-center justify-between gap-3 sm:mb-5">
         <p className="font-bold text-stone-700" aria-live="polite" aria-atomic="true">
-          {items ? (items.length === 1 ? '1 Druckteil' : `${items.length} Druckteile`) : ' '}
-          {hasFilters && items ? ' gefunden' : ''}
+          {items && !veraltet ? (items.length === 1 ? '1 Druckteil' : `${items.length} Druckteile`) : ' '}
+          {hasFilters && items && !veraltet ? ' gefunden' : ''}
         </p>
         {hasFilters && (
           <Button variant="ghost" size="sm" icon={X} onClick={() => setParams({}, { replace: true })}>
@@ -175,7 +179,17 @@ export function CatalogPage() {
         )}
       </div>
 
-      {error && <Alert kind="error">{error.message}</Alert>}
+      {veraltet && (
+        <Alert kind="error" className="mb-4" title={items ? 'Der Katalog konnte nicht aktualisiert werden' : 'Der Katalog konnte nicht geladen werden'}>
+          <p>
+            {error.message}
+            {items && ' Darunter steht noch der vorige Stand – er passt vielleicht nicht zur Suche oder zum Filter.'}
+          </p>
+          <Button variant="secondary" icon={RotateCw} className="mt-3" onClick={() => void reload()}>
+            Erneut versuchen
+          </Button>
+        </Alert>
+      )}
       {loading && !items && <Spinner label="Katalog wird geladen …" />}
 
       {items && items.length === 0 && (
@@ -192,7 +206,7 @@ export function CatalogPage() {
       )}
 
       {items && items.length > 0 && (
-        <ul className={cx('grid gap-3 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3', loading && 'opacity-60 transition-opacity')}>
+        <ul className={cx('grid gap-3 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3', (loading || veraltet) && 'opacity-60 transition-opacity')}>
           {items.slice(0, anzahl).map((item) => (
             <ItemCard key={item.id} item={item} />
           ))}
@@ -207,6 +221,17 @@ export function CatalogPage() {
       )}
     </>
   );
+}
+
+/** Verbindungsfehler (WLAN kurz weg, Server startet neu): je Suche/Filter einmal nach 2 s selbst erneut versuchen. */
+function useEinmalWiederholen(query: string, error: unknown, loading: boolean, reload: () => Promise<void>) {
+  const wiederholtFuer = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading || !isConnectionProblem(error) || wiederholtFuer.current === query) return;
+    wiederholtFuer.current = query;
+    const t = setTimeout(() => void reload(), 2000);
+    return () => clearTimeout(t);
+  }, [query, error, loading, reload]);
 }
 
 /**

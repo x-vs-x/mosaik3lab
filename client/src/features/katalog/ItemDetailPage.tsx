@@ -19,7 +19,10 @@ import { AehnlicheTeile } from './AehnlicheTeile';
 
 export function ItemDetailPage() {
   const { id } = useParams();
-  const { data: item, error, loading } = useApi<Item>(`/items/${id}`);
+  // Nur das Teil dieser Adresse zeigen: Beim Wechsel (z. B. über „Ähnliche Druckteile“) bis zur Antwort die Ladeanzeige,
+  // nie das vorige Teil – sonst könnte man das falsche anfragen.
+  const { data, error, loading, aktuell } = useApi<Item>(`/items/${id}`);
+  const item = aktuell ? data : undefined;
   const { can, user, loading: authLoading } = useAuth();
   const md = useMasterData();
   const [requestOpen, setRequestOpen] = useState(false);
@@ -29,7 +32,7 @@ export function ItemDetailPage() {
   }, [id, authLoading, user?.id]);
   useDocumentTitle(item?.name ?? 'Druckteil');
 
-  if (loading && !item) return <Spinner />;
+  if (loading && !item) return <Spinner label="Druckteil wird geladen …" />;
   if (error || !item) {
     return (
       <div className="space-y-6">
