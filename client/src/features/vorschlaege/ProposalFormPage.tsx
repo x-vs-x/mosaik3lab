@@ -1,18 +1,18 @@
-import { ImagePlus, Lightbulb, ListOrdered, Plus, ShieldAlert, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { ImagePlus, Lightbulb, ListOrdered, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { EntwurfHinweis } from '../../components/EntwurfHinweis';
 import { ActionBar, Alert, Button, EmptyState, Field, Input, LinkButton, PageHeader, Panel, Select, Textarea } from '../../components/ui';
 import { useToast } from '../../components/Toast';
-import { api, ApiError } from '../../lib/api';
+import { apiUpload, ApiError, UPLOAD_ABGEBROCHEN } from '../../lib/api';
 import { bildVerkleinern } from '../../lib/bildVerkleinern';
 import { entwurfSchluessel } from '../../lib/entwurfSpeicher';
 import { useDocumentTitle } from '../../lib/useApi';
 import { useEntwurf } from '../../lib/useEntwurf';
 import { MAX_LINKS, MAX_PHOTO_BYTES, MAX_PHOTOS, URGENCY_LABELS, type OwnProposal, type ProposalUrgency } from './proposals';
 
-/** Formular „Etwas vorschlagen“ (Lehrkraft, angemeldet). Fotos als Multipart, Rest als JSON im Feld „data“. */
+/** Formular „Etwas vorschlagen“ (Lehrkraft, angemeldet). Fotos als Multipart, Rest als JSON im Feld „data“ (apiUpload). */
 export function ProposalFormPage() {
   useDocumentTitle('Etwas vorschlagen');
   const navigate = useNavigate();
@@ -28,6 +28,10 @@ export function ProposalFormPage() {
   const [fields, setFields] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  // Senden mit Fotos: Fortschritt, Stillstands-Wächter und „Abbrechen“ wie beim Hochladen von Bildern und Videos.
+  const [anteil, setAnteil] = useState<number | null>(null);
+  const senden = useRef<AbortController | undefined>(undefined);
+  const [abgebrochen, setAbgebrochen] = useState(false);
   const { user } = useAuth();
 
   // Entwurf im Browser. Ausgewählte Fotos lassen sich dort nicht ablegen – nur ihre Anzahl für den Hinweis.
@@ -66,6 +70,7 @@ export function ProposalFormPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(undefined);
+    setAbgebrochen(false);
     const errs: Record<string, string> = {};
     if (title.trim().length < 3) errs.title = 'Bitte einen kurzen Titel eingeben (mindestens 3 Zeichen)';
     if (description.trim().length < 10) errs.description = 'Bitte kurz beschreiben (mindestens 10 Zeichen)';
@@ -95,17 +100,23 @@ export function ProposalFormPage() {
     );
     photos.forEach((f) => form.append('photos', f));
     setBusy(true);
+    const ctrl = new AbortController();
+    senden.current = ctrl;
+    setAnteil(0);
     try {
-      const created = await api<OwnProposal>('/proposals', { method: 'POST', form });
+      const created = await apiUpload<OwnProposal>('/proposals', form, setAnteil, { signal: ctrl.signal });
       entwurf.clear();
       toast('success', `Danke! Ihr Vorschlag ${created.number} ist beim 3D-Druck-Team eingegangen.`);
       navigate('/vorschlaege', { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.message === UPLOAD_ABGEBROCHEN) setAbgebrochen(true); // selbst abgebrochen
+      else if (err instanceof ApiError) {
         setError(err.message);
         setFields(err.fields);
       } else setError('Der Vorschlag konnte nicht gesendet werden.');
     } finally {
+      senden.current = undefined;
+      setAnteil(null);
       setBusy(false);
     }
   };
@@ -134,6 +145,7 @@ export function ProposalFormPage() {
           </EntwurfHinweis>
         )}
         {error && <Alert kind="error">{error}</Alert>}
+        {abgebrochen && <Alert kind="info">Das Senden wurde abgebrochen. Ihre Angaben bleiben hier stehen – Sie können es erneut versuchen.</Alert>}
 
         <Panel icon={Lightbulb} title="1. Das Druckteil beschreiben" description="Je genauer die Beschreibung, desto schneller kann das Team prüfen, ob und wie es sich drucken lässt." bodyClassName="space-y-5">
           <Field label="Titel" required error={fields.title} hint="Kurz und verständlich, z. B. „Rutschfeste Tellerunterlage“">
@@ -256,9 +268,15 @@ export function ProposalFormPage() {
           footer={
             <ActionBar
               secondary={
-                <Link to="/katalog" className="inline-flex min-h-14 items-center justify-center px-4 font-bold text-stone-700 hover:underline">
-                  Abbrechen
-                </Link>
+                busy ? (
+                  <Button variant="secondary" size="lg" icon={X} onClick={() => senden.current?.abort()}>
+                    Senden abbrechen
+                  </Button>
+                ) : (
+                  <Link to="/katalog" className="inline-flex min-h-14 items-center justify-center px-4 font-bold text-stone-700 hover:underline">
+                    Abbrechen
+                  </Link>
+                )
               }
               primary={
                 <Button type="submit" size="lg" icon={Lightbulb} loading={busy}>
@@ -268,6 +286,9 @@ export function ProposalFormPage() {
             />
           }
         >
+          <p role="status" aria-live="polite" className="mb-3 text-sm font-semibold text-stone-700 empty:hidden">
+            {anteil === null ? '' : anteil < 1 ? `Wird gesendet … ${Math.round(anteil * 100)} %` : 'Wird gespeichert … bitte warten'}
+          </p>
           <label className="flex items-start gap-3 min-h-12">
             <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1 size-5 shrink-0 accent-brand-700" aria-describedby={fields.confirmed ? 'confirm-error' : undefined} aria-invalid={!!fields.confirmed || undefined} />
             <span>
