@@ -1,14 +1,16 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { newId } from '../../domain/ids';
-import { userCan } from '../../domain/permissions';
-import type { Proposal } from '../../domain/proposals';
-import type { Item, Requester, User } from '../../domain/types';
+import { newId } from '../../kern/ids';
+import { userCan } from '../konten/rechte';
+import type { Proposal, ProposalUmgewandelt } from '@mosaik3lab/shared/vorschlaege';
+import type { Item, User } from '../../domain/types';
+import type { Requester } from '@mosaik3lab/shared/anfragen';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../../kern/errors';
 import { dateiName } from '../../kern/files';
 import { detectImage, originalName } from '../../kern/uploads';
 import type { Storage } from '../../storage';
 import { notifyNewProposal } from './vorschlaege.mail';
+import { passtZurSuche } from '@mosaik3lab/shared/suche';
 import { proposalInputSchema } from '@mosaik3lab/shared/vorschlaege';
 
 // Regeln für Vorschläge der Lehrkräfte: einreichen (mit Fotos), beantworten, in ein Druckteil umwandeln.
@@ -69,7 +71,7 @@ export async function submitProposal(storage: Storage, requester: Requester | un
     throw err;
   }
   const created = await loadProposal(storage, id);
-  notifyNewProposal(storage, storage.sqlite.db, created);
+  notifyNewProposal(storage, created);
   return created;
 }
 
@@ -78,10 +80,9 @@ export async function myProposals(storage: Storage, requesterId: string) {
 }
 
 export function listProposals(storage: Storage, status: string, query: string) {
-  const q = query.trim().toLocaleLowerCase('de-DE');
   return storage.proposals
     .listByStatus(status)
-    .filter((p) => !q || [p.number, p.title, p.description, p.requesterEmail].join(' ').toLocaleLowerCase('de-DE').includes(q))
+    .filter((p) => passtZurSuche([p.number, p.title, p.description, p.requesterEmail], query))
     .sort(byNewest);
 }
 
@@ -151,7 +152,7 @@ async function draftItem(storage: Storage, p: Proposal, itemId: string, images: 
 }
 
 /** „In Druckteil umwandeln“: Entwurf (nicht veröffentlicht) mit Titel, Beschreibung und kopierten Fotos. */
-export async function convertProposal(storage: Storage, id: string, user: User) {
+export async function convertProposal(storage: Storage, id: string, user: User): Promise<ProposalUmgewandelt> {
   if (!userCan(user, 'catalog:manage')) throw forbidden('Zum Umwandeln wird zusätzlich das Recht „Katalog bearbeiten“ gebraucht.');
   const proposal = await loadProposal(storage, id);
   if (proposal.itemId) throw conflict('Dieser Vorschlag wurde bereits in ein Druckteil umgewandelt.');

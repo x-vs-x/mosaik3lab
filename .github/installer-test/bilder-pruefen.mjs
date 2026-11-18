@@ -1,14 +1,17 @@
 // Rauchtest Bildverarbeitung nach der Installation (Installer-Test auf Windows, Linux x64, Raspberry Pi/arm64).
 // Prüft, dass der Rechen-Thread im Paket (server/dist/bild-worker.mjs) wirklich läuft: anmelden (Admin aus „marker“),
 // Druckteil anlegen, ein JPEG mit EXIF-Drehung und ein PNG mit Transparenz hochladen, Vorschaubilder ?groesse=karte und
-// ?groesse=mini abrufen, Typ und Maße prüfen, Rechenzeiten ins Log. Danach wird das Druckteil wieder gelöscht.
-//   node bilder-pruefen.mjs [App-Adresse, Standard http://127.0.0.1/mosaik3lab]
+// ?groesse=mini abrufen, Typ und Maße prüfen, Rechenzeiten ins Log. Danach wird das Druckteil wieder gelöscht –
+// mit --testdaten nur Druckteil mit Bildern anlegen und stehen lassen, ohne Vorschaubilder (Runde „v163“: Testdaten in 1.6.3,
+// das noch keine Vorschaubilder kennt – nach dem Update muss alles erhalten sein).
+//   node bilder-pruefen.mjs [App-Adresse, Standard http://127.0.0.1/mosaik3lab] [--testdaten]
 // Reines Node (fetch, FormData), keine Abhängigkeiten. Testbilder liegen daneben (testbild-exif6.jpg, testbild-transparent.png).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const BASE = (process.argv[2] ?? 'http://127.0.0.1/mosaik3lab').replace(/\/$/, '');
+const TESTDATEN = process.argv.includes('--testdaten');
+const BASE = (process.argv.slice(2).find((a) => !a.startsWith('--')) ?? 'http://127.0.0.1/mosaik3lab').replace(/\/$/, '');
 const LOGIN = { email: 'ci-admin@schule.test', password: 'ci-nur-test-1234' }; // wie pruefen.sh/.ps1 (nur Wegwerf-Runner)
 const HIER = path.dirname(fileURLToPath(import.meta.url));
 // testbild-exif6.jpg: gespeichert 1200 × 600, EXIF-Ausrichtung 6 (90° drehen) → angezeigt hochkant 600 × 1200.
@@ -102,7 +105,7 @@ try {
   const bilder = hoch.images ?? [];
   pruefe(bilder.length === BILDER.length, `${bilder.length} Bilder hochgeladen und verarbeitet in ${hochMs} ms (Rechenzeit beim Hochladen)`);
 
-  for (const [i, b] of BILDER.entries()) {
+  for (const [i, b] of TESTDATEN ? [] : BILDER.entries()) {
     const name = bilder[i]; // Dateiname in der Ablage, z. B. <id>.jpg – abrufbar unter /api/files/images/<name>
     if (typeof name !== 'string' || !name) {
       falsch(`kein Bild für ${b.datei} (${JSON.stringify(name)})`);
@@ -120,8 +123,11 @@ try {
       pruefe(m && Math.abs(m.breite - soll.breite) <= 1 && Math.abs(m.hoehe - soll.hoehe) <= 1, `${b.datei} ${groesse}: ${m ? `${m.breite} × ${m.hoehe}` : 'kein JPEG'} (erwartet ${soll.breite} × ${soll.hoehe}${b.hoehe > b.breite ? ', hochkant gedreht' : ''})`);
     }
   }
-  const weg = await api('DELETE', `/api/items/${item.id}`);
-  pruefe(weg.ok, `Druckteil wieder gelöscht → ${weg.status}`);
+  if (TESTDATEN) ok(`Druckteil bleibt als Testdaten stehen: ${item.id}`);
+  else {
+    const weg = await api('DELETE', `/api/items/${item.id}`);
+    pruefe(weg.ok, `Druckteil wieder gelöscht → ${weg.status}`);
+  }
 } catch (err) {
   falsch(err.message);
 }

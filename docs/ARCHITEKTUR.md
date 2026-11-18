@@ -37,8 +37,7 @@ werden als Hilfsmittel importiert. Internes (URLs `/verwaltung/hilfsmittel`, Rec
      unbekannt: eigene Ansicht mit „Jetzt Konto anlegen“ (`/api/auth/register`, legt nur einen `Requester` an,
      nie ein Konto) oder „E-Mail korrigieren“.
   2. Passwort (nur Konten). Konten (Tabelle `benutzer`) gibt es nur für `admin` und `druckteam`; jedes hat eine
-     eindeutige, klein geschriebene `email`. Ältere Konten ohne E-Mail werden beim Start ergänzt
-     (`migrateUserEmails` in `seed/seed.ts`); frühere Konten mit Rolle `lehrkraft` bleiben gespeichert,
+     eindeutige, klein geschriebene `email`. Frühere Konten mit Rolle `lehrkraft` bleiben gespeichert,
      melden sich aber nur noch als Lehrkraft (ohne Passwort) an.
 - **Angemeldet bleiben:** dauerhaftes Session-Cookie (30 Tage, `rolling` – bei jeder Nutzung verlängert,
   HttpOnly, SameSite=Strict); Abmelden zerstört Session und Cookie.
@@ -74,14 +73,13 @@ werden als Hilfsmittel importiert. Internes (URLs `/verwaltung/hilfsmittel`, Rec
   (`katalogId: null`) fasst der Abgleich nie an. Anzeige für Team/Admin: `filamentRolle()` in `shared/src/stammdaten.ts`.
 - **Farbrollen leer/vorrätig** (`Filament.available`): Das Druck-Team schaltet unter Verwaltung → **Farbrollen**
   (`/verwaltung/filamente`, Recht `filaments:manage`) um. Katalog, Produktseite und Anfrageformular zeigen nur
-  vorrätige Farben (`client/src/lib/filaments.ts` → `availableFilaments`); Anfragen mit leerer Farbe lehnt der
+  vorrätige Farben (`client/src/lib/colors.ts` → `availableFilaments`); Anfragen mit leerer Farbe lehnt der
   Server ab (400). Im Druckteil-Editor sind leere Rollen weiter wählbar und mit „(leer)“ markiert.
 - **Sicherheitshinweise** werden Lehrkräften derzeit nicht angezeigt (nur im Druckteil-Editor).
 - **E-Mail-Benachrichtigung** bei jeder neuen Anfrage an ein oder mehrere Postfächer. **Eingerichtet nur im
   Server-Manager**; gespeichert in der Datenbank (Tabelle `betrieb_einstellung`, Bereich `mail`, Migration 006):
   `enabled`, `smtp { host, port, secure, user, pass }`, `from`, `recipients[]`, `appBaseUrl`.
-  Die App liest sie bei jedem Versand (kein Neustart), schreibt sie nie (außer einmaliger Übernahme alter Dateien
-  `config/mail.json` und `settings.json`, die als `.bak` umbenannt werden) und zeigt in Verwaltung → Einstellungen nur
+  Die App liest sie bei jedem Versand (kein Neustart), schreibt sie nie und zeigt in Verwaltung → Einstellungen nur
   den Zustand + letzten Versand. Fehlt/ungültig → Versand aus, Logeintrag. Testmail:
   `npm run mail:test -s -w server -- --db <pfad zu mosaik3lab.db> [--to <adresse>]`. Das Session-Geheimnis liegt ebenfalls
   in `betrieb_einstellung` (Bereich `betrieb`); die App erzeugt es beim ersten Start.
@@ -116,11 +114,11 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
   (`storage/index.ts`, Typ in `storage/repositories.ts`). Einzelzugriffe und Filter laufen als gezielte Abfrage
   (`WHERE`, Indizes aus Migration 008), Zählungen per SQL – nicht „ganze Tabelle laden und in JS filtern“. `update(id, change)` läuft synchron in einer
   Transaktion (lesen → ändern → schreiben), Kindzeilen behalten beim Abgleich ihre ID.
-- **IDs/Nummern:** `newId()` (`domain/ids.ts`, UUID v7) für neue Datensätze; Nummernkreise (`domain/objekttypen.ts`
+- **IDs/Nummern:** `newId()` (`kern/ids.ts`, UUID v7) für neue Datensätze; Nummernkreise (`kern/objekttypen.ts`
   → `NUMMERNKREISE`, Tabelle `nummernkreis`): `ANF-JJJJ-NNNN`, `ART-NNNN`, `VOR-JJJJ-NNNN`. `Item.number` ist neu (lesend).
 - **Dateien:** `storage.files` (`FileStore`, `kern/files.ts`): `save({ objekttyp, objektId, rolle, buffer, ext, … })`
   schreibt nach `<ablage>/<objekttyp>/<objekt-id>/<rolle>/<datei-id>.<endung>` und legt den Datensatz an.
-  Objekttypen und Rollen nur in `domain/objekttypen.ts` (+ CHECK in der Migration). `Item.images`,
+  Objekttypen und Rollen nur in `kern/objekttypen.ts` (+ CHECK in der Migration). `Item.images`,
   `modelFiles`, `videos[].file` werden aus `datei` abgeleitet (öffentlicher Name `<datei-id>.<endung>`); was beim
   Speichern eines Artikels nicht mehr darin steht, wird samt Datei gelöscht (erst DB, dann Datei).
   Auslieferung nur über `/api/files/…` mit Rechteprüfung anhand des Datensatzes.
@@ -143,10 +141,9 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
     weiter. Log: „Bildpflege: 22 Bilder geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder erzeugt (…)“.
   - **Client:** `ItemImage` mit `groesse` (`karte` Katalogkarte, `mini` kleine Vorschauen, `original` Galerie) und
     `sizes`; `client/src/lib/bildQuellen.ts` baut `srcset` (mini 360w, karte 1080w, Original 2000w als oberste Stufe; der Browser nimmt die kleinste ausreichende Fassung).
-- **Übernahme JSON → SQLite** (`storage/sqlite/importJson.ts`): einmalig beim Start, Ergebnis in
-  `einstellung` „json_uebernahme“ (Anzahlen, Dateien, Hinweise). JSON-Dateien und alte Upload-Ordner bleiben liegen.
-  Früher in der App eingestellte Ordner (`mosaik3lab.config.json` in der Projektwurzel) gelten dabei als Quelle;
-  danach wird die Datei gesichert (`….vor-ablage-umzug-<zeit>.bak`) und entfernt (`retirePathConfig`).
+- **Updates ab 1.6.3:** Die Übernahme aus der JSON-Zeit (Daten, `mail.json`, `.session-secret`, `mosaik3lab.config.json`)
+  und das Ergänzen von Konten ohne E-Mail sind entfernt – 1.6.3 hat sie erledigt. Ältere Stände zuerst auf 1.6.3 bringen.
+  Ein früherer Eintrag `einstellung` „json_uebernahme“ bleibt als Vermerk stehen.
 - **Für den Server-Manager:** `/api/health` → `{ ok, version, demoAccountsEnabled, db: { vorhanden, schemaVersion, groesseBytes } }`;
   `npm run --silent db:backup -w server -- --ziel <datei> [--quelle <db>]` → eine Zeile `OK …` / `FEHLER: …`, Exit 0/1.
 
@@ -154,7 +151,7 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
 
 ```
 server/src/
-  domain/        types.ts (Server-Sicht der Entitäten), settings.ts (Stammdaten/Einstellungen), permissions.ts (Rechte-Prüfung), orderStatuses.ts (Status-Migration), bambuPalette.ts, ids.ts (UUID v7), objekttypen.ts (Objekttypen, Datei-Rollen, Nummernkreise)
+  domain/        types.ts (Server-Sicht der Entitäten: Passwort-Hash, Ablagename), bambuKatalog.ts/.json (mitgelieferter Bambu-Lab-Katalog) – Rest seit 1.7.x bei den Bereichen: Rechte `module/konten/rechte.ts`, Vorgaben `module/einstellungen/einstellungen.vorgaben.ts`, Status `module/stammdaten/orderStatuses.ts`; `kern/ids.ts` (UUID v7), `kern/objekttypen.ts` (Objekttypen, Datei-Rollen, Nummernkreise)
   module/<bereich>/   je Fachbereich: <bereich>.routes.ts (nur parsen → Service → antworten),
                       <bereich>.service.ts (Regeln), <bereich>.repository.ts (SQLite-Zugriff)
     katalog/          Druckteile, Bilder/Videos/Druckdateien, /api/items + /api/files
@@ -171,19 +168,22 @@ server/src/
                  mail/ (SMTP-Versand, Mail-Einstellungen, Vorlagen-Hilfen), uploads.ts, rateLimit.ts, errors.ts, http.ts,
                  bilder/ (Bildverarbeitung, siehe „Bilder und Bildpflege“)
   storage/       index.ts (Speicher zusammenbauen, Sperrdatei), repositories.ts (Typ `Storage`),
-                 sqlite/migrations/ (global nummeriert, fester Ort – der Server-Manager liest sie dort),
-                 sqlite/importJson.ts + json/ (einmalige Übernahme der alten JSON-Daten)
-  seed/          Beispieldaten und Start-Migrationen (nutzt Services/Repositories, nie Routen)
-  app.ts, index.ts, config.ts, bootstrapConfig.ts, basePath.ts
+                 sqlite/migrations/ (global nummeriert, fester Ort – der Server-Manager liest sie dort)
+  seed/          Beispieldaten (nutzt Services/Repositories, nie Routen)
+  app.ts, index.ts, config.ts, basePath.ts
 server/scripts/  Skripte (tsx); bundle.ts bündelt für das Installer-Paket nach server/dist/ (siehe unten)
 client/src/
-  lib/           api.ts, types.ts (Sammel-Export der Typen aus shared/), config.tsx (ConfigProvider/useMasterData), constants.ts (Farben/Symbole/Helfer), format.ts, useApi.ts
+  lib/           api.ts (api, apiUpload, fehlerText), types.ts (Sammel-Export der Typen aus shared/), config.tsx (ConfigProvider/useMasterData),
+                 constants.ts (Kategorie-/Status-Darstellung), colors.ts (Farbrollen, Farbauswahl), format.ts, useApi.ts, suchParameter.ts
   auth/          AuthContext.tsx
-  components/    gemeinsame Bausteine: ui.tsx, Layout.tsx, Dialog.tsx, Logo.tsx, ItemImage.tsx, ColorSwatch.tsx, StatusBadge.tsx, ListEditor.tsx, Toast.tsx, StatusPages.tsx
+  components/    gemeinsame Bausteine: ui.tsx, Listenwerkzeug.tsx (FilterKnopf, Suchfeld, LadeFehler), Layout.tsx, Dialog.tsx, Logo.tsx,
+                 ItemImage.tsx, ColorSwatch.tsx, StatusBadge.tsx, ListEditor.tsx, Toast.tsx, StatusPages.tsx
   features/
-    katalog/       CatalogPage, ItemDetailPage, RequestDialog, MyOrdersPage + OrderCard (nur bei requesterTracking)
+    katalog/       CatalogPage, ItemDetailPage
+    anfragen/      RequestDialog + AnfrageFelder + anfragePruefung.ts, MyOrdersPage + OrderCard, AnfrageVerlauf (Fortschritt,
+                   Verlauf), farbAnzeige.ts, zugang.ts („Meine Anfragen“ sichtbar?), guestOrders.ts, anfrageEmail.ts
     konto/         LoginPage, AccountPage
-    verwaltung/    DashboardPage, OrdersAdminPage, RequestersPage, ItemsAdminPage, UsersAdminPage + UserDialogs
+    verwaltung/    DashboardPage, OrdersAdminPage + OrderRow, RequestersPage, ItemsAdminPage, UsersAdminPage + UserDialogs
       druckteil-bearbeiten/  ItemEditPage (Laden/Speichern), useItemForm (Formular-Zustand), itemForm.ts (Leerwerte, Prüfung),
                      Section (aufklappbarer Rahmen), je Abschnitt eine Komponente (Basics, Colors + FilamentPicker, Media +
                      VideosEditor, CustomFields, Material, ModelFiles, Safety, VisibilityPanel), FilePicker (Upload)
@@ -216,7 +216,7 @@ Import z. B. `import { itemInputSchema } from '@mosaik3lab/shared/katalog'`.
 
 Typen entstehen per `z.infer` aus den Eingabe-Schemas; Felder, die nur der Server vergibt (ID, Nummer, Zeitstempel),
 kommen per `&` dazu. Reine Antwort-Typen ohne Eingabe (z. B. `Order`) stehen dort als `interface`. Nur Server-intern
-bleiben `server/src/domain/types.ts` (Passwort-Hash, Ablagename der Druckdateien) und die Prüf-Logik in `permissions.ts`.
+bleiben `server/src/domain/types.ts` (Passwort-Hash, Ablagename der Druckdateien) und die Prüf-Logik in `module/konten/rechte.ts`.
 Der Client sammelt die Typen in `client/src/lib/types.ts` (nur Re-Exporte). Export/Import (`stammdatenImport.ts`) prüft
 Artikel mit `itemInputSchema` und Stammdaten mit `masterDataSchemas`; das Paketformat selbst bleibt dort bewusst nachsichtig.
 zod läuft dadurch auch im Client-Bundle mit (≈ 15 KB gzip).
@@ -364,4 +364,4 @@ weggelassen (Hinweis); Druckteile mit ungültigen Angaben werden mit Grund über
 - Weitere Status: in `STATUS_CATALOG` (`shared/src/anfragen.ts`) ergänzen, dazu ein Symbol in `client/src/lib/constants.ts` (sonst Symbol der Phase).
 - Statusanzeige für Lehrkräfte: `features.requesterTracking` einschalten (Backend + `MyOrdersPage` vorhanden).
 - Datenbank: neue Tabelle/Spalte = neue Migration `server/src/storage/sqlite/migrations/NNN_name.sql` + Abbildung im
-  Repository des Bereichs (`module/<bereich>/<bereich>.repository.ts`). Neue Dateiart: Objekttyp/Rolle in `domain/objekttypen.ts` (+ CHECK per Migration).
+  Repository des Bereichs (`module/<bereich>/<bereich>.repository.ts`). Neue Dateiart: Objekttyp/Rolle in `kern/objekttypen.ts` (+ CHECK per Migration).

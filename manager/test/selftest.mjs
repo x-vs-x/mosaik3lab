@@ -4,12 +4,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { freePort, retryConnect } from './helpers/net.mjs';
+import { einrichten } from './helpers/einrichtung.mjs';
 
 // Testdaten liegen fest unter C:\Entwicklung\_testdaten\server-manager (nicht im Temp-Verzeichnis).
 const TESTROOT = path.resolve(import.meta.dirname, '..', '..', '..', '_testdaten', 'server-manager');
@@ -56,7 +56,8 @@ before(async () => {
   port = await freePort();
   fs.mkdirSync(path.join(tmp, 'storage', 'data'), { recursive: true });
   const configFile = path.join(tmp, 'manager.config.json');
-  fs.writeFileSync(configFile, JSON.stringify({ manager: { port }, app: { port: APP_PORT, demoAccounts: true }, paths: { dataDir: path.join(tmp, 'storage'), backupDir: path.join(tmp, 'backups'), logDir: path.join(tmp, 'logs') } }));
+  // ohne Portal: die App läuft direkt auf APP_PORT (kein Port 80 auf dem Testrechner)
+  einrichten(configFile, { manager: { port }, app: { port: APP_PORT, demoAccounts: true }, portal: { enabled: false, basePath: '' }, paths: { dataDir: path.join(tmp, 'storage'), backupDir: path.join(tmp, 'backups'), logDir: path.join(tmp, 'logs') } });
   proc = spawn(process.execPath, [path.join(MANAGER, 'server.mjs')], { env: { ...process.env, MANAGER_CONFIG: configFile, MOSAIK3LAB_QUIET: '1' }, stdio: 'ignore', windowsHide: true });
   for (let i = 0; i < 40 && !token; i++) {
     await sleep(250);

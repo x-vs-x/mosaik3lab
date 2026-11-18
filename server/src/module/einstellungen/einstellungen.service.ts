@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
-import { defaultSettings, ORDERFORM_VORGABE_BIS_1_6 } from '../../domain/settings';
+import { defaultSettings, ORDERFORM_VORGABE_BIS_1_6 } from './einstellungen.vorgaben';
 import type { Storage } from '../../storage';
 
 // Regeln rund um die Einstellungen, die nicht nur Speichern sind.

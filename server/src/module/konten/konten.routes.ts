@@ -1,5 +1,5 @@
 import { Router, type Request } from 'express';
-import { permissionsForRequester, permissionsForUser } from '../../domain/permissions';
+import { permissionsForRequester, permissionsForUser } from './rechte';
 import { accountSessionUser, teacherSessionUser } from '../../domain/types';
 import { permissionsOf, type Auth, type AuthOptions } from '../../kern/auth/middleware';
 import { rateLimit } from '../../kern/rateLimit';
@@ -9,15 +9,16 @@ import { changeOwnPassword, checkLogin, findAccount, recordLogin, registerReques
 import { linkInfo, passwortSetzen } from './passwortlink';
 import { adminPasswortLink, deletePerson, listPersonen, passwortVergessen, savePerson } from './personen.service';
 import {
+  emailEingabeSchema,
   identifySchema,
+  type IdentifyAntwort,
+  type SessionAntwort,
   loginSchema,
   passwordChangeSchema,
   passwortSetzenSchema,
   passwortVergessenSchema,
   personSchema,
 } from '@mosaik3lab/shared/konten';
-import { emailSchema } from '@mosaik3lab/shared/basis';
-import { z } from 'zod';
 
 /** Neue Session-ID nach Login (Schutz vor Session Fixation), dann Anmeldung eintragen. */
 async function startSession(req: Request, data: { userId?: string; requesterId?: string }) {
@@ -49,7 +50,7 @@ export function authRoutes(storage: Storage, auth: Auth, opts: AuthOptions) {
   const signedInTeacher = async (req: Request, requesterId: string) => {
     const requester = (await storage.requesters.findById(requesterId))!;
     await startSession(req, { requesterId });
-    return { result: 'signed-in', ...sessionPayload(teacherSessionUser(requester), permissionsForRequester(requester)) };
+    return { result: 'signed-in', ...sessionPayload(teacherSessionUser(requester), permissionsForRequester(requester)) } satisfies IdentifyAntwort;
   };
 
   // Schritt 1: E-Mail prüfen. Antwort nur „password“ (Konto → Schritt 2), „signed-in“
@@ -57,12 +58,12 @@ export function authRoutes(storage: Storage, auth: Auth, opts: AuthOptions) {
   router.post('/identify', loginLimit, async (req, res) => {
     const { email } = identifySchema.parse(req.body);
     if (await findAccount(storage, email)) {
-      res.json({ result: 'password' });
+      res.json({ result: 'password' } satisfies IdentifyAntwort);
       return;
     }
     const requester = await storage.requesters.findByEmail(email);
     if (!requester) {
-      res.json({ result: 'unknown' });
+      res.json({ result: 'unknown' } satisfies IdentifyAntwort);
       return;
     }
     res.json(await signedInTeacher(req, requester.id));
@@ -98,7 +99,7 @@ export function authRoutes(storage: Storage, auth: Auth, opts: AuthOptions) {
     const permissions = permissionsOf(req) ?? [];
     if (req.user) res.json(sessionPayload(accountSessionUser(req.user), permissions));
     else if (req.requester) res.json(sessionPayload(teacherSessionUser(req.requester), permissions));
-    else res.json({ user: null, permissions: [] });
+    else res.json({ user: null, permissions: [] } satisfies SessionAntwort);
   });
 
   router.post('/password', auth.requireAuth, async (req, res) => {
@@ -147,13 +148,13 @@ export function personRoutes(storage: Storage, auth: Auth) {
   });
 
   router.post('/passwort-link', async (req, res) => {
-    const { email } = z.object({ email: emailSchema }).parse(req.body);
+    const { email } = emailEingabeSchema.parse(req.body);
     res.json(await adminPasswortLink(storage, email));
   });
 
   // Entfernen per POST mit E-Mail im Rumpf (nicht in der Adresse – landet so in keinem Protokoll).
   router.post('/entfernen', async (req, res) => {
-    const { email } = z.object({ email: emailSchema }).parse(req.body);
+    const { email } = emailEingabeSchema.parse(req.body);
     await deletePerson(storage, req.user!, email);
     res.json({ ok: true });
   });

@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { ColorSwatch } from '../../components/ColorSwatch';
+import { LadeFehler } from '../../components/Listenwerkzeug';
 import { Alert, Badge, Button, Card, cx, DemoBadge, LinkButton, Spinner } from '../../components/ui';
 import { videoUrl } from '../../lib/api';
 import { itemColorAreas } from '../../lib/colors';
@@ -12,7 +13,7 @@ import { formatDuration } from '../../lib/format';
 import { ITEM_KIND_LABELS, type Filament, type Item, type ItemVideo } from '../../lib/types';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
 import { ladeEntwurf } from '../../lib/entwurfSpeicher';
-import { anfrageEntwurfSchluessel, RequestDialog } from './RequestDialog';
+import { anfrageEntwurfSchluessel, RequestDialog } from '../anfragen/RequestDialog';
 import { LinkKnoepfe, TextMitLinks } from './ItemLinks';
 import { BildGalerie } from './BildGalerie';
 import { AehnlicheTeile } from './AehnlicheTeile';
@@ -21,7 +22,7 @@ export function ItemDetailPage() {
   const { id } = useParams();
   // Nur das Teil dieser Adresse zeigen: Beim Wechsel (z. B. über „Ähnliche Druckteile“) bis zur Antwort die Ladeanzeige,
   // nie das vorige Teil – sonst könnte man das falsche anfragen.
-  const { data, error, loading, aktuell } = useApi<Item>(`/items/${id}`);
+  const { data, error, loading, aktuell, reload } = useApi<Item>(`/items/${id}`);
   const item = aktuell ? data : undefined;
   const { can, user, loading: authLoading } = useAuth();
   const md = useMasterData();
@@ -37,7 +38,11 @@ export function ItemDetailPage() {
     return (
       <div className="space-y-6">
         <BackLink />
-        <Alert kind="error">{error?.status === 404 ? 'Dieses Druckteil wurde nicht gefunden.' : error?.message}</Alert>
+        {error && error.status !== 404 ? (
+          <LadeFehler error={error} onRetry={() => void reload()} className="" />
+        ) : (
+          <Alert kind="error">Dieses Druckteil wurde nicht gefunden.</Alert>
+        )}
       </div>
     );
   }

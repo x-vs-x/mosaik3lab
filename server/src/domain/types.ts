@@ -3,18 +3,13 @@
 // was der Server zusätzlich speichert (Passwort-Hash, Ablagename der Druckdateien) und kleine Helfer.
 // Unabhängig von der Speicherart (SQLite, Abbildung in storage/sqlite/).
 import type { Account, SessionUser } from '@mosaik3lab/shared/konten';
-import type { ColorArea, Item as SharedItem, ModelFile as SharedModelFile } from '@mosaik3lab/shared/katalog';
+import type { ColorArea, CustomField, ItemVideo, Item as SharedItem, ModelFile as SharedModelFile } from '@mosaik3lab/shared/katalog';
 import type { Requester } from '@mosaik3lab/shared/anfragen';
 
-export { ACCOUNT_ROLES, ROLES, ROLE_LABELS, type Role, type SessionUser } from '@mosaik3lab/shared/konten';
-export { CUSTOM_FIELD_TYPES, ITEM_KINDS, type ColorArea, type CustomField, type CustomFieldType, type ItemKind, type ItemVideo } from '@mosaik3lab/shared/katalog';
-export type { Order, OrderColorChoice, OrderCustomValue, Requester, StatusEntry } from '@mosaik3lab/shared/anfragen';
 
 export interface User extends Account {
   passwordHash: string;
 }
-
-export type PublicUser = Account;
 
 export interface ModelFile extends SharedModelFile {
   /** Gespeicherter (zufälliger) Dateiname im Upload-Ordner. */
@@ -28,14 +23,14 @@ export function singleColorArea(colors: string[]): ColorArea[] {
   return [{ id: 'farbe', name: 'Farbe', alleFarben: false, colors }];
 }
 
+/** Standardwerte der Produktdaten (einfarbig, ohne Preis, ohne Personalisierung, ohne Videos) – Demo-Daten und JSON-Übernahme. */
+export function productDefaults(colors: string[]): { colorAreas: ColorArea[]; price: string; customFields: CustomField[]; videos: ItemVideo[] } {
+  return { colorAreas: singleColorArea(colors), price: '', customFields: [], videos: [] };
+}
+
 /** Alle Farbrollen über alle Bereiche (ohne Doppelte) – wird als Item.colors gespeichert. */
 export function allAreaColors(areas: ColorArea[]): string[] {
   return [...new Set(areas.flatMap((a) => a.colors))];
-}
-
-export function toPublicUser(user: User): PublicUser {
-  const { passwordHash: _ignored, ...rest } = user;
-  return rest;
 }
 
 export function accountSessionUser(user: User): SessionUser {

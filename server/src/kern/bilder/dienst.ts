@@ -5,7 +5,7 @@
 // Während Import/Export/Sicherung (sperre.ts) werden keine Originale ersetzt, nur Vorschaubilder erzeugt.
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { newId } from '../../domain/ids';
+import { newId } from '../ids';
 import type { Datei, FileStore } from '../files';
 import { leseKopf } from './format';
 import { gescheitertRel, MINDEST_ERSPARNIS, ORIGINAL_MAX_KANTE, VORSCHAU, VORSCHAU_GROESSEN, vorschauRel, type VorschauGroesse } from './groessen';

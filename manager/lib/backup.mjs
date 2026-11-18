@@ -4,8 +4,8 @@
 // nie Bilder verlieren. Ältere Sicherungen der Art „daten“ (nur Datenbank) bleiben les- und wiederherstellbar.
 // Aufbau der Datei: Kopf (Magic, JSON: Art, Zeit, App-Version, Schema, Verschlüsselung) + tar-Strom mit manifest.json
 // (Prüfsummen) und den Dateien; mit Backup-Passwort ist der ganze tar-Strom AES-256-GCM-verschlüsselt (backupcrypto.mjs).
-// Jede Sicherung wird direkt nach dem Schreiben geprüft; vor dem Wiederherstellen ebenfalls. Ältere Sicherungen als
-// Ordner (backup.json) bleiben les- und wiederherstellbar. Es bleiben die neuesten <backup.keep> Sicherungen, ältere werden gelöscht.
+// Jede Sicherung wird direkt nach dem Schreiben geprüft; vor dem Wiederherstellen ebenfalls. Es bleiben die neuesten
+// <backup.keep> Sicherungen, ältere werden gelöscht.
 import fs from 'node:fs/promises';
 import { existsSync, readFileSync, realpathSync, createReadStream, createWriteStream, writeFileSync, rmSync } from 'node:fs';
 import crypto from 'node:crypto';
@@ -21,8 +21,9 @@ import { dbSchemaVersion, releaseSchemaVersion } from './schema.mjs';
 import * as settingsdb from './settingsdb.mjs';
 import { run } from '../platform/common.mjs';
 import { appArgs } from './appstart.mjs';
+import { lebt, paketVersion, sha256Datei } from './hilfen.mjs';
 
-const DB_FILE = 'mosaik3lab.db'; // SQLite-Datenbank der App (<Daten>/mosaik3lab.db)
+const DB_FILE = settingsdb.DB_NAME; // SQLite-Datenbank der App (<Daten>/mosaik3lab.db)
 export const EXT = '.m3lbackup';
 const MAGIC = Buffer.from('M3LBAK1\n', 'latin1');
 const FORMAT = 1; // Aufbau der Sicherungsdatei – ändert ihn eine neuere Version, erhöht sie die Zahl; ältere lehnen dann klar ab
@@ -94,23 +95,20 @@ function sicherungMarkieren(ablageDir) {
 const log = () => logger(process.env.MOSAIK3LAB_RUNNER === 'backup' ? 'backup' : 'manager');
 
 const stamp = (d = new Date()) => d.toLocaleString('sv-SE').replace(' ', '_').replace(/:/g, '-');
-const sha256 = (file) => new Promise((resolve, reject) => {
-  const h = crypto.createHash('sha256');
-  createReadStream(file).on('data', (d) => h.update(d)).on('end', () => resolve(h.digest('hex'))).on('error', reject);
-});
+const sha256 = sha256Datei;
 
 async function checksums(dir) {
   const out = [];
   if (!existsSync(dir)) return out;
   for (const e of await fs.readdir(dir, { withFileTypes: true, recursive: true })) {
-    if (!e.isFile() || e.name === 'backup.json') continue;
+    if (!e.isFile()) continue;
     const full = path.join(e.parentPath ?? e.path, e.name);
     out.push({ path: path.relative(dir, full).split(path.sep).join('/'), size: (await fs.stat(full)).size, sha256: await sha256(full) });
   }
   return out;
 }
 
-/** Was gesichert wird: frühere JSON-Dateien (data/), bei „komplett“ auch uploads/ (frühere Ablage) und die Ablage. */
+/** Was neben der Datenbank gesichert wird: <Daten>/data (ohne Sperrdatei), bei „komplett“ auch uploads/ (falls vorhanden) und die Ablage. */
 function sources(kind) {
   const { dataDir, ablageDir } = resolvePaths();
   const list = [{ name: 'data', dir: path.join(dataDir, 'data') }];
@@ -148,13 +146,8 @@ function folders() {
 /** App-Version und Git-Commit der laufenden Programmversion (für das Manifest). */
 function appInfo() {
   const dir = resolvePaths().programDir;
-  let version = null;
+  const version = paketVersion(dir);
   let commit = null;
-  try {
-    version = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8')).version ?? null;
-  } catch {
-    /* ohne package.json */
-  }
   try {
     commit = JSON.parse(readFileSync(path.join(realpathSync(dir), '.release.json'), 'utf8')).commit ?? null;
   } catch {
@@ -189,12 +182,11 @@ async function readHead(file) {
 }
 
 // ---------- Auffinden ----------
-/** id → { type: 'datei' | 'ordner', path }; wirft InputError, wenn es die Sicherung nicht gibt. */
+/** id → { path } der Sicherungsdatei; wirft InputError, wenn es die Sicherung nicht gibt. */
 function locate(id) {
   const { backupDir } = resolvePaths();
   if (typeof id !== 'string' || !NAME.test(id)) throw new InputError('Sicherung nicht gefunden.');
-  if (existsSync(path.join(backupDir, id + EXT))) return { type: 'datei', path: path.join(backupDir, id + EXT) };
-  if (existsSync(path.join(backupDir, id, 'backup.json'))) return { type: 'ordner', path: path.join(backupDir, id) };
+  if (existsSync(path.join(backupDir, id + EXT))) return { path: path.join(backupDir, id + EXT) };
   throw new InputError('Sicherung nicht gefunden.');
 }
 
@@ -209,9 +201,6 @@ export async function listBackups(limit = 1000) {
         if (!head) continue;
         const h = head.header;
         out.push({ id: n.slice(0, -EXT.length), created: h.created, reason: h.reason, kind: h.kind, files: h.fileCount, bytes: h.bytes, encrypted: !!h.encryption, app: h.app, schemaVersion: h.schemaVersion });
-      } else if (NAME.test(n) && existsSync(path.join(backupDir, n, 'backup.json'))) {
-        const meta = JSON.parse(await fs.readFile(path.join(backupDir, n, 'backup.json'), 'utf8'));
-        out.push({ id: n, created: meta.created, reason: meta.reason, kind: meta.files.some((f) => f.path.startsWith('ablage/')) ? 'komplett' : 'daten', files: meta.files.length, bytes: meta.bytes, encrypted: false, legacy: true });
       }
     } catch {
       /* unvollständig */
@@ -240,7 +229,7 @@ async function readArchive(file, { key, dest = null }) {
   let expected = new Map();
   const seen = new Set();
   const problems = [];
-  await unpackTar(raw, async (name, size) => {
+  await unpackTar(raw, async (name) => {
     if (!manifest) {
       if (name !== 'manifest.json') throw new Error('Sicherungsdatei ohne Manifest.');
       const parts = [];
@@ -284,19 +273,8 @@ async function readArchive(file, { key, dest = null }) {
   return { manifest, problems };
 }
 
-/** Prüft Dateien gegen die Prüfsummen einer Ordner-Sicherung (ältere Form); liefert Liste der Probleme. */
-async function compare(dir, files) {
-  const actual = new Map((await checksums(dir)).map((f) => [f.path, f.sha256]));
-  return files.filter((f) => actual.get(f.path) !== f.sha256).map((f) => (actual.has(f.path) ? `Prüfsumme falsch: ${f.path}` : `fehlt: ${f.path}`));
-}
-
 export async function verifyBackup(id, opts = {}) {
   const loc = locate(id);
-  if (loc.type === 'ordner') {
-    const meta = JSON.parse(await fs.readFile(path.join(loc.path, 'backup.json'), 'utf8'));
-    const problems = await compare(loc.path, meta.files);
-    return { id, ok: !problems.length, checked: meta.files.length, problems: problems.slice(0, 10) };
-  }
   const head = await readHead(loc.path);
   if (!head) return { id, ok: false, checked: 0, problems: ['keine Sicherungsdatei'] };
   const key = needKey(head.header, opts.password);
@@ -309,7 +287,7 @@ export async function verifyBackup(id, opts = {}) {
 }
 
 // ---------- Sichern ----------
-export async function createBackup(reason = 'manuell', { kind = 'komplett', protect = [] } = {}) {
+export async function createBackup(reason = 'manuell', { kind = 'komplett', protect = [], aufraeumen = prune } = {}) {
   requireValidConfig();
   if (!KINDS[kind]) throw new InputError(`Unbekannte Art der Sicherung „${kind}“ (daten oder komplett).`);
   const { dataDir, backupDir } = folders();
@@ -326,6 +304,7 @@ export async function createBackup(reason = 'manuell', { kind = 'komplett', prot
   const target = path.join(backupDir, id + EXT);
   const temp = path.join(backupDir, `${id}.unfertig`);
   const part = `${target}.teil`;
+  let files = [];
   const markierungEntfernen = sicherungMarkieren(sources(kind).find((s) => s.name === 'ablage')?.dir ?? '');
   try {
     for (const src of sources(kind)) {
@@ -334,7 +313,7 @@ export async function createBackup(reason = 'manuell', { kind = 'komplett', prot
     }
     const dbCopy = path.join(temp, 'db', DB_FILE);
     await backupDatabase(path.join(dataDir, DB_FILE), dbCopy);
-    const files = await checksums(temp);
+    files = await checksums(temp);
     const schemaVersion = existsSync(dbCopy) ? await dbSchemaVersion(dbCopy) : null;
     const created = new Date().toISOString();
     const bytes = files.reduce((s, f) => s + f.size, 0);
@@ -349,8 +328,6 @@ export async function createBackup(reason = 'manuell', { kind = 'komplett', prot
     const check = await verifyBackup(id);
     if (!check.ok) throw new Error(`Sicherung ${id} ist fehlerhaft: ${check.problems[0]}`);
     log().info(`Sicherung erstellt und geprüft (${reason}, ${KINDS[kind]}): ${id}, ${files.length} Dateien${enc ? ', verschlüsselt' : ''}`);
-    await prune([id, ...protect]); // protect: z. B. die Sicherung, die gerade wiederhergestellt wird
-    return { id, kind, files: files.length, verified: true, encrypted: !!enc };
   } catch (err) {
     await fs.rm(part, { force: true });
     await fs.rm(target, { force: true });
@@ -360,6 +337,14 @@ export async function createBackup(reason = 'manuell', { kind = 'komplett', prot
     markierungEntfernen();
     await fs.rm(temp, { recursive: true, force: true });
   }
+  // Erst nach der fertigen, geprüften Sicherung alte löschen – scheitert das (z. B. eine alte Datei ist unter Windows kurz
+  // gesperrt), bleibt die neue Sicherung trotzdem gültig; aufgeräumt wird beim nächsten Mal.
+  try {
+    await aufraeumen([id, ...protect]); // protect: z. B. die Sicherung, die gerade wiederhergestellt wird
+  } catch (err) {
+    log().warn(`Alte Sicherungen konnten nicht gelöscht werden (${err.message}) – neue Sicherung ${id} ist gültig, beim nächsten Mal wird erneut aufgeräumt.`);
+  }
+  return { id, kind, files: files.length, verified: true, encrypted: !!enc };
 }
 
 /** Umbenennen mit Wiederholung: Windows sperrt frisch geschriebene Dateien manchmal kurz (Virenscanner, Indexer). */
@@ -380,9 +365,12 @@ async function prune(protect) {
   const beforeUpdate = all.find((b) => String(b.reason ?? '').startsWith('vor Update'))?.id;
   for (const b of all.slice(getConfig().backup.keep)) {
     if (protect.includes(b.id) || b.id === beforeUpdate) continue;
-    const loc = locate(b.id);
-    await fs.rm(loc.path, { recursive: true, force: true });
-    log().info(`Alte Sicherung gelöscht: ${b.id}`);
+    try {
+      await fs.rm(locate(b.id).path, RM);
+      log().info(`Alte Sicherung gelöscht: ${b.id}`);
+    } catch (err) {
+      log().warn(`Alte Sicherung ${b.id} konnte nicht gelöscht werden (${err.message}) – nächster Versuch bei der nächsten Sicherung.`);
+    }
   }
 }
 
@@ -398,15 +386,9 @@ export function refuseNewerBackup(meta, programDir = resolvePaths().programDir) 
   const installed = installedAppVersion(programDir);
   throw new InputError(`Diese Sicherung stammt von ${from} und ist neuer als die installierte Version${installed ? ` ${installed}` : ''}. Es wurde nichts verändert.`, 'Zuerst Mosaik³LAB aktualisieren, dann die Sicherung wiederherstellen.');
 }
-const installedAppVersion = (dir) => {
-  try {
-    return JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8')).version ?? null;
-  } catch {
-    return null;
-  }
-};
+const installedAppVersion = paketVersion;
 
-const PARTS = ['db', 'ablage', 'data', 'uploads', 'config'];
+const PARTS = ['db', 'ablage', 'data', 'uploads'];
 // Löschen mit Wiederholung: Windows gibt die Datenbank der eben gestoppten App bzw. eine frisch gelesene Datei manchmal erst
 // nach einem Moment frei (EBUSY/EPERM – Prozessende, Virenscanner, Indexer). maxRetries wirkt nur mit recursive.
 const RM = { recursive: true, force: true, maxRetries: 10, retryDelay: 200 };
@@ -420,7 +402,6 @@ export async function applyBackup({ folder, meta, dirs, only = PARTS }) {
   const targets = [
     { name: 'data', dir: path.join(dirs.dataDir, 'data') },
     { name: 'uploads', dir: path.join(dirs.dataDir, 'uploads') },
-    { name: 'config', dir: path.join(dirs.dataDir, 'config') }, // nur ältere Sicherungen (mail.json) – wird beim Laden in die Datenbank übernommen
     { name: 'ablage', dir: dirs.ablageDir },
     { name: 'db', dir: dirs.dataDir, file: DB_FILE },
   ].filter((t) => only.includes(t.name));
@@ -450,18 +431,10 @@ export async function applyBackup({ folder, meta, dirs, only = PARTS }) {
 }
 
 /**
- * Sicherung zum Lesen bereitstellen: Dateien → in einen Zwischenordner ausgepackt (und geprüft), alte Ordner-Sicherungen
- * direkt. → { folder, meta, header, cleanup() }. Ein falsches Passwort wird abgelehnt, bevor etwas ausgepackt wird.
+ * Sicherung zum Lesen bereitstellen: in einen Zwischenordner ausgepackt (und geprüft). → { folder, meta, header, cleanup() }. Ein falsches Passwort wird abgelehnt, bevor etwas ausgepackt wird.
  */
 export async function openBackup(location, { password, stagingBase }) {
-  const isFile = (await fs.stat(location)).isFile();
-  if (!isFile) {
-    const meta = JSON.parse(await fs.readFile(path.join(location, 'backup.json'), 'utf8'));
-    const problems = await compare(location, meta.files);
-    if (problems.length) throw new InputError(`Die Sicherung ist beschädigt (${problems[0]}) – abgebrochen.`, 'Eine andere Sicherung wählen.');
-    return { folder: location, meta: { ...meta, kind: meta.files.some((f) => f.path.startsWith('ablage/')) ? 'komplett' : 'daten' }, header: null, cleanup: async () => {} };
-  }
-  const head = await readHead(location);
+  const head = (await fs.stat(location)).isFile() ? await readHead(location) : null;
   if (!head) throw new InputError('Das ist keine Sicherungsdatei von Mosaik³LAB.');
   if (Number(head.header.format) > FORMAT) throw new InputError(`Diese Sicherung stammt aus einer neueren Version von Mosaik³LAB${head.header.app?.version ? ` (${head.header.app.version})` : ''} und kann hier nicht gelesen werden. Es wurde nichts verändert.`, 'Zuerst Mosaik³LAB auf die neueste Version aktualisieren, dann wiederherstellen.');
   const key = needKey(head.header, password);
@@ -483,12 +456,7 @@ export function lockHolder(content) {
   const pid = Number(pidText);
   const boot = Number(bootText);
   if (!pid || (boot && Math.abs(boot - Math.round(Date.now() / 1000 - os.uptime())) > 120)) return null;
-  try {
-    process.kill(pid, 0);
-    return pid;
-  } catch (err) {
-    return err.code === 'EPERM' ? pid : null;
-  }
+  return lebt(pid) ? pid : null;
 }
 
 /**
@@ -497,7 +465,8 @@ export function lockHolder(content) {
  * Vollständige Sicherungen ersetzen auch die Ablage; ältere „Nur Datenbank“-Sicherungen lassen sie unberührt
  * (fehlende Dateien: siehe fillMissingFiles). Danach liest der Manager seine Einstellungen aus der wiederhergestellten Datenbank neu ein;
  * den Abgleich des Systems (Firewall, Dienste, Ports …) macht reconcile.mjs.
- * opts: { password } – sonst wird die Datei backup.key der Installation versucht.
+ * Scheitert das Zurückspielen mittendrin, wird der eben gesicherte Stand automatisch wieder eingespielt.
+ * opts: { password } – sonst wird die Datei backup.key der Installation versucht; anwenden: Ersatz für applyBackup (Tests).
  */
 export async function restoreBackup(id, confirm, opts = {}) {
   requireValidConfig();
@@ -515,14 +484,39 @@ export async function restoreBackup(id, confirm, opts = {}) {
   try {
     refuseNewerBackup(opened.meta);
     const safety = existsSync(path.join(dataDir, 'data')) || existsSync(path.join(dataDir, DB_FILE)) ? await createBackup(`vor Wiederherstellung ${id}`, { protect: [id] }) : null;
-    const problems = await applyBackup({ folder: opened.folder, meta: opened.meta, dirs: { dataDir, ablageDir: resolvePaths().ablageDir } });
-    if (problems.length) throw new Error(`Wiederherstellung unvollständig (${problems[0]}) – vorheriger Stand liegt in ${safety?.id}.`);
+    const dirs = { dataDir, ablageDir: resolvePaths().ablageDir };
+    try {
+      const problems = await (opts.anwenden ?? applyBackup)({ folder: opened.folder, meta: opened.meta, dirs });
+      if (problems.length) throw new Error(`Wiederherstellung unvollständig (${problems[0]})`);
+    } catch (err) {
+      // Halb ersetzt (Datenträger voll, Datei gesperrt …): den Stand von eben automatisch zurückspielen
+      throw new Error(`${err.message} – ${await zurueckAufStand(safety?.id, dirs)}`);
+    }
     markFilesState(opened.meta.kind === 'komplett' ? null : { at: new Date().toISOString(), backup: id });
     reloadConfig(); // Einstellungen stammen jetzt aus der wiederhergestellten Datenbank
     log().info(`Wiederhergestellt und geprüft: ${id} (${KINDS[opened.meta.kind]}${opened.header?.encryption ? ', verschlüsselt' : ''}) (vorheriger Stand: ${safety?.id ?? '–'})`);
     return { restored: id, kind: opened.meta.kind, safetyBackup: safety?.id ?? null, encrypted: !!opened.header?.encryption };
   } finally {
     await opened.cleanup();
+  }
+}
+
+/** Nach einer gescheiterten Wiederherstellung: Sicherheitskopie von direkt davor zurückspielen. → Satz für die Meldung */
+async function zurueckAufStand(safetyId, dirs) {
+  if (!safetyId) return 'es gab keinen vorherigen Stand zum Zurückspielen.';
+  try {
+    const back = await openBackup(locate(safetyId).path, { stagingBase: folders().backupDir });
+    try {
+      const problems = await applyBackup({ folder: back.folder, meta: back.meta, dirs });
+      if (problems.length) throw new Error(problems[0]);
+    } finally {
+      await back.cleanup();
+    }
+    log().warn(`Wiederherstellung gescheitert – vorheriger Stand ${safetyId} automatisch zurückgespielt.`);
+    return `der vorherige Stand wurde automatisch zurückgespielt (Sicherung ${safetyId}), es ist nichts verloren.`;
+  } catch (e) {
+    log().error(`Vorherigen Stand ${safetyId} zurückspielen gescheitert: ${e.message}`);
+    return `der vorherige Stand konnte nicht automatisch zurückgespielt werden (${e.message}) – er liegt in der Sicherung ${safetyId}, bitte diese wiederherstellen.`;
   }
 }
 
@@ -581,13 +575,12 @@ export async function fillMissingFiles(id, opts = {}) {
 }
 
 // ---------- Zeitplan ----------
-/** Letzter planmäßiger Zeitpunkt (≤ jetzt): täglich um HH:MM, bei weekday ≥ 0 nur an diesem Wochentag (0 = Sonntag). */
-export function lastSlot(time, weekday = -1, now = new Date()) {
+/** Letzter planmäßiger Zeitpunkt (≤ jetzt): täglich um HH:MM. */
+export function lastSlot(time, now = new Date()) {
   const [h, m] = time.split(':').map(Number);
   const d = new Date(now);
   d.setHours(h, m, 0, 0);
   if (d > now) d.setDate(d.getDate() - 1);
-  for (let i = 0; weekday >= 0 && d.getDay() !== weekday && i < 7; i++) d.setDate(d.getDate() - 1);
   return d;
 }
 
@@ -595,7 +588,7 @@ export function lastSlot(time, weekday = -1, now = new Date()) {
 export function nextBackupTime(from = new Date()) {
   const c = getConfig().backup;
   if (!c.enabled) return null;
-  const d = lastSlot(c.time, -1, from);
+  const d = lastSlot(c.time, from);
   d.setDate(d.getDate() + 1);
   return d;
 }
@@ -607,7 +600,7 @@ export function nextBackupTime(from = new Date()) {
 export async function dueKinds(now = new Date()) {
   const c = getConfig().backup;
   if (!c.enabled) return [];
-  const slot = lastSlot(c.time, -1, now);
+  const slot = lastSlot(c.time, now);
   const last = await lastBackup('komplett');
   return !last || Date.parse(last.created) < slot.getTime() ? [{ kind: 'komplett', slot }] : [];
 }

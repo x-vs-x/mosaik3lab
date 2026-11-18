@@ -1,5 +1,5 @@
 // Personen: Rollen, Prüfpunkte, Bereiche (Häkchen) und Grenzen ohne zod – auch für den Client.
-// Schemas und Typen der Konten in ../konten.ts (exportiert alles von hier wieder). Prüf-Logik: server/src/domain/permissions.ts.
+// Schemas und Typen der Konten in ../konten.ts (exportiert alles von hier wieder). Prüf-Logik: server/src/module/konten/rechte.ts.
 
 export const ROLES = ['admin', 'druckteam', 'lehrkraft'] as const;
 export type Role = (typeof ROLES)[number];

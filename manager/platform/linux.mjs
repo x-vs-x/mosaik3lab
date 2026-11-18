@@ -1,5 +1,5 @@
 // Plattform Linux (Debian/Ubuntu, Raspberry Pi OS): systemd, ufw/firewalld, .desktop-Dateien, sudo.
-// Echt getestet mit dem Installer-Paket auf Ubuntu 24.04 x64 und arm64 (.github/workflows/installer-test.yml).
+// Echt getestet mit dem Installer-Paket auf Ubuntu 24.04 x64 und arm64 (.github/workflows/installer-linux.yml).
 // Ungetestet: Raspberry Pi OS 32 Bit, macOS, Laufzeiten per apt (runtime.*), Zertifikat per openssl.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -26,6 +26,13 @@ export function polkitTooOld(text) {
   if (!m || Number(m[1]) > 0 || Number(m[2] ?? 0) >= 106) return null;
   return m[0];
 }
+/**
+ * Ein Argument für ExecStart=/Environment= einer systemd-Unit: in "…" (Pfade mit Leerzeichen bleiben ein Argument),
+ * \ und " maskiert, % verdoppelt (sonst ein systemd-Platzhalter).
+ */
+export const sdQuote = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/%/g, '%%')}"`;
+/** Pfad in Exec= einer .desktop-Datei: in "…", darin \ " ` $ maskiert. */
+const desktopQuote = (s) => `"${String(s).replace(/[\\"`$]/g, '\\$&')}"`;
 const which = async (cmd) => (await run('sh', ['-c', `command -v ${cmd}`], { timeout: 3000 })).code === 0;
 
 export const linux = {
@@ -99,9 +106,7 @@ export const linux = {
    * (z. B. Standard-ACLs auf /opt). Der Update-Helfer läuft als root aus diesem Ordner.
    */
   protectProgramScript: (dir) =>
-    `chown -R -h root:root ${shQuote(dir)} && chmod -R go-w ${shQuote(dir)} && { ! command -v setfacl >/dev/null 2>&1 || setfacl -R -b ${shQuote(dir)}; }` +
-    // install.json muss der Manager (mosaik3lab) lesen können – ältere Versionen schrieben sie nur für root lesbar
-    ` && { [ ! -f ${shQuote(path.join(dir, 'install.json'))} ] || chmod 644 ${shQuote(path.join(dir, 'install.json'))}; }`,
+    `chown -R -h root:root ${shQuote(dir)} && chmod -R go-w ${shQuote(dir)} && { ! command -v setfacl >/dev/null 2>&1 || setfacl -R -b ${shQuote(dir)}; }`,
 
   /** Dienstbenutzer anlegen und ihm die Ordner übergeben; wer einrichtet (auch hinter sudo), kommt in seine Gruppe. */
   prepareDirsScript(dirs) {
@@ -114,12 +119,12 @@ export const linux = {
   },
 
   firewall: {
+    /** ufw oder firewalld installiert (auch ausgeschaltet) – dann legt die Einrichtung die Regel vorsorglich an. */
+    available: async () => (await which('ufw')) || (await which('firewall-cmd')),
     /**
      * Ist überhaupt eine Firewall aktiv? Raspberry Pi OS hat meist keine, Ubuntu hat ufw installiert, aber aus.
      * Ohne aktive Firewall sind alle Ports offen – dann gibt es keine Regel anzulegen (und keine Warnung).
      */
-    /** ufw oder firewalld installiert (auch ausgeschaltet) – dann legt die Einrichtung die Regel vorsorglich an. */
-    available: async () => (await which('ufw')) || (await which('firewall-cmd')),
     async active() {
       if (await which('ufw')) {
         // ufw.conf ist für alle lesbar – „ufw status“ selbst bräuchte root (der Manager-Dienst läuft als mosaik3lab)
@@ -158,9 +163,8 @@ export const linux = {
     },
     /**
      * Sicherheit: Unit-Dateien und polkit-Regel entstehen im Setup-Prozess und stehen als Text im Admin-Skript – root schreibt
-     * sie direkt nach /etc (gehört root, 644). Früher lagen sie zuerst in <Datenordner>/manager/dienste (gehört dem
-     * Dienstbenutzer): Ein übernommener Manager hätte sie vor dem Installieren austauschen (→ Code als root) oder dort einen
-     * Verweis anlegen können, dem root beim Schreiben gefolgt wäre. Deshalb schreibt setup.mjs hier nichts selbst.
+     * sie direkt nach /etc (gehört root, 644) – nie über einen Ordner des Dienstbenutzers: Ein übernommener Manager
+     * könnte sie dort vor dem Installieren austauschen (→ Code als root). Deshalb schreibt setup.mjs hier nichts selbst.
      */
     filesInInstallScript: true,
     /** Der Update-Helfer darf seine eigene Unit während eines Laufs erneuern (daemon-reload stoppt ihn nicht) – neue Zeitlimits gelten sofort. */
@@ -169,13 +173,13 @@ export const linux = {
       if (def.key === 'updater') {
         // Update-Helfer: root, einmaliger Lauf (beim Hochfahren: Notfall-Prüfung; sonst auf Anforderung des Managers).
         // TimeoutStartSec = Gesamtlimit des Helfers (lib/zeitlimits.mjs) – größer als Wächter und Sicherung darin.
-        const unit = `# Erzeugt vom Mosaik³LAB Server-Manager\n[Unit]\nDescription=${def.title}\nAfter=network-online.target\n\n[Service]\nType=oneshot\nWorkingDirectory=${def.workDir}\nExecStart=${[def.node, ...def.args].join(' ')}\n` +
-          Object.entries(def.env).map(([k, v]) => `Environment=${k}=${v}\n`).join('') + `TimeoutStartSec=${Math.round(HELFER_MAX_MS / 1000)}\n\n[Install]\nWantedBy=multi-user.target\n`;
+        const unit = `# Erzeugt vom Mosaik³LAB Server-Manager\n[Unit]\nDescription=${def.title}\nAfter=network-online.target\n\n[Service]\nType=oneshot\nWorkingDirectory=${def.workDir}\nExecStart=${[def.node, ...def.args].map(sdQuote).join(' ')}\n` +
+          Object.entries(def.env).map(([k, v]) => `Environment=${sdQuote(`${k}=${v}`)}\n`).join('') + `TimeoutStartSec=${Math.round(HELFER_MAX_MS / 1000)}\n\n[Install]\nWantedBy=multi-user.target\n`;
         return [{ path: `/etc/systemd/system/${def.id}.service`, content: unit }];
       }
       const unit =
         `# Erzeugt vom Mosaik³LAB Server-Manager\n[Unit]\nDescription=${def.title}\nAfter=network-online.target\n\n[Service]\nType=simple\nUser=${USER}\nGroup=${USER}\n` +
-        `WorkingDirectory=${def.workDir}\nExecStart=${[def.node, ...def.args].join(' ')}\n` + Object.entries(def.env).map(([k, v]) => `Environment=${k}=${v}\n`).join('') +
+        `WorkingDirectory=${def.workDir}\nExecStart=${[def.node, ...def.args].map(sdQuote).join(' ')}\n` + Object.entries(def.env).map(([k, v]) => `Environment=${sdQuote(`${k}=${v}`)}\n`).join('') +
         (def.key === 'portal' ? 'AmbientCapabilities=CAP_NET_BIND_SERVICE\nCapabilityBoundingSet=CAP_NET_BIND_SERVICE\n' : '') + // Port 80/443 ohne Root
         `Restart=on-failure\nRestartSec=5\nTimeoutStopSec=30\nNoNewPrivileges=yes\nProtectSystem=full\n\n[Install]\nWantedBy=multi-user.target\n`;
       const files = [{ path: `/etc/systemd/system/${def.id}.service`, content: unit }];
@@ -185,9 +189,6 @@ export const linux = {
       return files;
     },
     installScript: (def) => [
-      // Reste älterer Versionen im Datenordner zuerst entfernen (rm löscht nur den Eintrag, folgt keinem Verweis) – erst danach
-      // nach /etc schreiben: Zeigte „dienste“ per Verweis auf /etc/systemd/system, träfe rm nur die gleich neu geschriebenen Dateien.
-      `rm -f ${[`${def.id}.service`, ...(def.key === 'manager' ? ['50-mosaik3lab.rules'] : [])].map((n) => shQuote(path.posix.join(def.serviceDir, n))).join(' ')}`,
       ...linux.services.files(def).map((f) => rootWrite(f.path, f.content)),
       `systemctl daemon-reload && systemctl enable ${def.id}`,
     ].join('\n'),
@@ -215,23 +216,16 @@ export const linux = {
     }
   },
   shortcutExt: () => '.desktop',
-  launcher: (programDir, arg = '') => ({ target: 'sh', args: `${path.join(programDir, 'manager', 'mosaik3lab.sh')} ${arg}`.trim(), terminal: arg === 'uninstall' }),
+  launcher: (programDir, arg = '') => ({ target: 'sh', args: `${desktopQuote(path.join(programDir, 'manager', 'mosaik3lab.sh'))}${arg ? ` ${arg}` : ''}`, terminal: arg === 'uninstall' }),
 
-  async extract(file, dest) {
-    fs.mkdirSync(dest, { recursive: true });
-    const r = await run('tar', ['-xzf', file, '-C', dest], { timeout: 300_000 });
-    if (r.code !== 0) throw new Error(`Entpacken fehlgeschlagen: ${r.stderr}`);
-  },
   linkDir: (target, link) => fs.symlinkSync(target, link, 'dir'),
   unlinkDir: (link) => fs.unlinkSync(link),
 
-  gitInstall: 'sudo apt-get install -y git',
-  gitCandidates: () => ['/usr/bin/git', '/usr/local/bin/git', '/opt/homebrew/bin/git'],
   /** Laufzeiten per apt (Node über NodeSource) – UNGETESTET. */
   runtime: {
-    installScript: (what) => (what === 'git' ? 'apt-get update && apt-get install -y git' : 'curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && apt-get install -y nodejs'),
-    upgradeScript: (what) => (what === 'git' ? 'apt-get update && apt-get install -y --only-upgrade git' : 'curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && apt-get install -y --only-upgrade nodejs'),
-    backScript: (what, version) => (what === 'git' ? `apt-get install -y --allow-downgrades git=${version}` : `apt-get install -y --allow-downgrades nodejs=${version}-1nodesource1`),
+    installScript: () => 'curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && apt-get install -y nodejs',
+    upgradeScript: () => 'curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && apt-get install -y --only-upgrade nodejs',
+    backScript: (what, version) => `apt-get install -y --allow-downgrades nodejs=${version}-1nodesource1`,
   },
   /** Selbstsigniertes HTTPS-Zertifikat mit openssl (UNGETESTET). → { cert, key } (PEM) */
   async generateCertificate({ dnsNames, ips, days, workDir }) {

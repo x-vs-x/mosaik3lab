@@ -1,22 +1,17 @@
 import fs from 'node:fs';
-import { istDruckteilBild } from '../../kern/bilder';
-import { BAMBU_MARKE, katalogEintrag, katalogFelder, katalogNachNummer } from '../../domain/bambuKatalog';
 import path from 'node:path';
-import { newId, UUID_PATTERN } from '../../domain/ids';
-import { MIME_BY_EXT } from '../../domain/objekttypen';
-import type { Category, Filament, SimpleEntry } from '../../domain/settings';
-import { type ColorArea, type Item, type ItemVideo, type ModelFile } from '../../domain/types';
-import { normalizeItemInput } from '../katalog/katalog.service';
+import { type ColorArea, inGruppen } from '@mosaik3lab/shared/katalog';
+import { type Item } from '../../domain/types';
 import type { Storage } from '../../storage';
 import { dateiName, type Datei } from '../../kern/files';
-import { nextNumber, transaction } from '../../kern/db';
-import { MAX_IMAGES_PER_ITEM, MAX_MODELS_PER_ITEM, MAX_VIDEOS_PER_ITEM } from '../../kern/uploads';
-import { inGruppen, itemInputSchema } from '@mosaik3lab/shared/katalog';
-import { COLOR_KEYS, ICON_KEYS } from '@mosaik3lab/shared/stammdaten';
-import { PAKET_ROLLEN, type Paket, type PaketArtikel } from './datenaustausch.export';
-import { ID, type DateiInfo } from './datenaustausch.paket';
-import { ergaenze, lc } from './datenaustausch.abgleich';
-import { verknuepfe, type VerknuepfungsZaehler } from './datenaustausch.aehnliche';
+import { transaction } from '../../kern/db';
+import { type Paket, type PaketArtikel } from './datenaustausch.export';
+import { type DateiInfo } from './datenaustausch.paket';
+import { lc } from './datenaustausch.abgleich';
+import { spieleArtikelEin, type ArtikelKontext } from './datenaustausch.artikel';
+import { ergaenzeStammdaten } from './datenaustausch.stammdaten';
+import { verknuepfe } from './datenaustausch.aehnliche';
+import type { ImportBericht as Bericht, ImportDetail as Detail, ImportModus as Modus, ImportZaehler as Zaehler } from '@mosaik3lab/shared/datenaustausch';
 
 // Druckteile einspielen (Format siehe datenaustausch.export.ts, Lesen/Prüfen: datenaustausch.paket.ts).
 // Ablauf: 1) Kopf lesen und prüfen, 2) jede Datei einzeln prüfen (SHA-256, Größe, Magic Bytes), 3) „trocken“ durchrechnen
@@ -32,41 +27,12 @@ import { verknuepfe, type VerknuepfungsZaehler } from './datenaustausch.aehnlich
 // und Anfragestatus) werden genauso gelesen – nicht gebrauchte Stammdaten und Status werden ignoriert.
 // Ähnliche Druckteile werden in beiden Modi nur hinzugefügt, nie gelöscht (datenaustausch.aehnliche.ts).
 
-export type Modus = 'ueberspringen' | 'ersetzen';
-
-export interface Zaehler {
-  neu: number;
-  /** Vorhandenes Druckteil durch den Stand der Datei ersetzt. */
-  ersetzt: number;
-  /** Vorhanden und gleich (Stammdaten: schon vorhanden). */
-  unveraendert: number;
-  uebersprungen: number;
-}
-
-export interface Detail {
-  status: 'neu' | 'ersetzt' | 'uebersprungen' | 'hinweis';
-  bereich: string;
-  name: string;
-  text?: string;
-}
-
-export interface Bericht {
-  modus: Modus;
-  /** Druckteile in der Datei. */
-  artikel: number;
-  /** Davon gibt es hier schon. */
-  vorhanden: number;
-  abschnitte: Record<'artikel' | 'kategorien' | 'einsatzbereiche' | 'materialien' | 'filamente' | 'dateien', Zaehler>;
-  /** Ähnliche Druckteile: neu angelegte und vorgemerkte (Partner fehlt hier noch) Verknüpfungen. */
-  verknuepfungen: VerknuepfungsZaehler;
-  details: Detail[];
-  /** Mehr Details, als angezeigt werden. */
-  weitereDetails: number;
-}
+// Antwortformen (Bericht, Zähler, Details) stehen in shared/src/datenaustausch.ts – der Client liest dieselben.
+export type { ImportBericht as Bericht, ImportDetail as Detail, ImportModus as Modus, ImportZaehler as Zaehler } from '@mosaik3lab/shared/datenaustausch';
 
 const MAX_DETAILS = 400;
 
-const leer = (): Zaehler => ({ neu: 0, ersetzt: 0, unveraendert: 0, uebersprungen: 0 });
+export const leer = (): Zaehler => ({ neu: 0, ersetzt: 0, unveraendert: 0, uebersprungen: 0 });
 
 class Trocken extends Error {
   constructor(readonly bericht: Bericht) {
@@ -74,39 +40,10 @@ class Trocken extends Error {
   }
 }
 
-interface Ergebnis {
+export interface Ergebnis {
   bericht: Bericht;
   verschiebe: { von: string; nach: string; bildId?: string }[];
   loeschen: Datei[];
-}
-
-/**
- * Vergleichswert eines Druckteils (ohne technische IDs von Dateien, mit Prüfsummen der Dateien). Ähnliche Druckteile
- * gehören bewusst nicht dazu: Sie werden in beiden Modi nur ergänzt, unabhängig davon, ob das Druckteil ersetzt wird.
- * Zählten sie mit, würde ein unverändertes Druckteil nur wegen einer neuen Verknüpfung als „ersetzt“ gelten (samt neu
- * geschriebener Dateien), und weil Partner außerhalb des Exports hier fehlen oder andere IDs haben, wäre der Vergleich nie stabil.
- */
-function fingerabdruck(i: Pick<Item, 'name' | 'shortDescription' | 'description' | 'category' | 'kind' | 'useAreas' | 'sizes' | 'colorAreas' | 'price' | 'customFields' | 'material' | 'materialInfo' | 'printTimeMinutes' | 'safetyNotes' | 'links' | 'published'>, videos: { title: string; url: string; sha: string }[], dateien: { rolle: string; sha: string }[] | null, farben: (a: ColorArea) => unknown) {
-  return JSON.stringify({
-    n: i.name,
-    k: i.shortDescription,
-    b: i.description,
-    c: i.category,
-    art: i.kind,
-    a: [...i.useAreas].sort(),
-    g: i.sizes,
-    f: i.colorAreas.map((a) => [a.name, farben(a)]),
-    p: i.price,
-    x: i.customFields.map((f) => [f.label, f.type, f.required, f.maxLength, f.hint, f.options]),
-    m: i.material,
-    mi: i.materialInfo,
-    t: i.printTimeMinutes,
-    s: i.safetyNotes,
-    l: i.links.map((l) => [l.text, l.beschreibung, l.url]),
-    v: i.published,
-    vid: videos.map((v) => [v.title, v.url, v.sha]),
-    d: dateien,
-  });
 }
 
 export interface AusfuehrenOptionen {
@@ -138,7 +75,8 @@ function ordneZu(paket: Paket, vorher: Item[]) {
 
 /** Gesamte Datenbankarbeit des Imports; läuft synchron in einer Transaktion. */
 function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebnis {
-  const { db, items: itemRepo, settings: settingsRepo } = storage.sqlite;
+  const { db } = storage.sqlite;
+  const { items: itemRepo, settings: settingsRepo } = storage;
   const files = storage.files;
   const ersetzen = opt.modus === 'ersetzen';
   const details: Detail[] = [];
@@ -178,39 +116,8 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
     zuImportieren.push(a);
   }
 
-  // 2) Bezüge dieser Druckteile zuordnen oder ergänzen (nur, was sie wirklich brauchen).
-  const nachName = <T extends { name: string }>(liste: T[], name: string) => liste.find((e) => lc(e.name) === lc(name));
-  const gebraucht = (namen: string[], ausPaket: (SimpleEntry | Category)[], neu: (name: string) => SimpleEntry | Category) =>
-    [...new Map(namen.filter((n) => n.trim()).map((n) => [lc(n), n])).values()].map((n) => nachName(ausPaket, n) ?? neu(n));
-  const kategorieNeu = (name: string): Category => ({ id: newId(), name, color: COLOR_KEYS[0], icon: ICON_KEYS[0] });
-  const einfachNeu = (name: string): SimpleEntry => ({ id: newId(), name });
-  const kat = ergaenze<Category>(md.categories, gebraucht(zuImportieren.map((a) => a.category), paket.stammdaten.kategorien, kategorieNeu) as Category[], {
-    schluessel: (e) => lc(e.name), z: z.kategorien, bereich: 'Kategorie', name: (e) => e.name, details,
-  });
-  const einsatz = ergaenze<SimpleEntry>(md.useAreas, gebraucht(zuImportieren.flatMap((a) => a.useAreas), paket.stammdaten.einsatzbereiche, einfachNeu), {
-    schluessel: (e) => lc(e.name), z: z.einsatzbereiche, bereich: 'Einsatzbereich', name: (e) => e.name, details,
-  });
-  const mat = ergaenze<SimpleEntry>(md.materials, gebraucht(zuImportieren.map((a) => a.material), paket.stammdaten.materialien, einfachNeu), {
-    schluessel: (e) => lc(e.name), z: z.materialien, bereich: 'Material', name: (e) => e.name, details,
-  });
-  const farbIds = new Set(zuImportieren.flatMap((a) => a.colorAreas.flatMap((ar) => ar.colors)));
-  // Bambu-Farben über Katalog-ID bzw. Bambu-Nummer erkennen (Name und Farbe können sich seit dem Export geändert haben);
-  // dann gelten die Daten aus dem eigenen Katalog. Alles andere wird als eigene Farbrolle verglichen bzw. ergänzt.
-  const paketFarben = paket.stammdaten.filamente
-    .filter((f) => farbIds.has(f.id))
-    .map((f): Filament => {
-      const k = katalogEintrag(f.katalogId) ?? (lc(f.brand) === lc(BAMBU_MARKE) ? katalogNachNummer(f.herstellerNummer) : undefined);
-      if (k) return { id: f.id, ...katalogFelder(k), available: f.available !== false };
-      return { ...f, available: f.available !== false, katalogId: null, herstellerName: '', weggefallen: false };
-    });
-  const fil = ergaenze<Filament>(md.filaments, paketFarben, {
-    schluessel: (e) => (e.katalogId ? `katalog|${e.katalogId}` : lc(`${e.brand}|${e.line}|${e.colorName}|${e.hex}`)),
-    perId: true,
-    z: z.filamente,
-    bereich: 'Farbrolle',
-    name: (e) => `${e.colorName} (${e.brand} ${e.line})`.replace(/\s+\)/, ')').trim(),
-    details,
-  });
+  // 2) Bezüge dieser Druckteile zuordnen oder ergänzen (nur, was sie wirklich brauchen; datenaustausch.stammdaten.ts).
+  const { kat, einsatz, mat, fil } = ergaenzeStammdaten(md, paket, zuImportieren, z, details);
   settingsRepo.write({ ...settings, masterData: { ...md, categories: kat.liste, useAreas: einsatz.liste, materials: mat.liste, filaments: fil.liste } });
 
   // 3) Druckteile
@@ -227,198 +134,11 @@ function rechne(storage: Storage, paket: Paket, opt: AusfuehrenOptionen): Ergebn
   const jetzt = new Date().toISOString();
   const belegtePfade = new Set<string>();
 
-  for (const a of zuImportieren) {
-    // Farben über die Zuordnung (ID in der Datei → ID hier). Eine Farbe, die die Datei nur als ID nennt, ohne sie zu
-    // beschreiben (Marke, Farbname, Hex), lässt sich nicht anlegen: Sie fehlt dann und wird in Vorschau und Ergebnis genannt.
-    // Ein Farbbereich ohne Farbe entfällt; bleibt gar keiner, ist das Druckteil nicht zu retten (Grund in der Vorschau).
-    const ohneFarbe = new Set<string>();
-    const colorAreas = a.colorAreas
-      .map((ar) => ({
-        ...ar,
-        colors: ar.alleFarben
-          ? []
-          : [...new Set(ar.colors.map((c) => fil.map.get(c) ?? c))].filter((c) => {
-              if (!filamentIds.has(c)) ohneFarbe.add(c);
-              return filamentIds.has(c);
-            }),
-      }))
-      .filter((ar) => ar.alleFarben || ar.colors.length > 0 || (ar.gruppen?.length ?? 0) > 0);
-    if (!colorAreas.length) {
-      skip(a, 'keine seiner Farben ist in der Datei beschrieben (Marke, Farbname, Hex fehlen) – bitte in der Quelle Farben zuordnen und neu exportieren');
-      continue;
-    }
-    if (ohneFarbe.size) {
-      const n = ohneFarbe.size;
-      details.push({ status: 'hinweis', bereich: 'Druckteil', name: zuordnung(a), text: `${n === 1 ? 'eine Farbe ist' : `${n} Farben sind`} in der Datei nicht beschrieben und ${n === 1 ? 'fehlt' : 'fehlen'} deshalb – bitte danach im Druckteil prüfen` });
-    }
-    const parsed = itemInputSchema.safeParse({
-      name: a.name,
-      shortDescription: a.shortDescription,
-      description: a.description,
-      category: a.category,
-      kind: a.kind,
-      useAreas: a.useAreas,
-      colorAreas,
-      price: a.price,
-      customFields: a.customFields,
-      sizes: a.sizes,
-      material: a.material,
-      materialInfo: a.materialInfo,
-      printTimeMinutes: a.printTimeMinutes,
-      safetyNotes: a.safetyNotes,
-      links: a.links,
-      published: a.published,
-    });
-    if (!parsed.success) {
-      const i = parsed.error.issues[0];
-      skip(a, `Angaben unvollständig (${i.path.join('.') || 'Angaben'}: ${i.message})`);
-      continue;
-    }
-    const data = normalizeItemInput(parsed.data);
-    // Schreibweise der Stammdaten hier übernehmen (Groß/Klein egal).
-    data.category = kategorieVon.get(lc(data.category)) ?? data.category;
-    data.material = materialVon.get(lc(data.material)) ?? data.material;
-    data.useAreas = data.useAreas.map((u) => bereichVon.get(lc(u)) ?? u);
-    const anzahl = (r: string) => a.dateien.filter((d) => d.rolle === r).length;
-    if (anzahl('bild') > MAX_IMAGES_PER_ITEM || anzahl('druckdatei') > MAX_MODELS_PER_ITEM || anzahl('video') > MAX_VIDEOS_PER_ITEM) {
-      skip(a, `zu viele Dateien (Bilder max. ${MAX_IMAGES_PER_ITEM}, Druckdateien max. ${MAX_MODELS_PER_ITEM}, Videos max. ${MAX_VIDEOS_PER_ITEM})`);
-      continue;
-    }
-
-    const aktuell = treffer.get(a);
-    const id = aktuell ? aktuell.id : ID.test(a.id) && !vorherArtikel.some((i) => i.id === a.id) ? a.id : newId();
-
-    // Dateien: vorhandene (gleiche ID und Prüfsumme am selben Druckteil) weiterverwenden, neue vorbereiten.
-    const bild: { name: string; sort: number }[] = [];
-    const modelle: ModelFile[] = [];
-    const neueDateien: { datei: Datei; von: string }[] = [];
-    const dateiMap = new Map<string, Datei>();
-    const dateienFinger: { rolle: string; sha: string }[] = [];
-    if (paket.mitDateien) {
-      for (const d of [...a.dateien].sort((x, y) => x.rolle.localeCompare(y.rolle) || x.sortierung - y.sortierung)) {
-        const info = opt.infos.get(d.id)!;
-        const vorh = files.find(d.id);
-        const wieder = !!vorh && vorh.objektId === id && vorh.objekttyp === 'artikel' && vorh.sha256 === d.sha256;
-        const fid = wieder ? d.id : vorh || !UUID_PATTERN.test(d.id) ? newId() : d.id;
-        dateienFinger.push({ rolle: d.rolle, sha: d.sha256 });
-        let datei: Datei;
-        if (wieder) {
-          datei = vorh!;
-        } else {
-          datei = {
-            id: fid,
-            objekttyp: 'artikel',
-            objektId: id,
-            rolle: d.rolle,
-            originalname: d.originalname,
-            mime: MIME_BY_EXT[info.ext] ?? 'application/octet-stream',
-            groesse: info.groesse,
-            sha256: d.sha256,
-            pfad: files.relPath('artikel', id, d.rolle, fid, info.ext),
-            sortierung: d.sortierung,
-            erstelltAm: d.erstelltAm || jetzt,
-            erstelltVon: '',
-          };
-          neueDateien.push({ datei, von: d.id });
-        }
-        dateiMap.set(d.id, datei);
-        if (d.rolle === 'bild') bild.push({ name: dateiName(datei), sort: d.sortierung });
-        if (d.rolle === 'druckdatei') {
-          modelle.push({ id: datei.id, storedName: dateiName(datei), originalName: datei.originalname, format: info.ext as ModelFile['format'], sizeBytes: datei.groesse, uploadedAt: datei.erstelltAm });
-        }
-      }
-    }
-    const videoFinger = a.videos.map((v) => ({ title: v.title, url: v.url, sha: v.dateiId ? (a.dateien.find((d) => d.id === v.dateiId)?.sha256 ?? '') : '' }));
-
-    // Gleich wie vorhanden? Dateien nur vergleichen, wenn die Datei sie enthält (sonst bleiben vorhandene unberührt).
-    if (aktuell) {
-      const vorhDateien = paket.mitDateien
-        ? (dateiSnap.get(aktuell.id) ?? []).filter((d) => (PAKET_ROLLEN as readonly string[]).includes(d.rolle)).map((d) => ({ rolle: d.rolle, sha: d.sha256 })).sort((x, y) => x.rolle.localeCompare(y.rolle))
-        : null;
-      const vorhVideos = aktuell.videos.filter((v) => paket.mitDateien || !v.file).map((v) => ({ title: v.title, url: v.url, sha: v.file ? shaVonName(aktuell.id, v.file) : '' }));
-      const neuVideos = paket.mitDateien ? videoFinger : videoFinger.filter((_, k) => !a.videos[k].dateiId);
-      const gleich = fingerabdruck(aktuell, vorhVideos, vorhDateien, farbenVon) === fingerabdruck(data, neuVideos, paket.mitDateien ? [...dateienFinger].sort((x, y) => x.rolle.localeCompare(y.rolle)) : null, farbenVon);
-      if (gleich) {
-        z.artikel.unveraendert++;
-        z.dateien.unveraendert += dateiMap.size;
-        continue;
-      }
-    }
-
-    // Nummer: vorhandenes Druckteil behält seine; neues bekommt die aus der Datei, wenn sie frei ist.
-    let nummer = aktuell?.number ?? '';
-    if (!aktuell) {
-      const wunsch = (a.number ?? '').trim();
-      if (wunsch && !nummerBelegt(wunsch)) nummer = wunsch;
-      else {
-        nummer = nextNumber(db, 'artikel', new Date(), nummerBelegt);
-        if (wunsch) details.push({ status: 'hinweis', bereich: 'Druckteil', name: a.name, text: `Nummer ${wunsch} ist hier schon vergeben – neue Nummer ${nummer}` });
-      }
-    }
-    vergebeneNummern.add(nummer);
-    lokal.set(a.id, id);
-
-    for (const n of neueDateien) {
-      files.insert(n.datei);
-      belegtePfade.add(n.datei.pfad);
-      if (opt.tmpDir) verschiebe.push({ von: path.join(opt.tmpDir, n.von), nach: files.absPath(n.datei), bildId: istDruckteilBild(n.datei) ? n.datei.id : undefined });
-      z.dateien.neu++;
-    }
-    z.dateien.unveraendert += dateiMap.size - neueDateien.length;
-
-    let videos: ItemVideo[];
-    if (paket.mitDateien) {
-      videos = a.videos.map((v) => {
-        const d = v.dateiId ? dateiMap.get(v.dateiId) : undefined;
-        return { id: ID.test(v.id) ? v.id : newId(), title: v.title, file: d ? dateiName(d) : '', url: d ? '' : v.url, sizeBytes: d?.groesse ?? 0, uploadedAt: v.uploadedAt || jetzt };
-      });
-    } else {
-      // Ältere Datei ohne Dateien: vorhandene Videodateien bleiben, Links kommen aus der Datei.
-      videos = [
-        ...(aktuell?.videos.filter((v) => v.file) ?? []),
-        ...a.videos.filter((v) => !v.dateiId && v.url).map((v) => ({ id: ID.test(v.id) ? v.id : newId(), title: v.title, file: '', url: v.url, sizeBytes: 0, uploadedAt: v.uploadedAt || jetzt })),
-      ];
-    }
-    const vorhandeneVideoIds = itemRepo.videoIdsOfOtherItems(id);
-    videos = videos.map((v) => (vorhandeneVideoIds.has(v.id) ? { ...v, id: newId() } : v));
-
-    const item: Item = {
-      id,
-      number: nummer,
-      name: data.name,
-      shortDescription: data.shortDescription,
-      description: data.description,
-      category: data.category,
-      kind: data.kind,
-      useAreas: data.useAreas,
-      sizes: data.sizes,
-      colors: data.colors,
-      colorAreas: data.colorAreas,
-      price: data.price,
-      customFields: data.customFields,
-      videos,
-      material: data.material,
-      materialInfo: data.materialInfo,
-      printTimeMinutes: data.printTimeMinutes,
-      safetyNotes: data.safetyNotes,
-      links: data.links,
-      images: paket.mitDateien ? bild.sort((x, y) => x.sort - y.sort).map((b) => b.name) : (aktuell?.images ?? []),
-      modelFiles: paket.mitDateien ? modelle : (aktuell?.modelFiles ?? []),
-      published: data.published,
-      isDemo: a.isDemo,
-      createdAt: aktuell?.createdAt || a.createdAt || jetzt,
-      updatedAt: jetzt,
-    };
-    loeschen.push(...itemRepo.save(item));
-    for (const w of itemRepo.lastWarnings) details.push({ status: 'hinweis', bereich: 'Druckteil', name: a.name, text: w });
-    if (aktuell) {
-      z.artikel.ersetzt++;
-      details.push({ status: 'ersetzt', bereich: 'Druckteil', name: `${nummer} – ${data.name}`, text: 'durch den Stand aus der Datei ersetzt' });
-    } else {
-      z.artikel.neu++;
-      details.push({ status: 'neu', bereich: 'Druckteil', name: `${nummer} – ${data.name}` });
-    }
-  }
+  const k: ArtikelKontext = {
+    paket, opt, treffer, vorherArtikel, files, itemRepo, db, dateiSnap, shaVonName, fil, filamentIds, kategorieVon, materialVon,
+    bereichVon, farbenVon, nummerBelegt, vergebeneNummern, jetzt, lokal, belegtePfade, verschiebe, loeschen, z, details, skip, zuordnung,
+  };
+  for (const a of zuImportieren) spieleArtikelEin(a, k);
 
   // 4) Ähnliche Druckteile: anlegen, vormerken, früher vorgemerkte auflösen (nur hinzufügen).
   const verknuepfungen = verknuepfe(db, paket.artikel, lokal);

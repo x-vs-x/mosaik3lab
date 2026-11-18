@@ -17,7 +17,10 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 - Datei: `<daten>/mosaik3lab.db` (installiert: `C:\Mosaik3LAB\daten\mosaik3lab.db`).
 - Fremdschlüssel an (`PRAGMA foreign_keys = ON`), WAL-Modus, Schema-Versionen über Tabelle `schema_version` und
   nummerierte Migrationen in `server/src/storage/sqlite/migrations/NNN_name.sql`.
-- Die Routen kennen weiter nur die Repository-Schnittstellen (`server/src/storage/repositories.ts`).
+- SQL steht in den Repositories der Bereiche (`server/src/module/<bereich>/<bereich>.repository.ts`, zusammengefasst in
+  `server/src/storage/repositories.ts`). Bewusste Ausnahmen: Export/Import (`module/datenaustausch/`, eigene Transaktion
+  über `storage.sqlite.db`), Betriebs- und Mail-Einstellungen (`kern/betrieb.ts`, `kern/mail/mailConfig.ts`, Tabelle
+  `betrieb_einstellung`, auch vom Server-Manager gelesen) und die einmalige JSON-Übernahme.
 - Einmalige Migration der bisherigen JSON-Dateien beim ersten Start (vorher Backup, JSON bleibt als Sicherung liegen).
 
 ## IDs
@@ -32,17 +35,16 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 | `vorschlag` | `VOR` | `VOR-2026-0003` |
 | `datei` | – | nur technische ID |
 
-## Objekttypen (fest im Code, `server/src/domain/objekttypen.ts`)
+## Objekttypen (fest im Code, `server/src/kern/objekttypen.ts`)
 `artikel`, `anfrage`, `vorschlag`, `benutzer`, `lehrkraft`. Neue Typen nur dort ergänzen.
 
 ## Tabellen (Kern)
 | Tabelle | Inhalt |
 | --- | --- |
-| `benutzer` | Admin/Druck-Team-Konten (E-Mail, Rolle, Passwort-Hash – leer = noch nicht festgelegt, aktiv – 0 = ruht/nur Lehrkraft, `fehlversuche`) |
+| `benutzer` | Admin/Druck-Team-Konten (E-Mail – immer klein geschrieben, Rolle, Passwort-Hash – leer = noch nicht festgelegt, aktiv – 0 = ruht/nur Lehrkraft, `fehlversuche` (011), `gesperrt_seit` (014), `neuigkeiten_gesehen` (015), `entfernt_am` (016: entfernt, E-Mail durch Platzhalter `entfernt-<id>` ersetzt)) |
 | `benutzer_bereich` | angehakte Druck-Team-Bereiche je Konto (benutzer_id, bereich) – seit Migration 011 |
-| `benutzer_recht` | alte Einzelrechte (bis Migration 011, wird nicht mehr gelesen) |
 | `passwort_link` | Einmal-Links „Passwort festlegen/zurücksetzen“ (SHA-256 des Tokens, benutzer_id, zweck, gueltig_bis – leer = läuft nicht ab) |
-| `lehrkraft` | bekannte Lehrkräfte (E-Mail, angelegt_am, Häkchen `darf_anfragen`, `darf_vorschlagen`) |
+| `lehrkraft` | bekannte Lehrkräfte (E-Mail, angelegt_am, Häkchen `darf_anfragen`, `darf_vorschlagen` (011), `entfernt_am` (016, wie bei `benutzer`)) |
 | `kategorie`, `einsatzbereich`, `material` | Stammdaten |
 | `filament` | Farbrolle (Marke, Linie, Farbname, Hex, verfügbar). Seit 012: `katalog_id` (ID im mitgelieferten Bambu-Lab-Katalog, NULL = eigene Rolle), `hersteller_nummer` (Bambu-Nr. bzw. freiwillige eigene Nummer), `hersteller_name` (Originalname, englisch), `weggefallen` (nicht mehr im Bambu-Katalog). Abgleich beim Start: `module/stammdaten/bambuAbgleich.ts`; Hinweis für den Admin und bekannte Katalog-IDs in `einstellung` (`bambuAbgleichHinweis`, `bambuKatalogBekannt`) |
 | `statusart` | feste Bestellstatus (Schlüssel, aktiv) – Inhalte aus dem Code, nur `aktiv` änderbar |
@@ -54,7 +56,7 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 | `anfrage` | Bestellung (nummer, lehrkraft_id, artikel_id, Klasse, Menge, Bemerkung, status) |
 | `anfrage_farbe` | gewählte Farbe je Farbbereich |
 | `anfrage_feldwert` | Werte der Personalisierungsfelder |
-| `anfrage_statusverlauf` | jede Statusänderung (wer, wann, von → nach) |
+| `anfrage_statusverlauf` | jede Statusänderung (neuer Status, wer, wann, Kommentar; der vorige Status ergibt sich aus der Zeile davor) |
 | `vorschlag` | Vorschlag einer Lehrkraft (Welle 2) |
 | `datei` | **jede Datei** (siehe unten) |
 | `nummernkreis`, `schema_version`, `sitzung`, `einstellung` | Technik |
@@ -104,13 +106,15 @@ z. B. C:\Mosaik3LAB\ablage\artikel\0193…\bild\0193…a1.jpg
 - **Schnappschüsse ohne Fremdschlüssel:** `anfrage_farbe.filament_id`, `anfrage_statusverlauf.von_benutzer_id`
   (die Anfrage soll lesbar bleiben, auch wenn Farbe oder Konto gelöscht werden). `anfrage.artikel_id` und
   `anfrage.lehrkraft_id` sind Fremdschlüssel mit `ON DELETE SET NULL` (Name/E-Mail bleiben als Schnappschuss).
-- **`statusart.id`** ist der feste Schlüssel aus dem Code (`offen`, `gedruckt` …); nur `aktiv` wird gespeichert.
-- **Einstellungen** (`orderForm`, `features`, `mailStatus`, `statusAliases`, Ergebnis der JSON-Übernahme
-  `json_uebernahme`) liegen als JSON-Wert je Schlüssel in `einstellung`.
+- **`statusart.id`** ist der feste Schlüssel aus dem Code (`offen`, `gedruckt` …); nur `aktiv` wird gespeichert. Die Liste
+  steht heute in `shared/src/werte/anfragen.ts` (der Kommentar in `001_grundschema.sql` nennt noch `domain/orderStatuses.ts`;
+  eingespielte Migrationen bleiben unverändert).
+- **Einstellungen** (`orderForm`, `features`, `mailStatus`, `statusAliases`; der Schlüssel
+  `json_uebernahme` aus der früheren JSON-Übernahme wird nicht mehr geschrieben) liegen als JSON-Wert je Schlüssel in `einstellung`.
 - **Schema 2 (`002_vorschlag.sql`):** Tabelle `vorschlag` (Titel, Beschreibung, Einsatz, Links als JSON, Menge, Dringlichkeit,
   Status, Antwort, `umgesetzt_artikel_id` → `artikel` ON DELETE SET NULL, `lehrkraft_id` ON DELETE SET NULL mit E-Mail-Schnappschuss). Fotos: `datei` (`vorschlag`/`foto`).
 - **Ablageordner** stellt nur der Server-Manager ein (`ABLAGE_DIR`, nur bei gestoppter App, optional mit Kopieren der
-  Dateien); früher in der App eingestellte Ordner (`mosaik3lab.config.json`) dienen nur noch als Quelle der Übernahme.
+  Dateien). Die frühere Datei `mosaik3lab.config.json` wird nicht mehr gelesen.
   Waisen-Prüfung (Datei ↔ Datensatz) im Manager-`doctor`.
 
 ## Migration 003 – Erneut anfragen
@@ -122,6 +126,34 @@ z. B. C:\Mosaik3LAB\ablage\artikel\0193…\bild\0193…a1.jpg
 Anfragen. Bei mehreren Varianten gilt: `menge` = Summe, `anfrage_farbe`/`farbe_id`/`farbe_hex` = erste Variante,
 `farbe` = kurze Aufteilung („3 × Blau, 4 × Gelb“) für Listen, Suche und ältere Anzeigen.
 
+## Migration 004 – Art des Druckteils
+`artikel.art` (`hilfsmittel` | `lehrmittel` | `beides`, CHECK, Standard `hilfsmittel` für bestehende Druckteile).
+
+## Migration 011 – Rechte einfach
+Häkchen statt Einzelrechte: `benutzer_bereich` (Druck-Team-Bereiche je Konto), `lehrkraft.darf_anfragen`/`darf_vorschlagen`
+(bestehende Lehrkräfte: 1), `benutzer.fehlversuche`, Tabelle `passwort_link`. Übernommen aus den alten Einzelrechten
+`benutzer_recht`; die Tabelle entfernt Migration 022.
+
+## Migration 012 – Farbrollen aus dem Bambu-Lab-Katalog
+`filament.katalog_id` (eindeutig, NULL = eigene Rolle), `hersteller_nummer`, `hersteller_name`, `weggefallen`. Bisherige
+`bambu-…`-Rollen gehören zum Katalog; Nummer, Namen und Farbe pflegt der Abgleich beim Start.
+
+## Migration 014 – Sperre zeitlich begrenzt
+`benutzer.gesperrt_seit` (leer = nicht gesperrt). Gesperrt ist ein Konto bei `fehlversuche` ≥ 10 und `gesperrt_seit` jünger als
+eine Stunde (`istGesperrt`, `shared/src/konten.ts`). Gezählt wird in einer Transaktion aus dem aktuellen Stand – auch
+gleichzeitige Fehlversuche zählen alle.
+
+## Migration 016 – Personen entfernen
+`benutzer.entfernt_am`, `lehrkraft.entfernt_am`: Die Zeile bleibt (Bezug für Anfragen, Vorschläge, Verlauf), die E-Mail wird
+durch `entfernt-<id>` ersetzt, damit dieselbe Adresse neu vergeben werden kann.
+
+## Migration 017 – Ganze Gruppen je Farbbereich
+`artikel_farbbereich.gruppen` (JSON-Liste, Standard `'[]'`): `linie:<Marke Linie>` oder `art:<Materialart>` (erstes Wort der
+Linie, groß). Gruppen sind Text, keine Fremdschlüssel: Benennt das Team eine eigene Farbrolle um und verschwindet dadurch eine
+Linie bzw. Materialart, die eindeutig unter neuem Namen weiterlebt, schreibt das Speichern der Farbrollen die Gruppen der
+Druckteile mit um (`gruppenNachfolger`, `module/stammdaten/stammdaten.service.ts`). Verteilt sich eine Linie auf mehrere neue
+oder fällt sie ganz weg, bleibt die Gruppe stehen und trifft keine Rolle mehr.
+
 ## Migration 006 – Betriebs-, Mail- und Manager-Einstellungen (`betrieb_einstellung`)
 Eine Quelle der Wahrheit: Alle Einstellungen, auch die des Servers, stehen in der Datenbank – ein Backup der Datenbank
 (+ Ablage) rekonstruiert den Zustand vollständig (Ports, Pfade, Mail, Passwörter). Die fachlichen App-Einstellungen
@@ -130,7 +162,7 @@ Eine Quelle der Wahrheit: Alle Einstellungen, auch die des Servers, stehen in de
 | Spalte | Bedeutung |
 | --- | --- |
 | `bereich` | `betrieb` · `mail` · `manager` (CHECK) – zusammen mit `schluessel` der Primärschlüssel |
-| `schluessel` | z. B. `app.port`, `app.network`, `paths.ablageDir`, `backup.time`, `backup.keep`, `backup.encrypt`, `update.repo`, `update.gitPath`, `sessionSecret`; Bereich `mail`: `enabled`, `smtp`, `from`, `recipients`, `appBaseUrl`; Bereich `manager`: `manager.port` (Anmeldung am Manager = Admin-Konto der App; frühere `manager.passwordHash`/`manager.remote` entfernt der Manager) |
+| `schluessel` | z. B. `app.port`, `app.network`, `paths.ablageDir`, `backup.time`, `backup.keep`, `backup.encrypt`, `sessionSecret` (frühere `update.*`-Schlüssel aus der Zeit des Git-Updates werden ignoriert und bleiben für einen Rückfall stehen); Bereich `mail`: `enabled`, `smtp`, `from`, `recipients`, `appBaseUrl`; Bereich `manager`: `manager.port` (Anmeldung am Manager = Admin-Konto der App; frühere `manager.passwordHash`/`manager.remote` entfernt der Manager) |
 | `wert` | JSON |
 | `geheim` | 1 = Geheimnis (Mail-Passwort in `smtp`, Passwort-Hash, Session-Geheimnis) – nie in Anzeigen/Logs/Exporten ausgeben |
 | `geaendert_am` | ISO-Zeit |
@@ -148,6 +180,16 @@ Eine Quelle der Wahrheit: Alle Einstellungen, auch die des Servers, stehen in de
 Nur Indizes, keine Datenänderung: `anfrage_farbe (anfrage_id, sortierung)`, `anfrage_feldwert (anfrage_id, sortierung)`,
 `anfrage (abruf_code)` (Statusabfrage per Code), `anfrage (status)` (Statusfilter), `artikel_video (artikel_id, sortierung)`.
 Die Repositories lesen Kindzeilen damit nur für die gefundenen Datensätze statt der ganzen Tabelle.
+
+## Migration 021 – Indizes auf Fremdschlüsseln
+Nur Indizes, keine Datenänderung: `artikel_farbbereich_filament (filament_id)`, `artikel_einsatzbereich (einsatzbereich_id)`,
+`artikel (kategorie_id)`, `artikel (material_id)`, `anfrage (erstellt_am, id)` (neueste Anfragen im Dashboard). Beim Löschen
+von Stammdaten prüft SQLite die Kindtabellen damit gezielt statt per vollständigem Durchlauf.
+
+## Migration 022 – alte Einzelrechte entfernt
+`DROP TABLE IF EXISTS benutzer_recht`. Die Tabelle wurde seit 011 weder gelesen noch geschrieben; 011 läuft immer vorher
+(auch beim Wiederherstellen älterer Sicherungen) und übernimmt die Einzelrechte nach `benutzer_bereich`. Kein Verweis anderer
+Tabellen, keine weitere Datenänderung.
 
 ## Portal und HTTPS (keine eigene Migration – Zeilen in `betrieb_einstellung`, Bereich `betrieb`)
 Schlüssel `portal.enabled`, `portal.basePath` (leer oder `/mosaik3lab`), `portal.httpPort`, `portal.httpsPort`, `portal.https` sowie

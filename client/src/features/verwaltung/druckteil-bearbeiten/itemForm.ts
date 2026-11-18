@@ -2,10 +2,8 @@
 import { inGruppen } from '@mosaik3lab/shared/werte/katalog';
 import type { Filament, Item, ItemInput } from '../../../lib/types';
 
-export const MAX_COLOR_AREAS = 8;
-export const MAX_CUSTOM_FIELDS = 10;
-export const MAX_VIDEOS = 4;
-export { MAX_ITEM_LINKS } from '@mosaik3lab/shared/werte/katalog';
+export { MAX_COLOR_AREAS, MAX_CUSTOM_FIELDS, MAX_ITEM_LINKS } from '@mosaik3lab/shared/werte/katalog';
+export { MAX_VIDEOS_PER_ITEM as MAX_VIDEOS } from '@mosaik3lab/shared/werte/dateien';
 
 export type FieldErrors = Record<string, string>;
 export type SetField = <K extends keyof ItemInput>(key: K, value: ItemInput[K]) => void;

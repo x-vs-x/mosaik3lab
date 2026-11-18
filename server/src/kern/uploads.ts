@@ -1,18 +1,17 @@
 import path from 'node:path';
 import multer from 'multer';
+import { MAX_IMAGE_BYTES, MAX_IMAGES_PER_ITEM, MAX_MODEL_BYTES, MAX_VIDEO_BYTES } from '@mosaik3lab/shared/werte/dateien';
 import { badRequest } from './errors';
 import type { ImageExt, ModelExt, VideoExt } from './files';
 
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
-export const MAX_MODEL_BYTES = 50 * 1024 * 1024; // 50 MB
-export const MAX_IMAGES_PER_ITEM = 8;
-export const MAX_MODELS_PER_ITEM = 10;
+// Grenzen je Datei und je Druckteil: shared/src/werte/dateien.ts (der Client zeigt sie als Hinweis an)
+export { MAX_IMAGE_BYTES, MAX_IMAGES_PER_ITEM, MAX_MODEL_BYTES, MAX_MODELS_PER_ITEM, MAX_VIDEO_BYTES, MAX_VIDEOS_PER_ITEM } from '@mosaik3lab/shared/werte/dateien';
+/** Druckdateien je Upload-Anfrage. */
+export const MAX_MODELS_PER_REQUEST = 5;
 
 const IMAGE_EXTENSIONS: Record<string, ImageExt> = { '.jpg': 'jpg', '.jpeg': 'jpg', '.png': 'png', '.webp': 'webp' };
 const MODEL_EXTENSIONS: Record<string, ModelExt> = { '.stl': 'stl', '.3mf': '3mf' };
 const VIDEO_EXTENSIONS: Record<string, VideoExt> = { '.mp4': 'mp4', '.m4v': 'mp4', '.webm': 'webm' };
-export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
-export const MAX_VIDEOS_PER_ITEM = 4;
 
 export const videoUpload = multer({
   storage: multer.memoryStorage(),
@@ -40,19 +39,23 @@ export function detectVideo(file: Express.Multer.File): VideoExt {
 
 // Dateien werden zunächst im Arbeitsspeicher gehalten, geprüft und erst dann
 // mit zufälligem Namen gespeichert.
-export const imageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_IMAGE_BYTES, files: MAX_IMAGES_PER_ITEM, fields: 5 },
-  fileFilter: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (!IMAGE_EXTENSIONS[ext]) return cb(badRequest('Erlaubt sind nur Bilder im Format JPG, PNG oder WebP.'));
-    cb(null, true);
-  },
-});
+/** Bilder-Upload (Druckteil-Bilder, Fotos eines Vorschlags): Endung hier, Magic Bytes danach per detectImage. */
+export const bildUpload = (maxDateien: number, wort = 'Bilder') =>
+  multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_IMAGE_BYTES, files: maxDateien, fields: 5 },
+    fileFilter: (_req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (!IMAGE_EXTENSIONS[ext]) return cb(badRequest(`Erlaubt sind nur ${wort} im Format JPG, PNG oder WebP.`));
+      cb(null, true);
+    },
+  });
+
+export const imageUpload = bildUpload(MAX_IMAGES_PER_ITEM);
 
 export const modelUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_MODEL_BYTES, files: 5, fields: 5 },
+  limits: { fileSize: MAX_MODEL_BYTES, files: MAX_MODELS_PER_REQUEST, fields: 5 },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (!MODEL_EXTENSIONS[ext]) return cb(badRequest('Erlaubt sind nur Druckdateien im Format STL oder 3MF.'));

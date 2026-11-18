@@ -1,9 +1,11 @@
 // Bilder vor dem Hochladen im Browser verkleinern (Canvas, keine Zusatzbibliothek – läuft auf Handy, Tablet und PC).
 // Längste Kante höchstens 2000 px, ohne Transparenz als JPEG (Qualität 0,85), mit Transparenz als PNG.
 // Grundsatz: Im Zweifel das Original nehmen (Fehler, GIF, schon klein, Ergebnis nicht kleiner).
+// Kante und Qualität wie beim Server (shared/src/werte/bilder.ts).
+import { BILD_BREITE, JPEG_QUALITAET_ORIGINAL } from '@mosaik3lab/shared/werte/bilder';
 
-export const MAX_KANTE = 2000;
-export const JPEG_QUALITAET = 0.85;
+export const MAX_KANTE = BILD_BREITE.original;
+export const JPEG_QUALITAET = JPEG_QUALITAET_ORIGINAL / 100;
 /** Bis zu dieser Größe gilt ein Bild als „schon klein“ und wird nicht angefasst. */
 export const KLEIN_BYTES = 300 * 1024;
 
@@ -21,8 +23,8 @@ export function zielMasse(breite: number, hoehe: number, max = MAX_KANTE) {
 /** Ausgabeformat: Transparenz → PNG (sonst würde sie schwarz/weiß), alles andere → JPEG. */
 export const ausgabeTyp = (hatTransparenz: boolean) => (hatTransparenz ? 'image/png' : 'image/jpeg');
 
-/** Ergebnis nur nehmen, wenn es um mindestens `mindestErsparnis` (Anteil) kleiner ist. */
-export const ergebnisNehmen = (alt: number, neu: number, mindestErsparnis = 0) => neu > 0 && neu < alt * (1 - mindestErsparnis);
+/** Ergebnis nur nehmen, wenn es kleiner ist. */
+export const ergebnisNehmen = (alt: number, neu: number) => neu > 0 && neu < alt;
 
 /** Dateiname mit passender Endung (foto.png → foto.jpg). */
 export function neuerName(name: string, typ: string) {
@@ -43,9 +45,9 @@ function alsBlob(canvas: HTMLCanvasElement, typ: string) {
 
 /**
  * Verkleinert ein Bild. Liefert immer eine Datei: die verkleinerte oder – wenn nicht sinnvoll oder fehlgeschlagen –
- * das Original. `mindestErsparnis` z. B. 0,2 = nur ersetzen, wenn mindestens 20 % kleiner.
+ * das Original.
  */
-export async function bildVerkleinern(datei: File, mindestErsparnis = 0): Promise<File> {
+export async function bildVerkleinern(datei: File): Promise<File> {
   if (!sollVerkleinern(datei.type, datei.size) || typeof createImageBitmap !== 'function') return datei;
   let bitmap: ImageBitmap | undefined;
   try {
@@ -69,7 +71,7 @@ export async function bildVerkleinern(datei: File, mindestErsparnis = 0): Promis
     }
     const blob = await alsBlob(canvas, typ);
     canvas.width = canvas.height = 0; // Speicher auf dem Handy gleich freigeben
-    if (!blob || blob.type !== typ || !ergebnisNehmen(datei.size, blob.size, mindestErsparnis)) return datei;
+    if (!blob || blob.type !== typ || !ergebnisNehmen(datei.size, blob.size)) return datei;
     return new File([blob], neuerName(datei.name, typ), { type: typ, lastModified: datei.lastModified });
   } catch {
     return datei; // z. B. zu großes Bild für den Speicher des Geräts → Original hochladen

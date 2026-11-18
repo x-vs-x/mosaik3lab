@@ -1,18 +1,14 @@
-import { PROPOSAL_URGENCY_LABELS, type Proposal } from '../../domain/proposals';
+import { PROPOSAL_URGENCY_LABELS, type Proposal } from '@mosaik3lab/shared/vorschlaege';
 import type { Storage } from '../../storage';
-import type { Db } from '../../kern/db';
-import { readMailConfig } from '../../kern/mail/mailConfig';
+import { benachrichtigeImHintergrund } from '../../kern/mail/hintergrund';
 import { linksNurImSchulnetz, type MailLinks } from '../../kern/mail/erreichbarkeit';
-import { baseUrl, escapeHtml, formatMailDate, sendMail, type BuiltMail } from '../../kern/mail/mailer';
+import { adminLink, escapeHtml, formatMailDate, type BuiltMail } from '../../kern/mail/mailer';
 import { badge, button, C, fieldTable, FOOTER_TEAM, html, NO_LINK, renderLayout, schulnetzText, small, textFooter } from '../../kern/mail/layout';
 
 // Benachrichtigung über neue Vorschläge – an dieselben Empfänger und über denselben Versand wie neue Anfragen.
 // Links der Lehrkraft stehen nur als Text in der Mail (nicht anklickbar), Fotos werden nicht angehängt.
 
-export function proposalAdminUrl(p: Proposal, appUrl: string) {
-  const base = baseUrl(appUrl);
-  return base ? `${base}/verwaltung/vorschlaege?offen=${encodeURIComponent(p.id)}` : '';
-}
+export const proposalAdminUrl = (p: Proposal, appUrl: string) => adminLink(appUrl, 'vorschlaege', p.id);
 
 export function buildProposalMail(p: Proposal, settings: MailLinks): BuiltMail {
   const link = proposalAdminUrl(p, settings.appBaseUrl);
@@ -62,19 +58,6 @@ export function buildProposalMail(p: Proposal, settings: MailLinks): BuiltMail {
 }
 
 /** Benachrichtigt im Hintergrund; ein Mailfehler verhindert nie den Vorschlag (Ergebnis siehe Einstellungen → Mailstatus). */
-export function notifyNewProposal(storage: Storage, db: Db, proposal: Proposal) {
-  void (async () => {
-    const r = readMailConfig(db);
-    if (r.state !== 'ok' || !r.config.enabled) return;
-    let status: { ok: boolean; message: string };
-    try {
-      await sendMail(r.config, r.config.recipients, buildProposalMail(proposal, r.config));
-      status = { ok: true, message: `Benachrichtigung zu ${proposal.number} versendet.` };
-    } catch (err) {
-      status = { ok: false, message: `Versand zu ${proposal.number} fehlgeschlagen: ${(err as Error).message}` };
-      console.warn('[Mail]', status.message);
-    }
-    // nur diesen einen Wert schreiben (nicht alle Einstellungen und Stammdaten)
-    storage.sqlite.settings.setSetting('mailStatus', { at: new Date().toISOString(), ...status });
-  })().catch((err) => console.warn('[Mail] Unerwarteter Fehler:', err));
+export function notifyNewProposal(storage: Storage, proposal: Proposal) {
+  benachrichtigeImHintergrund(storage, proposal.number, (config) => buildProposalMail(proposal, config));
 }

@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { ItemImage } from '../../../components/ItemImage';
 import { useToast } from '../../../components/Toast';
 import { Alert, Field, Input, Button } from '../../../components/ui';
-import { api, ApiError } from '../../../lib/api';
+import { api, fehlerText } from '../../../lib/api';
 import type { AehnlichesTeil, Item } from '../../../lib/types';
 import { useApi } from '../../../lib/useApi';
 import { passtZurSuche } from '@mosaik3lab/shared/suche';
@@ -63,7 +63,7 @@ function AehnlicheEditor({ item, verknuepft, onChange }: { item: Item; verknuepf
       setSuche('');
       sucheRef.current?.focus();
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : fehler);
+      toast('error', fehlerText(err, fehler));
     } finally {
       setBusy(undefined);
     }

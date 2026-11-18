@@ -1,16 +1,31 @@
 // Setzt alle Daten auf die Beispieldaten zurück.
-// Vorher wird automatisch eine Sicherung im Ordner backups/ angelegt (Datenbank, Ablage, JSON-Altdaten).
+// Vorher wird automatisch eine Sicherung im Ordner backups/ angelegt (Datenbank, Ablage).
 // In der Ablage werden nur die Ordner der festen Objekttypen entfernt.
 import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { loadConfig } from '../src/config';
-import { OBJEKTTYPEN } from '../src/domain/objekttypen';
+import { dataRoot, loadConfig, type AppConfig } from '../src/config';
+import { OBJEKTTYPEN } from '../src/kern/objekttypen';
 import { seedIfEmpty } from '../src/seed/seed';
 import { createSqliteStorage } from '../src/storage';
-import { LEGACY_FILES } from '../src/storage/json/legacyJson';
-import { createBackup } from './backup';
+import { backupDatabase } from './db-backup';
 
 const config = loadConfig();
+
+/**
+ * Sicherung vor dem Zurücksetzen: Datenbank (konsistent per VACUUM INTO) und Ablage nach
+ * <Datenwurzel>/backups/storage-<Zeitstempel>/{mosaik3lab.db, ablage}. Regelmäßige Sicherungen macht der Server-Manager
+ * (npm run backup → manager/cli.mjs backup run).
+ */
+async function createBackup(config: Pick<AppConfig, 'dbFile' | 'ablageDir'>): Promise<string | undefined> {
+  if (!existsSync(config.dbFile) && !existsSync(config.ablageDir)) return undefined;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const target = path.join(dataRoot(), 'backups', `storage-${stamp}`);
+  await fs.mkdir(target, { recursive: true });
+  if (existsSync(config.dbFile)) backupDatabase(config.dbFile, path.join(target, 'mosaik3lab.db'));
+  if (existsSync(config.ablageDir)) await fs.cp(config.ablageDir, path.join(target, 'ablage'), { recursive: true });
+  return target;
+}
 
 if (!process.argv.includes('--yes')) {
   console.log('Dies löscht ALLE Benutzer, Druckteile, Anfragen, Einstellungen und Dateien und legt die Beispieldaten neu an.');
@@ -23,10 +38,6 @@ if (backup) console.log(`Sicherung erstellt: ${backup}`);
 
 for (const ext of ['', '-wal', '-shm']) await fs.rm(config.dbFile + ext, { force: true });
 for (const typ of OBJEKTTYPEN) await fs.rm(path.join(config.ablageDir, typ), { recursive: true, force: true });
-// Alte JSON-Dateien entfernen, sonst würden sie beim Start erneut übernommen (sie liegen in der Sicherung).
-for (const f of LEGACY_FILES) {
-  for (const suffix of ['', '.bak']) await fs.rm(path.join(config.dataDir, f + suffix), { force: true });
-}
 
 const storage = await createSqliteStorage(config);
 await seedIfEmpty(storage);

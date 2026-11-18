@@ -17,7 +17,6 @@ const cfg = await import('../lib/config.mjs');
 const { platform } = await import('../platform/index.mjs');
 const auto = await import('../lib/auto.mjs');
 const { summarize, appAddresses, pageStatus, portalBusyNote } = await import('../lib/status.mjs');
-const sdb = await import('../lib/settingsdb.mjs');
 const { createBackup } = await import('../lib/backup.mjs');
 const { reconcile } = await import('../lib/reconcile.mjs');
 const services = await import('../lib/services.mjs');
@@ -98,13 +97,12 @@ test('Abgleich beim Start meldet Firewall-Abweichungen nur, nach einer Änderung
 });
 
 test('Update und Laufzeit: geprüft wird automatisch, gemeldet nur bei Handlungsbedarf', async () => {
-  assert.equal(await auto.checkUpdates(async () => assert.fail('in der Arbeitskopie nicht prüfen')), null);
+  assert.equal(await auto.checkUpdates(), null, 'in der Arbeitskopie nicht prüfen');
   const full = await auto.checkRuntime(async () => ({ rows: [
     { id: 'node', title: 'Node.js', light: 'warn', action: 'update', label: '24.1 – neuere LTS 24.2' },
-    { id: 'git', title: 'Git', light: 'ok', action: 'update', label: 'aktuell' },
     { id: 'wrapper', title: 'WinSW', light: 'info', action: null, label: 'noch nicht eingerichtet' },
   ] }));
-  assert.equal(full.rows.length, 3, 'vollständige Liste für „Erweitert“');
+  assert.equal(full.rows.length, 2, 'vollständige Liste für „Erweitert“');
   assert.deepEqual(auto.autoState().runtime.map((r) => r.id), ['node']);
   assert.deepEqual((await pageStatus()).updates.runtime.map((r) => r.id), ['node'], 'Karte „Update verfügbar“');
   assert.deepEqual((await auto.checkRuntime(async () => { throw new Error('offline'); })).rows, [], 'offline ist kein Fehler');
@@ -126,13 +124,6 @@ test('Standard für neue Einrichtungen: http://<Server>/mosaik3lab ohne Port –
   assert.deepEqual([c.portal.enabled, c.portal.basePath, c.portal.httpPort], [true, '/mosaik3lab', 80]);
   assert.equal(services.localAppUrl(c), 'http://127.0.0.1/mosaik3lab/', 'auf diesem Rechner ohne Port');
   assert.deepEqual(appAddresses({ ...c, app: { ...c.app, network: true } }, { hostname: 'srv', ips: [] }).network, ['http://srv/mosaik3lab/']);
-
-  const alt = path.join(tmp, 'alt'); // Einstellungen von früher: Betriebswerte da, aber noch keine Portal-Werte
-  fs.mkdirSync(alt);
-  sdb.writeBereich(sdb.dbFileOf(alt), 'betrieb', { 'app.port': 3001, 'app.network': true });
-  const a = cfg.configFromDb(alt);
-  assert.deepEqual([a.portal.enabled, a.portal.basePath, a.app.port], [false, '', 3001], 'nicht überschrieben: App weiter direkt auf ihrem Port');
-  assert.deepEqual(cfg.keepLegacyPortal({ app: {}, portal: { enabled: true, basePath: '/x' } }).portal, { enabled: true, basePath: '/x' }, 'gespeicherte Portal-Werte bleiben');
 });
 
 test('Port 80 belegt: klarer Hinweis mit freiem Ausweich-Port und Knopf', async () => {

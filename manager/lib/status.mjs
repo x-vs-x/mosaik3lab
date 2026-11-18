@@ -7,7 +7,7 @@ import { getConfig, configErrors, resolvePaths } from './config.mjs';
 import { allServices, portConflict, portalConflict, suggestPortalPort, firewallStatus, firewallActive, fetchHealth, localAppUrl, externalPortalUrl, portOwner, publicNetwork, PUBLIC_NETWORK_HINT } from './services.mjs';
 import { mailState } from './mail.mjs';
 import { listBackups, nextBackupTime, filesNote } from './backup.mjs';
-import { installedVersion } from './update.mjs';
+import { installedVersion } from './releases.mjs';
 import { nodeOk, MIN_NODE } from './setup.mjs';
 import { runtimeStatus } from './runtime.mjs';
 import { reconcile } from './reconcile.mjs';
@@ -15,6 +15,7 @@ import { keyFileExists } from './backupcrypto.mjs';
 import { inspectCertCached, portalUrls, hostIdentity } from './portalcert.mjs';
 import { autoState, refreshStale } from './auto.mjs';
 import { tail } from './log.mjs';
+import { dbFileOf } from './settingsdb.mjs';
 import { platform } from '../platform/index.mjs';
 
 const RANK = { ok: 0, info: 0, off: 0, warn: 1, error: 2 };
@@ -133,7 +134,7 @@ export async function pageStatus() {
  * { db: { vorhanden, schemaVersion, groesseBytes } }. Läuft die Web-App nicht, nur Datei vorhanden + Größe.
  */
 function databaseInfo(health) {
-  const file = path.join(resolvePaths().dataDir, 'mosaik3lab.db');
+  const file = resolvePaths().dbFile;
   const db = health?.db;
   const mb = (b) => `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
   if (db?.vorhanden) return { present: true, schemaVersion: db.schemaVersion ?? null, sizeBytes: db.groesseBytes ?? null, label: `vorhanden, Schema ${db.schemaVersion ?? '?'}, ${mb(db.groesseBytes ?? 0)}` };
@@ -167,7 +168,7 @@ export function ablageState(dir) {
  * null, wenn es noch keine Datenbank gibt.
  */
 export async function ablageOrphans(p) {
-  const file = path.join(p.dataDir, 'mosaik3lab.db');
+  const file = dbFileOf(p.dataDir);
   if (!fs.existsSync(file)) return null;
   let rows;
   try {
@@ -220,7 +221,7 @@ export async function doctor() {
       add('HTTPS-Zertifikat', !ci?.present ? 'error' : ci.problems?.length ? 'error' : ci.warnings?.length ? 'warn' : 'ok', ci?.present ? (ci.valid ? `${ci.subject}, gültig bis ${ci.notAfter.slice(0, 10)} (${ci.daysLeft} Tage)` : ci.problems[0]) : 'fehlt', ci?.warnings?.[0] ?? (ci?.present ? '' : 'Reiter „Netzwerk“ → HTTPS → Zertifikat erzeugen oder hinterlegen.'));
     }
   } else add('Portal', 'info', 'aus – die App ist direkt auf ihrem Port erreichbar');
-  const admins = await activeAdminCount(path.join(p.dataDir, 'mosaik3lab.db'));
+  const admins = await activeAdminCount(p.dbFile);
   if (admins === 0) add('Administrator-Konto', 'warn', 'kein aktiver Administrator', 'Beim ersten Aufruf der App wird er angelegt – bitte gleich erledigen (Adressen: manager/cli.mjs erstzugang).');
   add('Einstellungen', 'ok', `in der Datenbank (${p.dbFile}); Startdatei ${p.configFile}`);
   add('Backup-Verschlüsselung', getConfig().backup.encrypt ? (keyFileExists() ? 'ok' : 'error') : 'info', getConfig().backup.encrypt ? (keyFileExists() ? 'AES-256-GCM, Passwort in backup.key' : 'Passwort fehlt') : 'aus – Sicherungen enthalten Passwörter im Klartext', getConfig().backup.encrypt ? 'Backup-Passwort festlegen: cli backup password set|generate.' : 'Empfohlen: cli backup password generate.');

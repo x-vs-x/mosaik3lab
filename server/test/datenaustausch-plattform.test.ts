@@ -11,7 +11,7 @@ import { after, test } from 'node:test';
 import { createApp } from '../src/app';
 import { hashPassword } from '../src/kern/auth/password';
 import { loadConfig } from '../src/config';
-import { newId } from '../src/domain/ids';
+import { newId } from '../src/kern/ids';
 
 const FIXTURE = await fs.readFile(path.join(import.meta.dirname, 'fixtures', 'export-windows.json'), 'utf8');
 const kopf = JSON.parse(FIXTURE.split('\n')[0].slice(0, -',"dateiinhalte":['.length) + '}');
@@ -124,7 +124,7 @@ test('Windows-Export auf frischem System einspielen: Stammdaten, Farben, Dateien
 test('Zielsystem ganz ohne Stammdaten (alles gelöscht): wird aus der Datei ergänzt', async () => {
   const z = await ziel();
   ziele.push(z);
-  const repo = z.instance.storage.sqlite.settings;
+  const repo = z.instance.storage.settings;
   const s = repo.read();
   repo.write({ ...s, masterData: { ...s.masterData, categories: [], materials: [], useAreas: [], filaments: [] } });
   const bericht = await z.einspielen(FIXTURE);
@@ -147,7 +147,7 @@ test('Datei im Windows-Editor gespeichert (BOM, CRLF) oder Großschreibung auf d
     await z.req('DELETE', `/api/admin/daten/import/${v.json.importId}`);
   }
   // Kategorie gibt es hier schon in anderer Schreibweise → wird benutzt, nicht doppelt angelegt
-  const repo = z.instance.storage.sqlite.settings;
+  const repo = z.instance.storage.settings;
   const s = repo.read();
   repo.write({ ...s, masterData: { ...s.masterData, categories: [...s.masterData.categories, { ...s.masterData.categories[0], id: newId(), name: 'ÜBUNGSGERÄTE FÜR SCHÜLER' }] } });
   const bericht = await z.einspielen('﻿' + mitCrlf);

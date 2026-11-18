@@ -5,18 +5,13 @@
 #
 # Aufbau je System (alles auf eigenen, frischen Rechnern, parallel):
 #   paket      Paket des getesteten Stands bauen (einmal) → Artifact; alle Testrunden installieren genau dieses Paket
-#   altpaket   Paket im alten Format (mit node_modules, Commit ALTFORMAT) bauen bzw. aus dem Cache → Artifact
 #   test       je Runde ein Rechner: „neu“ (Neuinstallation, Update, Rückfall, Downgrade, Update per Knopfdruck,
-#              Deinstallation), „altformat“ (altes Format → kaputtes Update fällt zurück → Update aufs gebündelte Format),
-#              „v100“ (Update von der freigegebenen Version 1.0.0)
+#              Deinstallation), „v163“ (Update von der freigegebenen Version 1.6.3 – ältere Stände werden nicht mehr
+#              unterstützt, sie kommen zuerst auf 1.6.3)
 #   manager    npm run manager:test (stoppt Dienste – deshalb auf eigenem Rechner ohne Installation)
 #   release    erst wenn ALLE Tests dieses Systems bestanden sind: genau das gebaute Paket ins Release (release.sh)
 # Linux steht in installer-linux.yml (einmal je Architektur aufgerufen – jede veröffentlicht unabhängig von der anderen).
 name: Installer-Test
-
-env:
-  # gleicher Wert in installer-linux.yml (dort gilt dieses env nicht)
-  ALTFORMAT: 38823bb52e3f9e05620b4c24e455b5e00f271641 # Kennung für den Cache; der Stand selbst liegt im Zweig „altformat“ (ohne Verlauf) – letzter Stand vor dem Bündeln (Paket mit node_modules, Server über tsx)
 
 on:
   workflow_dispatch:
@@ -40,8 +35,8 @@ permissions:
 jobs:
   # ---------------------------------------------------------------- Windows ----------------------------------------------------------------
   windows-paket:
-    # „[nur-linux]“ in der Commit-Nachricht lässt alle Windows-Jobs weg (spart Zeit beim Arbeiten an Linux)
-    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') }}
+    # „[nur-linux]“ in der Commit-Nachricht (Push) bzw. im Titel des Pull Requests lässt alle Windows-Jobs weg (spart Zeit beim Arbeiten an Linux)
+    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') && !contains(github.event.pull_request.title, '[nur-linux]') }}
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -65,53 +60,13 @@ jobs:
           compression-level: 0
           retention-days: 7 # abgeschlossene Läufe räumt der Job „aufraeumen“ weg
 
-  # Das alte Paket kommt immer aus demselben Commit → einmal bauen, danach aus dem Cache (gilt je Branch/PR)
-  windows-altpaket:
-    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') }}
-    runs-on: windows-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Altes Paketformat aus dem Cache
-        id: altformat-cache
-        uses: actions/cache@v6
-        with:
-          path: ${{ runner.temp }}/altformat-paket/Mosaik3LAB-Installer-*.zip
-          key: installer-altformat-${{ runner.os }}-${{ runner.arch }}-${{ env.ALTFORMAT }}
-
-      - uses: actions/setup-node@v7
-        if: steps.altformat-cache.outputs.cache-hit != 'true'
-        with:
-          node-version: 24
-
-      - name: Altes Paketformat bauen (Commit ALTFORMAT)
-        if: steps.altformat-cache.outputs.cache-hit != 'true'
-        run: |
-          git fetch --no-tags --depth 1 origin altformat # Zweig „altformat“ = Stand von Commit ALTFORMAT (ohne Verlauf)
-          $quelle = "$env:RUNNER_TEMP\altformat-quelle"
-          git worktree add $quelle FETCH_HEAD
-          if ($LASTEXITCODE) { exit 1 }
-          Push-Location $quelle
-          npm ci --no-audit --no-fund --loglevel=error; if ($LASTEXITCODE) { exit 1 }
-          npm run paket -- "$env:RUNNER_TEMP\altformat-paket"; if ($LASTEXITCODE) { exit 1 }
-          Pop-Location
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: altpaket-windows-x64
-          path: ${{ runner.temp }}/altformat-paket/Mosaik3LAB-Installer-*.zip
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-
   windows:
     name: windows (${{ matrix.runde }})
-    needs: [windows-paket, windows-altpaket]
+    needs: [windows-paket]
     strategy:
       fail-fast: false
       matrix:
-        runde: [neu, altformat, v100]
+        runde: [neu, v163]
     runs-on: windows-latest
     timeout-minutes: 30
     defaults:
@@ -261,110 +216,65 @@ jobs:
         if: matrix.runde == 'neu'
         run: .github/installer-test/pruefen.ps1 deinstalliert
 
-      # ---- Runde „altformat“: altes Paketformat (node_modules, tsx) → gebündelt ----
-      - uses: actions/download-artifact@v8
-        if: matrix.runde == 'altformat'
-        with:
-          name: altpaket-windows-x64
-          path: ${{ runner.temp }}/altformat-paket
-
-      - name: Altes Paketformat entpacken
-        if: matrix.runde == 'altformat'
-        run: |
-          $zip = Get-ChildItem "$env:RUNNER_TEMP\altformat-paket\Mosaik3LAB-Installer-*.zip" | Select-Object -First 1
-          if (-not $zip) { throw 'altes Paket fehlt' }
-          New-Item -ItemType Directory "$env:PAKETE\vf" | Out-Null
-          & "$env:SystemRoot\System32\tar.exe" -xf $zip.FullName -C "$env:PAKETE\vf"
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          if (-not (Test-Path "$env:PAKETE\vf\node_modules\tsx")) { throw 'altes Paket ohne node_modules' }
-
-      # Frische Daten der alten Version (die neue hat ggf. ein neueres Datenbank-Schema – darüber würde die alte zu Recht abgelehnt)
-      - name: Altes Format installieren (frische Daten der alten Version)
-        if: matrix.runde == 'altformat'
-        timeout-minutes: 14
-        shell: cmd
-        run: |
-          if exist C:\Mosaik3LAB rmdir /s /q C:\Mosaik3LAB
-          call "%PAKETE%\vf\Installieren.cmd" /still
-
-      - name: Prüfen (altes Format)
-        if: matrix.runde == 'altformat'
-        run: |
-          .github/installer-test/pruefen.ps1 installiert; if ($LASTEXITCODE) { exit 1 }
-          .github/installer-test/pruefen.ps1 marker; if ($LASTEXITCODE) { exit 1 }
-          $cur = Join-Path $env:ProgramFiles 'Mosaik3LAB\current'
-          if (-not (Test-Path "$cur\node_modules\tsx")) { throw 'altes Format erwartet (node_modules)' }
-          "ERWARTET=$((Get-Content "$cur\.release.json" -Raw | ConvertFrom-Json).id)" >> $env:GITHUB_ENV
-
-      - name: Rückfall-Test aufs alte Format (kaputtes gebündeltes Update)
-        if: matrix.runde == 'altformat'
-        timeout-minutes: 14
-        shell: cmd
-        run: |
-          call "%PAKETE%\v3\Installieren.cmd" /still > "%RUNNER_TEMP%\v3b.txt" 2>&1
-          set RC=%ERRORLEVEL%
-          type "%RUNNER_TEMP%\v3b.txt"
-          if "%RC%"=="0" (echo FEHLER: das kaputte Update endete mit Exit 0& exit /b 1)
-          findstr /c:"automatisch auf" "%RUNNER_TEMP%\v3b.txt" >nul || (echo FEHLER: keine Meldung zum Rueckfall& exit /b 1)
-          echo OK   kaputtes Update endete mit Exit %RC% und hat aufs alte Format zurueckgeschaltet
-
-      - name: Prüfen nach dem Rückfall aufs alte Format
-        if: matrix.runde == 'altformat'
-        run: foreach ($p in 'installiert', 'zurueck') { .github/installer-test/pruefen.ps1 $p; if ($LASTEXITCODE) { exit 1 } }
-
-      - name: Update von altem Paketformat auf gebündeltes
-        if: matrix.runde == 'altformat'
-        timeout-minutes: 14
-        shell: cmd
-        run: call "%PAKETE%\v1\Installieren.cmd" /still
-
-      - name: Prüfen nach dem Update aufs gebündelte Format
-        if: matrix.runde == 'altformat'
-        run: |
-          foreach ($p in 'installiert', 'erhalten') { .github/installer-test/pruefen.ps1 $p; if ($LASTEXITCODE) { exit 1 } }
-          $cur = Join-Path $env:ProgramFiles 'Mosaik3LAB\current'
-          if (-not (Test-Path "$cur\server\dist\server.mjs") -or (Test-Path "$cur\node_modules")) { throw 'gebündeltes Format erwartet (server\dist, keine node_modules)' }
-          Write-Host "OK   gebündelt: $(@(Get-ChildItem $cur -Recurse -File).Count) Dateien in current"
-
-      # ---- Runde „v100“: eine Schule mit der ersten freigegebenen Version 1.0.0 aktualisiert per Paket ----
-      # Genau das Paket, das die Schulen bekommen haben: aus dem Release v1.0.0 (statt es aus dem Tag neu zu bauen)
-      - name: Paket 1.0.0 holen (Release v1.0.0)
-        if: matrix.runde == 'v100'
+      # ---- Runde „v163“: Update von der freigegebenen Version 1.6.3 (ältere Stände kommen zuerst auf 1.6.3) ----
+      # Genau das Paket, das die Schule bekommen hat: aus dem Release v1.6.3 (statt es aus dem Tag neu zu bauen)
+      - name: Paket 1.6.3 holen (Release v1.6.3)
+        if: matrix.runde == 'v163'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: x-vs-x/mosaik3lab-pakete # öffentliches Paket-Repository (dort liegen alle freigegebenen Versionen)
         run: |
-          gh release download v1.0.0 --pattern 'Mosaik3LAB-Installer-1.0.0-windows-x64.zip' --dir "$env:PAKETE\v100"
+          gh release download v1.6.3 --pattern 'Mosaik3LAB-Installer-1.6.3-windows-x64.zip' --dir "$env:PAKETE\v163"
           if ($LASTEXITCODE) { exit 1 }
-          $zip = Get-ChildItem "$env:PAKETE\v100\Mosaik3LAB-Installer-1.0.0-*.zip" | Select-Object -First 1
-          if (-not $zip) { throw 'Paket 1.0.0 fehlt' }
-          New-Item -ItemType Directory "$env:PAKETE\v100x" | Out-Null
-          & "$env:SystemRoot\System32\tar.exe" -xf $zip.FullName -C "$env:PAKETE\v100x"
+          $zip = Get-ChildItem "$env:PAKETE\v163\Mosaik3LAB-Installer-1.6.3-*.zip" | Select-Object -First 1
+          if (-not $zip) { throw 'Paket 1.6.3 fehlt' }
+          New-Item -ItemType Directory "$env:PAKETE\v163x" | Out-Null
+          & "$env:SystemRoot\System32\tar.exe" -xf $zip.FullName -C "$env:PAKETE\v163x"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
-      - name: Version 1.0.0 installieren (frische Daten)
-        if: matrix.runde == 'v100'
+      - name: Version 1.6.3 installieren (frische Daten)
+        if: matrix.runde == 'v163'
         timeout-minutes: 14
         shell: cmd
         run: |
           if exist C:\Mosaik3LAB rmdir /s /q C:\Mosaik3LAB
-          call "%PAKETE%\v100x\Installieren.cmd" /still
+          call "%PAKETE%\v163x\Installieren.cmd" /still
 
-      - name: Prüfen (1.0.0) und Testdaten anlegen
-        if: matrix.runde == 'v100'
+      - name: Prüfen (1.6.3) und Testdaten anlegen
+        if: matrix.runde == 'v163'
         run: foreach ($p in 'installiert', 'marker') { .github/installer-test/pruefen.ps1 $p; if ($LASTEXITCODE) { exit 1 } }
 
-      - name: Update 1.0.0 → neue Version (Installieren.cmd)
-        if: matrix.runde == 'v100'
+      # Druckteil mit Bildern in 1.6.3 anlegen: nach dem Update müssen Datensätze und Dateien unverändert da sein
+      - name: Testdaten mit 1.6.3 (Druckteil mit Bildern)
+        if: matrix.runde == 'v163'
+        timeout-minutes: 5
+        run: node .github/installer-test/bilder-pruefen.mjs --testdaten
+
+      - name: Daten vor dem Update merken (Zeilen je Tabelle, Dateien der Ablage)
+        if: matrix.runde == 'v163'
+        run: |
+          & "$env:ProgramFiles\Mosaik3LAB\current\node\node.exe" .github/installer-test/daten-stand.mjs merken C:\Mosaik3LAB\daten\mosaik3lab.db C:\Mosaik3LAB\ablage "$env:RUNNER_TEMP\stand-163.json"
+          if ($LASTEXITCODE) { exit 1 }
+
+      - name: Update 1.6.3 → neue Version (Installieren.cmd)
+        if: matrix.runde == 'v163'
         timeout-minutes: 14
         shell: cmd
         run: call "%PAKETE%\v1\Installieren.cmd" /still
 
-      - name: Prüfen nach dem Update von 1.0.0
-        if: matrix.runde == 'v100'
-        run: foreach ($p in 'installiert', 'erhalten') { .github/installer-test/pruefen.ps1 $p; if ($LASTEXITCODE) { exit 1 } }
+      - name: Prüfen nach dem Update von 1.6.3
+        if: matrix.runde == 'v163'
+        run: |
+          foreach ($p in 'installiert', 'erhalten') { .github/installer-test/pruefen.ps1 $p; if ($LASTEXITCODE) { exit 1 } }
+          & "$env:ProgramFiles\Mosaik3LAB\current\node\node.exe" .github/installer-test/daten-stand.mjs vergleichen C:\Mosaik3LAB\daten\mosaik3lab.db C:\Mosaik3LAB\ablage "$env:RUNNER_TEMP\stand-163.json"
+          if ($LASTEXITCODE) { exit 1 }
 
-      # ---- Ende der Runden „altformat“ und „v100“: deinstallieren ----
+      - name: Bildverarbeitung der neuen Version (nach dem Update von 1.6.3)
+        if: matrix.runde == 'v163'
+        timeout-minutes: 5
+        run: node .github/installer-test/bilder-pruefen.mjs
+
+      # ---- Ende der Runde „v163“: deinstallieren ----
       - name: Deinstallieren (Runde ${{ matrix.runde }})
         if: matrix.runde != 'neu'
         timeout-minutes: 7
@@ -396,7 +306,7 @@ jobs:
 
   # Manager-Tests unter Windows auf einem eigenen, frischen Rechner (sie stoppen Dienste – neben einer Installation geht das nicht)
   manager-windows:
-    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') && !contains(github.event.pull_request.title, '[nur-linux]') }}
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -458,7 +368,7 @@ jobs:
   # Artefakte – sonst fehlen ihnen Pakete beim Herunterladen (Lauf 44275682317). Artefakte jünger als eine Stunde bleiben
   # ebenfalls (Puffer für „Re-run failed jobs“ und Läufe, deren Status gerade wechselt); der nächste Lauf räumt sie weg.
   aufraeumen:
-    needs: [windows-paket, windows-altpaket, windows, manager-windows, windows-release, linux-x64, linux-arm64]
+    needs: [windows-paket, windows, manager-windows, windows-release, linux-x64, linux-arm64]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

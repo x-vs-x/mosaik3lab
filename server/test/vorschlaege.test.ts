@@ -181,3 +181,15 @@ test('Zweiter Vorschlag erhält die nächste Nummer', async () => {
   assert.equal(r.json.urgency, 'normal');
   assert.deepEqual(r.json.photos, []);
 });
+test('Suche in der Vorschlagsliste wie im Katalog: Umlaute egal, mehrere Wörter', async () => {
+  const r = await propTeacher.req('POST', '/api/proposals', undefined, {
+    form: proposalForm({ ...proposalBody, title: 'Halter für Gießkanne', description: 'Für den Schulgarten der Klasse 2c, damit die Kanne nicht umfällt.' }),
+  });
+  assert.equal(r.status, 201, JSON.stringify(r.json));
+  const treffer = async (q: string) => (await propTeam.req('GET', `/api/proposals?q=${encodeURIComponent(q)}`)).json.map((p: any) => p.number);
+  for (const q of ['giesskanne', 'GIEßKANNE', 'kanne schulgarten', 'halter fur', r.json.number]) {
+    assert.deepEqual(await treffer(q), [r.json.number], q);
+  }
+  assert.deepEqual(await treffer('Gießkanne Buntstifte'), [], 'jedes Wort muss vorkommen');
+  assert.ok((await treffer('')).length > 1, 'leere Suche zeigt alle');
+});

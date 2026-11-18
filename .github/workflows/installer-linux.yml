@@ -9,9 +9,6 @@ on:
       arch: { type: string, required: true } # x64 | arm64
       runner: { type: string, required: true } # ubuntu-latest | ubuntu-24.04-arm
 
-env:
-  ALTFORMAT: 38823bb52e3f9e05620b4c24e455b5e00f271641 # gleicher Wert wie in installer-test.yml (Kennung für den Cache)
-
 jobs:
   paket:
     runs-on: ${{ inputs.runner }}
@@ -37,48 +34,13 @@ jobs:
           compression-level: 0
           retention-days: 7 # abgeschlossene Läufe räumt der Job „aufraeumen“ weg
 
-  # Das alte Paket kommt immer aus demselben Commit → einmal bauen, danach aus dem Cache (gilt je Branch/PR)
-  altpaket:
-    runs-on: ${{ inputs.runner }}
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Altes Paketformat aus dem Cache
-        id: altformat-cache
-        uses: actions/cache@v6
-        with:
-          path: ${{ runner.temp }}/altformat-paket/Mosaik3LAB-Installer-*.tar.gz
-          key: installer-altformat-${{ runner.os }}-${{ runner.arch }}-${{ env.ALTFORMAT }}
-
-      - uses: actions/setup-node@v7
-        if: steps.altformat-cache.outputs.cache-hit != 'true'
-        with:
-          node-version: 24
-
-      - name: Altes Paketformat bauen (Commit ALTFORMAT)
-        if: steps.altformat-cache.outputs.cache-hit != 'true'
-        run: |
-          git fetch --no-tags --depth 1 origin altformat # Zweig „altformat“ = Stand von Commit ALTFORMAT (ohne Verlauf)
-          quelle="$RUNNER_TEMP/altformat-quelle"
-          git worktree add "$quelle" FETCH_HEAD
-          (cd "$quelle" && npm ci --no-audit --no-fund --loglevel=error && npm run paket -- "$RUNNER_TEMP/altformat-paket")
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: altpaket-linux-${{ inputs.arch }}
-          path: ${{ runner.temp }}/altformat-paket/Mosaik3LAB-Installer-*-linux-${{ inputs.arch }}.tar.gz
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 1
-
   test:
     name: test (${{ matrix.runde }})
-    needs: [paket, altpaket]
+    needs: [paket]
     strategy:
       fail-fast: false
       matrix:
-        runde: [neu, altformat, v100]
+        runde: [neu, v163]
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 30
     steps:
@@ -264,123 +226,72 @@ jobs:
         if: matrix.runde == 'neu'
         run: .github/installer-test/pruefen.sh deinstalliert
 
-      # ---- Runde „altformat“: altes Paketformat (node_modules, tsx) → gebündelt ----
-      - uses: actions/download-artifact@v8
-        if: matrix.runde == 'altformat'
-        with:
-          name: altpaket-linux-${{ inputs.arch }}
-          path: ${{ runner.temp }}/altformat-paket
-
-      - name: Altes Paketformat entpacken
-        if: matrix.runde == 'altformat'
-        run: |
-          paket=$(ls "$RUNNER_TEMP"/altformat-paket/Mosaik3LAB-Installer-*-linux-${{ inputs.arch }}.tar.gz | head -1)
-          test -n "$paket"
-          mkdir "$PAKETE/vf"
-          tar xzf "$paket" -C "$PAKETE/vf"
-          vf="$PAKETE/vf/$(basename "$paket" .tar.gz)"
-          test -d "$vf/node_modules/tsx"
-          echo "VF=$vf" >> "$GITHUB_ENV"
-
-      # Frische Daten der alten Version (die neue hat ggf. ein neueres Datenbank-Schema – darüber würde die alte zu Recht abgelehnt)
-      - name: Altes Format installieren (frische Daten der alten Version)
-        if: matrix.runde == 'altformat'
-        timeout-minutes: 14
-        run: |
-          sudo rm -rf /var/lib/mosaik3lab /var/backups/mosaik3lab /var/log/mosaik3lab
-          .github/installer-test/zeitlimit.sh 12 sudo "$VF/installieren.sh" --still
-
-      - name: Prüfen (altes Format)
-        if: matrix.runde == 'altformat'
-        run: |
-          .github/installer-test/pruefen.sh installiert
-          .github/installer-test/pruefen.sh marker
-          test -d /opt/mosaik3lab/current/node_modules/tsx || { echo "FEHLER: altes Format erwartet (node_modules)"; exit 1; }
-          echo "ERWARTET=$(node -p "require('/opt/mosaik3lab/current/.release.json').id")" >> "$GITHUB_ENV"
-
-      - name: Rückfall-Test aufs alte Format (kaputtes gebündeltes Update)
-        if: matrix.runde == 'altformat'
-        timeout-minutes: 14
-        run: |
-          set +e
-          .github/installer-test/zeitlimit.sh 12 sudo "$V3/installieren.sh" --still 2>&1 | tee "$RUNNER_TEMP/v3b.txt"
-          rc=${PIPESTATUS[0]}
-          set -e
-          [ "$rc" != 124 ] || { echo "FEHLER: das kaputte Update hängt (Zeitlimit) statt zurückzuschalten"; exit 1; }
-          [ "$rc" != 0 ] || { echo "FEHLER: das kaputte Update endete mit Exit 0"; exit 1; }
-          grep -q 'automatisch auf' "$RUNNER_TEMP/v3b.txt" || { echo "FEHLER: keine Meldung zum Rückfall"; exit 1; }
-          echo "OK   kaputtes Update endete mit Exit $rc und hat aufs alte Format zurückgeschaltet"
-
-      - name: Prüfen nach dem Rückfall aufs alte Format
-        if: matrix.runde == 'altformat'
-        run: |
-          .github/installer-test/pruefen.sh installiert
-          .github/installer-test/pruefen.sh zurueck
-
-      - name: Update von altem Paketformat auf gebündeltes
-        if: matrix.runde == 'altformat'
-        timeout-minutes: 14
-        run: .github/installer-test/zeitlimit.sh 12 sudo "$V1/installieren.sh" --still
-
-      - name: Prüfen nach dem Update aufs gebündelte Format
-        if: matrix.runde == 'altformat'
-        run: |
-          .github/installer-test/pruefen.sh installiert
-          .github/installer-test/pruefen.sh erhalten
-          cur=/opt/mosaik3lab/current
-          if [ ! -f "$cur/server/dist/server.mjs" ] || [ -e "$cur/node_modules" ]; then echo "FEHLER: gebündeltes Format erwartet (server/dist, keine node_modules)"; exit 1; fi
-          echo "OK   gebündelt: $(find -L "$cur" -type f | wc -l) Dateien in current"
-
-      # ---- Runde „v100“: eine Schule mit der ersten freigegebenen Version 1.0.0 aktualisiert per Paket ----
-      # Genau das Paket, das die Schulen bekommen haben: aus dem Release v1.0.0 (statt es aus dem Tag neu zu bauen)
-      - name: Paket 1.0.0 holen (Release v1.0.0)
-        if: matrix.runde == 'v100'
+      # ---- Runde „v163“: Update von der freigegebenen Version 1.6.3 (ältere Stände kommen zuerst auf 1.6.3) ----
+      # Genau das Paket, das die Schule bekommen hat: aus dem Release v1.6.3 (statt es aus dem Tag neu zu bauen)
+      - name: Paket 1.6.3 holen (Release v1.6.3)
+        if: matrix.runde == 'v163'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: x-vs-x/mosaik3lab-pakete # öffentliches Paket-Repository (dort liegen alle freigegebenen Versionen)
         run: |
-          gh release download v1.0.0 --pattern 'Mosaik3LAB-Installer-1.0.0-linux-${{ inputs.arch }}.tar.gz' --dir "$PAKETE/v100"
-          paket="$PAKETE/v100/Mosaik3LAB-Installer-1.0.0-linux-${{ inputs.arch }}.tar.gz"
+          gh release download v1.6.3 --pattern 'Mosaik3LAB-Installer-1.6.3-linux-${{ inputs.arch }}.tar.gz' --dir "$PAKETE/v163"
+          paket="$PAKETE/v163/Mosaik3LAB-Installer-1.6.3-linux-${{ inputs.arch }}.tar.gz"
           test -f "$paket"
-          mkdir "$PAKETE/v100x"
-          tar xzf "$paket" -C "$PAKETE/v100x"
-          echo "V100=$PAKETE/v100x/$(basename "$paket" .tar.gz)" >> "$GITHUB_ENV"
+          mkdir "$PAKETE/v163x"
+          tar xzf "$paket" -C "$PAKETE/v163x"
+          echo "V163=$PAKETE/v163x/$(basename "$paket" .tar.gz)" >> "$GITHUB_ENV"
 
-      - name: Version 1.0.0 installieren (frische Daten)
-        if: matrix.runde == 'v100'
+      - name: Version 1.6.3 installieren (frische Daten)
+        if: matrix.runde == 'v163'
         timeout-minutes: 14
         run: |
           sudo rm -rf /var/lib/mosaik3lab /var/backups/mosaik3lab /var/log/mosaik3lab
-          .github/installer-test/zeitlimit.sh 12 sudo "$V100/installieren.sh" --still
+          .github/installer-test/zeitlimit.sh 12 sudo "$V163/installieren.sh" --still
 
-      - name: Prüfen (1.0.0) und Testdaten anlegen
-        if: matrix.runde == 'v100'
+      - name: Prüfen (1.6.3) und Testdaten anlegen
+        if: matrix.runde == 'v163'
         run: |
           .github/installer-test/pruefen.sh installiert
           .github/installer-test/pruefen.sh marker
 
-      - name: Mailversand mit 1.0.0 einrichten (SMTP-Fänger, über den Manager)
-        if: matrix.runde == 'v100'
+      # Druckteil mit Bildern in 1.6.3 anlegen: nach dem Update müssen Datensätze und Dateien unverändert da sein
+      - name: Testdaten mit 1.6.3 (Druckteil mit Bildern)
+        if: matrix.runde == 'v163'
+        timeout-minutes: 5
+        run: node .github/installer-test/bilder-pruefen.mjs --testdaten
+
+      - name: Mailversand mit 1.6.3 einrichten (SMTP-Fänger, über den Manager)
+        if: matrix.runde == 'v163'
         timeout-minutes: 5
         run: .github/installer-test/pruefen.sh mail-einrichten
 
-      - name: Update 1.0.0 → neue Version (installieren.sh)
-        if: matrix.runde == 'v100'
+      - name: Daten vor dem Update merken (Zeilen je Tabelle, Dateien der Ablage)
+        if: matrix.runde == 'v163'
+        run: sudo /opt/mosaik3lab/current/node/node .github/installer-test/daten-stand.mjs merken /var/lib/mosaik3lab/daten/mosaik3lab.db /var/lib/mosaik3lab/ablage "$RUNNER_TEMP/stand-163.json"
+
+      - name: Update 1.6.3 → neue Version (installieren.sh)
+        if: matrix.runde == 'v163'
         timeout-minutes: 14
         run: .github/installer-test/zeitlimit.sh 12 sudo "$V1/installieren.sh" --still
 
-      - name: Prüfen nach dem Update von 1.0.0
-        if: matrix.runde == 'v100'
+      - name: Prüfen nach dem Update von 1.6.3
+        if: matrix.runde == 'v163'
         run: |
           .github/installer-test/pruefen.sh installiert
           .github/installer-test/pruefen.sh erhalten
+          sudo /opt/mosaik3lab/current/node/node .github/installer-test/daten-stand.mjs vergleichen /var/lib/mosaik3lab/daten/mosaik3lab.db /var/lib/mosaik3lab/ablage "$RUNNER_TEMP/stand-163.json"
 
-      - name: Mailversand nach dem Update von 1.0.0 (Einstellungen, Testmail, App-Mail)
-        if: matrix.runde == 'v100'
+      - name: Mailversand nach dem Update von 1.6.3 (Einstellungen, Testmail, App-Mail)
+        if: matrix.runde == 'v163'
         timeout-minutes: 5
         run: .github/installer-test/pruefen.sh mail-erhalten
 
-      # ---- Ende der Runden „altformat“ und „v100“: deinstallieren ----
+      - name: Bildverarbeitung der neuen Version (nach dem Update von 1.6.3)
+        if: matrix.runde == 'v163'
+        timeout-minutes: 5
+        run: node .github/installer-test/bilder-pruefen.mjs
+
+      # ---- Ende der Runde „v163“: deinstallieren ----
       - name: Deinstallieren (Runde ${{ matrix.runde }})
         if: matrix.runde != 'neu'
         timeout-minutes: 5
@@ -412,8 +323,11 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # Manager-Tests auf einem eigenen, frischen Rechner (sie stoppen Dienste – neben einer Installation geht das nicht)
+  # Manager-Tests auf einem eigenen, frischen Rechner (sie stoppen Dienste – neben einer Installation geht das nicht).
+  # Pull Requests unter x64: läuft schon im Workflow „Prüfen“ (gleicher Rechnertyp) → hier nicht doppelt. Bei Tags und Pushes
+  # läuft er immer – „release“ hängt daran (needs), es wird also nie ein Paket ohne bestandene Manager-Tests veröffentlicht.
   manager:
+    if: ${{ inputs.arch != 'x64' || github.event_name != 'pull_request' }}
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 10
     steps:

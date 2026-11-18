@@ -1,10 +1,14 @@
 import crypto from 'node:crypto';
-import { newId } from '../../domain/ids';
-import { userCan } from '../../domain/permissions';
-import { initialStatus, isAllowedEmail, type Filament, type StatusPhase } from '../../domain/settings';
-import { singleColorArea, type Item, type Order, type OrderColorChoice, type OrderCustomValue, type Requester, type User } from '../../domain/types';
+import { newId } from '../../kern/ids';
+import { userCan } from '../konten/rechte';
+import { ANFANGSSTATUS, isAllowedEmail } from '../einstellungen/einstellungen.vorgaben';
+import { type Filament } from '@mosaik3lab/shared/stammdaten';
+import { type StatusPhase } from '@mosaik3lab/shared/anfragen';
+import { singleColorArea, type Item, type User } from '../../domain/types';
+import { type DashboardData, type Order, type OrderColorChoice, type OrderCustomValue, type OwnOrder, type Requester, type RequestTemplate } from '@mosaik3lab/shared/anfragen';
 import { badRequest, conflict, forbidden, notFound } from '../../kern/errors';
 import type { Storage } from '../../storage';
+import { passtZurSuche } from '@mosaik3lab/shared/suche';
 import { notifyNewOrder } from './anfragen.mail';
 import {
   colorChoicesText,
@@ -123,7 +127,7 @@ export function createTrackingCode(): string {
   return Array.from(crypto.randomBytes(8), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
 }
 
-export const canManage = (user: User | undefined) => userCan(user, 'orders:view');
+export const siehtAlleAnfragen = (user: User | undefined) => userCan(user, 'orders:view');
 
 /** Anfrage stellen – ohne Anmeldung möglich. Schul-E-Mail und Klasse werden eingetragen. */
 export async function createOrder(storage: Storage, input: OrderInputData, user: User | undefined, loggedIn: Requester | undefined) {
@@ -152,7 +156,7 @@ export async function createOrder(storage: Storage, input: OrderInputData, user:
   }
   // Unbekannte Adresse → Lehrkraft wird automatisch neu angelegt (ohne Passwort/Profil).
   const requester = await storage.requesters.upsertByEmail(email, now);
-  const status = initialStatus(settings.masterData);
+  const status = ANFANGSSTATUS;
   const order = await storage.orders.create({
     id: newId(),
     itemId: item.id,
@@ -169,15 +173,15 @@ export async function createOrder(storage: Storage, input: OrderInputData, user:
     createdAt: now,
     updatedAt: now,
   });
-  notifyNewOrder(storage, storage.sqlite.db, order, item);
+  notifyNewOrder(storage, order, item);
 
   // Lehrkräfte reichen nur ein – Status und Code erhalten sie nur, wenn das eingeschaltet ist.
-  if (!settings.features.requesterTracking && !canManage(user)) return { id: order.id, number: order.number, itemName: order.itemName };
+  if (!settings.features.requesterTracking && !siehtAlleAnfragen(user)) return { id: order.id, number: order.number, itemName: order.itemName };
   return order;
 }
 
 /** Nur offene Anfragen (vom Team noch nicht angesehen) darf die Lehrkraft selbst ändern. */
-const isEditable = (o: Order) => o.status === initialStatus();
+const isEditable = (o: Order) => o.status === ANFANGSSTATUS;
 
 /**
  * Eigene Anfrage ändern, solange sie offen ist. Gleiche Prüfung wie beim Anlegen; Druckteil, E-Mail und
@@ -200,7 +204,7 @@ export async function updateOwnOrder(storage: Storage, id: string, input: OrderI
     return { ...current, ...values, history: [...current.history, entry], updatedAt: at };
   });
   if (!updated) throw notFound('Anfrage nicht gefunden.');
-  notifyNewOrder(storage, storage.sqlite.db, updated, item, order);
+  notifyNewOrder(storage, updated, item, order);
   return toOwnOrder(updated, features.requesterTracking);
 }
 
@@ -212,8 +216,8 @@ export async function trackOrders(storage: Storage, body: unknown) {
 }
 
 /** Sicht der Lehrkraft auf ihre Anfrage – ohne interne Felder. */
-function toOwnOrder(o: Order, withStatus: boolean) {
-  const base = {
+function toOwnOrder(o: Order, withStatus: boolean): OwnOrder {
+  const base: OwnOrder = {
     id: o.id,
     number: o.number,
     itemId: o.itemId,
@@ -235,7 +239,7 @@ function toOwnOrder(o: Order, withStatus: boolean) {
 }
 
 /** Eigene Anfragen der Lehrkraft; Bearbeitungsstand nur, wenn die Statusanzeige für Lehrkräfte eingeschaltet ist. */
-export async function myOrders(storage: Storage, requesterId: string) {
+export async function myOrders(storage: Storage, requesterId: string): Promise<OwnOrder[]> {
   const { features } = await storage.settings.get();
   const orders = (await storage.orders.listByRequester(requesterId)).sort(byNewest);
   const items = new Map(storage.items.listByIds(orders.map((o) => o.itemId)).map((i) => [i.id, i]));
@@ -249,7 +253,7 @@ export async function myOrders(storage: Storage, requesterId: string) {
  * Vorlage zum erneuten Anfragen: nur die eigene Anfrage. Prüft gegen den aktuellen Stand des Druckteils und
  * liefert nur noch gültige Angaben; alles andere steht in `hinweise` (und bleibt im Formular leer).
  */
-export async function orderTemplate(storage: Storage, orderId: string, requesterId: string) {
+export async function orderTemplate(storage: Storage, orderId: string, requesterId: string): Promise<RequestTemplate> {
   const order = await storage.orders.findById(orderId);
   if (!order || order.requesterId !== requesterId) throw notFound('Anfrage nicht gefunden.');
   const item = order.itemId ? await storage.items.findById(order.itemId) : undefined;
@@ -310,12 +314,11 @@ export async function listRequesters(storage: Storage) {
     .sort((a, b) => b.lastOrderAt.localeCompare(a.lastOrderAt));
 }
 
-/** Alle Anfragen, optional nach Status und Suchtext gefiltert, neueste zuerst. */
+/** Alle Anfragen, optional nach Status und Suchtext gefiltert (wie im Katalog: jedes Wort, Umlaute egal), neueste zuerst. */
 export function listOrders(storage: Storage, status: string, query: string) {
-  const q = query.trim().toLocaleLowerCase('de-DE');
   return storage.orders
     .listByStatus(status)
-    .filter((o) => !q || [o.number, o.itemName, o.classOrTeam, o.color, o.requesterName, o.requesterEmail].join(' ').toLocaleLowerCase('de-DE').includes(q))
+    .filter((o) => passtZurSuche([o.number, o.itemName, o.classOrTeam, o.color, o.requesterName, o.requesterEmail], query))
     .sort(byNewest);
 }
 
@@ -339,7 +342,7 @@ export async function changeStatus(storage: Storage, id: string, status: string,
 }
 
 /** Übersicht für das Druck-Team: Zahlen per SQL, dazu die neuesten Anfragen. */
-export async function dashboard(storage: Storage) {
+export async function dashboard(storage: Storage): Promise<DashboardData> {
   const statuses = (await storage.settings.get()).masterData.orderStatuses;
   const byStatus: Record<string, number> = Object.fromEntries(statuses.map((s) => [s.id, 0]));
   for (const [status, n] of Object.entries(storage.orders.countByStatus())) byStatus[status] = (byStatus[status] ?? 0) + n;

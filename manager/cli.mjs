@@ -11,7 +11,6 @@ const readline = await import('node:readline/promises');
 const { publicConfig, resolvePaths, configErrors, getConfig, INSTALL, DEFAULTS } = await import('./lib/config.mjs');
 const { serviceStatus, startService, stopService, KEYS } = await import('./lib/services.mjs');
 const { listBackups, createBackup, restoreBackup, fillMissingFiles, KINDS } = await import('./lib/backup.mjs');
-const { checkUpdate, installUpdate } = await import('./lib/update.mjs');
 const { install, uninstall, STEPS, ROLLBACK_STEP } = await import('./lib/setup.mjs');
 const { reconcile } = await import('./lib/reconcile.mjs');
 const { configureBackupPassword, keyFileExists } = await import('./lib/backupcrypto.mjs');
@@ -37,9 +36,9 @@ const HELP = `Mosaik³LAB Server-Manager – Kommandozeile
   backup password set <pw>|generate|off    Backup-Passwort (AES-256-GCM) festlegen / erzeugen / Verschlüsselung aus
   reconcile [--dry-run] [--path ablageDir|backupDir|logDir=<ordner>]
                                System aus der Datenbank abgleichen (Firewall, Ports, Ordner, Dienste)
-  update [check|install]       Update aus Git (mit Backup und automatischem Rollback)
-  runtime [status [--audit]]   Node.js, Git, Dienst-Wrapper: installiert / aktuell / Ampel (+ npm audit)
-  runtime update <node|git|wrapper> [--dry-run]   aktualisieren (Sicherung, Dienste stoppen/starten, Health-Check)
+  update [check|install]       Paket-Installation: freigegebene Version suchen / installieren (Update-Helfer, Sicherung, Rückfall)
+  runtime [status [--audit]]   Node.js, Dienst-Wrapper: installiert / aktuell / Ampel (+ npm audit)
+  runtime update <node|wrapper> [--dry-run]   aktualisieren (Sicherung, Dienste stoppen/starten, Health-Check)
   setup --config <datei.json> [--dry-run] [--aeltere-version]
                                einrichten bzw. aktualisieren (siehe README); ältere Version nur mit --aeltere-version
   setup --from-backup <datei.m3lbackup> [--config <datei.json>] [--backup-password <pw>] [--path <schlüssel>=<ordner>] [--system-dry-run]
@@ -172,14 +171,24 @@ try {
       break;
     }
     case 'update': {
+      // Nur Installationen aus einem Installer-Paket – wie „Nach Updates suchen“ / „Jetzt aktualisieren“ im Manager
+      const updates = await import('./lib/updates.mjs');
+      if (!updates.istPaketInstallation()) fail(new Error('Updates gibt es für Installationen aus einem Installer-Paket – in der Arbeitskopie: git pull, dann npm run paket.'), 4);
       if (!sub || sub === 'check') {
-        const r = await checkUpdate();
-        print(r, () => [`Installiert: ${r.installed?.id ?? '–'}`, `Verfügbar:   ${r.available.id}${r.updateAvailable ? '  ← Update verfügbar' : ' (aktuell)'}`, ...r.available.changes.map((c) => `  ${c}`)].join('\n'));
-        process.exitCode = r.updateAvailable ? 1 : 0;
+        const r = await updates.pruefen();
+        print(r, () => [`Installiert: ${r.installed?.version ?? '–'}`, r.error ? `! ${r.error}${r.hint ? ` → ${r.hint}` : ''}` : `Verfügbar:   ${r.latest ? `${r.latest.version}  ← Update verfügbar` : 'keine neuere Version (aktuell)'}`].join('\n'));
+        process.exitCode = r.error ? 2 : r.behind ? 1 : 0;
       } else if (sub === 'install') {
-        const r = await installUpdate(undefined, (id, status, detail) => !JSON_OUT && status !== 'läuft' && console.log(stepLine({ id, status, detail })));
-        print(r, `${r.ok ? '✔' : '✘'} ${r.message}`);
-        process.exitCode = r.ok ? 0 : 2;
+        await updates.pruefen();
+        const r = await updates.starten();
+        // Download, Prüfung und Start des Update-Helfers laufen im Hintergrund – darauf warten
+        let d = updates.zustand().download;
+        while (d && !d.gestartet && !d.error) {
+          await new Promise((res) => setTimeout(res, 1000));
+          d = updates.zustand().download;
+        }
+        if (d?.error) fail(Object.assign(new Error(d.error), { hint: d.hint }), 2);
+        print(r, `✔ Update auf ${r.version} heruntergeladen und geprüft – der Update-Helfer installiert es jetzt (Sicherung vorher, Rückfall bei Fehler). Fortschritt: Server-Manager oder Protokoll „Update“.`);
       } else fail(new Error(`Unbekannt: update ${sub}`), 4);
       break;
     }
@@ -190,7 +199,7 @@ try {
         print({ ...r, audit }, () => [...r.rows.map((x) => `${SYM[x.light]} ${x.title.padEnd(24)} ${x.label}${x.light !== 'ok' && x.hint ? ` → ${x.hint}` : ''}`), audit && `${SYM[audit.light]} npm-Pakete (audit)      ${audit.label}`].filter(Boolean).join('\n'));
         process.exitCode = r.rows.some((x) => x.light === 'error') ? 2 : r.rows.some((x) => x.light === 'warn') ? 1 : 0;
       } else if (sub === 'update') {
-        if (!arg) fail(new Error('Laufzeit angeben: runtime update <node|git|wrapper> [--dry-run]'), 4);
+        if (!arg) fail(new Error('Laufzeit angeben: runtime update <node|wrapper> [--dry-run]'), 4);
         const r = await updateRuntime(arg, { dryRun: has('--dry-run') }, (id, status, detail) => !JSON_OUT && status !== 'läuft' && console.log(stepLine({ id, status, detail })));
         if (r.dryRun) print(r, () => [`Probelauf – ${r.what} (installiert: ${r.from ?? 'nicht gefunden'}):`, ...r.steps.map((t, i) => `  ${i + 1}. ${t}`), 'Befehl (mit Administratorrechten):', r.command.replace(/^/gm, '    ')].join('\n'));
         else {
@@ -235,7 +244,7 @@ try {
       const file = opt('--config');
       const from = opt('--from-backup');
       if ((!file || !fs.existsSync(file)) && !from) fail(new Error('Einstellungsdatei angeben: setup --config <datei.json> [--dry-run] – oder: setup --from-backup <sicherungsordner>'), 4);
-      const input = file ? JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, '')) : {};
+      const input = file ? JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')) : {};
       if (from) input.fromBackup = { dir: from, password: opt('--backup-password'), paths: pathOpts() };
       if (has('--system-dry-run')) input.systemDryRun = true;
       if (has('--skip-build')) input.skipBuild = true;

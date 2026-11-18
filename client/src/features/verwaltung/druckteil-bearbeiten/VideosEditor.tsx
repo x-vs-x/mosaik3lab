@@ -1,3 +1,4 @@
+import { MAX_VIDEO_BYTES, mbText } from '@mosaik3lab/shared/werte/dateien';
 import { Link2, Trash2, Upload, Video } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 import { useToast } from '../../../components/Toast';
@@ -123,7 +124,7 @@ export function VideosEditor({ item, onChange }: { item: Item; onChange: (i: Ite
           <FilePicker
             accept=".mp4,.m4v,.webm,video/mp4,video/webm"
             label="Video hochladen"
-            hint="MP4 oder WebM · max. 50 MB · ein Video pro Upload"
+            hint={`MP4 oder WebM · max. ${mbText(MAX_VIDEO_BYTES)} · ein Video pro Upload`}
             uploading={busy}
             status={uploadStatus('videos', anteil)}
             onAbbrechen={anteil !== null ? () => hochladen.current?.abort() : undefined}

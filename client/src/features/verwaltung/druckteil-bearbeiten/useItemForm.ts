@@ -5,6 +5,7 @@ import { useToast } from '../../../components/Toast';
 import { api, ApiError } from '../../../lib/api';
 import { useConfig, useMasterData } from '../../../lib/config';
 import { entwurfSchluessel } from '../../../lib/entwurfSpeicher';
+import { ersteFehlerstelle } from '../../../lib/fokus';
 import { useEntwurf } from '../../../lib/useEntwurf';
 import type { Item, ItemInput } from '../../../lib/types';
 import { useApi } from '../../../lib/useApi';
@@ -13,7 +14,7 @@ import { EMPTY, toInput, validateLocal, type FieldErrors, type SetField } from '
 /** Formular-Zustand des Druckteil-Editors: Laden, Feldwerte, Fehler, Speichern. */
 export function useItemForm(id: string | undefined) {
   const isNew = !id;
-  const { data: loaded, error: loadError, loading } = useApi<Item>(isNew ? null : `/items/${id}`);
+  const { data: loaded, error: loadError, loading, reload } = useApi<Item>(isNew ? null : `/items/${id}`);
   const [item, setItem] = useState<Item>();
   const [form, setForm] = useState<ItemInput>(EMPTY);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -50,10 +51,14 @@ export function useItemForm(id: string | undefined) {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    // Nach dem Zeichnen der Fehler direkt zum ersten markierten Feld (spart Tab-Wege, wichtig mit Tastatur oder Taster).
+    const formular = e.currentTarget as HTMLFormElement;
+    const zumFehler = () => requestAnimationFrame(() => ersteFehlerstelle<HTMLElement>(formular)?.focus());
     const local = validateLocal(form);
     if (Object.keys(local).length) {
       setErrors(local);
       setFormError('Bitte prüfen Sie die markierten Abschnitte.');
+      zumFehler();
       return;
     }
     setSaving(true);
@@ -72,11 +77,12 @@ export function useItemForm(id: string | undefined) {
       if (err instanceof ApiError) {
         setErrors(err.fields);
         setFormError(err.message);
+        zumFehler();
       }
     } finally {
       setSaving(false);
     }
   };
 
-  return { isNew, loading, loadError, item, setItem, form, set, errors, formError, saving, submit, entwurf };
+  return { isNew, loading, loadError, reload, item, setItem, form, set, errors, formError, saving, submit, entwurf };
 }

@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
 import { austauschLaeuft } from '../../kern/bilder';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Router, type RequestHandler } from 'express';
@@ -9,14 +8,14 @@ import multer from 'multer';
 import { z } from 'zod';
 import type { Auth } from '../../kern/auth/middleware';
 import type { AppConfig } from '../../config';
-import { badRequest, conflict, HttpError, notFound } from '../../kern/errors';
+import { badRequest, HttpError } from '../../kern/errors';
 import { param } from '../../kern/http';
 import { rateLimit } from '../../kern/rateLimit';
-import { erzeugeExport, MAX_AUSWAHL, type Paket } from './datenaustausch.export';
-import { ID, leseKopf, pruefeDateien, type DateiInfo } from './datenaustausch.paket';
-import { fuehreAus, vorschau, type Bericht, type Modus } from './datenaustausch.service';
+import { ImportAblauf } from './datenaustausch.ablauf';
+import { importAusfuehrenSchema, MAX_EXPORT_AUSWAHL as MAX_AUSWAHL } from '@mosaik3lab/shared/datenaustausch';
+import { erzeugeExport } from './datenaustausch.export';
+import { ID } from './datenaustausch.paket';
 import type { Storage } from '../../storage';
-import { stamp } from '../../kern/db';
 
 // Druckteile exportieren und einspielen – der eine Weg dafür (Verwaltung → Druckteile, Rechte daten:export/daten:import).
 //   GET  /export[?artikel=id1,id2]   eine ZIP-Datei mit den gewählten (ohne Angabe: allen) Druckteilen samt Dateien
@@ -24,27 +23,8 @@ import { stamp } from '../../kern/db';
 //   POST /import/vorschau            Datei hochladen und prüfen → Vorschau für „überspringen“ und „ersetzen“
 //   POST /import/ausfuehren          { importId, modus } – alles oder nichts, vorher wird die Datenbank gesichert
 //   DELETE /import/:id               Vorschau verwerfen
-// Siehe datenaustausch.export.ts (Format), datenaustausch.paket.ts (Lesen/Prüfen) und datenaustausch.service.ts (Ablauf).
-
-const VORSCHAU_GUELTIG_MS = 30 * 60 * 1000;
-const AUFRAEUMEN_MS = 5 * 60 * 1000;
-
-interface Wartend {
-  id: string;
-  nutzerId: string;
-  datei: string;
-  paket: Paket;
-  infos: Map<string, DateiInfo>;
-  groesse: number;
-  bis: number;
-  /** Wird gerade eingespielt – nicht verwerfen. */
-  inArbeit?: boolean;
-}
-
-const ausfuehrenSchema = z.object({
-  importId: z.string().regex(/^[a-f0-9]{32}$/, 'Die Vorschau ist abgelaufen. Bitte die Datei erneut auswählen.'),
-  modus: z.enum(['ueberspringen', 'ersetzen']).default('ueberspringen'),
-});
+// Siehe datenaustausch.export.ts (Format), datenaustausch.paket.ts (Lesen/Prüfen), datenaustausch.ablauf.ts (wartende
+// Vorschauen, Sicherung) und datenaustausch.service.ts (Rechnen in einer Transaktion).
 
 /** `?artikel=id1,id2` – Auswahl für den Teil-Export (Länge begrenzt, damit die Adresse nicht zu lang wird). */
 const artikelQuery = z
@@ -56,30 +36,7 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
   const router = Router();
   const uploadDir = path.join(config.storageDir, 'import-tmp');
   const ablageTmp = path.join(storage.files.root, '.import-tmp');
-  const wartend = new Map<string, Wartend>();
-  let beschaeftigt = false;
-
-  // Reste eines abgebrochenen Imports (Neustart) aufräumen. Gesperrte Reste (Virenscanner, Indexer) verhindern den Start
-  // nicht – sie werden beim nächsten Start erneut versucht.
-  for (const dir of [uploadDir, ablageTmp]) {
-    try {
-      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    } catch (err) {
-      console.warn(`[Import] Reste in ${dir} bleiben liegen: ${(err as Error).message}`);
-    }
-  }
-
-  const verwerfe = async (w: Wartend) => {
-    wartend.delete(w.id);
-    // maxRetries: unter Windows halten Virenscanner/Indexer Dateien kurz fest (EBUSY/EPERM).
-    await fsp.rm(w.datei, { force: true, maxRetries: 5, retryDelay: 100 });
-    await fsp.rm(path.join(ablageTmp, w.id), { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-  };
-  const aufraeumen = async () => {
-    for (const w of [...wartend.values()]) if (w.bis < Date.now() && !w.inArbeit) await verwerfe(w);
-  };
-  // Abgebrochene Vorschauen (Fenster geschlossen) belegen bis zu 1 GB – regelmäßig verwerfen, auch ohne neuen Import.
-  setInterval(() => aufraeumen().catch((e: Error) => console.warn('[Import] Aufräumen fehlgeschlagen:', e.message)), AUFRAEUMEN_MS).unref();
+  const ablauf = new ImportAblauf(storage, uploadDir, ablageTmp);
 
   const upload = multer({
     storage: multer.diskStorage({
@@ -128,76 +85,17 @@ export function datenRoutes(storage: Storage, auth: Auth, config: AppConfig) {
   router.post('/import/vorschau', auth.requirePermission('daten:import'), importLimit, einzelneDatei, async (req, res) => {
     const file = req.file;
     if (!file) throw badRequest('Bitte eine Export-Datei auswählen.');
-    let behalten = false;
-    try {
-      await aufraeumen();
-      const paket = await leseKopf(file.path);
-      const infos = await pruefeDateien(file.path, paket);
-      const berichte: Record<Modus, Bericht> = {
-        ueberspringen: vorschau(storage, paket, 'ueberspringen', infos),
-        ersetzen: vorschau(storage, paket, 'ersetzen', infos),
-      };
-      const id = crypto.randomBytes(16).toString('hex');
-      // Höchstens eine wartende Vorschau je Person: eine ältere (abgebrochener Versuch) wird verworfen.
-      for (const alt of [...wartend.values()]) if (alt.nutzerId === req.user!.id && !alt.inArbeit) await verwerfe(alt);
-      wartend.set(id, { id, nutzerId: req.user!.id, datei: file.path, paket, infos, groesse: file.size, bis: Date.now() + VORSCHAU_GUELTIG_MS });
-      behalten = true;
-      res.json({
-        importId: id,
-        gueltigBis: new Date(Date.now() + VORSCHAU_GUELTIG_MS).toISOString(),
-        dateigroesse: file.size,
-        kopf: {
-          exportiertAm: paket.exportiertAm,
-          appVersion: paket.appVersion,
-          mitDateien: paket.mitDateien,
-          hinweise: paket.hinweise,
-          artikel: paket.artikel.length,
-          vorhanden: berichte.ueberspringen.vorhanden,
-          dateien: infos.size,
-          version: paket.version,
-        },
-        berichte,
-      });
-    } finally {
-      if (!behalten) await fsp.rm(file.path, { force: true });
-    }
+    res.json(await ablauf.vorschauAnlegen(file, req.user!.id));
   });
 
   router.delete('/import/:id', auth.requirePermission('daten:import'), async (req, res) => {
-    const w = wartend.get(param(req.params.id));
-    if (w && w.nutzerId === req.user!.id && !w.inArbeit) await verwerfe(w);
+    await ablauf.verwerfen(param(req.params.id), req.user!.id);
     res.status(204).end();
   });
 
   router.post('/import/ausfuehren', auth.requirePermission('daten:import'), importLimit, async (req, res) => {
-    const body = ausfuehrenSchema.parse(req.body);
-    const w = wartend.get(body.importId);
-    if (!w || w.nutzerId !== req.user!.id || w.bis < Date.now()) throw notFound('Die Vorschau ist abgelaufen. Bitte die Datei erneut auswählen.');
-    if (beschaeftigt) throw conflict('Es wird gerade schon eine Datei eingespielt. Bitte kurz warten.');
-    beschaeftigt = true;
-    w.inArbeit = true;
-    const importFertig = austauschLaeuft(); // Bildpflege pausiert solange, Originale bleiben unverändert
-    const tmpDir = path.join(ablageTmp, w.id);
-    let antwort: { bericht: unknown; sicherung: string };
-    try {
-      // 1) Sicherung der Datenbank (Dateien der Ablage sichert das Backup des Server-Managers).
-      const sicherungsOrdner = path.join(path.dirname(config.dbFile), 'sicherungen');
-      let sicherung = path.join(sicherungsOrdner, `mosaik3lab-vor-import-${stamp()}.db`);
-      for (let n = 2; fs.existsSync(sicherung); n++) sicherung = path.join(sicherungsOrdner, `mosaik3lab-vor-import-${stamp()}-${n}.db`);
-      storage.database.backupInto(sicherung);
-      // 2) Dateien erneut prüfen und in den Temp-Bereich der Ablage schreiben.
-      const infos = await pruefeDateien(w.datei, w.paket, tmpDir);
-      // 3) Datenbank in einer Transaktion ändern, Dateien verschieben; bei Fehler alles zurück.
-      const bericht = await fuehreAus(storage, w.paket, body.modus, infos, tmpDir);
-      console.log(`[Import] ${req.user!.email} hat ${w.paket.artikel.length} Druckteile eingespielt (${body.modus}, Sicherung: ${sicherung}).`);
-      antwort = { bericht, sicherung: path.basename(sicherung) };
-    } finally {
-      // Erst aufräumen, dann antworten: sonst sieht der Aufrufer den Temp-Ordner beim Verschwinden.
-      await verwerfe(w).catch((e) => console.warn('[Import] Aufräumen fehlgeschlagen:', e));
-      beschaeftigt = false;
-      importFertig();
-    }
-    res.json(antwort);
+    const body = importAusfuehrenSchema.parse(req.body);
+    res.json(await ablauf.ausfuehren(body.importId, body.modus, req.user!));
   });
 
   return router;

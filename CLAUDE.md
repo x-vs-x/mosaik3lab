@@ -42,7 +42,7 @@ eigener Datenordner mit Demo-Daten): `preview_start {name: "session-n"}`. Der Ha
 | Daten des Hauptstands (auch in der Entwicklung) | `C:\Mosaik3LAB\daten` (Datenbank), `C:\Mosaik3LAB\ablage` (Bilder, Videos, Druckdateien), `C:\Mosaik3LAB\backups` – Standard ohne `STORAGE_DIR`, überschreibbar mit `MOSAIK3LAB_ROOT` |
 | Entwicklung: Arbeitskopie einer Session | `C:\Entwicklung\mosaik3lab-<name>` |
 | Entwicklung: Testdaten einer Session | `C:\Entwicklung\_testdaten\<name>\` (STORAGE_DIR, Kopien, Test-Backups) |
-| Installiert (Windows, Installer-Paket) | Programm `C:\Program Files\Mosaik3LAB\` (`releases\`, `current`, Dienstdateien, Node), Daten `C:\Mosaik3LAB\` mit `daten\`, `ablage\bilder\`, `ablage\druckdateien\`, `ablage\videos\`, `backups\`, `logs\` – ältere Installation (dieser Rechner bis zum Umzug): Programm `C:\Mosaik3LAB\programm\`, Dienstdateien `C:\Mosaik3LAB\manager\` |
+| Installiert (Windows, Installer-Paket) | Programm `C:\Program Files\Mosaik3LAB\` (`releases\`, `current`, Dienstdateien, Node), Daten `C:\Mosaik3LAB\` mit `daten\`, `ablage\bilder\`, `ablage\druckdateien\`, `ablage\videos\`, `backups\`, `logs\` |
 | Installiert (Linux/Raspberry Pi OS 64 Bit, Installer-Paket `…-linux-x64` bzw. `…-linux-arm64.tar.gz`) | Programm `/opt/mosaik3lab` (`releases/`, `current`, Node; gehört root), Daten `/var/lib/mosaik3lab` (`daten/`, `ablage/`, `manager/` mit Dienstdateien und Manifest), `/var/backups/mosaik3lab`, `/var/log/mosaik3lab` – Dienste systemd `mosaik3lab-*`, Benutzer `mosaik3lab` |
 
 Alle installierten Pfade sind Vorgaben, im Server-Manager änderbar. Testdaten werden beim Aufräumen gelöscht,

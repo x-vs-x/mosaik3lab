@@ -1,4 +1,6 @@
-import type { ACCOUNT_ROLES, ColorArea, CustomField, Item } from '../domain/types';
+import type { ACCOUNT_ROLES } from '@mosaik3lab/shared/konten';
+import type { ColorArea, CustomField } from '@mosaik3lab/shared/katalog';
+import type { Item } from '../domain/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BEISPIELDATEN – nur für die lokale Entwicklung.
@@ -21,13 +23,6 @@ export const DEMO_USERS: DemoUser[] = [
   { key: 'admin', username: 'admin', email: 'demo.admin@schule.example', displayName: 'Demo Administration', role: 'admin', password: 'Mosaik-Admin-2026' },
   { key: 'druck', username: 'druckteam', email: 'demo.druckteam@schule.example', displayName: 'Demo 3D-Druck-Team', role: 'druckteam', password: 'Mosaik-Druck-2026' },
 ];
-
-/** E-Mail-Adressen für Demo-Konten älterer Datenstände (ohne E-Mail), nach Benutzername. */
-export const LEGACY_DEMO_EMAILS: Record<string, string> = {
-  admin: 'demo.admin@schule.example',
-  druckteam: 'demo.druckteam@schule.example',
-  lehrkraft: 'demo.lehrkraft@schule.example',
-};
 
 export interface DemoItem {
   key: string;

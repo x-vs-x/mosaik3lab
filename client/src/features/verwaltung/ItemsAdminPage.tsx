@@ -1,14 +1,14 @@
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, Eye, Pencil, Plus, Search, SearchX, Trash2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, Eye, Pencil, Plus, SearchX, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { DateiLaden } from '../../components/DateiLaden';
 import { Dialog } from '../../components/Dialog';
 import { ItemImage } from '../../components/ItemImage';
+import { LadeFehler, Suchfeld } from '../../components/Listenwerkzeug';
 import { useToast } from '../../components/Toast';
 import {
   ActionBar,
-  Alert,
   Badge,
   Button,
   buttonClass,
@@ -16,18 +16,18 @@ import {
   cx,
   DemoBadge,
   EmptyState,
-  inputClass,
   LinkButton,
   PageHeader,
   Spinner,
   Switch,
 } from '../../components/ui';
 import { ColorSwatch } from '../../components/ColorSwatch';
-import { api, ApiError } from '../../lib/api';
+import { api, fehlerText } from '../../lib/api';
 import { useConfig, useMasterData } from '../../lib/config';
-import { filamentLabel, findFilament } from '../../lib/constants';
+import { filamentLabel, findFilament } from '../../lib/colors';
 import { formatDuration, formatRelative, plural } from '../../lib/format';
 import { ITEM_KIND_LABELS, type Filament, type Item, type MasterData } from '../../lib/types';
+import { useSuchParameter } from '../../lib/suchParameter';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
 import { EinspielenDialog, exportUrl, MAX_AUSWAHL } from './DruckteileAustausch';
 import { ANSICHTEN, filtereDruckteile, leseAnsicht, zaehleAnsichten, type Ansicht } from './druckteilFilter';
@@ -63,17 +63,12 @@ export function ItemsAdminPage() {
   useDocumentTitle('Druckteile verwalten');
   const { data: items, setData, error, loading, reload } = useApi<Item[]>('/items?all=1');
   // Suche und Ansicht in der Adresse, damit sie „Zurück“ und Neuladen überstehen (wie bei den Anfragen).
-  const [params, setParams] = useSearchParams();
+  const [params, setze] = useSuchParameter();
   const q = params.get('q') ?? '';
   const ansicht = leseAnsicht(params.get('ansicht'));
-  const setParam = (key: 'q' | 'ansicht', value: string) => {
-    const next = new URLSearchParams(params);
-    if (value && !(key === 'ansicht' && value === 'alle')) next.set(key, value);
-    else next.delete(key);
-    setParams(next, { replace: true });
-  };
-  const setQ = (value: string) => setParam('q', value);
-  const setAnsicht = (value: Ansicht) => setParam('ansicht', value);
+  const setQ = (value: string) => setze({ q: value });
+  // „Alle“ ist der Standard und steht nicht in der Adresse.
+  const setAnsicht = (value: Ansicht) => setze({ ansicht: value === 'alle' ? null : value });
   const [toDelete, setToDelete] = useState<Item>();
   const [deleting, setDeleting] = useState(false);
   const [busyId, setBusyId] = useState<string>();
@@ -115,7 +110,7 @@ export function ItemsAdminPage() {
       replace(updated);
       toast('success', published ? `„${item.name}“ ist jetzt im Katalog sichtbar.` : `„${item.name}“ wurde ausgeblendet.`);
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
+      toast('error', fehlerText(err, 'Speichern fehlgeschlagen.'));
     } finally {
       setBusyId(undefined);
     }
@@ -135,7 +130,7 @@ export function ItemsAdminPage() {
       toast('success', `„${toDelete.name}“ wurde gelöscht.`);
       setToDelete(undefined);
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Löschen fehlgeschlagen.');
+      toast('error', fehlerText(err, 'Löschen fehlgeschlagen.'));
     } finally {
       setDeleting(false);
     }
@@ -170,7 +165,7 @@ export function ItemsAdminPage() {
             void reloadConfig();
           }} />}
 
-      {error && <Alert kind="error">{error.message}</Alert>}
+      <LadeFehler error={error} onRetry={() => void reload()} loading={loading} />
       {loading && !items && <Spinner />}
 
       {items && items.length === 0 && (
@@ -190,20 +185,7 @@ export function ItemsAdminPage() {
       {items && items.length > 0 && (
         <>
           <div className="mb-4 flex flex-col gap-3 sm:mb-5 lg:flex-row lg:items-center">
-            <div className="relative w-full max-w-md">
-              <label htmlFor="admin-item-search" className="sr-only">
-                Druckteile filtern
-              </label>
-              <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-stone-500" aria-hidden />
-              <input
-                id="admin-item-search"
-                type="search"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Name, Kategorie, Material …"
-                className={`${inputClass()} pl-12`}
-              />
-            </div>
+            <Suchfeld id="admin-item-search" label="Druckteile filtern" value={q} onChange={setQ} placeholder="Name, Kategorie, Material …" className="w-full max-w-md" />
             {/* Handy: eine Reihe über die ganze Breite, Zahl unter der Beschriftung; ab sm Zahl daneben */}
             <div role="group" aria-label="Druckteile anzeigen" className="flex gap-2 sm:flex-wrap" data-testid="ansicht-filter">
               {ANSICHTEN.map((a) => (
@@ -382,7 +364,7 @@ export function ItemsAdminPage() {
                     : 'Noch kein Druckteil veröffentlicht'
               }
               action={
-                <Button variant="secondary" onClick={() => setParams(new URLSearchParams(), { replace: true })} data-testid="filter-zuruecksetzen">
+                <Button variant="secondary" onClick={() => setze({ q: null, ansicht: null })} data-testid="filter-zuruecksetzen">
                   Alle Druckteile anzeigen
                 </Button>
               }

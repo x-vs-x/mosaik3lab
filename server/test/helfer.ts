@@ -4,11 +4,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
-import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import nodemailer from 'nodemailer';
 import { createApp } from '../src/app';
-import { configFilePath } from '../src/bootstrapConfig';
 import { loadConfig, ROOT_DIR } from '../src/config';
 import { DEMO_USERS } from '../src/seed/demoData';
 import { setTransportFactory } from '../src/kern/mail/mailer';
@@ -35,11 +33,6 @@ setTransportFactory(() => {
   return transport;
 });
 
-// Die echte Pfad-Konfiguration der Projektwurzel darf von den Tests nicht verändert werden.
-const realConfigFile = configFilePath(ROOT_DIR);
-export const realConfigBefore = existsSync(realConfigFile) ? statSync(realConfigFile).mtimeMs : null;
-export const realConfigNow = () => (existsSync(realConfigFile) ? statSync(realConfigFile).mtimeMs : null);
-
 export const SCHOOL = 'schule.example';
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export const tmp = (name: string) => fs.mkdtemp(path.join(os.tmpdir(), `mosaik3lab-${name}-`));
@@ -48,7 +41,7 @@ export const sha = async (file: string) => crypto.createHash('sha256').update(aw
 /** Startet die App auf einem freien Port mit eigenem Temp-Datenordner; `stop()` räumt alles weg. */
 export async function startServer(overrides: Parameters<typeof loadConfig>[0]) {
   const storageDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mosaik3lab-test-'));
-  // rootDir = Temp-Ordner, damit mosaik3lab.config.json nur dort geschrieben wird.
+  // rootDir = Temp-Ordner (Projektwurzel der App, z. B. für CHANGELOG.md) – nichts landet im echten Projektordner.
   const config = loadConfig({
     storageDir,
     rootDir: storageDir,

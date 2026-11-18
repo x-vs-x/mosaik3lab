@@ -78,8 +78,7 @@ case "$PHASE" in
       exe=$(sudo readlink "/proc/$pid/exe" 2>/dev/null)
       pruefe "[[ \"$exe\" == $PROGRAMM/* ]]" "Dienst $d nutzt Node aus dem Programmordner ($exe)"
     done
-    pruefe "systemctl cat mosaik3lab-webapp | grep -q 'ExecStart=$PROGRAMM/current/node/node '" "Dienstdatei zeigt auf current/node/node"
-    if [ -f "$PROGRAMM/current/manager/runners/aktualisieren.mjs" ]; then # ältere Versionen haben keinen Update-Helfer
+    pruefe "systemctl cat mosaik3lab-webapp | grep -Eq '^ExecStart=\"?$PROGRAMM/current/node/node\"? '" "Dienstdatei zeigt auf current/node/node" # neuere Versionen setzen Pfade in Anführungszeichen (Leerzeichen)
     beschreibbar=""
     for d in "$PROGRAMM" "$PROGRAMM/releases" "$(readlink -f "$PROGRAMM/current")" "$PROGRAMM/current/manager" "$PROGRAMM/current/manager/runners"; do
       if sudo -u mosaik3lab test -w "$d"; then beschreibbar="$beschreibbar $d"; sudo stat -c '  %A %U:%G %n' "$d"; fi
@@ -98,30 +97,22 @@ case "$PHASE" in
     for d in /etc/systemd/system /etc/polkit-1/rules.d; do
       pruefe "! sudo -u mosaik3lab test -w $d" "$d für mosaik3lab nicht beschreibbar ($(sudo stat -c '%U:%G %a' $d))"
     done
-    if grep -q filesInInstallScript "$PROGRAMM/current/manager/platform/linux.mjs"; then # ab dieser Version: root schreibt direkt nach /etc
-      rest=$(sudo find "$DATEN/manager" \( -name '*.service' -o -name '*.rules' \) 2>/dev/null)
-      pruefe "[ -z \"$rest\" ]" "keine Unit-Dateien/polkit-Regel im Datenordner – root installiert nichts aus Ordnern von mosaik3lab${rest:+ ($rest)}"
-      pruefe "systemctl cat mosaik3lab-updater | grep -q '^TimeoutStartSec=14400$'" "Update-Helfer: Gesamtlimit 4 Stunden ($(systemctl cat mosaik3lab-updater | grep TimeoutStartSec))"
-    fi
-    fi
+    rest=$(sudo find "$DATEN/manager" \( -name '*.service' -o -name '*.rules' \) 2>/dev/null)
+    pruefe "[ -z \"$rest\" ]" "keine Unit-Dateien/polkit-Regel im Datenordner – root installiert nichts aus Ordnern von mosaik3lab${rest:+ ($rest)}"
+    pruefe "systemctl cat mosaik3lab-updater | grep -q '^TimeoutStartSec=14400$'" "Update-Helfer: Gesamtlimit 4 Stunden ($(systemctl cat mosaik3lab-updater | grep TimeoutStartSec))"
     pruefe "systemctl cat mosaik3lab-portal | grep -q 'AmbientCapabilities=CAP_NET_BIND_SERVICE'" "Portal darf Port 80 ohne root"
     pruefe "[ \"\$(status http://127.0.0.1/mosaik3lab/api/health)\" = 200 ]" 'Portal: http://127.0.0.1/mosaik3lab/api/health → 200'
     pruefe "[ \"\$(status http://127.0.0.1:3001/mosaik3lab/api/health)\" = 200 ]" 'App: http://127.0.0.1:3001/mosaik3lab/api/health → 200'
     soll=$(node -p "require('$PROGRAMM/current/package.json').version" 2>/dev/null)
     ist=$(curl -s --max-time 10 http://127.0.0.1:3001/mosaik3lab/api/health | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).version)}catch{console.log('?')}})")
-    case "$soll" in
-      0.*) ;; # Versionen vor 1.0.0 melden keine Version
-      *) pruefe "[ -n \"$soll\" ] && [ \"$ist\" = \"$soll\" ]" "App meldet ihre Version ($ist, erwartet $soll) – Grundlage für „Was ist neu“" ;;
-    esac
+    pruefe "[ -n \"$soll\" ] && [ \"$ist\" = \"$soll\" ]" "App meldet ihre Version ($ist, erwartet $soll) – Grundlage für „Was ist neu“"
     pruefe "[ \"\$(status http://127.0.0.1:5190/api/auth)\" = 200 ]" 'Manager: http://127.0.0.1:5190/api/auth → 200'
     pruefe "! sudo ss -ltnH 'sport = :3001' | grep -qv '127.0.0.1'" 'App hört nur auf 127.0.0.1:3001'
     pruefe "[ -x $PROGRAMM/current/node/node ]" "Programm mit node unter $PROGRAMM"
     pruefe "[ -f $PROGRAMM/install.json ]" 'install.json im Programmordner'
-    if grep -q 'mode: 0o644' "$PROGRAMM/current/manager/lib/setup.mjs"; then # ältere Versionen schrieben sie nur für root lesbar
-      # Der Manager-Dienst (mosaik3lab) muss die Installation erkennen – sonst hält er sich für eine Arbeitskopie
-      pruefe "sudo -u mosaik3lab test -r $PROGRAMM/install.json" 'install.json für den Dienstbenutzer lesbar'
-      pruefe "(cd /tmp && sudo -u mosaik3lab $PROGRAMM/current/node/node --input-type=module -e \"const m = await import('$PROGRAMM/current/manager/lib/config.mjs'); process.exit(m.INSTALL ? 0 : 1)\")" 'Manager erkennt als mosaik3lab die Installation'
-    fi
+    # Der Manager-Dienst (mosaik3lab) muss die Installation erkennen – sonst hält er sich für eine Arbeitskopie
+    pruefe "sudo -u mosaik3lab test -r $PROGRAMM/install.json" 'install.json für den Dienstbenutzer lesbar'
+    pruefe "(cd /tmp && sudo -u mosaik3lab $PROGRAMM/current/node/node --input-type=module -e \"const m = await import('$PROGRAMM/current/manager/lib/config.mjs'); process.exit(m.INSTALL ? 0 : 1)\")" 'Manager erkennt als mosaik3lab die Installation'
     for o in "$DATEN/daten" "$DATEN/ablage" "$BACKUPS" "$LOGS"; do
       pruefe "[ -d $o ] && [ \"\$(stat -c %U $o)\" = mosaik3lab ]" "Ordner $o gehört mosaik3lab"
     done

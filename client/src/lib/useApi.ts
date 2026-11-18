@@ -52,13 +52,3 @@ export function useDocumentTitle(title: string) {
     document.title = title ? `${title} · Mosaik³LAB` : 'Mosaik³LAB';
   }, [title]);
 }
-
-/** Wert erst nach einer Tipp-Pause übernehmen (Standard 400 ms: weniger Anfragen über schwaches WLAN). */
-export function useDebounced<T>(value: T, delay = 400) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-}

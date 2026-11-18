@@ -8,6 +8,7 @@ import type { SettingsRepository } from '../module/einstellungen/einstellungen.r
 import type { MasterDataRepository } from '../module/stammdaten/stammdaten.repository';
 import type { ItemRepository } from '../module/katalog/katalog.repository';
 import type { OrderRepository } from '../module/anfragen/anfragen.repository';
+import type { NeuigkeitenRepository } from '../module/neuigkeiten/neuigkeiten.repository';
 
 // Gesamter Speicher der App: Repositories der Fachbereiche (server/src/module/<bereich>/<bereich>.repository.ts),
 // Dateiablage und Datenbank. Erzeugt in storage/index.ts, Tabellen siehe docs/DATENMODELL.md.
@@ -21,15 +22,19 @@ export interface Storage {
   sessions: SessionRepository;
   settings: SettingsRepository;
   masterData: MasterDataRepository;
+  /** „Was ist neu“: Versionswechsel und je Konto die zuletzt gelesene Version. */
+  neuigkeiten: NeuigkeitenRepository;
   /** Dateiablage (Tabelle `datei` + Ordner <ablage>/<objekttyp>/<objekt-id>/<rolle>/). */
   files: FileStore;
   /** Bilder der Druckteile: Vorschaubilder, Verkleinern (Rechen-Thread), Hintergrund-Lauf „Bildpflege“ (kern/bilder). */
   bilder: BildDienst;
   bildpflege: Bildpflege;
   /** Für Export/Import: direkter Zugriff auf die Datenbank (nur synchron in Transaktionen nutzen). */
-  sqlite: { db: Db; items: ItemRepository; settings: SettingsRepository };
+  sqlite: { db: Db };
   database: {
     file: string;
+    /** <daten>/sicherungen: automatische Sicherungen vor Migrationen und vor dem Einspielen von Druckteilen. */
+    sicherungsOrdner: string;
     /** Für /api/health und den Server-Manager. */
     info(): { vorhanden: boolean; schemaVersion: number | null; groesseBytes: number };
     /** Konsistente Kopie im laufenden Betrieb (VACUUM INTO). */

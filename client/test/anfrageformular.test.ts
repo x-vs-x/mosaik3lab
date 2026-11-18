@@ -83,7 +83,7 @@ test('Nach der Anmeldung: Druck-Team mit Einzelrechten kommt zur angefragten Ver
 });
 
 test('Anfrage-E-Mail: angemeldet gilt die Sitzungsadresse, auch gegen Entwurf oder Geräte-Vorbelegung', async () => {
-  const { anfrageEmail } = await import('../src/lib/anfrageEmail.ts');
+  const { anfrageEmail } = await import('../src/features/anfragen/anfrageEmail.ts');
   assert.equal(anfrageEmail('frau.beispiel@schule.example', 'andere@schule.example'), 'frau.beispiel@schule.example');
   assert.equal(anfrageEmail(undefined, ' gast@schule.example '), 'gast@schule.example', 'ohne Anmeldung zählt die Eingabe');
 });

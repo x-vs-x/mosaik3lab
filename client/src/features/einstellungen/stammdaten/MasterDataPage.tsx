@@ -1,9 +1,10 @@
 import { Layers, Palette, Tags, type LucideIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Alert, cx, PageHeader, Spinner } from '../../../components/ui';
 import { useConfig, useMasterData } from '../../../lib/config';
-import type { MasterDataList } from '../../../lib/types';
+import type { StammdatenSeite } from '../../../lib/types';
+import { useSuchParameter } from '../../../lib/suchParameter';
 import { useDocumentTitle } from '../../../lib/useApi';
 import { useVerlassenWarnung } from '../../../lib/useEntwurf';
 import { CategoriesPanel } from './CategoriesPanel';
@@ -15,29 +16,27 @@ import { SimplePanel } from './SimplePanel';
 
 type TabKey = 'categories' | 'useAreas' | 'materials';
 
-const TABS: { key: TabKey; label: string; icon: LucideIcon; lists: MasterDataList[] }[] = [
+const TABS: { key: TabKey; label: string; icon: LucideIcon; lists: StammdatenSeite[] }[] = [
   { key: 'categories', label: 'Kategorien', icon: Tags, lists: ['categories'] },
   { key: 'useAreas', label: 'Einsatzbereiche', icon: Layers, lists: ['useAreas'] },
   { key: 'materials', label: 'Material & Farben', icon: Palette, lists: ['materials', 'filaments'] },
 ];
 
 /** Auch alte Links (?liste=filaments) führen zum passenden Tab. */
-const tabFor = (v: string | null): TabKey => TABS.find((t) => t.key === v || t.lists.includes(v as MasterDataList))?.key ?? 'categories';
+const tabFor = (v: string | null): TabKey => TABS.find((t) => t.key === v || t.lists.includes(v as StammdatenSeite))?.key ?? 'categories';
 
 export function MasterDataPage() {
   useDocumentTitle('Stammdaten');
   const { config, error } = useConfig();
   const md = useMasterData();
-  const [params, setParams] = useSearchParams();
+  const [params, setze] = useSuchParameter();
   const active = tabFor(params.get('liste'));
-  const [dirty, setDirty] = useState<Partial<Record<MasterDataList, boolean>>>({});
+  const [dirty, setDirty] = useState<Partial<Record<StammdatenSeite, boolean>>>({});
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const baseId = useId();
 
   const select = (key: TabKey, focus = false) => {
-    const next = new URLSearchParams(params);
-    next.set('liste', key);
-    setParams(next, { replace: true });
+    setze({ liste: key });
     if (focus) tabRefs.current[key]?.focus();
   };
 
@@ -64,7 +63,7 @@ export function MasterDataPage() {
   useVerlassenWarnung(anyDirty);
 
   const markDirty = useCallback(
-    (key: MasterDataList, value: boolean) => setDirty((d) => (d[key] === value ? d : { ...d, [key]: value })),
+    (key: StammdatenSeite, value: boolean) => setDirty((d) => (d[key] === value ? d : { ...d, [key]: value })),
     [],
   );
 
@@ -81,6 +80,8 @@ export function MasterDataPage() {
 
       {config && (
         <>
+          {/* Fehlalarm: Die Tabs selbst sind fokussierbar (roving tabindex), die Liste fängt nur die Pfeiltasten ab. */}
+          {/* eslint-disable-next-line jsx-a11y/interactive-supports-focus */}
           <div
             role="tablist"
             aria-label="Stammdaten-Listen"

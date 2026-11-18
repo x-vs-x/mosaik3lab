@@ -1,11 +1,10 @@
 import { STATUS_CATALOG, type OrderStatusDef, type StatusPhase } from '@mosaik3lab/shared/anfragen';
 
-// Die feste Liste der Bestellstatus steht in shared/src/anfragen.ts (STATUS_CATALOG).
+// Die feste Liste der Bestellstatus steht in shared/src/werte/anfragen.ts (STATUS_CATALOG).
 // Hier: Standard-Schalter und die Migration früher frei angelegter Status.
 
-export { STATUS_CATALOG };
 
-const CATALOG_IDS = new Set(STATUS_CATALOG.map((s) => s.id));
+const CATALOG_IDS: ReadonlySet<string> = new Set(STATUS_CATALOG.map((s) => s.id));
 export const isCatalogStatus = (id: string) => CATALOG_IDS.has(id);
 export const isRequiredStatus = (id: string) => !!STATUS_CATALOG.find((s) => s.id === id)?.required;
 

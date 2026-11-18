@@ -1,6 +1,7 @@
 // Druckteile exportieren/einspielen: Rechte, einer/mehrere/alle, Rundreise in leere Datenbank mit identischen Dateien (SHA-256),
 // vorhandene überspringen oder ersetzen, Zuordnung über den Namen, Bezüge ergänzen, kaputte Dateien, Rückabwicklung, altes Format,
 // ZIP (Format 2) samt Sicherheitsregeln, ähnliche Druckteile (anlegen, vormerken, später auflösen).
+import { APP_VERSION } from '../src/kern/version';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -11,7 +12,7 @@ import { after, test } from 'node:test';
 import { createApp } from '../src/app';
 import { hashPassword } from '../src/kern/auth/password';
 import { loadConfig } from '../src/config';
-import { newId } from '../src/domain/ids';
+import { newId } from '../src/kern/ids';
 import { DEMO_USERS } from '../src/seed/demoData';
 import { rechteFuer } from '@mosaik3lab/shared/konten';
 import { leseKopf, pruefeDateien } from '../src/module/datenaustausch/datenaustausch.paket';
@@ -186,7 +187,8 @@ test('Export: einer, mehrere, alle – mit Dateien, nur gebrauchte Stammdaten, o
   dateienMit = dateien;
   assert.equal(j.format, 'mosaik3lab-stammdaten');
   assert.equal(j.version, 2);
-  assert.ok(j.exportiertAm && j.appVersion && j.schemaVersion >= 1);
+  assert.ok(j.exportiertAm && j.schemaVersion >= 1);
+  assert.equal(j.appVersion, APP_VERSION, 'Version aus kern/version.ts (wie /api/health)');
   assert.equal(j.mitDateien, true);
   assert.equal(j.auswahl, true);
   assert.equal(j.artikel.length, alle.length);
@@ -243,6 +245,11 @@ test('Alle einspielen in leere Installation: gleiche Druckteile, identische Date
   const n = kopfMit.artikel.length;
   assert.equal(vor.json.kopf.artikel, n);
   assert.equal(vor.json.kopf.vorhanden, 0);
+  // Vertrag ImportVorschau (shared/src/datenaustausch.ts): genau diese Felder, Bericht mit Verknüpfungen
+  assert.deepEqual(Object.keys(vor.json).sort(), ['berichte', 'dateigroesse', 'gueltigBis', 'importId', 'kopf']);
+  assert.deepEqual(Object.keys(vor.json.kopf).sort(), ['appVersion', 'artikel', 'dateien', 'exportiertAm', 'hinweise', 'mitDateien', 'version', 'vorhanden']);
+  assert.ok(Date.parse(vor.json.gueltigBis) > Date.now());
+  assert.deepEqual(Object.keys(vor.json.berichte.ersetzen.verknuepfungen).sort(), ['neu', 'wartend']);
   assert.equal(vor.json.berichte.ueberspringen.abschnitte.artikel.neu, n);
   assert.ok(vor.json.berichte.ueberspringen.abschnitte.dateien.neu >= 4);
   assert.equal((await dst.req('GET', '/api/items?all=1')).json.length, 0, 'Vorschau ändert nichts');
@@ -345,7 +352,7 @@ test('Ersetzen: vorhandenes Druckteil bekommt Texte und Dateien aus der Datei, b
 });
 
 test('Datei von einer anderen Installation: gleicher Name gilt als vorhanden; fehlende Bezüge werden angelegt, vorhandene nicht geändert', async () => {
-  const repo = targetSrv.storage.sqlite.settings;
+  const repo = targetSrv.storage.settings;
   const s = repo.read();
   const { kopf } = await entpacke(await exportZip(src, [itemId]));
   const kat = s.masterData.categories.find((k) => k.name === kopf.artikel[0].category)!;

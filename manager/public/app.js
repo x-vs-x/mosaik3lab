@@ -1,7 +1,7 @@
 // Server-Manager – Reiter: Übersicht (Update, Gesamtstatus mit Knopf, Adresse, Dienste, Sicherung kurz), Sicherung,
 // Netzwerk, E-Mail, System (Version, Ordner, Abgleichen, Protokoll, Einrichten). Nutzt nur die JSON-API.
 import { $, action, api, askPassword, busy, changed, cmpVer, confirmBox, ctx, el, emergency, fmt, fmtBytes, icon, light, reasonText, showError, since } from './ui.js';
-import { installUpdate, loadUpdate, markPaket, paketMode, updatingSummary, updWatch } from './update.js';
+import { loadUpdate, markPaket, paketMode, updatingSummary, updWatch } from './update.js';
 import { loadNews } from './neuigkeiten.js';
 import { askPaths, showReconcile, updateRuntime } from './erweitert.js';
 import { loadSettings } from './einstellungen.js';
@@ -308,18 +308,15 @@ function render(s) {
   $('#backup-dir-show').textContent = s.backupDir ?? '';
   if (changed('backups', s.backups.map((b) => [b.id, b.encrypted, b.app?.version]).concat(s.backupEncrypted))) renderBackupTable(s);
 
-  // Update – Paket-Installation: Karte immer sichtbar (renderUpdate); sonst nur, wenn etwas verfügbar ist
+  // Update – Paket-Installation: Karte immer sichtbar (renderUpdate); sonst nur, wenn es bei der Laufzeit etwas zu tun gibt
   if (s.updates.app?.paket) markPaket();
-  const app = !paketMode && s.updates.app?.available ? s.updates.app : null;
   const rt = (s.updates.runtime ?? []).filter((r) => r.action); // nur, wo es wirklich etwas zu tun gibt
-  $('#card-update').hidden = !paketMode && !app && !rt.length;
-  if (changed('updates', [app, rt.map((r) => [r.id, r.label])])) $('#updates').replaceChildren(
-    ...[app ? el('div', { class: 'svc' }, el('div', { class: 'svc-head' }, el('strong', {}, `Mosaik³LAB ${app.id}`), action(el('button', { type: 'button', class: 'primary', testid: 'update-install' }, 'Installieren'), installUpdate)), app.changes?.length ? el('ul', { class: 'small' }, app.changes.map((c) => el('li', {}, c))) : null) : null,
-    ...rt.map((row) => el('div', { class: 'svc', testid: `runtime-update-${row.id}` }, el('div', { class: 'svc-head' }, el('strong', {}, row.title), el('button', { type: 'button', onclick: (e) => updateRuntime(row, e.currentTarget) }, row.action === 'install' ? 'Installieren' : 'Aktualisieren')), el('div', { class: 'muted small' }, row.label)))].filter(Boolean));
+  $('#card-update').hidden = !paketMode && !rt.length;
+  if (changed('updates', [rt.map((r) => [r.id, r.label])])) $('#updates').replaceChildren(
+    ...rt.map((row) => el('div', { class: 'svc', testid: `runtime-update-${row.id}` }, el('div', { class: 'svc-head' }, el('strong', {}, row.title), el('button', { type: 'button', onclick: (e) => updateRuntime(row, e.currentTarget) }, row.action === 'install' ? 'Installieren' : 'Aktualisieren')), el('div', { class: 'muted small' }, row.label))));
 
   // System: Version, Betriebssystem, Fakten; Texte, die je System anders sind
   renderSystem(s.system);
-  $('#btn-check').hidden = paketMode; // Paket-Installation: Updates stehen in der Übersicht
   $('#btn-audit').hidden = paketMode; // npm audit braucht npm und den Quellstand – das Paket bringt beides nicht mit
   $('#version').textContent = s.version?.version ? `${s.version.version}${s.version.id && s.version.id !== 'Arbeitskopie' ? ` (${s.version.id})` : ' (Arbeitskopie)'}` : s.version?.id ?? '–';
   $('#node').textContent = s.node;

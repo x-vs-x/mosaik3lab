@@ -4,7 +4,8 @@ import { Dialog } from '../../components/Dialog';
 import { ActionBar, Alert, Button, buttonClass, cx } from '../../components/ui';
 import { api, apiUpload, isConnectionProblem, UPLOAD_ABGEBROCHEN } from '../../lib/api';
 import { withBase } from '../../lib/basePath';
-import { formatBytes, plural } from '../../lib/format';
+import { formatBytes, formatDate, plural } from '../../lib/format';
+import type { ImportAusfuehrenInput, ImportBericht, ImportDetail, ImportErgebnis, ImportModus, ImportVorschau } from '@mosaik3lab/shared/datenaustausch';
 
 // Druckteile exportieren und einspielen – der eine Weg dafür (Verwaltung → Druckteile).
 // Export: angehakte Druckteile → GET /api/admin/daten/export?artikel=… (ohne Liste: alle) → eine ZIP-Datei mit allen Dateien
@@ -12,41 +13,15 @@ import { formatBytes, plural } from '../../lib/format';
 // Einspielen: Datei wählen → Vorschau → „überspringen“ oder „ersetzen“ für vorhandene → Ergebnis.
 // Server: server/src/module/datenaustausch/. Rechte: daten:export, daten:import.
 
-/** Höchstzahl je Export mit Auswahl (die IDs stehen in der Adresse) – wie MAX_AUSWAHL im Server. Alle geht immer. */
-export const MAX_AUSWAHL = 200;
+/** Höchstzahl je Export mit Auswahl (die IDs stehen in der Adresse). Alle geht immer. */
+export { MAX_EXPORT_AUSWAHL as MAX_AUSWAHL } from '@mosaik3lab/shared/werte/datenaustausch';
 
 /** Adresse des Exports: ohne IDs = alle Druckteile. */
 export const exportUrl = (ids?: string[]) => withBase(`/api/admin/daten/export${ids ? `?artikel=${ids.map(encodeURIComponent).join(',')}` : ''}`);
 
-type Modus = 'ueberspringen' | 'ersetzen';
-interface Zaehler {
-  neu: number;
-  ersetzt: number;
-  unveraendert: number;
-  uebersprungen: number;
-}
-interface Detail {
-  status: 'neu' | 'ersetzt' | 'uebersprungen' | 'hinweis';
-  bereich: string;
-  name: string;
-  text?: string;
-}
-interface Bericht {
-  modus: Modus;
-  artikel: number;
-  vorhanden: number;
-  abschnitte: Record<'artikel' | 'kategorien' | 'einsatzbereiche' | 'materialien' | 'filamente' | 'dateien', Zaehler>;
-  /** Ähnliche Druckteile: neu angelegte und vorgemerkte Verknüpfungen (Partner fehlt hier noch). */
-  verknuepfungen?: { neu: number; wartend: number };
-  details: Detail[];
-  weitereDetails: number;
-}
-interface Vorschau {
-  importId: string;
-  dateigroesse: number;
-  kopf: { exportiertAm: string; mitDateien: boolean; hinweise: string[]; artikel: number; vorhanden: number; dateien: number };
-  berichte: Record<Modus, Bericht>;
-}
+type Modus = ImportModus;
+type Detail = ImportDetail;
+type Bericht = ImportBericht;
 
 const STATUS_TEXT: Record<Detail['status'], string> = { neu: 'neu', ersetzt: 'ersetzt', uebersprungen: 'übersprungen', hinweis: 'Hinweis' };
 const STAMMDATEN: [keyof Bericht['abschnitte'], string, string][] = [
@@ -60,7 +35,7 @@ const STAMMDATEN: [keyof Bericht['abschnitte'], string, string][] = [
 export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
   const [datei, setDatei] = useState<File>();
   const [anteil, setAnteil] = useState<number>();
-  const [vorschau, setVorschau] = useState<Vorschau>();
+  const [vorschau, setVorschau] = useState<ImportVorschau>();
   const [modus, setModus] = useState<Modus>('ueberspringen');
   const [laeuft, setLaeuft] = useState(false);
   const [ergebnis, setErgebnis] = useState<Bericht>();
@@ -102,7 +77,7 @@ export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onC
     try {
       const fd = new FormData();
       fd.append('datei', f, f.name);
-      setVorschau(await apiUpload<Vorschau>('/admin/daten/import/vorschau', fd, setAnteil, { signal: ctrl.signal }));
+      setVorschau(await apiUpload<ImportVorschau>('/admin/daten/import/vorschau', fd, setAnteil, { signal: ctrl.signal }));
     } catch (e) {
       // Selbst abgebrochen: keine Fehlermeldung nötig.
       if (!(e instanceof Error && e.message === UPLOAD_ABGEBROCHEN)) setFehler(e instanceof Error ? e.message : 'Die Datei konnte nicht geprüft werden.');
@@ -119,9 +94,9 @@ export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onC
     setLaeuft(true);
     setFehler('');
     try {
-      const r = await api<{ bericht: Bericht }>('/admin/daten/import/ausfuehren', {
+      const r = await api<ImportErgebnis>('/admin/daten/import/ausfuehren', {
         method: 'POST',
-        body: { importId: vorschau.importId, modus },
+        body: { importId: vorschau.importId, modus } satisfies ImportAusfuehrenInput,
         timeoutMs: 0, // große Dateien dürfen dauern
       });
       setErgebnis(r.bericht);
@@ -205,7 +180,7 @@ export function EinspielenDialog({ open, onClose, onDone }: { open: boolean; onC
             </p>
             <p className="mt-1 text-hinweis text-stone-600">
               {datei?.name} · {formatBytes(vorschau.dateigroesse)}
-              {vorschau.kopf.exportiertAm && ` · exportiert am ${new Date(vorschau.kopf.exportiertAm).toLocaleDateString('de-DE')}`}
+              {vorschau.kopf.exportiertAm && ` · exportiert am ${formatDate(vorschau.kopf.exportiertAm)}`}
               {!vorschau.kopf.mitDateien ? ' · ohne Bilder und Druckdateien (ältere Datei)' : vorschau.kopf.dateien > 0 ? ` · ${plural(vorschau.kopf.dateien, 'Bild/Datei', 'Bilder und Dateien')} geprüft` : ''}
             </p>
             {vorschau.kopf.hinweise.length > 0 && (
@@ -281,7 +256,7 @@ function ergebnisSatz(b: Bericht) {
 
 /** „Ähnliche Druckteile“: N werden angelegt, M warten auf Druckteile, die noch fehlen. */
 function verknuepfungSatz(b: Bericht, fertig: boolean) {
-  const { neu = 0, wartend = 0 } = b.verknuepfungen ?? {};
+  const { neu, wartend } = b.verknuepfungen;
   if (!neu && !wartend) return '';
   // z. B. „Ähnliche Druckteile: 3 Verknüpfungen werden angelegt, 1 wartet auf Druckteile, die noch fehlen.“
   const angelegt = neu === 1 ? (fertig ? 'wurde angelegt' : 'wird angelegt') : fertig ? 'wurden angelegt' : 'werden angelegt';

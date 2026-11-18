@@ -1,5 +1,5 @@
 // Wie Web-App und App-Skripte gestartet werden – für beide Programmformen:
-//   Arbeitskopie / Git-Update / ältere Pakete: TypeScript über tsx (node_modules)
+//   Arbeitskopie (Entwicklung):  TypeScript über tsx (node_modules)
 //   Installer-Paket (gebündelt):               server/dist/<name>.mjs ohne node_modules (npm run bundle -w server)
 // tsx hat Vorrang, damit in der Entwicklung nie ein veraltetes Bündel läuft.
 import fs from 'node:fs';

@@ -1,6 +1,6 @@
-// Laufzeit-Update (Node.js, Git, Dienst-Wrapper) als eigener Prozess, damit sich der Manager nicht selbst abschießt.
+// Laufzeit-Update (Node.js, Dienst-Wrapper) als eigener Prozess, damit sich der Manager nicht selbst abschießt.
 // Fortschritt steht in <logDir>/runtime.state.json, Details in update.log.
-//   node runners/runtime.mjs --config <datei> --what <node|git|wrapper>
+//   node runners/runtime.mjs --config <datei> --what <node|wrapper>
 const arg = (name) => process.argv[process.argv.indexOf(name) + 1];
 if (process.argv.includes('--config')) process.env.MANAGER_CONFIG = arg('--config');
 process.env.MOSAIK3LAB_QUIET = '1';

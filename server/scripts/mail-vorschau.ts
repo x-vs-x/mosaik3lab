@@ -8,8 +8,9 @@ import { buildOrderMail, sampleOrder } from '../src/module/anfragen/anfragen.mai
 import { buildProposalMail } from '../src/module/vorschlaege/vorschlaege.mail';
 import { buildPasswortMail } from '../src/module/konten/passwortlink';
 import type { BuiltMail } from '../src/kern/mail/mailer';
-import type { Order, User } from '../src/domain/types';
-import type { Proposal } from '../src/domain/proposals';
+import type { User } from '../src/domain/types';
+import type { Order } from '@mosaik3lab/shared/anfragen';
+import type { Proposal } from '@mosaik3lab/shared/vorschlaege';
 
 const i = process.argv.indexOf('--out');
 const out = i >= 0 ? process.argv[i + 1] : undefined;

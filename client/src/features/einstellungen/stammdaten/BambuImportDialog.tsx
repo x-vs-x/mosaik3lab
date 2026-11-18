@@ -3,14 +3,21 @@ import { useEffect, useMemo, useState } from 'react';
 import { ColorSwatch } from '../../../components/ColorSwatch';
 import { Dialog } from '../../../components/Dialog';
 import { useToast } from '../../../components/Toast';
+import { LadeFehler } from '../../../components/Listenwerkzeug';
 import { Alert, Button, cx, Field, Input, Select, Spinner } from '../../../components/ui';
-import { api, ApiError } from '../../../lib/api';
+import { api, ApiError, fehlerText } from '../../../lib/api';
+import { passtZurSuche } from '@mosaik3lab/shared/suche';
+import type { FilamentImportErgebnis } from '@mosaik3lab/shared/stammdaten';
 import type { BambuKatalogAntwort, BambuKatalogEintrag, Filament, MasterData } from '../../../lib/types';
 
-/** Auswahl aus dem mitgelieferten Bambu-Lab-Katalog (Suche, Linie, Bambu-Nummer); übernimmt die Farben als Farbrollen. */
+/**
+ * Auswahl aus dem mitgelieferten Bambu-Lab-Katalog (Suche, Linie, Bambu-Nummer); übernimmt die Farben als Farbrollen.
+ * Den Katalog lädt die Farbrollen-Liste einmal (sie braucht daraus den Hinweis auf neue Farben) und gibt ihn hierher weiter.
+ */
 export function BambuImportDialog({
   open,
   onClose,
+  katalog: geladen,
   existing,
   neu,
   blocked,
@@ -18,14 +25,15 @@ export function BambuImportDialog({
 }: {
   open: boolean;
   onClose: () => void;
+  /** Geladener Katalog mit Ladezustand (aus useApi der Farbrollen-Liste). */
+  katalog: { data?: BambuKatalogAntwort; error?: ApiError; loading: boolean; reload: () => Promise<void> };
   existing: Filament[];
   /** Katalog-IDs, die seit dem letzten Update neu sind (Hinweis „neu“). */
   neu: string[];
   blocked: boolean;
   onImported: (md: MasterData, ids: string[]) => Promise<void>;
 }) {
-  const [katalog, setKatalog] = useState<BambuKatalogAntwort>();
-  const [loadError, setLoadError] = useState<string>();
+  const katalog = geladen.data;
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [suche, setSuche] = useState('');
   const [linie, setLinie] = useState('');
@@ -33,25 +41,18 @@ export function BambuImportDialog({
   const toast = useToast();
 
   useEffect(() => {
-    if (!open) return;
-    setChosen(new Set());
-    if (katalog) return;
-    setLoadError(undefined);
-    api<BambuKatalogAntwort>('/admin/settings/bambu-palette')
-      .then(setKatalog)
-      .catch((err) => setLoadError(err instanceof ApiError ? err.message : 'Farben konnten nicht geladen werden.'));
-  }, [open, katalog]);
+    if (open) setChosen(new Set());
+  }, [open]);
 
   const existingIds = useMemo(() => new Set(existing.flatMap((f) => (f.katalogId ? [f.katalogId] : []))), [existing]);
   const angebot = useMemo(() => (katalog?.eintraege ?? []).filter((e) => !e.weggefallen), [katalog]);
   const linien = useMemo(() => [...new Set(angebot.map((e) => e.linie))], [angebot]);
 
   const groups = useMemo(() => {
-    const q = suche.trim().toLocaleLowerCase('de-DE');
     const map = new Map<string, BambuKatalogEintrag[]>();
     for (const e of angebot) {
       if (linie && e.linie !== linie) continue;
-      if (q && ![e.farbname, e.name, e.nummer, e.linie].some((s) => s.toLocaleLowerCase('de-DE').includes(q))) continue;
+      if (!passtZurSuche([e.farbname, e.name, e.nummer, e.linie], suche)) continue;
       map.set(e.linie, [...(map.get(e.linie) ?? []), e]);
     }
     return [...map.entries()];
@@ -80,14 +81,14 @@ export function BambuImportDialog({
     setBusy(true);
     try {
       const ids = [...chosen];
-      const res = await api<{ masterData: MasterData; added: number }>('/admin/settings/masterdata/filaments/import', {
+      const res = await api<FilamentImportErgebnis>('/admin/settings/masterdata/filaments/import', {
         method: 'POST',
         body: { ids },
       });
       await onImported(res.masterData, ids);
       toast('success', res.added === 1 ? '1 Farbrolle importiert.' : `${res.added} Farbrollen importiert.`);
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Import fehlgeschlagen.');
+      toast('error', fehlerText(err, 'Import fehlgeschlagen.'));
     } finally {
       setBusy(false);
     }
@@ -106,8 +107,8 @@ export function BambuImportDialog({
           Bitte speichern oder verwerfen Sie zuerst Ihre Änderungen an den Farbrollen.
         </Alert>
       )}
-      {loadError && <Alert kind="error">{loadError}</Alert>}
-      {!katalog && !loadError && <Spinner label="Farben werden geladen …" />}
+      {!katalog && <LadeFehler error={geladen.error} onRetry={() => void geladen.reload()} loading={geladen.loading} className="" />}
+      {!katalog && !geladen.error && <Spinner label="Farben werden geladen …" />}
       {katalog && (
         <div className="space-y-6">
           <div className="grid gap-3 sm:grid-cols-[1fr_14rem]">

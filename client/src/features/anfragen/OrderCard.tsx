@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Pencil, RefreshCw } from 'lucide-react';
+import { ChevronDown, Pencil, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ColorSwatch } from '../../components/ColorSwatch';
@@ -6,8 +6,10 @@ import { ItemImage } from '../../components/ItemImage';
 import { Badge, Button, Card, cx, DemoBadge } from '../../components/ui';
 import { useMasterData } from '../../lib/config';
 import { statusMeta } from '../../lib/constants';
-import { formatDate, formatDateTime } from '../../lib/format';
+import { formatDate } from '../../lib/format';
 import type { Order, OwnOrder } from '../../lib/types';
+import { OrderTimeline, StatusProgress } from './AnfrageVerlauf';
+import { farbAnzeige } from './farbAnzeige';
 
 /** Anfrage mit Bearbeitungsstand (nur bei eingeschalteter Statusanzeige). */
 export type TrackedOrder = OwnOrder & Pick<Order, 'status' | 'history' | 'trackingCode'>;
@@ -33,8 +35,8 @@ export function OrderCard({
   const meta = tracked ? statusMeta(md, tracked.status) : undefined;
   // Letzter Kommentar des Druck-Teams (der erste Eintrag stammt von der Anfrage selbst, Änderungen der Lehrkraft ohne Benutzer-ID).
   const lastComment = tracked?.history.slice(1).reverse().find((h) => h.comment && h.byUserId);
-  const colors = order.colorChoices.length ? order.colorChoices : [{ areaId: 'farbe', area: 'Farbe', color: order.color, colorId: '', colorHex: order.colorHex }];
-  const variants = order.colorVariants ?? [];
+  const farben = farbAnzeige(order);
+  const colors = farben.art === 'bereiche' ? farben.bereiche : farben.art === 'eine' ? [{ areaId: 'farbe', area: 'Farbe', ...farben.farbe }] : [];
   // Gesperrt-Hinweis nur, solange das Team noch daran arbeitet (nicht bei erledigten Anfragen).
   const lockedHint = onEdit && !order.editable && meta && meta.def.phase !== 'done';
   const personalization = order.personalization ?? [];
@@ -73,13 +75,13 @@ export function OrderCard({
               <Detail label="Menge" value={`${order.quantity} Stück`} />
               <Detail label="Klasse / Team" value={order.classOrTeam} />
               {order.size && <Detail label="Größe" value={order.size} />}
-              {variants.length > 1 ? (
+              {farben.art === 'varianten' ? (
                 // Mehrere Farben in einer Anfrage: „3 × Blau, 4 × Gelb“
                 <div className="col-span-full">
                   <dt className="text-hinweis text-stone-600">Farben</dt>
                   <dd>
                     <ul className="flex flex-wrap gap-x-5 gap-y-1 font-bold text-stone-800">
-                      {variants.map((v, i) => (
+                      {farben.varianten.map((v, i) => (
                         // Umbrechen statt Zusammendrücken: Bei mehreren Farbbereichen wurden die Angaben sonst zu
                         // schmalen Spalten mit einzelnen Silben („Grun|dplat|te“).
                         <li key={i} className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -116,7 +118,7 @@ export function OrderCard({
 
             {tracked && (
               <div className="mt-5">
-                <Progress status={tracked.status} />
+                <StatusProgress status={tracked.status} />
               </div>
             )}
             {lastComment && (
@@ -172,72 +174,13 @@ export function OrderCard({
             {expanded && (
               <div className="border-t border-stone-100 p-4 sm:p-6">
                 <h3 className="mb-4 font-bold text-stone-900">Verlauf</h3>
-                <Timeline order={tracked} />
+                <OrderTimeline order={tracked} />
               </div>
             )}
           </>
         )}
       </article>
     </Card>
-  );
-}
-
-
-/** Fortschritt anhand der Reihenfolge der Status in den Stammdaten. */
-function Progress({ status }: { status: string }) {
-  const md = useMasterData();
-  const steps = md.orderStatuses.filter((s) => s.active || s.id === status);
-  const current = steps.findIndex((s) => s.id === status);
-  if (current < 0 || steps.length === 0) return null;
-  return (
-    <div>
-      <ol className="flex items-center gap-1.5" aria-label="Bearbeitungsfortschritt">
-        {steps.map((s, i) => (
-          <li key={s.id} className="flex-1">
-            <span className={cx('block h-2 rounded-full', i <= current ? 'bg-brand-600' : 'bg-stone-200')} aria-hidden />
-            <span className="sr-only">
-              {s.name}: {i < current ? 'erledigt' : i === current ? 'aktueller Schritt' : 'ausstehend'}
-            </span>
-          </li>
-        ))}
-      </ol>
-      <p className="mt-2 text-hinweis text-stone-600" aria-hidden>
-        Schritt {current + 1} von {steps.length}: {steps[current].name}
-      </p>
-    </div>
-  );
-}
-
-function Timeline({ order }: { order: TrackedOrder }) {
-  const md = useMasterData();
-  const entries = [...order.history].reverse();
-  return (
-    <ol className="relative space-y-5 border-l-2 border-stone-200 pl-6">
-      {entries.map((h, i) => {
-        const meta = statusMeta(md, h.status);
-        const Icon = i === 0 ? meta.icon : Check;
-        return (
-          <li key={`${h.at}-${i}`} className="relative">
-            <span
-              className={cx('absolute -left-[2.15rem] top-0.5 grid size-6 place-items-center rounded-full ring-4 ring-white', meta.dot)}
-              aria-hidden
-            >
-              <Icon className="size-3.5 text-white" />
-            </span>
-            <p className="font-bold text-stone-900">{meta.label}</p>
-            <p className="text-hinweis text-stone-600">
-              <time dateTime={h.at}>{formatDateTime(h.at)}</time>
-              {h.byName && ` · ${h.byName}`}
-            </p>
-            {h.comment && (
-              <p className="mt-1.5 rounded-xl bg-stone-50 px-3 py-2 text-base text-stone-800 ring-1 ring-stone-200">
-                {h.comment}
-              </p>
-            )}
-          </li>
-        );
-      })}
-    </ol>
   );
 }
 

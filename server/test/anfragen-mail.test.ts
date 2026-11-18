@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildOrderMail, orderChanges, sampleOrder } from '../src/module/anfragen/anfragen.mail';
-import type { Order, OrderColorChoice } from '../src/domain/types';
+import type { Order, OrderColorChoice } from '@mosaik3lab/shared/anfragen';
 
 const choice = (colorId: string, color: string, colorHex: string, area = 'Körper'): OrderColorChoice => ({ areaId: area, area, colorId, color, colorHex });
 const blau = choice('f-blau', 'Blau', '#0A2CA5');

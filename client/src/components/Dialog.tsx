@@ -61,6 +61,8 @@ export function Dialog({
   }, [onClose]);
 
   return (
+    // Fehlalarm: Der Klick gilt nur dem Hintergrund (Maus/Touch); Tastatur schließt über Escape (natives „cancel“).
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <dialog
       ref={ref}
       aria-labelledby={titleId}

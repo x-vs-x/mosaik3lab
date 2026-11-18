@@ -2,7 +2,7 @@ import { ListChecks } from 'lucide-react';
 import { useState } from 'react';
 import { useToast } from '../../components/Toast';
 import { Alert, Panel, Switch } from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { api, fehlerText } from '../../lib/api';
 import { useConfig, useMasterData } from '../../lib/config';
 import { STATUS_DESCRIPTIONS } from '../../lib/constants';
 import type { MasterData, OrderStatusDef } from '../../lib/types';
@@ -23,7 +23,7 @@ export function AnfrageAblaufSection() {
       await reload();
       toast('success', `„${s.name}“ ${active ? 'eingeschaltet' : 'ausgeschaltet'}.`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
+      setError(fehlerText(err, 'Speichern fehlgeschlagen.'));
     } finally {
       setBusy(undefined);
     }

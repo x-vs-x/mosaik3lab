@@ -1,18 +1,33 @@
-import { ImagePlus, Lightbulb, ListOrdered, Plus, ShieldAlert, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { ImagePlus, Lightbulb, ListOrdered, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { EntwurfHinweis } from '../../components/EntwurfHinweis';
-import { ActionBar, Alert, Button, EmptyState, Field, Input, LinkButton, PageHeader, Panel, Select, Textarea } from '../../components/ui';
+import { ActionBar, Alert, Button, Field, Input, LinkButton, PageHeader, Panel, Select, Textarea } from '../../components/ui';
 import { useToast } from '../../components/Toast';
-import { api, ApiError } from '../../lib/api';
+import { apiUpload, ApiError, UPLOAD_ABGEBROCHEN } from '../../lib/api';
 import { bildVerkleinern } from '../../lib/bildVerkleinern';
+import { ersteFehlerstelle } from '../../lib/fokus';
 import { entwurfSchluessel } from '../../lib/entwurfSpeicher';
 import { useDocumentTitle } from '../../lib/useApi';
 import { useEntwurf } from '../../lib/useEntwurf';
-import { MAX_LINKS, MAX_PHOTO_BYTES, MAX_PHOTOS, URGENCY_LABELS, type OwnProposal, type ProposalUrgency } from './proposals';
+import { mbText } from '@mosaik3lab/shared/werte/dateien';
+import {
+  MAX_LINKS,
+  MAX_PHOTO_BYTES,
+  MAX_PHOTOS,
+  MAX_PROPOSAL_QUANTITY,
+  PROPOSAL_DESC_MAX,
+  PROPOSAL_DESC_MIN,
+  PROPOSAL_TITLE_MAX,
+  PROPOSAL_TITLE_MIN,
+  PROPOSAL_USAGE_MAX,
+  URGENCY_LABELS,
+  type OwnProposal,
+  type ProposalUrgency,
+} from './proposals';
 
-/** Formular „Etwas vorschlagen“ (Lehrkraft, angemeldet). Fotos als Multipart, Rest als JSON im Feld „data“. */
+/** Formular „Etwas vorschlagen“ (Lehrkraft, angemeldet). Fotos als Multipart, Rest als JSON im Feld „data“ (apiUpload). */
 export function ProposalFormPage() {
   useDocumentTitle('Etwas vorschlagen');
   const navigate = useNavigate();
@@ -28,6 +43,10 @@ export function ProposalFormPage() {
   const [fields, setFields] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  // Senden mit Fotos: Fortschritt, Stillstands-Wächter und „Abbrechen“ wie beim Hochladen von Bildern und Videos.
+  const [anteil, setAnteil] = useState<number | null>(null);
+  const senden = useRef<AbortController | undefined>(undefined);
+  const [abgebrochen, setAbgebrochen] = useState(false);
   const { user } = useAuth();
 
   // Entwurf im Browser. Ausgewählte Fotos lassen sich dort nicht ablegen – nur ihre Anzahl für den Hinweis.
@@ -49,13 +68,13 @@ export function ProposalFormPage() {
   const addPhotos = async (list: FileList | null) => {
     if (!list) return;
     const istBild = (f: File) => /\.(jpe?g|png|webp)$/i.test(f.name);
-    // Fotos im Browser verkleinern – so passen auch große Handyfotos unter 5 MB
+    // Fotos im Browser verkleinern – so passen auch große Handyfotos unter die Grenze (MAX_PHOTO_BYTES)
     const auswahl = await Promise.all(Array.from(list).map((f) => (istBild(f) ? bildVerkleinern(f) : f)));
     const next = [...photos];
     const problems: string[] = [];
     for (const f of auswahl) {
       if (!istBild(f)) problems.push(`„${f.name}“: nur JPG, PNG oder WebP`);
-      else if (f.size > MAX_PHOTO_BYTES) problems.push(`„${f.name}“: größer als 5 MB`);
+      else if (f.size > MAX_PHOTO_BYTES) problems.push(`„${f.name}“: größer als ${mbText(MAX_PHOTO_BYTES)}`);
       else if (next.length >= MAX_PHOTOS) problems.push(`Höchstens ${MAX_PHOTOS} Fotos`);
       else next.push(f);
     }
@@ -66,18 +85,19 @@ export function ProposalFormPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(undefined);
+    setAbgebrochen(false);
     const errs: Record<string, string> = {};
-    if (title.trim().length < 3) errs.title = 'Bitte einen kurzen Titel eingeben (mindestens 3 Zeichen)';
-    if (description.trim().length < 10) errs.description = 'Bitte kurz beschreiben (mindestens 10 Zeichen)';
+    if (title.trim().length < PROPOSAL_TITLE_MIN) errs.title = `Bitte einen kurzen Titel eingeben (mindestens ${PROPOSAL_TITLE_MIN} Zeichen)`;
+    if (description.trim().length < PROPOSAL_DESC_MIN) errs.description = `Bitte kurz beschreiben (mindestens ${PROPOSAL_DESC_MIN} Zeichen)`;
     const qty = Number(quantity);
-    if (!Number.isInteger(qty) || qty < 1 || qty > 100) errs.quantity = 'Bitte eine Zahl von 1 bis 100 eingeben';
+    if (!Number.isInteger(qty) || qty < 1 || qty > MAX_PROPOSAL_QUANTITY) errs.quantity = `Bitte eine Zahl von 1 bis ${MAX_PROPOSAL_QUANTITY} eingeben`;
     if (!confirmed) errs.confirmed = 'Bitte bestätigen, dass keine Namen oder Fotos von Kindern enthalten sind';
     setFields(errs);
     if (Object.keys(errs).length) {
       setError('Bitte prüfen Sie die markierten Angaben.');
       // Direkt zum ersten markierten Feld
       const form = e.currentTarget as HTMLFormElement;
-      requestAnimationFrame(() => form.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+      requestAnimationFrame(() => ersteFehlerstelle<HTMLElement>(form)?.focus());
       return;
     }
 
@@ -95,17 +115,23 @@ export function ProposalFormPage() {
     );
     photos.forEach((f) => form.append('photos', f));
     setBusy(true);
+    const ctrl = new AbortController();
+    senden.current = ctrl;
+    setAnteil(0);
     try {
-      const created = await api<OwnProposal>('/proposals', { method: 'POST', form });
+      const created = await apiUpload<OwnProposal>('/proposals', form, setAnteil, { signal: ctrl.signal });
       entwurf.clear();
       toast('success', `Danke! Ihr Vorschlag ${created.number} ist beim 3D-Druck-Team eingegangen.`);
       navigate('/vorschlaege', { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.message === UPLOAD_ABGEBROCHEN) setAbgebrochen(true); // selbst abgebrochen
+      else if (err instanceof ApiError) {
         setError(err.message);
         setFields(err.fields);
       } else setError('Der Vorschlag konnte nicht gesendet werden.');
     } finally {
+      senden.current = undefined;
+      setAnteil(null);
       setBusy(false);
     }
   };
@@ -138,17 +164,17 @@ export function ProposalFormPage() {
         <Panel icon={Lightbulb} title="1. Das Druckteil beschreiben" description="Je genauer die Beschreibung, desto schneller kann das Team prüfen, ob und wie es sich drucken lässt." bodyClassName="space-y-5">
           <Field label="Titel" required error={fields.title} hint="Kurz und verständlich, z. B. „Rutschfeste Tellerunterlage“">
             {({ id, describedBy, invalid }) => (
-              <Input id={id} aria-describedby={describedBy} invalid={invalid} value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} />
+              <Input id={id} aria-describedby={describedBy} invalid={invalid} value={title} maxLength={PROPOSAL_TITLE_MAX} onChange={(e) => setTitle(e.target.value)} />
             )}
           </Field>
           <Field label="Was wird gebraucht?" required error={fields.description} hint="Was soll das Druckteil können? Größe, Form oder Besonderheiten dürfen Sie gern nennen.">
             {({ id, describedBy, invalid }) => (
-              <Textarea id={id} aria-describedby={describedBy} invalid={invalid} value={description} maxLength={3000} rows={5} onChange={(e) => setDescription(e.target.value)} />
+              <Textarea id={id} aria-describedby={describedBy} invalid={invalid} value={description} maxLength={PROPOSAL_DESC_MAX} rows={5} onChange={(e) => setDescription(e.target.value)} />
             )}
           </Field>
           <Field label="Wofür und wo wird es eingesetzt?" error={fields.usage} hint="Zum Beispiel Unterricht, Mahlzeit, Therapie – und in welcher Klasse oder Gruppe.">
             {({ id, describedBy, invalid }) => (
-              <Textarea id={id} aria-describedby={describedBy} invalid={invalid} value={usage} maxLength={1000} rows={3} onChange={(e) => setUsage(e.target.value)} />
+              <Textarea id={id} aria-describedby={describedBy} invalid={invalid} value={usage} maxLength={PROPOSAL_USAGE_MAX} rows={3} onChange={(e) => setUsage(e.target.value)} />
             )}
           </Field>
         </Panel>
@@ -157,7 +183,7 @@ export function ProposalFormPage() {
           <div>
             <p className="mb-1 font-bold text-stone-800">Fotos</p>
             <p className="mb-3 text-hinweis text-stone-600">
-              Höchstens {MAX_PHOTOS} Bilder (JPG, PNG oder WebP, je bis 5 MB) – z. B. ein ähnliches Produkt, eine Skizze oder die
+              Höchstens {MAX_PHOTOS} Bilder (JPG, PNG oder WebP, je bis {mbText(MAX_PHOTO_BYTES)}) – z. B. ein ähnliches Produkt, eine Skizze oder die
               Stelle, an der es gebraucht wird.
             </p>
             {photos.length > 0 && (
@@ -234,7 +260,7 @@ export function ProposalFormPage() {
         <Panel icon={ListOrdered} title="3. Menge und Dringlichkeit" bodyClassName="grid gap-5 sm:grid-cols-2">
           <Field label="Gewünschte Menge" error={fields.quantity} hint="Wie viele Stück werden gebraucht?">
             {({ id, describedBy, invalid }) => (
-              <Input id={id} aria-describedby={describedBy} invalid={invalid} type="number" inputMode="numeric" min={1} max={100} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+              <Input id={id} aria-describedby={describedBy} invalid={invalid} type="number" inputMode="numeric" min={1} max={MAX_PROPOSAL_QUANTITY} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
             )}
           </Field>
           <Field label="Wie dringend?" error={fields.urgency}>
@@ -256,9 +282,15 @@ export function ProposalFormPage() {
           footer={
             <ActionBar
               secondary={
-                <Link to="/katalog" className="inline-flex min-h-14 items-center justify-center px-4 font-bold text-stone-700 hover:underline">
-                  Abbrechen
-                </Link>
+                busy ? (
+                  <Button variant="secondary" size="lg" icon={X} onClick={() => senden.current?.abort()}>
+                    Senden abbrechen
+                  </Button>
+                ) : (
+                  <Link to="/katalog" className="inline-flex min-h-14 items-center justify-center px-4 font-bold text-stone-700 hover:underline">
+                    Abbrechen
+                  </Link>
+                )
               }
               primary={
                 <Button type="submit" size="lg" icon={Lightbulb} loading={busy}>
@@ -268,6 +300,15 @@ export function ProposalFormPage() {
             />
           }
         >
+          <p role="status" aria-live="polite" className="mb-3 text-sm font-semibold text-stone-700 empty:hidden">
+            {anteil !== null
+              ? anteil < 1
+                ? `Wird gesendet … ${Math.round(anteil * 100)} %`
+                : 'Wird gespeichert … bitte warten'
+              : abgebrochen
+                ? 'Das Senden wurde abgebrochen. Ihre Angaben bleiben stehen – Sie können es erneut versuchen.'
+                : ''}
+          </p>
           <label className="flex items-start gap-3 min-h-12">
             <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1 size-5 shrink-0 accent-brand-700" aria-describedby={fields.confirmed ? 'confirm-error' : undefined} aria-invalid={!!fields.confirmed || undefined} />
             <span>
@@ -283,14 +324,5 @@ export function ProposalFormPage() {
         </Panel>
       </form>
     </>
-  );
-}
-
-/** Für Gäste und Konten ohne Lehrkraft-Rolle: freundlicher Hinweis statt leerer Seite. */
-export function ProposalNeedsTeacher() {
-  return (
-    <EmptyState icon={Lightbulb} title="Vorschläge sind für Lehrkräfte gedacht" action={<LinkButton to="/katalog" variant="secondary">Zum Katalog</LinkButton>}>
-      Melden Sie sich mit Ihrer Schul-E-Mail-Adresse an, um ein Druckteil vorzuschlagen.
-    </EmptyState>
   );
 }

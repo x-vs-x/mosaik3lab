@@ -7,8 +7,7 @@ import { button, FOOTER_KONTO, para, renderLayout, schulnetzText, small, textFoo
 import { hashPassword } from '../../kern/auth/password';
 import { notFound } from '../../kern/errors';
 import type { Storage } from '../../storage';
-import type { PasswortLinkErgebnis } from '@mosaik3lab/shared/konten';
-import type { PasswortZweck } from './konten.repository';
+import type { PasswortLinkErgebnis, PasswortLinkInfo, PasswortZweck } from '@mosaik3lab/shared/konten';
 
 // Einmal-Links zum Festlegen bzw. Zurücksetzen des Passworts (…/passwort#<token>).
 // Gespeichert wird nur der SHA-256 des Tokens; ein neuer Link macht ältere Links desselben Kontos ungültig.
@@ -99,7 +98,7 @@ async function kontoZumLink(storage: Storage, token: string) {
 }
 
 /** Für die Seite „Passwort festlegen“: Für wen ist der Link? */
-export async function linkInfo(storage: Storage, token: string) {
+export async function linkInfo(storage: Storage, token: string): Promise<PasswortLinkInfo> {
   const { user, zweck } = await kontoZumLink(storage, token);
   return { email: user.email, name: user.displayName, zweck };
 }

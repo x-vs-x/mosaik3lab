@@ -1,20 +1,17 @@
-// Einrichtung und Deinstallation – „wie ein normal installiertes Programm“.
+// Einrichtung und Update per Installer-Paket – „wie ein normal installiertes Programm“ (Deinstallation: deinstallieren.mjs).
 //
 // Einrichten kopiert das Programm aus diesem Ordner (Arbeitskopie/Download) in den Programmordner
 //   <Programmordner>/releases/<version>  +  Verweis „current“  +  install.json
-// und legt Daten getrennt davon an:  <Datenordner>/{storage, backups, logs, config, services, tools}.
+// und legt Daten getrennt davon an: <Datenordner>/{daten, ablage, backups, logs} sowie den Verwaltungsordner (dienste,
+// werkzeuge, install-manifest.json – Windows im Programmordner, sonst <Datenordner>/manager).
 // Danach: Abhängigkeiten, Build, Dienste, ggf. Firewall, Verknüpfungen, Start. Jeder Schritt ist idempotent,
-// mit dryRun nur angezeigt. Jede Systemänderung steht in <Datenordner>/install-manifest.json –
+// mit dryRun nur angezeigt. Jede Systemänderung steht im install-manifest.json (manifest.mjs) –
 // daraus weiß die Deinstallation genau, was zu entfernen ist.
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import crypto from 'node:crypto';
-import { execFileSync, spawn } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
 import { platform, SERVICE_IDS, SERVICE_TITLES, FIREWALL_RULE } from '../platform/index.mjs';
-import { runShell } from '../platform/common.mjs';
-import { findGit, git } from './git.mjs';
+import { run, runShell } from '../platform/common.mjs';
 import { DEFAULTS, INSTALL, PROGRAM_DIR, MANAGER_DIR, resolvePaths, validate, writeJsonAtomic, saveConfigTo, configFromDb, countFiles, checkDir, checkPort, layout, isInside, requireValidConfig, InputError } from './config.mjs';
 import * as settingsdb from './settingsdb.mjs';
 import { generatePassword, saveBackupPassword } from './backupcrypto.mjs';
@@ -22,49 +19,24 @@ import { openBackup, applyBackup } from './backup.mjs';
 import { transferData, hasData } from './transfer.mjs';
 import { releaseSchemaVersion } from './schema.mjs';
 import { einrichtungSperren } from './sperre.mjs';
-import { refuseDowngrade, refuseOlderVersion, backupWithInstalled, restoreDbFrom, rollBack } from './paketupdate.mjs';
+import { refuseDowngrade, refuseOlderVersion, backupWithInstalled, restoreDbFrom, rollBack, umschalten, alteVersionenEntfernen } from './paketupdate.mjs';
+import { currentRelease, prune as pruneReleases } from './releases.mjs';
+import { removeTree, linkWorkspaces } from './dateien.mjs';
 import { logger, append, logFile } from './log.mjs';
-import { checkHealth } from './services.mjs';
+import { admin, checkHealth, wantedFirewallPorts } from './services.mjs';
 import { startAbbruch } from './startwache.mjs';
 import { activeAdminCount, checkAdminInput, createAdmin } from './admin.mjs';
 import { appRunnable } from './appstart.mjs';
-import { manifestPruefen } from './manifestpruefung.mjs';
+import { readManifest, recordManifest, setManifestTarget } from './manifest.mjs';
+import { paketVersion, schreibprobe } from './hilfen.mjs';
 
 const log = () => logger('manager');
-export const MIN_NODE = [24, 0]; // node:sqlite für die kommende Datenbank der App
+export const MIN_NODE = [24, 0]; // node:sqlite (Datenbank der App und Einstellungen des Managers)
 export const nodeOk = () => {
   const [a, b] = process.versions.node.split('.').map(Number);
   return a > MIN_NODE[0] || (a === MIN_NODE[0] && b >= MIN_NODE[1]);
 };
-const version = (dir) => {
-  try {
-    return JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).version ?? '0.0.0';
-  } catch {
-    return '0.0.0';
-  }
-};
-
-// ---------- Installationsprotokoll (install-manifest.json) ----------
-// Ort: Verwaltungsordner der Installation (managerDir: Windows = Programmordner, sonst <Datenordner>/manager)
-let manifestTarget = null; // während der Einrichtung: Verwaltungsordner des Ziels
-const manifestFile = (managerDir = manifestTarget ?? INSTALL?.managerDir) => (managerDir ? path.join(managerDir, 'install-manifest.json') : null);
-export function readManifest(managerDir) {
-  try {
-    return JSON.parse(fs.readFileSync(manifestFile(managerDir), 'utf8'));
-  } catch {
-    return null;
-  }
-}
-/** Eintrag hinzufügen (add=true) oder entfernen. Ohne Installation (Arbeitskopie) wird nichts protokolliert. */
-export function recordManifest(entry, add = true, managerDir) {
-  const file = manifestFile(managerDir);
-  if (!file) return;
-  const m = readManifest(managerDir) ?? { createdAt: new Date().toISOString(), entries: [] };
-  const key = (e) => `${e.type}:${e.path ?? e.name}`;
-  m.entries = m.entries.filter((e) => key(e) !== key(entry));
-  if (add) m.entries.push({ ...entry, at: new Date().toISOString() });
-  writeJsonAtomic(file, m);
-}
+const version = (dir) => paketVersion(dir) ?? '0.0.0';
 
 // ---------- Einrichtung ----------
 export const STEPS = [
@@ -84,22 +56,11 @@ export const STEPS = [
 export const ROLLBACK_STEP = ['rollback', 'Rückfall auf die vorige Version']; // nur nach einem fehlgeschlagenen Update gemeldet
 
 export function proposal() {
-  const d = platform.defaults();
   const l = layout({ programRoot: INSTALL?.programRoot, dataRoot: INSTALL?.dataRoot });
   return { programRoot: l.programRoot, dataRoot: l.dataRoot, backupDir: l.backups, logDir: l.logs, platform: platform.label, untested: !!platform.untested, nodeVersion: process.version, nodeOk: nodeOk(), nodeInstall: platform.nodeInstall, needsWrapper: !!platform.wrapper };
 }
 
-const writable = (dir) => {
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-    const probe = path.join(dir, `.probe-${process.pid}`);
-    fs.writeFileSync(probe, '');
-    fs.rmSync(probe);
-    return true;
-  } catch {
-    return false;
-  }
-};
+const writable = (dir) => !schreibprobe(dir);
 
 /** Kopierfilter: keine Laufzeitdaten, Logs, Git-Daten, Builds; node_modules und Build nur auf Wunsch (Installer-Paket). */
 const copyFilter = (copyDeps, keepDist = false) => (src) => {
@@ -119,8 +80,8 @@ const copyFilter = (copyDeps, keepDist = false) => (src) => {
  *          admin: { email, name, password } (erstes Administrator-Konto; entfällt bei fromBackup oder wenn schon ein Admin existiert),
  *          dataFrom/ablageFrom (bisherige Daten übernehmen; Standard: Ordner der Arbeitskopie),
  *          systemDryRun (Dienste, Firewall, Verknüpfungen, Start nur anzeigen), skipBuild (npm ci und Build überspringen – Tests),
- *          prebuilt (Installer-Paket: gebündelter Server server/dist und client/dist liegen bei – ältere Pakete stattdessen
- *          mit node_modules – → mitkopieren, kein npm ci, kein Build) }
+ *          prebuilt (Installer-Paket: gebündelter Server server/dist und client/dist liegen bei → mitkopieren, kein npm ci,
+ *          kein Build) }
  * Liegt im Datenordner schon eine Einrichtung (Startdatei + Datenbank), bleiben deren Einstellungen unverändert.
  * report(stepId, status, detail) meldet den Fortschritt.
  */
@@ -155,23 +116,21 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
       throw Object.assign(err, { steps });
     }
   };
-  if (!dryRun) manifestTarget = L.manager;
+  if (!dryRun) setManifestTarget(L.manager);
   // Paket-Installation: Programmordner nur für root bzw. Administratoren/System beschreibbar (nach dem Anlegen und nach dem
   // Kopieren) – der Update-Helfer läuft mit Adminrechten daraus.
   const programmSchuetzen = async () => {
     if (dryRun || sysDry || !platform.protectProgramScript || !paketInfo() || !fs.existsSync(programRoot)) return;
-    const { admin } = await import('./services.mjs');
     await admin(platform.protectProgramScript(programRoot), platform.id === 'windows' ? 'Programmordner schützen (nur Administratoren und System schreiben)' : 'Programmordner schützen (nur root schreibt)');
   };
   const dataOwned = () => [...new Set([dataRoot, dirs.ablage, dirs.backups, dirs.logs])];
   const dbFile = settingsdb.dbFileOf(dirs.storage);
   let schemaBefore = null; // Datenbank-Schema vor dem Update (null = keine Datenbank)
   let update = null; // erneutes Einrichten mit neuer Version: { previous, failed, backupId } – nach dem Umschalten gesetzt
-  let pruneAfter = null; // nach dem Umschalten: prune() aus update.mjs, läuft erst nach Erfolg
+  let pruneAfter = null; // nach dem Umschalten: prune() aus releases.mjs, läuft erst nach Erfolg
   // Linux als root: Datenbank, Einstellungen, Sicherungen, Protokolle gehören sonst root → dem Dienstbenutzer geben
   const giveDataToServiceUser = async () => {
     if (!platform.ownsDataDirs || !(await platform.isAdmin())) return;
-    const { admin } = await import('./services.mjs');
     await admin(platform.prepareDirsScript(dataOwned()), 'Datenordner dem Dienstbenutzer übergeben');
   };
   const serviceKeys = () => ['webapp', 'backup', ...(portal.enabled ? ['portal'] : []), 'manager'];
@@ -183,7 +142,6 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
     const failed = [];
     for (const key of keys) if (!(await platform.services.control(key, 'start'))) failed.push(key);
     if (failed.length) {
-      const { admin } = await import('./services.mjs');
       await admin(failed.map((key) => platform.services.controlScript(key, 'start')).join('\n'), 'Dienste starten');
     }
   };
@@ -210,21 +168,9 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
   try {
     await step('check', async () => {
       if (!nodeOk()) throw new InputError(`Node.js ${process.version} ist zu alt (mindestens ${MIN_NODE.join('.')}).`, platform.nodeInstall);
-      // Updates kommen aus Git → Git muss auffindbar sein (nicht zwingend für die Einrichtung selbst).
-      let gitNote = '';
-      if (fs.existsSync(path.join(PROGRAM_DIR, '.git'))) {
-        let g = await findGit({ remember: false });
-        if (!g && input.installGit === true && !dryRun) {
-          const { admin } = await import('./services.mjs');
-          await admin(platform.runtime.installScript('git'), 'Git installieren');
-          g = await findGit({ remember: false });
-        }
-        gitNote = g ? `, Git ${g.version}` : ` – Git fehlt, Updates sind erst nach der Installation möglich (${platform.gitInstall}; oder installGit: true)`;
-      }
       // Älteres Paket über eine neuere Installation: ablehnen, bevor irgendetwas verändert wird – nach Versionsnummer
       // (SemVer) und nach Datenbank-Schema
       if (!input.fromBackup) {
-        const { currentRelease } = await import('./update.mjs');
         const installed = currentRelease(programRoot);
         refuseOlderVersion(installed?.version ?? installed?.id ?? null, version(PROGRAM_DIR), { allowOlder: !!input.allowOlder });
         schemaBefore = await refuseDowngrade(dbFile, PROGRAM_DIR, id);
@@ -232,7 +178,7 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
       // Linux mit zu altem polkit (Bullseye, Ubuntu 22.04): Einrichtung geht, aber der Manager kann die Dienste nicht steuern – deutlich sagen
       const polkit = platform.polkitProblem ? await platform.polkitProblem().catch(() => null) : null;
       if (polkit) log().warn(`Einrichtung: ${polkit}`);
-      return { detail: `${platform.label}${platform.untested ? ' (ungetestet)' : ''}, ${process.arch}, Node ${process.version}${gitNote}${polkit ? `\n  ! ACHTUNG: ${polkit}` : ''}` };
+      return { detail: `${platform.label}${platform.untested ? ' (ungetestet)' : ''}, ${process.arch}, Node ${process.version}${polkit ? `\n  ! ACHTUNG: ${polkit}` : ''}` };
     });
 
     await step('folders', async () => {
@@ -241,15 +187,14 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
       const missing = new Set([programRoot, dataRoot, dirs.backups, dirs.logs].filter((d) => !writable(d)));
       // Linux als root: alles beschreibbar – trotzdem Dienstbenutzer anlegen und ihm die Datenordner geben
       if (platform.ownsDataDirs && (await platform.isAdmin())) for (const d of dataOwned()) missing.add(d);
-      // Programmordner unter „Programme“: Nur das Git-Update (Installation aus einer Arbeitskopie) braucht Schreibrechte für
+      // Programmordner unter „Programme“: Nur Installationen aus einer Arbeitskopie (Entwicklung) bekommen Schreibrechte für
       // Benutzer und Dienstkonto. Bei Paket-Installationen darf dort NUR Admin/System schreiben – der Update-Helfer läuft als
       // System aus diesem Ordner; wäre er für den Manager (Lokaler Dienst) beschreibbar, könnte ein übernommener Manager so
-      // Admin-Rechte bekommen. Ältere Installationen (bis 1.1.0) hatten diese Rechte → bei jedem Lauf auf Standard zurücksetzen.
+      // Admin-Rechte bekommen.
       const inProgramFiles = platform.serviceFilesInProgram && isInside(programRoot, path.dirname(platform.defaults().programRoot));
       const paket = !!paketInfo();
       if (inProgramFiles && !paket) missing.add(programRoot);
       if (missing.size) {
-        const { admin } = await import('./services.mjs');
         await admin(platform.prepareDirsScript([...missing]), 'Ordner anlegen');
       }
       // Paket-Installation: programmSchuetzen() setzt die Rechte (Windows unter „Programme“: Standard; anderswo ausdrücklich nur Admin/System)
@@ -264,13 +209,11 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
 
     await step('program', async () => {
       if (INSTALL && fs.realpathSync(PROGRAM_DIR).startsWith(programRoot)) return { skip: true, detail: 'läuft bereits aus dem Programmordner' };
-      const { currentRelease, switchCurrent, prune } = await import('./update.mjs');
       const previous = dryRun ? null : (currentRelease(programRoot)?.id ?? null);
       if (previous === id) return { skip: true, detail: `Version ${id} ist bereits installiert` };
       const dest = path.join(programRoot, 'releases', id);
       const copyDeps = !!(input.copyDeps || input.prebuilt);
       if (dryRun) return { detail: `${PROGRAM_DIR} → ${dest}${input.prebuilt ? ' (fertig gebaut)' : copyDeps ? ' (mit node_modules)' : ''}; „current“ zeigt darauf` };
-      removeTree(`${dest}.unfertig`); // Rest älterer Versionen (kopierten erst dorthin und benannten dann um)
       removeTree(dest);
       // Verweise (z. B. npm-Workspaces in node_modules) nicht kopieren, sondern danach neu auf die Kopie zeigen lassen.
       const links = [];
@@ -296,9 +239,10 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
           throw err;
         }
       }
-      switchCurrent(programRoot, id);
+      // Scheitert das Umschalten, zeigt „current“ wieder auf die bisherige Version und die gestoppten Dienste laufen wieder
+      await umschalten({ programRoot, id, previous }, { start: () => startServices(stopped), warn: (t) => log().error(`Einrichtung: ${t}`) });
       if (previous && !input.fromBackup) update = { previous, failed: id, backupId };
-      pruneAfter = prune; // nur aktuelle + vorige Version behalten – erst nach Erfolg (wie das Git-Update), damit ein Rückfall die vorige hat
+      pruneAfter = pruneReleases; // nur aktuelle + vorige Version behalten – erst nach Erfolg, damit ein Rückfall die vorige hat
       // Für alle lesbar (nur Ordner, keine Geheimnisse): Manager und Kommandozeile erkennen daran die Installation –
       // unter Linux läuft der Manager als mosaik3lab, die Datei gehört root (mit 0600 sah er sich als „Arbeitskopie“)
       writeJsonAtomic(path.join(programRoot, 'install.json'), { dataRoot, configFile, logDir: dirs.logs, managerDir: dirs.manager }, { mode: 0o644 });
@@ -320,7 +264,6 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
         Object.assign(dirs, { ablage: cfg.paths.ablageDir || dirs.ablage, backups: cfg.paths.backupDir || dirs.backups, logs: cfg.paths.logDir || dirs.logs });
         return { skip: true, detail: `vorhandene Einrichtung in ${dataRoot} – Einstellungen und Daten bleiben` };
       }
-      const isGit = fs.existsSync(path.join(PROGRAM_DIR, '.git'));
       const encrypt = input.backupEncrypt !== false;
       const cfg = validate({
         ...structuredClone(DEFAULTS),
@@ -329,13 +272,12 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
         portal,
         paths: { dataDir: dirs.storage, ablageDir: dirs.ablage, backupDir: dirs.backups, logDir: dirs.logs },
         backup: { time: input.backupTime ?? DEFAULTS.backup.time, keep: Number(input.backupKeep ?? DEFAULTS.backup.keep), encrypt },
-        update: { repo: isGit ? PROGRAM_DIR : '', branch: 'main', gitPath: '' },
       });
       const from = input.dataFrom ? path.resolve(input.dataFrom) : resolvePaths().dataDir; // bisherige Daten (Entwicklung: C:\Mosaik3LAB\daten)
       const copyData = input.copyData !== false && hasData(from) && !hasData(dirs.storage);
       const oldAblage = input.ablageFrom ? path.resolve(input.ablageFrom) : resolvePaths().ablageDir; // Ablage der bisherigen Arbeitskopie
       const copyAblage = copyData && fs.existsSync(oldAblage) && countFiles(oldAblage) > 0 && countFiles(dirs.ablage) === 0 && path.resolve(oldAblage) !== path.resolve(dirs.ablage);
-      const keyFile = path.join(path.dirname(configFile), 'backup.key');
+      const keyFile = L.keyFile;
       if (dryRun) return { detail: `${configFile} + Datenbank ${settingsdb.dbFileOf(dirs.storage)}${encrypt ? ' · Backup-Passwort wird erzeugt' : ''}${copyData ? ` · Datenbank und Dateien aus ${from} übernehmen` : ''}` };
       // Vorhandene Daten zuerst übertragen (Datenbank konsistent über db:backup, Anzahlen verglichen) – danach schreibt
       // saveConfigTo die Einstellungen der neuen Einrichtung hinein; fachliche Daten der Datenbank bleiben erhalten.
@@ -402,10 +344,10 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
         portal = cfg.portal;
         Object.assign(dirs, { ablage: wanted.ablageDir, backups: wanted.backupDir, logs: wanted.logDir });
         // 3. Dateien (nur was die Sicherung enthält: „komplett“ → Ablage; „Daten & Einstellungen“ lässt die Ablage leer)
-        const rest = await applyBackup({ folder, meta, dirs: { dataDir: dirs.storage, ablageDir: wanted.ablageDir }, only: ['ablage', 'data', 'uploads', 'config'] });
+        const rest = await applyBackup({ folder, meta, dirs: { dataDir: dirs.storage, ablageDir: wanted.ablageDir }, only: ['ablage', 'data', 'uploads'] });
         if (rest.length) throw new Error(`Dateien konnten nicht vollständig zurückgespielt werden (${rest[0]}).`);
         if (meta.kind !== 'komplett') settingsdb.writeBereich(settingsdb.dbFileOf(dirs.storage), 'betrieb', { 'restore.ohneDateien': { at: new Date().toISOString(), backup: path.basename(location) } });
-        if (cfg.backup.encrypt && header?.encryption && fb.password) saveBackupPassword(fb.password, path.join(path.dirname(configFile), 'backup.key')); // geplante Sicherungen laufen weiter
+        if (cfg.backup.encrypt && header?.encryption && fb.password) saveBackupPassword(fb.password, L.keyFile); // geplante Sicherungen laufen weiter
         const hint = meta.app?.version && meta.app.version !== version(PROGRAM_DIR) ? ` · Sicherung von App-Version ${meta.app.version}${meta.app.commit ? ` (${meta.app.commit})` : ''}, eingerichtet wird ${version(PROGRAM_DIR)} – bei Bedarf danach ein Update auf die gewünschte Version` : '';
         return { detail: `${meta.files.length} Dateien aus ${path.basename(location)} (${meta.kind === 'komplett' ? 'komplett' : 'Daten & Einstellungen – Bilder fehlen zunächst'}); Web-App-Port ${cfg.app.port}${cfg.app.network ? ', im Netzwerk' : ''}${hint}` };
       } finally {
@@ -434,7 +376,7 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
 
     await step('admin', async () => {
       if (input.fromBackup) return { skip: true, detail: 'Konten kommen aus der Sicherung' };
-      if (!dryRun && (await activeAdminCount(path.join(dirs.storage, 'mosaik3lab.db'))) > 0) return { skip: true, detail: 'es gibt bereits einen aktiven Administrator' };
+      if (!dryRun && (await activeAdminCount(dbFile)) > 0) return { skip: true, detail: 'es gibt bereits einen aktiven Administrator' };
       const a = input.admin;
       if (!a?.email) return { skip: true, detail: 'nicht angegeben – beim ersten Aufruf der App im Schulnetz anlegen (Adressen am Ende der Installation)' };
       checkAdminInput(a);
@@ -466,7 +408,6 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
       if (platform.wrapper) await ensureWrapper(defs[0].wrapperExe, !!input.downloadWrapper);
       // Linux: Inhalte stehen im Admin-Skript, root schreibt direkt nach /etc (nie über den Datenordner, platform/linux.mjs)
       if (!platform.services.filesInInstallScript) for (const d of defs) for (const f of platform.services.files(d)) fs.writeFileSync(f.path, f.content);
-      const { admin } = await import('./services.mjs');
       await admin(script, 'Dienste einrichten');
       for (const d of defs) recordManifest({ type: 'service', name: d.id });
       return { detail: defs.map((d) => d.id).join(', ') };
@@ -475,10 +416,9 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
     await step('firewall', async () => {
       if (!network) return { skip: true, detail: 'Web-App nur auf diesem Rechner – keine Freigabe nötig' };
       // Mit Portal: nur dessen Ports (80, bei HTTPS auch 443) – die App selbst hört nur auf 127.0.0.1
-      const ports = portal.enabled ? [portal.httpPort, ...(portal.https ? [portal.httpsPort] : [])] : [appPort];
+      const ports = wantedFirewallPorts({ app: { port: appPort }, portal });
       const script = ports.map((p) => platform.firewall.allowScript(p)).join('\n');
       if (dryRun || sysDry) return { detail: ports.map((p) => FIREWALL_RULE(p)).join(' · '), command: script, planned: true };
-      const { admin } = await import('./services.mjs');
       // Ganz ohne Firewall-Programm (z. B. Raspberry Pi OS) sind die Ports offen – nichts anzulegen. Ist ufw/firewalld nur
       // ausgeschaltet (Ubuntu), kommt die Regel trotzdem dazu: Schaltet jemand die Firewall später ein, bleibt die App erreichbar.
       if (platform.firewall.available && !(await platform.firewall.available())) return { detail: `keine Firewall vorhanden – Port ${ports.join(', ')} ist ohne Regel erreichbar` };
@@ -511,10 +451,10 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
     if (!update) throw err;
     throw await rollBackUpdate(err);
   } finally {
-    manifestTarget = null;
+    setManifestTarget(null);
     freigeben();
   }
-  pruneAfter?.(programRoot);
+  if (pruneAfter) alteVersionenEntfernen(programRoot, pruneAfter, (t) => log().warn(t));
   if (!dryRun) log().info(update ? `Update von ${update.previous} auf ${id} abgeschlossen` : `Einrichtung abgeschlossen: ${programRoot} / ${dataRoot}`);
   return { steps, programRoot, dataRoot, configFile, backupPassword: generatedBackupPassword };
 
@@ -528,7 +468,7 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
     try {
       const r = await rollBack({ programRoot, previous, failed, backupId, schemaBefore, dbFile }, {
         stop: () => (withServices ? stopOwnServices() : []),
-        restoreDb: (bid) => restoreDbFrom({ backupDir: dirs.backups, id: bid, keyFile: path.join(path.dirname(configFile), 'backup.key'), dataDir: dirs.storage, ablageDir: dirs.ablage }),
+        restoreDb: (bid) => restoreDbFrom({ backupDir: dirs.backups, id: bid, keyFile: L.keyFile, dataDir: dirs.storage, ablageDir: dirs.ablage }),
         start: async () => {
           if (!withServices) return;
           await giveDataToServiceUser();
@@ -544,75 +484,6 @@ export async function install(input, report = () => {}, { dryRun = false } = {})
     }
     log().error(text);
     return Object.assign(new InputError(text, err.hint ?? 'Protokoll „Web-App“ ansehen; mit dem vorigen Paket läuft alles wie vorher.'), { steps, rolledBack: true });
-  }
-}
-
-/**
- * Ordner sicher löschen. Verweise (Junctions/Symlinks, z. B. npm-Workspaces) werden nie verfolgt und
- * ZUERST entfernt – sonst würde ihr Ziel vorher gelöscht und der Verweis bliebe verwaist zurück.
- */
-export function removeTree(dir) {
-  const unlink = (p) => {
-    try {
-      fs.unlinkSync(p);
-    } catch {
-      try {
-        fs.rmdirSync(p); // Windows-Junction
-      } catch {
-        if (process.platform === 'win32') execFileSync('cmd.exe', ['/d', '/c', 'rmdir', p], { stdio: 'ignore' });
-      }
-    }
-  };
-  const walk = (p, removeLinks) => {
-    let st;
-    try {
-      st = fs.lstatSync(p);
-    } catch {
-      // Gibt es nicht (mehr) – oder eine Windows-Junction ins Leere (lstat: ENOENT, steht aber noch im Ordner)
-      if (removeLinks && fs.existsSync(path.dirname(p)) && fs.readdirSync(path.dirname(p)).includes(path.basename(p))) unlink(p);
-      return;
-    }
-    if (st.isSymbolicLink()) return removeLinks && unlink(p);
-    if (!st.isDirectory()) return !removeLinks && fs.rmSync(p, { force: true });
-    for (const name of fs.readdirSync(p)) walk(path.join(p, name), removeLinks);
-    if (!removeLinks) fs.rmdirSync(p);
-  };
-  walk(dir, true); // 1. alle Verweise entfernen
-  walk(dir, false); // 2. Dateien und Ordner löschen
-}
-
-/**
- * npm-Workspaces (z. B. node_modules/@mosaik3lab/shared) auf die Ordner von `dest` verweisen lassen: fehlende anlegen,
- * Verweise auf einen anderen Ort ersetzen (npm ci legt sie mit absolutem Pfad an – nach dem Umbenennen von
- * „<id>.unfertig“ in „<id>“ zeigen sie sonst ins Leere und die Web-App startet nicht).
- */
-export function linkWorkspaces(dest) {
-  if (!fs.existsSync(path.join(dest, 'node_modules'))) return;
-  for (const ws of JSON.parse(fs.readFileSync(path.join(dest, 'package.json'), 'utf8')).workspaces ?? []) {
-    const name = JSON.parse(fs.readFileSync(path.join(dest, ws, 'package.json'), 'utf8')).name;
-    const link = path.join(dest, 'node_modules', ...name.split('/'));
-    const target = path.join(dest, ws);
-    // Windows: lstat meldet für eine Junction ins Leere ENOENT – im Ordnerinhalt steht sie trotzdem.
-    const present = fs.existsSync(path.dirname(link)) && fs.readdirSync(path.dirname(link)).includes(path.basename(link));
-    let stat = null;
-    try {
-      stat = fs.lstatSync(link);
-    } catch {
-      /* fehlt oder zeigt ins Leere */
-    }
-    if (stat && !stat.isSymbolicLink()) continue; // echter Ordner (kopiert) – so lassen
-    if (present) {
-      let ok = false;
-      try {
-        ok = fs.realpathSync(link) === fs.realpathSync(target);
-      } catch {
-        /* zeigt ins Leere */
-      }
-      if (ok) continue;
-      platform.unlinkDir(link);
-    }
-    fs.mkdirSync(path.dirname(link), { recursive: true });
-    platform.linkDir(target, link);
   }
 }
 
@@ -634,7 +505,6 @@ async function stopOwnServices() {
   const failed = [];
   for (const key of running) if (!(await platform.services.control(key, 'stop'))) failed.push(key);
   if (failed.length) {
-    const { admin } = await import('./services.mjs');
     await admin(failed.map((key) => platform.services.controlScript(key, 'stop')).join('\n'), 'Dienste stoppen');
   }
   return running;
@@ -643,9 +513,9 @@ async function stopOwnServices() {
 async function gitCommit() {
   const paket = paketInfo(); // Installer-Paket: Commit steht dort (kein .git)
   if (paket) return paket.commit ?? 'lokal';
-  if (!(await findGit({ remember: false }))) return 'lokal';
-  const r = await git(['-C', PROGRAM_DIR, 'rev-parse', '--short', 'HEAD'], 5000).catch(() => null);
-  return r?.code === 0 ? r.stdout : 'lokal';
+  // Arbeitskopie: Commit für die Versionsbezeichnung, ohne Git einfach „lokal“
+  const r = await run('git', ['-C', PROGRAM_DIR, 'rev-parse', '--short', 'HEAD'], { timeout: 5000 });
+  return r.code === 0 && /^[0-9a-f]{4,40}$/.test(r.stdout) ? r.stdout : 'lokal';
 }
 
 function shortcutItems(programRoot, webUrl) {
@@ -679,59 +549,6 @@ export async function ensureWrapper(file, allowDownload) {
   recordManifest({ type: 'file', path: file, sha256: hash });
 }
 
-// ---------- Deinstallation ----------
-/**
- * Entfernt alles, was im install-manifest steht: Dienste, Firewall-Regeln, Verknüpfungen, Programmordner.
- * keepData (Standard true): Daten, Sicherungen, Einstellungen und Logs bleiben erhalten.
- */
-export async function uninstall({ dataRoot = INSTALL?.dataRoot, managerDir, keepData = true, dryRun = false } = {}) {
-  // Manifest: in der Installation bekannt (Windows neu: Programmordner), sonst <Datenordner>/manager (ältere Installationen, Linux)
-  managerDir ??= INSTALL && (!dataRoot || dataRoot === INSTALL.dataRoot) ? INSTALL.managerDir : dataRoot && path.join(dataRoot, 'manager');
-  const m = managerDir && readManifest(managerDir);
-  if (!m) throw new InputError('Keine Installation gefunden (install-manifest.json fehlt).', 'Den Datenordner der Installation angeben: uninstall --data-root <ordner> (bzw. --manager-dir <Programmordner>)');
-  // Das Manifest kann (Linux: Datenordner) vom Dienstbenutzer stammen – nur Einträge, die zu Mosaik³LAB passen (manifestpruefung.mjs)
-  const geprueft = manifestPruefen(m.entries, { serviceIds: Object.values(SERVICE_IDS), programRoot: INSTALL?.programRoot ?? null });
-  for (const v of geprueft.verworfen) log().warn(`Deinstallieren: Eintrag im Manifest übersprungen (${v.grund}): ${JSON.stringify(v.entry).slice(0, 200)}`);
-  const by = (t) => geprueft.entries.filter((e) => e.type === t);
-  const adminLines = [
-    ...by('service').map((e) => platform.services.uninstallScript(e.name, layout({ dataRoot, managerDir }).services)),
-    ...by('firewall').map((e) => platform.firewall.removeScript(e.port)),
-  ];
-  const program = by('folder').find((e) => e.role === 'program')?.path;
-  const runningFromProgram = program && isInside(fs.realpathSync(PROGRAM_DIR), program);
-  const removeFolders = by('folder').filter((e) => e.role === 'program' || !keepData);
-  const plan = {
-    services: by('service').map((e) => e.name),
-    firewall: by('firewall').map((e) => e.name),
-    shortcuts: by('shortcut').map((e) => e.path),
-    folders: removeFolders.map((e) => e.path),
-    keep: keepData ? by('folder').filter((e) => e.role !== 'program').map((e) => e.path) : [],
-    command: adminLines.join('\n'),
-  };
-  if (dryRun) return { dryRun: true, ...plan };
-  if (adminLines.length) {
-    const { admin } = await import('./services.mjs');
-    await admin(adminLines.join('\n'), 'Dienste und Firewall-Regeln entfernen');
-  }
-  for (const s of plan.shortcuts) fs.rmSync(s, { force: true });
-  for (const dir of new Set(plan.shortcuts.map((s) => path.dirname(s)))) if (/Mosaik(³|3)LAB$/i.test(dir) && fs.existsSync(dir) && !fs.readdirSync(dir).length) fs.rmdirSync(dir);
-  for (const f of removeFolders) {
-    if (f.path === program && runningFromProgram) {
-      // Der Manager läuft gerade aus diesem Ordner: ein eigener Prozess löscht ihn nach Programmende (wiederholt, solange
-      // z. B. das Fenster noch offen ist). Mitgeliefertes node.exe liegt selbst im Ordner → vorher eine Kopie im Temp-Ordner starten.
-      const code = `import { removeTree } from ${JSON.stringify(pathToFileURL(path.join(MANAGER_DIR, 'lib', 'setup.mjs')).href)}; let n = 0; const go = () => { try { removeTree(${JSON.stringify(f.path)}); } catch { if (++n < 200) setTimeout(go, 3000); } }; setTimeout(go, 3000);`;
-      let node = process.execPath;
-      if (isInside(node, f.path) || isInside(fs.realpathSync(node), f.path)) {
-        node = path.join(os.tmpdir(), `mosaik3lab-deinstallieren-${process.pid}${path.extname(process.execPath)}`);
-        fs.copyFileSync(process.execPath, node);
-      }
-      spawn(node, ['--input-type=module', '-e', code], { detached: true, stdio: 'ignore', windowsHide: true, cwd: path.dirname(f.path), env: { ...process.env, MOSAIK3LAB_QUIET: '1' } }).unref();
-    } else {
-      removeTree(f.path);
-    }
-  }
-  if (keepData) fs.rmSync(manifestFile(managerDir), { force: true });
-  return { removed: true, ...plan };
-}
-
-export { MANAGER_DIR };
+// Für bestehende Aufrufer (cli, server, Tests) weiter auch hier erreichbar
+export { MANAGER_DIR, removeTree, linkWorkspaces, readManifest, recordManifest };
+export { uninstall } from './deinstallieren.mjs';

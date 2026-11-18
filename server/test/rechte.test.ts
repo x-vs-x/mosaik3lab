@@ -56,6 +56,9 @@ const ENDPOINTS: [Guard, string, string, unknown?][] = [
   ['settings:manage', 'PUT', '/api/admin/settings/orderform', {}],
   ['settings:manage', 'PUT', '/api/admin/settings/features', {}],
   ['settings:manage', 'PATCH', `/api/admin/settings/order-statuses/${X}`, {}],
+  // „Was ist neu“ (seit 1.7.x über den Prüfpunkt statt der Rolle; settings:manage hat nur der Admin).
+  ['settings:manage', 'GET', '/api/neuigkeiten'],
+  ['settings:manage', 'POST', '/api/neuigkeiten/gelesen'],
   ['users:manage', 'GET', '/api/personen'],
   ['users:manage', 'PUT', '/api/personen', {}],
   ['users:manage', 'POST', '/api/personen/passwort-link', {}],
@@ -159,4 +162,21 @@ test('Entwürfe und Druckdatei-Liste nur mit „Druckteile pflegen“', async ()
     assert.ok(items.every((i: any) => i.published && i.modelFiles.length === 0));
   }
   assert.ok((await team.req('GET', '/api/items?all=1')).json.some((i: any) => !i.published));
+});
+
+test('/api/admin/settings: unbekannte Pfade und Methoden wie bisher nur mit dem Einstellungsrecht (dann 404)', async () => {
+  const anon = new Client(srv.base);
+  for (const [method, url] of [
+    ['GET', '/api/admin/settings/gibt-es-nicht'],
+    ['GET', '/api/admin/settings/masterdata/categories'],
+    ['POST', '/api/admin/settings/order-statuses/offen'],
+  ] as const) {
+    assert.equal((await anon.req(method, url)).status, 401, `anonym ${method} ${url}`);
+    for (const c of [teacher, team, stammdaten.c]) assert.equal((await c.req(method, url)).status, 403, `${method} ${url}`);
+    assert.equal((await admin.req(method, url)).status, 404, `Admin ${method} ${url}`);
+  }
+  // Stammdaten-Recht ohne Einstellungsrecht: Stammdaten ja, Ablauf der Anfragen und Einstellungen nein.
+  assert.equal((await stammdaten.c.req('GET', '/api/admin/settings/bambu-palette')).status, 200);
+  assert.equal((await stammdaten.c.req('PATCH', '/api/admin/settings/order-statuses/offen', { active: true })).status, 403);
+  assert.equal((await stammdaten.c.req('GET', '/api/admin/settings')).status, 403);
 });

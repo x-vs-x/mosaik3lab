@@ -66,8 +66,7 @@ test('Einstellungen ändern: alles landet in der Datenbank, Startdatei bleibt wi
     portal: { enabled: true, basePath: '/schule/3d', httpPort: 8081, httpsPort: 8444, https: true },
     manager: { port: 5196 },
     paths: { ablageDir: path.join(A, 'ablage'), backupDir: path.join(A, 'backups'), logDir: path.join(A, 'logs') },
-    backup: { time: '03:15', keep: 7, encrypt: true, full: { enabled: true, time: '04:45', weekday: 6, keep: 2 } },
-    update: { repo: 'https://example.invalid/mosaik3lab.git', branch: 'release', gitPath: path.join(A, 'tools', 'git.exe') },
+    backup: { time: '03:15', keep: 7, encrypt: true },
   });
   await portalcert.generateCert(); // HTTPS-Zertifikat (liegt in der Datenbank → im Backup)
   mail.saveMail({ enabled: true, host: 'smtp.schule.example', port: 465, secure: true, user: 'lab', password: 'Smtp-Geheim-9', from: 'Mosaik³LAB <lab@schule.example>', recipients: 'a@schule.example, b@schule.example', appBaseUrl: 'http://lab.example:3055' });
@@ -76,7 +75,7 @@ test('Einstellungen ändern: alles landet in der Datenbank, Startdatei bleibt wi
   assert.equal(start.managerPort, 5196);
   const all = sdb.readAll(dbFileA);
   assert.equal(all.betrieb['app.port'], 3055);
-  assert.deepEqual(all.betrieb['backup.full'], { enabled: true, time: '04:45', weekday: 6, keep: 2 });
+  assert.equal(all.betrieb['backup.full'], undefined, 'den früheren Schlüssel backup.full schreibt der Manager nicht mehr');
   assert.deepEqual([all.betrieb['portal.enabled'], all.betrieb['portal.basePath'], all.betrieb['portal.httpPort'], all.betrieb['portal.httpsPort'], all.betrieb['portal.https']], [true, '/mosaik3lab', 8081, 8444, true], 'Pfad mit Portal fest – ein anderer (z. B. aus alter Einrichtung) wird ersetzt');
   assert.ok(all.betrieb['portal.cert'], 'Zertifikat in der Datenbank');
   assert.equal(all.mail.smtp.pass, 'Smtp-Geheim-9');
@@ -168,7 +167,6 @@ test('Leeres System aus älterer „daten“-Sicherung: alles identisch, Bilder 
   assert.equal(got.app.demoAccounts, true);
   assert.equal(got.manager.port, 5196);
   assert.deepEqual(got.backup, original.backup, 'Zeitplan, Aufbewahrung, Verschlüsselung');
-  assert.deepEqual(got.update, original.update);
   assert.deepEqual(got.portal, original.portal, 'Portal: Pfad, Ports, HTTPS wie in der Sicherung');
   assert.deepEqual({ ablageDir: got.paths.ablageDir, backupDir: got.paths.backupDir, logDir: got.paths.logDir }, paths, 'abweichende Ordner wie angegeben');
 
@@ -180,7 +178,7 @@ test('Leeres System aus älterer „daten“-Sicherung: alles identisch, Bilder 
   assert.deepEqual(b.mail, a.mail);
   assert.equal(b.mail.smtp.pass, 'Smtp-Geheim-9');
   assert.deepEqual(b.betrieb['portal.cert'], a.betrieb['portal.cert'], 'HTTPS-Zertifikat identisch');
-  assert.equal(rows(dbFileB, 'SELECT COUNT(*) AS n FROM benutzer_recht')[0].n, 1);
+  assert.equal(rows(dbFileB, 'SELECT COUNT(*) AS n FROM benutzer_bereich')[0].n, 1, 'Rechte (Bereiche) des Kontos');
   assert.equal(fs.readFileSync(path.join(B, 'root', 'backup.key'), 'utf8').trim(), BACKUP_PW, 'geplante Sicherungen laufen weiter');
 
   // Bilder fehlen: Datensatz bleibt, der doctor meldet es als Hinweis (nicht als Fehler)

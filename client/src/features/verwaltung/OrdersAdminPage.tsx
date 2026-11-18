@@ -1,33 +1,14 @@
-import { ChevronDown, Lock, Mail, PackageSearch, Save, Search, Send, X } from 'lucide-react';
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { ColorSwatch } from '../../components/ColorSwatch';
-import { OrderTimeline, StatusBadge } from '../../components/StatusBadge';
-import { useAuth } from '../../auth/AuthContext';
-import { useToast } from '../../components/Toast';
-import {
-  Alert,
-  Button,
-  Card,
-  cx,
-  DemoBadge,
-  EmptyState,
-  Field,
-  inputClass,
-  PageHeader,
-  Select,
-  Spinner,
-  Textarea,
-  Email,
-} from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { Mail, PackageSearch, X } from 'lucide-react';
+import { useMemo } from 'react';
+import { FilterKnopf, LadeFehler, Suchfeld } from '../../components/Listenwerkzeug';
+import { Button, Card, Email, EmptyState, PageHeader, Spinner } from '../../components/ui';
 import { useConfig, useMasterData } from '../../lib/config';
-import { findFilament, nextStatus, statusMeta } from '../../lib/constants';
-import { formatDate, formatDateTime, formatRelative } from '../../lib/format';
+import { statusMeta } from '../../lib/constants';
+import { useSuchParameter } from '../../lib/suchParameter';
 import type { MasterData, Order } from '../../lib/types';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
-import { filamentRolle } from '@mosaik3lab/shared/werte/stammdaten';
 import { passtZurSuche } from '@mosaik3lab/shared/suche';
+import { OrderRow } from './OrderRow';
 
 /** 'unerledigt' = Phasen open + active, 'alle' = alles, sonst eine Status-ID. */
 type Filter = string;
@@ -40,33 +21,17 @@ const isOpenPhase = (md: MasterData, status: string) => {
 export function OrdersAdminPage() {
   useDocumentTitle('Anfragen');
   const md = useMasterData();
-  const { data: orders, setData, error, loading } = useApi<Order[]>('/orders');
-  const [params, setParams] = useSearchParams();
+  const { data: orders, setData, error, loading, reload } = useApi<Order[]>('/orders');
+  const [params, setze] = useSuchParameter();
   const filter: Filter = params.get('status') ?? 'unerledigt';
   const highlight = params.get('offen');
   const email = params.get('email')?.trim().toLowerCase() || '';
   const tracking = useConfig().config?.features.requesterTracking ?? false;
   // Suchbegriff wie der Status-Filter in der Adresse, damit er „Zurück“ und Neuladen übersteht.
   const q = params.get('q') ?? '';
-  const setQ = (value: string) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set('q', value);
-    else next.delete('q');
-    setParams(next, { replace: true });
-  };
-
-  const setFilter = (f: Filter) => {
-    const next = new URLSearchParams(params);
-    next.set('status', f);
-    next.delete('offen');
-    setParams(next, { replace: true });
-  };
-
-  const clearEmail = () => {
-    const next = new URLSearchParams(params);
-    next.delete('email');
-    setParams(next, { replace: true });
-  };
+  const setQ = (value: string) => setze({ q: value });
+  const setFilter = (f: Filter) => setze({ status: f, offen: null });
+  const clearEmail = () => setze({ email: null });
 
   // Lehrkraft-Filter wirkt vor den Zählern, damit die Zahlen zur Ansicht passen.
   const scoped = useMemo(
@@ -116,7 +81,7 @@ export function OrdersAdminPage() {
         }`}
       />
 
-      {error && <Alert kind="error">{error.message}</Alert>}
+      <LadeFehler error={error} onRetry={() => void reload()} loading={loading} />
       {loading && !orders && <Spinner />}
 
       {orders && (
@@ -135,49 +100,11 @@ export function OrdersAdminPage() {
 
           <Card as="section" aria-label="Anfragen filtern" className="mb-5 flex min-w-0 flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
             <div role="group" aria-label="Nach Status filtern" className="flex min-w-0 max-w-full flex-wrap gap-2">
-              {filters.map((f) => {
-                const active = !highlight && filter === f.key;
-                return (
-                  <button
-                    key={f.key}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setFilter(f.key)}
-                    className={cx(
-                      'inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-3.5 text-base font-bold transition-colors sm:gap-2 sm:px-4',
-                      active
-                        ? 'bg-stone-900 text-white'
-                        : 'bg-white text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-stone-50',
-                    )}
-                  >
-                    {f.label}
-                    <span
-                      className={cx(
-                        'rounded-full px-2 py-0.5 text-hinweis',
-                        active ? 'bg-white/20' : 'bg-stone-100 text-stone-600',
-                      )}
-                    >
-                      <span className="sr-only">Anzahl: </span>
-                      {counts[f.key] ?? 0}
-                    </span>
-                  </button>
-                );
-              })}
+              {filters.map((f) => (
+                <FilterKnopf key={f.key} label={f.label} count={counts[f.key] ?? 0} active={!highlight && filter === f.key} onClick={() => setFilter(f.key)} />
+              ))}
             </div>
-            <div className="relative lg:w-80">
-              <label htmlFor="order-search" className="sr-only">
-                Anfragen durchsuchen
-              </label>
-              <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-stone-500" aria-hidden />
-              <input
-                id="order-search"
-                type="search"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Nummer, Druckteil, E-Mail, Klasse …"
-                className={`${inputClass()} pl-12`}
-              />
-            </div>
+            <Suchfeld id="order-search" label="Anfragen durchsuchen" value={q} onChange={setQ} placeholder="Nummer, Druckteil, E-Mail, Klasse …" className="lg:w-80" />
           </Card>
 
           {visible.length === 0 ? (
@@ -194,248 +121,5 @@ export function OrdersAdminPage() {
         </>
       )}
     </>
-  );
-}
-
-function OrderRow({
-  order,
-  onUpdated,
-  initiallyOpen,
-}: {
-  order: Order;
-  onUpdated: (o: Order) => void;
-  initiallyOpen: boolean;
-}) {
-  const md = useMasterData();
-  const canEdit = useAuth().can('orders:manage');
-  // Mit Statusanzeige sehen Lehrkräfte Status und Notiz (als „Hinweis vom Druck-Team“).
-  const tracking = useConfig().config?.features.requesterTracking ?? false;
-  const [open, setOpen] = useState(initiallyOpen);
-  // Anfragende wählen nur die Farbe – welche Rolle (Marke, Linie, Bambu-Nummer) dahintersteht, sieht nur das Team.
-  const rollOf = (colorId: string) => {
-    const f = findFilament(md, colorId);
-    const roll = f ? filamentRolle(f) : '';
-    // inline-block: Punkt und Rolle bleiben zusammen (kein einzelner „·“ am Zeilenende)
-    return roll && <span className="inline-block font-normal text-stone-600">· {roll}</span>;
-  };
-  const [status, setStatus] = useState<string>(order.status);
-  const [comment, setComment] = useState('');
-  const [saving, setSaving] = useState(false);
-  const toast = useToast();
-  const suggestion = nextStatus(md, order.status);
-  const panelId = `order-${order.id}`;
-  const knownStatus = md.orderStatuses.some((s) => s.id === order.status);
-
-  useEffect(() => setStatus(order.status), [order.status]);
-
-  const save = async (target: string, note: string) => {
-    setSaving(true);
-    try {
-      const updated = await api<Order>(`/orders/${order.id}/status`, {
-        method: 'PATCH',
-        body: { status: target, comment: note },
-      });
-      onUpdated(updated);
-      setComment('');
-      toast('success', `${order.number}: Status „${statusMeta(md, target).label}“ gespeichert.`);
-    } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    void save(status, comment);
-  };
-
-  return (
-    <Card as="li" className={cx('overflow-hidden', initiallyOpen && 'ring-2 ring-brand-500')}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls={panelId}
-        className="flex w-full flex-col gap-2.5 p-4 text-left hover:bg-stone-50/70 sm:flex-row sm:items-center sm:gap-6 sm:p-5"
-      >
-        <div className="min-w-0 flex-1">
-          <p className="text-hinweis font-bold text-stone-500">
-            {order.number} · <time dateTime={order.createdAt}>{formatDate(order.createdAt)}</time>
-            <span className="font-normal"> ({formatRelative(order.createdAt)})</span>
-          </p>
-          <p className="mt-0.5 text-base font-bold text-stone-900">
-            {order.quantity} × {order.itemName}
-          </p>
-          <p className="mt-0.5 text-hinweis font-bold text-stone-700">
-            <Email adresse={order.requesterEmail || order.requesterName || 'Ohne E-Mail'} />
-          </p>
-          {/* Trennpunkt jeweils mit der folgenden Angabe zusammen – sonst stand er bei langen Farbangaben allein in einer Zeile */}
-          <p className="mt-1 flex flex-wrap items-start gap-x-2 gap-y-1 text-hinweis text-stone-600">
-            <span>{order.classOrTeam}</span>
-            <span className="inline-flex min-w-0 items-start gap-1.5">
-              <span aria-hidden>·</span>
-              {order.colorHex && <ColorSwatch hex={order.colorHex} className="mt-[0.2em] size-4" />}
-              <span className="min-w-0">{order.color}</span>
-            </span>
-            {order.size && (
-              <span className="inline-flex min-w-0 gap-2">
-                <span aria-hidden>·</span>
-                <span className="min-w-0">{order.size}</span>
-              </span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {order.isDemo && <DemoBadge />}
-          <StatusBadge status={order.status} />
-          <ChevronDown className={cx('size-5 text-stone-500 transition-transform', open && 'rotate-180')} aria-hidden />
-        </div>
-      </button>
-
-      {open && (
-        <div id={panelId} className="grid gap-5 border-t border-stone-100 p-4 sm:gap-6 sm:p-5 lg:grid-cols-[1fr_1fr_1fr]">
-          {/* Container: Bezeichnung neben dem Wert nur, wenn die Spalte breit genug ist (iPad quer: drei schmale Spalten) */}
-          <div className="@container">
-            <h3 className="font-bold text-stone-900">Details</h3>
-            <dl className="mt-3 space-y-2.5 text-base sm:space-y-2">
-              <Row label="Druckteil">
-                <Link to={`/verwaltung/hilfsmittel/${order.itemId}`} className="font-bold text-brand-700 underline-offset-2 hover:underline">
-                  {order.itemName}
-                </Link>
-              </Row>
-              <Row label="Anzahl">{order.quantity} Stück</Row>
-              {(order.colorVariants ?? []).length > 1 ? (
-                // Mehrere Farben in einer Anfrage: Stückzahl je Farbe
-                order.colorVariants.map((v, i) => (
-                  <Row key={i} label={`Farbe ${i + 1} (${v.quantity} Stück)`}>
-                    <span className="flex flex-col gap-1">
-                      {v.colorChoices.map((c) => (
-                        // Fließtext statt Flex: Farbtupfer bleibt vor dem Namen, auch wenn der Bereichsname umbricht
-                        <span key={c.areaId} className="block">
-                          {c.colorHex && <ColorSwatch hex={c.colorHex} className="mr-2 align-[-0.25em]" />}
-                          {v.colorChoices.length > 1 && `${c.area}: `}
-                          {c.color} {rollOf(c.colorId)}
-                        </span>
-                      ))}
-                    </span>
-                  </Row>
-                ))
-              ) : (order.colorChoices ?? []).length > 1 ? (
-                // Mehrfarbiger Druck: Farbe je Bereich
-                order.colorChoices.map((c) => (
-                  <Row key={c.areaId} label={`Farbe ${c.area}`}>
-                    <span className="block">
-                      {c.colorHex && <ColorSwatch hex={c.colorHex} className="mr-2 align-[-0.25em]" />}
-                      {c.color} {rollOf(c.colorId)}
-                    </span>
-                  </Row>
-                ))
-              ) : (
-                <Row label="Farbe">
-                  <span className="inline-flex flex-wrap items-center gap-x-2">
-                    {order.colorHex && <ColorSwatch hex={order.colorHex} />}
-                    {order.color}
-                    {rollOf(order.colorId)}
-                  </span>
-                </Row>
-              )}
-              <Row label="Größe">{order.size || '—'}</Row>
-              {(order.personalization ?? []).map((p) => (
-                <Row key={p.fieldId} label={p.label}>
-                  <span className="whitespace-pre-line">{p.value}</span>
-                </Row>
-              ))}
-              <Row label="Klasse / Team">{order.classOrTeam}</Row>
-              <Row label="Schul-E-Mail">
-                {order.requesterEmail ? (
-                  <a href={`mailto:${order.requesterEmail}`} className="text-brand-700 underline-offset-2 hover:underline">
-                    <Email adresse={order.requesterEmail} />
-                  </a>
-                ) : (
-                  order.requesterName || '—'
-                )}
-              </Row>
-              <Row label="Eingang">{formatDateTime(order.createdAt)}</Row>
-            </dl>
-            <h3 className="mt-5 font-bold text-stone-900">Anpassungswünsche</h3>
-            <p className="mt-1.5 whitespace-pre-line text-stone-700">{order.customization || '—'}</p>
-          </div>
-
-          <div>
-            <h3 className="mb-4 font-bold text-stone-900">Verlauf</h3>
-            <OrderTimeline order={order} />
-          </div>
-
-          {/* Nur mit Recht „Anfragen bearbeiten“ – das Backend prüft zusätzlich. */}
-          <form onSubmit={submit} hidden={!canEdit} className="min-w-0 space-y-4 rounded-2xl bg-stone-50 p-3.5 ring-1 ring-stone-200 sm:p-5">
-            <h3 className="font-bold text-stone-900">Status bearbeiten</h3>
-            <p className="flex items-start gap-2 text-hinweis text-stone-600">
-              <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
-              {tracking
-                ? 'Lehrkräfte sehen Status und Notiz mit Ihrem Namen (Statusanzeige ist eingeschaltet).'
-                : 'Nur intern sichtbar, Lehrkräfte sehen keinen Status.'}
-            </p>
-            {suggestion && (
-              <Button
-                variant="soft"
-                icon={Send}
-                className="w-full whitespace-normal text-left"
-                disabled={saving}
-                onClick={() => save(suggestion.id, comment)}
-              >
-                Weiter zu „{suggestion.name}“
-              </Button>
-            )}
-            <Field label="Neuer Status">
-              {({ id }) => (
-                <Select id={id} value={status} onChange={(e) => setStatus(e.target.value)}>
-                  {!knownStatus && <option value={order.status}>{order.status} (unbekannt)</option>}
-                  {md.orderStatuses.filter((s) => s.active || s.id === order.status).map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-            <Field
-              label={tracking ? 'Notiz' : 'Interne Notiz'}
-              hint={tracking ? 'Optional, z. B. Abholort oder Rückfragen – für die Lehrkraft sichtbar.' : 'Optional, z. B. Drucker, Abholort oder Rückfragen.'}
-            >
-              {({ id, describedBy }) => (
-                <Textarea
-                  id={id}
-                  rows={3}
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  maxLength={500}
-                  aria-describedby={describedBy}
-                  className="min-h-20"
-                />
-              )}
-            </Field>
-            <Button
-              type="submit"
-              icon={Save}
-              loading={saving}
-              disabled={status === order.status && !comment.trim()}
-              className="w-full"
-            >
-              Speichern
-            </Button>
-          </form>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="@xs:flex @xs:gap-3">
-      <dt className="text-hinweis text-stone-500 @xs:w-32 @xs:shrink-0 @xs:text-base">{label}</dt>
-      <dd className="min-w-0 wrap-anywhere font-bold text-stone-800">{children}</dd>
-    </div>
   );
 }

@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { emailSchema, text } from './basis';
-import { BEREICH_KEYS, MIN_PASSWORT, ROLES, type Bereich, type Role } from './werte/konten';
+import { BEREICH_KEYS, MIN_PASSWORT, ROLES, type Bereich, type Permission, type Role } from './werte/konten';
 
 // Listen, Rollen, Bereiche und Grenzen ohne zod stehen in werte/konten.ts (auch für den Client) – hier wieder exportiert.
 export * from './werte/konten';
 
 // Personen, Rollen und Rechte. Für die Verwaltung gibt es nur drei Rollen und wenige Häkchen („Bereiche“);
 // jeder Bereich schaltet intern feste Prüfpunkte frei (Permission), gegen die der Server prüft.
-// Die Prüf-Logik steht nur im Server: server/src/domain/permissions.ts.
+// Die Prüf-Logik steht nur im Server: server/src/module/konten/rechte.ts.
 
 // --- Konten und Anmeldung -----------------------------------------------------------
 
@@ -97,8 +97,25 @@ export interface SessionUser {
   lastLoginAt: string | null;
 }
 
+/** Sitzung: GET /api/auth/me, Antwort nach Anmelden und Passwort setzen (user null = nicht angemeldet). */
+export interface SessionAntwort {
+  user: SessionUser | null;
+  permissions: Permission[];
+}
+
 /** POST /api/auth/identify – Schritt 1 der Anmeldung. */
 export type IdentifyResult = 'password' | 'signed-in' | 'unknown';
+/** Antwort auf /auth/identify: bei „signed-in“ zusätzlich die Sitzung (bekannte Lehrkraft, direkt angemeldet). */
+export type IdentifyAntwort = { result: 'password' | 'unknown' } | ({ result: 'signed-in' } & SessionAntwort);
+
+/** Wofür ein Passwort-Link gilt: erstes Passwort oder Zurücksetzen. */
+export type PasswortZweck = 'einrichten' | 'zuruecksetzen';
+/** POST /api/auth/passwort-link – für wen ist der Link (Seite „Passwort festlegen“)? */
+export interface PasswortLinkInfo {
+  email: string;
+  name: string;
+  zweck: PasswortZweck;
+}
 
 // Höchstens 72 Byte: mehr wertet das Verfahren (bcrypt) nicht aus – längere Passwörter wären nur scheinbar sicherer.
 const passwordSchema = z
@@ -106,14 +123,19 @@ const passwordSchema = z
   .min(MIN_PASSWORT, `Mindestens ${MIN_PASSWORT} Zeichen`)
   .refine((p) => new TextEncoder().encode(p).length <= 72, 'Höchstens 72 Zeichen (Umlaute zählen doppelt)');
 
+/** Rumpf nur mit einer E-Mail-Adresse (Anmeldung Schritt 1, Passwort vergessen, Personen-Aktionen). */
+export const emailEingabeSchema = z.object({ email: emailSchema });
+export type EmailEingabe = z.input<typeof emailEingabeSchema>;
+
 /** Schritt 1 der Anmeldung: Wer ist das? */
-export const identifySchema = z.object({ email: emailSchema });
+export const identifySchema = emailEingabeSchema;
 
 /** Schritt 2 der Anmeldung (nur Konten von Admin/Druck-Team). */
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1).max(1000),
 });
+export type LoginInput = z.input<typeof loginSchema>;
 
 /** Rechte einer Person festlegen (und Person bei Bedarf anlegen). Schlüssel ist die E-Mail. */
 export const personSchema = z.object({
@@ -135,12 +157,14 @@ export const passwordChangeSchema = z.object({
   currentPassword: z.string().min(1).max(1000),
   newPassword: passwordSchema,
 });
+export type PasswordChangeInput = z.input<typeof passwordChangeSchema>;
 
 /** „Passwort vergessen?“ */
-export const passwortVergessenSchema = z.object({ email: emailSchema });
+export const passwortVergessenSchema = emailEingabeSchema;
 
 /** Passwort über den Link aus der Mail festlegen. */
 export const passwortSetzenSchema = z.object({
   token: z.string().regex(/^[A-Za-z0-9_-]{20,100}$/, 'Ungültiger Link'),
   password: passwordSchema,
 });
+export type PasswortSetzenInput = z.input<typeof passwortSetzenSchema>;

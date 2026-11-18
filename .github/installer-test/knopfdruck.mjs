@@ -94,7 +94,9 @@ for (;;) {
   let st = null;
   try {
     st = JSON.parse(fs.readFileSync(statusDatei, 'utf8'));
-  } catch {}
+  } catch {
+    /* noch kein Status */
+  }
   const fertig = st && ['fertig', 'zurueckgesetzt', 'fehler'].includes(st.phase) && Date.parse(st.at) > start;
   if (fertig && !dienstLaeuft()) break;
   if (Date.now() > ende) {

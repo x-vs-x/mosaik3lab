@@ -20,35 +20,22 @@ import { proposalRoutes } from './module/vorschlaege/vorschlaege.routes';
 import { adminSettingsRoutes, publicConfigRoutes } from './module/einstellungen/einstellungen.routes';
 import { bambuAbgleichBeimStart } from './module/stammdaten/bambuAbgleich';
 import { filamentRoutes } from './module/stammdaten/stammdaten.routes';
-import { NeuigkeitenRepository } from './module/neuigkeiten/neuigkeiten.repository';
 import { neuigkeitenRoutes } from './module/neuigkeiten/neuigkeiten.routes';
 import { versionBeimStart } from './module/neuigkeiten/neuigkeiten.service';
-import { migrateLegacyStatuses, migrateUserEmails, seedIfEmpty } from './seed/seed';
-import { migrateProductData } from './seed/migrateProductData';
-import { importLegacyMail, importLegacySessionSecret } from './kern/mail/mailConfig';
-import { sessionGeheimnis, setBetriebWennNeu } from './kern/betrieb';
-import { retirePathConfig } from './bootstrapConfig';
+import { seedIfEmpty } from './seed/seed';
+import { sessionGeheimnis } from './kern/betrieb';
 import { createSqliteStorage } from './storage';
-import { MAX_IMAGE_BYTES, MAX_MODEL_BYTES, MAX_VIDEO_BYTES } from './kern/uploads';
+import { MAX_IMAGE_BYTES, MAX_MODEL_BYTES, MAX_VIDEO_BYTES, mbText } from '@mosaik3lab/shared/werte/dateien';
 import { zodFieldErrors } from '@mosaik3lab/shared/basis';
 
 
 export async function createApp(config: AppConfig) {
-  // Datenbank, Tabellen und Ablage legt die App selbst an; Migrationen und die einmalige JSON-Übernahme laufen hier.
+  // Datenbank, Tabellen und Ablage legt die App selbst an; die Migrationen laufen hier.
   const storage = await createSqliteStorage(config);
   const db = storage.sqlite.db;
-  // Betriebseinstellungen liegen in der Datenbank: alte Dateien (mail.json, settings.json, .session-secret) einmalig übernehmen.
-  importLegacyMail(db, { storageDir: config.storageDir, dataDir: config.dataDir });
-  importLegacySessionSecret(config.dataDir, (s) => setBetriebWennNeu(db, 'betrieb', 'sessionSecret', s, true));
-  // Übernahme erledigt (oder nicht nötig) → früher in der App eingestellte Ablagepfade sichern und entfernen.
-  retirePathConfig(config.rootDir);
   // Versionswechsel merken (für „Was ist neu“) – vor den Demo-Daten, sonst sähe eine Neuinstallation wie ein Update aus.
-  const neuigkeiten = new NeuigkeitenRepository(db);
-  versionBeimStart(neuigkeiten, config.appVersion);
+  versionBeimStart(storage.neuigkeiten, config.appVersion);
   if (config.seedDemoData) await seedIfEmpty(storage);
-  await migrateLegacyStatuses(storage);
-  await migrateUserEmails(storage);
-  await migrateProductData(storage);
   // Bambu-Farbrollen mit dem mitgelieferten Katalog abgleichen (wirkt nach Updates; eigene Farbrollen bleiben unberührt).
   bambuAbgleichBeimStart(storage);
   // Bildpflege einige Minuten nach dem Start (wenn /api/health längst grün ist) – nie im Installer/Update-Schritt.
@@ -64,7 +51,11 @@ export async function createApp(config: AppConfig) {
     helmet({
       crossOriginEmbedderPolicy: false,
       // upgrade-insecure-requests und HSTS nur bei echtem HTTPS – sonst bricht der Aufruf über http://<IP> im Schulnetz.
-      contentSecurityPolicy: { useDefaults: true, directives: { 'upgrade-insecure-requests': config.https ? [] : null } },
+      // img-src zusätzlich blob: – für die Fotovorschau im Vorschlagsformular (URL.createObjectURL).
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: { 'img-src': ["'self'", 'data:', 'blob:'], 'upgrade-insecure-requests': config.https ? [] : null },
+      },
       strictTransportSecurity: config.https ? { maxAge: 15552000 } : false,
     }),
   );
@@ -122,7 +113,7 @@ export async function createApp(config: AppConfig) {
   app.use('/api/personen', personRoutes(storage, auth));
   app.use('/api/dashboard', dashboardRoutes(storage, auth));
   app.use('/api/files', fileRoutes(storage, auth));
-  app.use('/api/neuigkeiten', neuigkeitenRoutes(neuigkeiten, config));
+  app.use('/api/neuigkeiten', neuigkeitenRoutes(storage, auth, config));
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Unbekannter API-Endpunkt.' });
   });
@@ -183,7 +174,7 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof multer.MulterError) {
     const message =
       err.code === 'LIMIT_FILE_SIZE'
-        ? `Die Datei ist zu groß (Bilder max. ${MAX_IMAGE_BYTES / 1024 / 1024} MB, Druckdateien max. ${MAX_MODEL_BYTES / 1024 / 1024} MB, Videos max. ${MAX_VIDEO_BYTES / 1024 / 1024} MB).`
+        ? `Die Datei ist zu groß (Bilder max. ${mbText(MAX_IMAGE_BYTES)}, Druckdateien max. ${mbText(MAX_MODEL_BYTES)}, Videos max. ${mbText(MAX_VIDEO_BYTES)}).`
         : err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE'
           ? 'Zu viele Dateien oder unerwartetes Feld.'
           : 'Der Upload ist fehlgeschlagen.';

@@ -2,6 +2,122 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Restfehler F2–F4 aus der Abschlussprüfung (Unter-Session, Branch: fix/restfehler → refactor/code-hygiene)
+- **Abschlussprüfung Code-Hygiene bestanden**, Bericht `_testdaten/abschluss-hygiene`. Die drei dort gefundenen, schon in
+  1.6.3 vorhandenen Schwächen behoben:
+  - **F2** `server/src/app.ts`: CSP `img-src 'self' data: blob:` (Fotovorschau im Vorschlagsformular per
+    `URL.createObjectURL`; andere blob:-Bilder gibt es nicht, `herunterladen.ts` nutzt blob: nur für Download-Links).
+  - **F3** `client/src/features/katalog/CatalogPage.tsx`: Raster `grid-cols-1` als Basis, Farbtupfer-Zeile `flex-wrap`.
+    „Ähnliche Druckteile“ (schon `min-w-0`/`wrap-anywhere`) und Verwaltungs-Raster ohne dasselbe Problem.
+  - **F4** `server/src/module/konten/konten.service.ts`: Versuche an schon gesperrtem Konto bekommen einen neutralen Text
+    („Falls Sie eine E-Mail … bekommen haben“); „Wir haben eine E-Mail geschickt“ nur noch beim Sperren mit gesendeter Mail.
+- **Tests:** `betrieb.test.ts` prüft `img-src` im CSP-Header, `konten-sperre.test.ts` prüft beide Sperrtexte und dass
+  keine zweite Mail geht. Klicktest headless Chrome (frisches Profil), Demo-Daten mit einem Druckteil mit 16 Farben:
+  Katalog 320/375/375 mit 200 %/768/1440 ohne Überstand (vorher 388 px Karte im 330 px Raster), Fotovorschau sichtbar
+  ohne CSP-Meldung, Sperrtexte Versuch 10/11. Screenshots in `_testdaten/restfehler-bilder`.
+- **Aufgeräumt:** Dev-Server 5183/3013 gestoppt, `_testdaten/restfehler` und Scratchpad-Skripte gelöscht, Worktree entfernt.
+
+## 2026-11-18 – Code-Hygiene Phase 2: shared/Verträge (Unter-Session, Branch: refactor/shared → refactor/code-hygiene)
+- **Auftrag:** D1–D9, C14–C16, S21 sowie Rest: D16, M14-Rest, DATENMODELL `update.*`, D10-Client, Testkommentar, Suchfeld.
+- **Gebaut:** `shared/src/werte/bilder.ts` (Bildbreiten 2000/1080/360, JPEG 85, Vorschaugrößen), `werte/dateien.ts`
+  (5/50/50 MB, 8/10/4 je Druckteil, `mbText`), benannte Schema-Grenzen in `werte/katalog|anfragen|vorschlaege|stammdaten`
+  (Server-Kern, Schemas und Client-Hinweise lesen sie), `shared/src/datenaustausch.ts` (Bericht/Vorschau/Ergebnis,
+  `importAusfuehrenSchema`, `werte/datenaustausch.ts` mit MAX_EXPORT_AUSWAHL), Antwort- und Eingabetypen in konten/katalog/
+  stammdaten/vorschlaege (Client-Rümpfe mit `satisfies`), `emailEingabeSchema`, `StatusId`, Client-Typ `StammdatenSeite`,
+  S21-Rückgabetypen; Migration `022_benutzer_recht_entfernen.sql`; `server/scripts/backup.ts` entfernt (Sicherung von
+  `seed:reset` steht jetzt in reset-data.ts); NeuigkeitenDialog über `can('settings:manage')`; Suchfeld mit Zwischenstand
+  (`client/src/lib/suchEntwurf.ts`, 300 ms bzw. Katalog 400 ms, `useDebounced` entfernt).
+- **Tests:** neu `server/test/grenzen.test.ts` (alte Zahlen gegen neue Konstanten, Grenzfälle), `client/test/suchEntwurf.test.ts`;
+  ergänzt migration (1.7.0 mit alter Tabelle → 021+022), speicher, datenaustausch (Vertrag der Vorschau), stabilitaet
+  (werte-Paartest). Manager-Test settings-backup nicht lokal ausgeführt (enthält echtes `reconcile` mit Firewall-Schritt) –
+  nur der geänderte Helfer app-db.ts gegen eine Probe-Datenbank; der Rest läuft in der CI. Klicktest headless Chrome
+  (frisches Profil) 375 und 1440: je 31 Prüfungen grün (Suchfelder, Bild-Upload, Anfrage-Dialog, Vorschlag mit Foto,
+  Umwandeln, Export/Import-Vorschau und Einspielen).
+- **Aufgeräumt:** Dev-Server 5181/3011 gestoppt, `_testdaten/hygiene-shared` und Scratchpad-Skripte gelöscht.
+
+## 2026-11-18 – Altlasten vor 1.6.3 entfernt (Unter-Session, Branch: refactor/altlasten → refactor/code-hygiene)
+- **Auftrag:** Beide Installationen laufen mit 1.6.3 (Schema 017) – alles, was nur für ältere Stände nötig war, entfernen;
+  Updates nur noch von 1.6.3 aus testen. Kein PR (Hauptchat führt zusammen).
+- **Server:** `server/src/uebernahme/` (JSON-Übernahme, mail.json/settings.json/.session-secret, mosaik3lab.config.json)
+  und `migrateUserEmails` entfernt, alte Upload-Pfade aus `config.ts`/`storage/index.ts`; Tests dazu entfernt,
+  db:backup-/Admin-Skript-Tests nach `server/test/skripte.test.ts`. Export/Import (datenaustausch) unverändert.
+- **Manager:** `migrateLegacy`, `keepLegacyPortal`, `RETIRED_KEYS`, `migrationLog` (config.mjs), Fallback `managerDir`,
+  Einrichtungscode-Rest (server.mjs), `.unfertig`-Rest (setup.mjs), Ordner-Sicherungen (`backup.json`) und Teil `config` beim
+  Wiederherstellen (backup.mjs), Linux: Aufräumen alter Unit-Dateien im Datenordner und `chmod 644 install.json`.
+  Tests: `settings-migration.test.mjs` entfernt, Startdatei in Tests über `test/helpers/einrichtung.mjs` (neues Format).
+- **CI:** Runden „altformat“ (Zweig/Commit ALTFORMAT, Cache) und „v100“ ersetzt durch „v163“ (Paket aus Release v1.6.3,
+  Testdaten mit Bildern, `daten-stand.mjs` vergleicht Zeilen je Tabelle und Ablage per SHA-256). Zweig „altformat“ auf
+  GitHub bleibt (Entscheidung des Nutzers). Kompatibilitätszweige in `pruefen.ps1`/`pruefen.sh` entfernt.
+- **Doku:** README, docs/INSTALLATION.md, manager/README.md, docs/ARCHITEKTUR.md gekürzt; CHANGELOG-Zeile.
+- **Aufgeräumt:** keine Server gestartet; Worktree `C:Entwicklungmosaik3lab-hygiene-alt` bleibt für den Merge.
+
+## 2026-11-18 – Code-Hygiene Server (Paket A, Unter-Session, Branch: fix/fehler-app → refactor/code-hygiene)
+- **Auftrag:** Funde S1–S20, S22–S25 (`_konzepte/code-hygiene/server.md`), D10–D13, D15–D19 (`shared-daten.md`) und C1
+  (`client.md`) prüfen und beheben; ein Commit je Gruppe, kein PR (Hauptchat führt in `refactor/code-hygiene` zusammen).
+- **Erledigt:** S1 Kontosperre (Zähler im update-Callback), S22 E-Mail klein speichern, S7 Suche mit `passtZurSuche`,
+  D13 Farbgruppen folgen umbenannter Linie/Materialart (`gruppenNachfolger`), S16 Farbrollen löschen + Liste speichern in
+  einer Transaktion (`items.updateMany`, `settings.aendere`), S3/D15a Umbenennungs-Kaskade entfernt, D12 `requirePermission`
+  je Route statt Pfad-Regex, D10/S20 Neuigkeiten über `settings:manage`, S4 SQL aus `aehnliche.ts`/`visibleItemFile`/
+  `farbeZuordnen` ins Repository, S5 `storage.sqlite` nur `{ db }`, Neuigkeiten im Storage, S8 `benachrichtigeImHintergrund`,
+  S9 `SAFE_ID`/`sha256`/`stamp`/`queryText`/`aehnlichPaar`, S10 `bildUpload()`, S11 tote Exporte, S12 `APP_VERSION` im Export,
+  S13 `datenaustausch.ablauf.ts`, S14 `rechne()` geteilt (+ ESLint max-lines 500 für server/src), S15 Upload-Aufräumen und
+  Höchstzahl in der Transaktion, S19/D11 `siehtEntwuerfe`/`siehtAlleAnfragen`/`BetriebBereich`, S23 Rollback-Fehler verdeckt
+  nichts mehr, S2 Start-Migrationen entfernt, S6 `domain/` aufgelöst (bis auf `types.ts` und Bambu-Katalog), S25
+  `server/src/uebernahme/`, D17 Migration 021 (nur Indizes), D18 DATENMODELL.md, C1 `apiUpload` mit Abbrechen, S24 Tests.
+- **Verworfen (Begründung im Bericht):** S17, S18, D15b (UNIQUE-Index), D16 (Server-Manager-Tests lesen `benutzer_recht`),
+  D19 (alte Konten mit Rolle „lehrkraft“ möglich), `byNewest`, `PAKET_ROLLEN` im Katalog-Repository.
+- **Tests:** neu `konten-sperre.test.ts`; ergänzt in anfragen, vorschlaege, rechte, farben, stammdaten, katalog, produktdaten,
+  vorgaben, migration (alte DB mit allen Demo-Daten → 021, jede Tabelle verglichen), speicher, datenaustausch. Klicktest
+  headless Chrome (frisches Profil) PC + Handy: Vorschlag mit Foto senden/abbrechen, Suche mit Umlauten, Farbrolle umbenennen.
+- **Aufgeräumt:** Dev-Server 5181/3011 gestoppt, `_testdaten/paket-a-app` gelöscht.
+
+## 2026-11-18 – Code-Hygiene Server-Manager, Skripte, CI (Unter-Session, Branch: fix/fehler-manager)
+- **Auftrag:** Alle Funde M1–M27 und D20 aus `_konzepte/code-hygiene/manager.md` prüfen und umsetzen (Teil des einen
+  Hygiene-Updates, Integrations-Branch `refactor/code-hygiene`).
+- **Fehler behoben:** M1 `createBackup` räumt erst nach der fertigen Sicherung auf, Fehler dabei nur Warnung, `prune` mit
+  Wiederholung je Datei; M2 `umschalten()` (paketupdate.mjs): scheitert `switchCurrent`, zeigt `current` wieder auf die
+  bisherige Version und die gestoppten Dienste starten; M3 `alteVersionenEntfernen()`: Aufräumfehler nach dem Update nur
+  Warnung; M6 WinSW-SHA-256 fest hinterlegt (aus dem Download auf dem Windows-Runner); M7 `wrapperScript` über alle
+  `SERVICE_IDS`, `psQuote`; M8 Wiederherstellen spielt bei Fehler die Sicherheitskopie zurück; M9 `\\` im tar-Namen;
+  M10 `sdQuote` für ExecStart/Environment, Exec= in .desktop maskiert.
+- **Git-Update entfernt (M4/M5):** `lib/update.mjs`, `lib/git.mjs`, `runners/update.mjs` gelöscht; `currentRelease`,
+  `switchCurrent`, `previousRelease`, `prune`, `installedVersion` → `lib/releases.mjs`; Git aus Laufzeit, Einrichtung,
+  Konfiguration (`update.*`, alte Datenbank-Schlüssel werden ignoriert und bleiben für einen Rückfall stehen), Abgleich,
+  Oberfläche und Plattformen (`extract`, `gitInstall`) entfernt; `cli update` nutzt die Paketquelle.
+- **Aufgeräumt:** M11 `keyFileOf()`/`layout().keyFile`; M12 Datenbankpfad über `dbFileOf`/`resolvePaths().dbFile`; M13
+  `lib/hilfen.mjs` (lebt, sha256Datei, paketVersion, schreibprobe), Firewall-Ports über `wantedFirewallPorts`; M14
+  `npm run backup` → `manager/cli.mjs backup run`; M16 `setup.mjs` 737 → 564 Zeilen (`manifest.mjs`, `dateien.mjs`,
+  `deinstallieren.mjs`); M17 keine Kreis-Importe mehr zwischen setup/update/paketupdate/services, `admin` statisch;
+  M19 `backup.full` und Wochentag; M20 veraltete Kommentare und JSDoc; M22 `SETUP_OPEN` aus der Dateiliste.
+- **Tests/CI:** M23 `manager/`, `scripts/`, `.github/` im Lint (alle Hinweise behoben); M24 + alle Fehlerfälle in
+  `manager/test/fehlerfaelle.test.mjs`; D20 `manager/test/abgleich-app.test.mjs`; M25 `[nur-linux]` auch im PR-Titel;
+  M26 Manager-Tests x64 in PRs nur noch in „Prüfen“; Git-Update-Tests entfernt (Paketweg ist in paketupdate-,
+  aktualisieren-Tests und im Installer-Test abgedeckt).
+- **Bewusst nicht:** M15 (übrige Doppelungen Manager↔App: Datenwurzel, lockHolder – bräuchte Änderungen in server/,
+  DDL und Domain-Regel sind jetzt per Test abgesichert), M18 (nur bei Gelegenheit), M21 (Übernahmen älterer Stände bleiben
+  bis 2.0.0 – Update-Sicherheit), M27 (Testvarianten zusammenführen/Runden kürzen: Entscheidung des Nutzers).
+- **Geprüft:** typecheck, lint, `npm test`; lokal nur die neuen Unit-Tests (Testdaten `_testdaten/paket-a-manager`);
+  Manager-Tests und Installer-Test (Windows, Linux x64, arm64) in der CI über `installer-test/hygiene-manager`.
+- **Aufgeräumt:** Testordner `_testdaten/paket-a-manager` gelöscht.
+
+## 2026-11-18 – Code-Hygiene Client C2–C13, C17–C26 (Unter-Session H-Client, Branch: refactor/client)
+- **Auftrag:** Funde C2–C13 und C17–C26 aus `_konzepte/code-hygiene/client.md` prüfen und abarbeiten (nicht C1, C14–C16).
+- **Gebaut:** Gemeinsame Bausteine `components/Listenwerkzeug.tsx` (FilterKnopf, Suchfeld, LadeFehler) statt 7 Suchfeld-,
+  6 Filterknopf- und 12 Ladefehler-Kopien; `lib/suchParameter.ts` (useSuchParameter/mitParametern) statt 7 Kopien;
+  `fehlerText()` in `lib/api.ts` statt 24 Kopien; Bereich `features/anfragen/` (MyOrdersPage, OrderCard, RequestDialog,
+  AnfrageFelder, guestOrders, anfrageEmail verschoben; neu anfragePruefung.ts, farbAnzeige.ts, AnfrageVerlauf.tsx, zugang.ts);
+  `OrderRow.tsx` aus OrdersAdminPage; Farbrollen-Hilfen in `lib/colors.ts` (filaments.ts aufgelöst); useMyOrders mit Abbruch;
+  feste leere Stammdaten; Bambu-Katalog nur einmal geladen (useApi); Manager-Abruf ohne AbortSignal.timeout; passtZurSuche in
+  Farbwahl und Bambu-Import; Datumsformate über lib/format.ts; tote Exporte entfernt (DangerZone, FormSection, PHASE_LABELS,
+  formatCode, forgetCode, ProposalNeedsTeacher, .no-scrollbar, mindestErsparnis); doppelte Fortschritts-/Verlaufsanzeige in
+  OrderCard durch die gemeinsame ersetzt; FilamentPicker/FilamentsPanel/FarbeZuordnenDialog im Projektstil (Syntaxbaum vorher
+  und nachher verglichen: gleich); Lint: Fehlalarme begründet markiert bzw. Regel für eigene Felder eingestellt (übrig nur
+  2× fehlende Untertitel); Fokus auf das erste fehlerhafte Feld in Vorschlag, Druckteil-Editor und Person-Dialog.
+- **Getestet:** typecheck, lint (0 Fehler), alle Tests (neu `client/test/aufraeumen.test.ts`); Vorher/Nachher-Aufnahmen von
+  25 Ansichten (4 Rollen) in 375/768/1440 und 375 mit 200 % Schrift mit Pixelvergleich; automatischer Klicktest (headless
+  Chrome, frisches Profil) aller angefassten Funktionen – Bilder in `C:\Entwicklung\_testdaten\hygiene-client\bilder\`.
+- **Aufgeräumt:** Dev-Server (5182/3012) gestoppt, Testdaten und Werkzeuge gelöscht, nur der Bilder-Ordner bleibt.
+
 ## 2026-11-18 – UI-Durchsicht aller Ansichten in allen Größen (Unter-Session, Branch: fix/ui-durchsicht)
 - **Auftrag:** Jedes Fenster, jede Abfrage in unterschiedlichen Größen durchsehen, Anzeigefehler finden und beheben
   (Lehrkräfte und Druck-Team auf Handy, iPad, PC; viele mit motorischen Einschränkungen).

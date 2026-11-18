@@ -6,6 +6,62 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Fotovorschau im Vorschlagsformular:** Ausgewählte Fotos erscheinen jetzt als Vorschaubild (die
+  Sicherheitsregeln der Seite hatten sie blockiert).
+- **Katalog bei großer Schrift:** Auf dem Handy mit großer Schrift werden die Karten nicht mehr rechts abgeschnitten;
+  viele Farbtupfer brechen um.
+- **Kontosperre:** Bei weiteren Versuchen an einem schon gesperrten Konto behauptet die Meldung nicht mehr, es sei eine
+  E-Mail verschickt worden.
+- **Suchfelder verlieren beim schnellen Tippen keine Zeichen mehr:** Im Katalog, in den Anfragen und in der
+  Druckteil-Liste der Verwaltung kamen bei schnellem Tippen nicht alle Buchstaben an. Jetzt bleibt alles Getippte stehen;
+  Zurück/Vor im Browser und Links mit Suchbegriff funktionieren wie bisher.
+- **Aufgeräumt:** Eine seit Längerem ungenutzte Tabelle der Datenbank (alte Einzelrechte) wird entfernt
+  (Datenbank-Migration 022, vorher automatische Sicherung; Rechte und Häkchen bleiben unverändert).
+
+- **Updates ab Version 1.6.3:** Aktualisiert wird nur noch von 1.6.3 oder neuer. Ältere Stände bitte zuerst auf 1.6.3
+  bringen (Paket 1.6.3 installieren), dann auf diese Version. Übernahmen aus noch älteren Ständen sind entfernt.
+- **Kontosperre zählt jeden falschen Versuch:** Kamen mehrere falsche Passwörter gleichzeitig an, zählte die Sperre nach
+  zehn Fehlversuchen nur einen davon. Jetzt zählt jeder; eine gerade gesetzte Sperre wird nicht wieder aufgehoben.
+- **Vorschlag mit Fotos: Fortschritt und „Senden abbrechen“:** Beim Senden eines Vorschlags mit Fotos zeigt die Seite
+  „Wird gesendet … %“, bricht bei abgerissener Verbindung von selbst ab statt endlos zu laden und lässt sich abbrechen –
+  die Angaben bleiben stehen.
+- **Farbrollen umbenennen ohne Farbverlust:** Wählt ein Druckteil eine ganze Linie (z. B. „alle Farben von Werkstatt PLA
+  Matt“) und wird bei eigenen Farbrollen Marke oder Linie umbenannt, folgt die Auswahl im Druckteil jetzt mit. Vorher boten
+  solche Druckteile diese Farben ohne Hinweis nicht mehr an.
+- **Suche über die Schnittstelle wie im Katalog:** Anfragen- und Vorschlagsliste finden „Muller“ auch bei „Müller“ und
+  verstehen mehrere Suchwörter in beliebiger Reihenfolge.
+- **Bilder und Druckdateien:** Zwei gleichzeitige Uploads können die Höchstzahl je Druckteil nicht mehr überschreiten;
+  abgelehnte oder abgebrochene Uploads hinterlassen keine Dateien in der Ablage.
+- **Schneller beim Start und beim Löschen von Stammdaten:** Zwei Start-Prüfungen aus der Zeit vor der Datenbank entfallen;
+  neue Indizes (Datenbank-Migration 021, nur Indizes, keine Datenänderung, vorher automatische Sicherung).
+
+- **Sicherung bleibt gültig, wenn alte Sicherungen nicht gelöscht werden können:** Ist eine alte Sicherung unter Windows
+  kurz gesperrt (z. B. Virenscanner), wird die gerade erstellte und geprüfte Sicherung nicht mehr verworfen – ein Update
+  bricht deshalb nicht mehr mit „Sicherung vor dem Update fehlgeschlagen“ ab. Aufgeräumt wird beim nächsten Mal.
+- **Update robuster:** Scheitert das Umschalten auf die neue Version, zeigt das Programm wieder auf die bisherige Version
+  und die Dienste laufen weiter. Lassen sich alte Programmversionen nach einem gelungenen Update nicht löschen (z. B. ein
+  noch offenes Manager-Fenster), meldet das Installieren kein „fehlgeschlagen“ mehr.
+- **Wiederherstellen mit Rückfall:** Scheitert das Wiederherstellen einer Sicherung mittendrin (Datenträger voll, Datei
+  gesperrt), wird der Stand von direkt davor automatisch zurückgespielt – es bleibt nichts halb ersetzt.
+- **Dienst-Wrapper (Windows):** „Dienst-Wrapper aktualisieren“ ersetzt WinSW jetzt in allen Diensten (auch Portal und
+  Update-Helfer). Ein frisch geladenes WinSW wird zusätzlich an seiner festen Prüfsumme erkannt, eine fremde Datei verworfen.
+- **Linux:** Programm- und Datenordner mit Leerzeichen funktionieren jetzt auch in den Diensten und Verknüpfungen.
+- **Sicherheit:** Eine präparierte Sicherungsdatei kann beim Auspacken unter Windows keine Dateien mehr außerhalb des
+  Zielordners anlegen.
+- **Nur noch ein Update-Weg:** Updates kommen ausschließlich als Installer-Paket (per Knopfdruck im Server-Manager oder
+  per USB-Stick). Der frühere Update-Weg über Git und die Laufzeit-Zeile „Git“ sind entfernt; `cli update check|install`
+  nutzt jetzt ebenfalls die Paketquelle. Bestehende Installationen und Einstellungen bleiben unverändert.
+- `npm run backup` (Entwicklung) erstellt jetzt eine Sicherung wie der Server-Manager (eine geprüfte `.m3lbackup`-Datei).
+
+- **Ladefehler mit „Erneut versuchen“:** Bricht das WLAN kurz ab, bieten jetzt alle Verwaltungsseiten, „Meine Anfragen“,
+  „Meine Vorschläge“, die Druckteil-Seite und der Bambu-Import einen Knopf „Erneut versuchen“ statt nur einer Meldung.
+- **Farbsuche wie überall:** In der Farbwahl eines Druckteils und im Bambu-Import findet „gruen“ jetzt „Grün“, und
+  mehrere Wörter („PLA rot“) grenzen die Suche ein.
+- **Einheitliche Filterknöpfe:** Personen, Farbrollen und Vorschläge zeigen ihre Filter wie Katalog und Anfragen als
+  runde Knöpfe, die Anzahl steht einheitlich daneben.
+- **Fokus auf das erste fehlerhafte Feld** auch im Druckteil-Editor und beim Anlegen einer Person (wie schon im
+  Anfrageformular) – spart Tab-Wege mit Tastatur oder Taster.
+
 ## [1.7.0] – 2026-11-18
 
 - **Anzeige auf Handy, iPad und bei großer Schrift überarbeitet:** Alle Seiten, Dialoge und Meldungen – auch der

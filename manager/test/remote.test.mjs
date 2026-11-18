@@ -13,7 +13,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
 import { startPortal } from '../lib/portalserver.mjs';
-import { readBereich, writeBereich } from '../lib/settingsdb.mjs';
+import { writeBereich } from '../lib/settingsdb.mjs';
 import { freePort, retryConnect } from './helpers/net.mjs';
 
 const MANAGER = path.resolve(import.meta.dirname, '..');
@@ -80,8 +80,6 @@ function seedUsers() {
   add.run('3', 'alt@schule.example', hash, 'admin', 0, 0);
   add.run('4', 'demo@schule.example', hash, 'admin', 1, 1);
   db.close();
-  // So sah es früher aus: eigenes Manager-Passwort, Schalter „Über die App-Adresse“
-  writeBereich(DB, 'manager', { 'manager.passwordHash': 'scrypt$salz$hash', 'manager.remote': false });
 }
 
 before(async () => {
@@ -107,12 +105,6 @@ after(async () => {
   app.close();
   await sleep(500);
   fs.rmSync(tmp, { recursive: true, force: true });
-});
-
-test('Altes Manager-Passwort und Schalter „Über die App-Adresse“ sind aus der Datenbank entfernt', () => {
-  const m = readBereich(DB, 'manager');
-  assert.equal(m['manager.passwordHash'], undefined);
-  assert.equal(m['manager.remote'], undefined);
 });
 
 test('Portal leitet /mosaik3lab/manager an den Manager weiter (Präfix ab, <base href>); direkt bleibt alles wie bisher', async () => {

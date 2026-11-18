@@ -53,12 +53,10 @@ Häkchen) öffnet `http://<Server>/mosaik3lab/manager/` – ohne zweite Anmeldun
   Cookie `HttpOnly; SameSite=Strict`, 8 h; nach 5 Fehlversuchen 60 s Sperre.
 - **Ersteinrichtung (noch kein Administrator):** Die App leitet jeden Aufruf auf `<Pfad>/manager/` um. Über das Netz sind dann nur
   Seite, `GET /api/auth` und `POST /api/auth/first` erreichbar (sonst 403), Anlegen ohne weiteren Code
-  (Entscheidung des Nutzers; bis 1.1.3 gab es einen Einrichtungscode). Die Installer zeigen am Ende die Adressen
+  (Entscheidung des Nutzers). Die Installer zeigen am Ende die Adressen
   (`cli.mjs erstzugang`). Mit vorhandenem Administrator (auch nach Updates) ändert sich nichts.
 - **Bestätigen statt sperren:** Pfad/HTTPS, „nur noch auf diesem Rechner“, Ports/Portal und Web-App/Portal stoppen fragen vorher nach –
   mit Hinweis auf den Notzugang. CSRF wie bisher (`X-Manager-Token` + Origin = Adresse im Browser).
-- **Umstellung:** Ein früheres Manager-Passwort (`manager.passwordHash`) und der Schalter „Über die App-Adresse erreichbar“
-  (`manager.remote`) werden beim Start einmalig aus der Datenbank entfernt.
 
 ## Was automatisch läuft (`lib/auto.mjs`)
 
@@ -68,8 +66,8 @@ Häkchen) öffnet `http://<Server>/mosaik3lab/manager/` – ohne zweite Anmeldun
 | **Firewall-Regel** | folgt dem Schalter „Im Schulnetz erreichbar“ und den Ports (eine Windows-Bestätigung beim Speichern). Bei Portwechsel wird sie ohne Rückfrage mitgezogen. |
 | **Backup-Zeitplan** | standardmäßig an (`backup.enabled`): täglich 02:00 eine vollständige Sicherung, 14 Sicherungen aufbewahren. Der Backup-Dienst wird beim Start des Managers gestartet, wenn er nicht läuft – außer man hat ihn ausdrücklich gestoppt. Verpasste Sicherungen werden nachgeholt. |
 | **Update-Prüfung** | 10 s nach dem Start, dann alle 6 Stunden (nur in einer Installation; offline ist kein Fehler). Anzeige nur bei verfügbarer Version. |
-| **Laufzeit-Prüfung** (Node.js, Git, WinSW) | 10 s nach dem Start, dann täglich. Neuere Version → Karte „Update verfügbar“; zu altes Node/fehlendes Git → Punkt im Status. **Aktualisiert wird nie automatisch**, nur auf Knopfdruck. |
-| **Portal** | Standard bei neuen Einstellungen: an, Pfad `/mosaik3lab`, Port 80 → `http://<Server>/mosaik3lab` ohne Portnummer, die App hört intern nur auf 127.0.0.1. Einstellungen von früher ohne Portal-Werte bleiben unverändert (Portal aus). Geht außerdem automatisch an, sobald ein Pfad eingetragen wird. Ausschalten nur unter „Erweitert“ (wenn IIS/nginx davor sitzt). **Port 80 belegt:** Hinweis nennt Programm + PID und schlägt einen freien Port vor (8080, 8081, 8000, 8888) – Knopf „Port … verwenden“. |
+| **Laufzeit-Prüfung** (Node.js, WinSW) | 10 s nach dem Start, dann täglich. Neuere Version → Karte „Update verfügbar“; zu altes Node → Punkt im Status. **Aktualisiert wird nie automatisch**, nur auf Knopfdruck. |
+| **Portal** | Standard bei neuen Einstellungen: an, Pfad `/mosaik3lab`, Port 80 → `http://<Server>/mosaik3lab` ohne Portnummer, die App hört intern nur auf 127.0.0.1. Geht außerdem automatisch an, sobald ein Pfad eingetragen wird. Ausschalten nur unter „Erweitert“ (wenn IIS/nginx davor sitzt). **Port 80 belegt:** Hinweis nennt Programm + PID und schlägt einen freien Port vor (8080, 8081, 8000, 8888) – Knopf „Port … verwenden“. |
 | **Adresse in Bestell-Mails** | leer gelassen → automatisch die Adresse der App im Schulnetz (bzw. auf diesem Rechner). |
 | **Hinweise verschwinden von selbst** | sobald die Ursache weg ist: ein Sicherungsfehler nach der nächsten erfolgreichen Sicherung (automatisch oder „Jetzt sichern“), Abweichungen spätestens nach einer Minute, Laufzeit/Update nach spätestens 10 Minuten. |
 | **Neustart der Web-App** | nach Portwechsel, Pfad-/HTTPS-Änderung und Wiederherstellen von selbst. |
@@ -83,7 +81,7 @@ und winget/apt durch eine Datei, in der nur vermerkt wird, welche Firewall-Regel
 ## Einstellungen liegen in der Datenbank (eine Quelle der Wahrheit)
 
 Alles, was man einstellen kann – Ports, Netzfreigabe, Ablage-/Backup-/Protokoll-Ordner, Backup-Zeitplan und Anzahl,
-Update-Quelle samt Git-Pfad, **Mail (inkl. SMTP-Passwort), Session-Geheimnis** – steht in der
+**Mail (inkl. SMTP-Passwort), Session-Geheimnis** – steht in der
 Datenbank der App (`<Datenordner>/mosaik3lab.db`, Tabelle `betrieb_einstellung`, Bereiche `betrieb` · `mail` ·
 `manager`; die fachlichen Einstellungen der App bleiben in `einstellung`, siehe `docs/DATENMODELL.md`). Ein Backup der
 Datenbank (+ Ablage) enthält deshalb **alles** – nach dem Zurückspielen ist das System genauso konfiguriert wie im
@@ -100,10 +98,8 @@ Backup.
 - Die App bekommt Ports und Pfade weiterhin als Umgebungsvariablen vom Manager (`API_PORT`, `HOST`, `STORAGE_DIR`,
   `ABLAGE_DIR` …); **Mail-Einstellungen und Session-Geheimnis liest sie selbst aus der Datenbank**
   (`MAIL_CONFIG_FILE` und `SESSION_SECRET` entfallen).
-- **Einmalige Übernahme der Altdateien** (beim ersten Laden; die Dateien werden zu `*.vor-datenbank-<zeit>.bak`):
-  alte `manager.config.json` (jetzt Startdatei, Inhalt → Datenbank), `config/mail.json`, `data/.session-secret` und –
-  durch die App – die Mail-Felder aus `data/settings.json`. Bestehende Installationen bleiben ohne Backup-Passwort
-  (unverschlüsselt), bis eins gesetzt wird.
+- Updates werden ab Version 1.6.3 unterstützt: Startdatei und Einstellungen liegen dort schon in diesem Format (die
+  Übernahme älterer Dateien wie `manager.config.json`, `config/mail.json`, `.session-secret` erledigte 1.6.3).
 - Fehlerhafte Werte in der Datenbank → Standardwerte + Fehlermeldung; Aktionen, die Daten schreiben, sind gesperrt, bis
   die Einstellungen gespeichert/repariert sind (der Ort der Datenbank bleibt dabei erhalten).
 
@@ -117,12 +113,12 @@ Bilder verlieren (bis 2026-11-02 gab es zusätzlich die kleine Art „Daten & Ei
 
 - **Zeitplan:** täglich zur eingestellten Uhrzeit, abschaltbar (`backup.enabled`). Aufbewahrt werden die neuesten `backup.keep`
   Sicherungen insgesamt (auch „vor Update“, „vor Wiederherstellung“); die gerade wiederhergestellte wird dabei nie gelöscht.
-  `backup.full` wird nicht mehr benutzt.
+  Unbekannte Schlüssel in der Datenbank (z. B. `backup.full`) ignoriert der Manager.
 - **Verpasste Sicherungen** (Rechner war zur Zeit aus) werden beim Start des Backup-Dienstes bzw. beim nächsten Prüfen
   **nachgeholt** (fällig, wenn die letzte Sicherung älter ist als der letzte planmäßige Zeitpunkt). Schlägt eine
   Sicherung fehl, wird nach 15 Minuten erneut versucht; bis dahin steht eine **Warnung** im Status (Dienstkarte/Hinweise).
-- **Wiederherstellen** ersetzt Datenbank und Ablage. **Ältere Sicherungen** bleiben wiederherstellbar: Ordner-Sicherungen
-  (`backup.json`), verschlüsselte und unverschlüsselte `.m3lbackup`-Dateien und die frühere Art „daten“ (nur Datenbank – lässt die
+- **Wiederherstellen** ersetzt Datenbank und Ablage. Wiederherstellbar sind alle `.m3lbackup`-Dateien (ab 1.6.3;
+  verschlüsselt und unverschlüsselt) und die frühere Art „daten“ (nur Datenbank – lässt die
   vorhandene Ablage unberührt; fehlende Bilder zeigen einen Platzhalter, der `doctor` meldet sie als **Hinweis**; nur Fehlendes aus
   einer vollständigen Sicherung nachholen: `cli backup fill-files <id>`, jede Datei per SHA-256 geprüft).
 - **Umziehen** auf einen anderen Rechner = Sicherungsdatei mitnehmen und dort „Aus Sicherung einrichten“ (bzw. `cli setup --from-backup`);
@@ -254,7 +250,7 @@ Datenbank und damit in Sicherungen – deshalb Backup-Passwort (siehe oben) und 
 ## Datenbank (kommt mit der App)
 
 Die App speichert in SQLite (`node:sqlite`, in Node enthalten, `<Datenordner>/mosaik3lab.db`) und richtet Datenbank,
-Tabellen und Ablage beim ersten Start selbst ein (frühere JSON-Daten werden dabei einmalig übernommen) – im Manager gibt es dafür **keinen** Einrichtungsschritt. Der Manager prüft nur Node ≥ 24,
+Tabellen und Ablage beim ersten Start selbst ein – im Manager gibt es dafür **keinen** Einrichtungsschritt. Der Manager prüft nur Node ≥ 24,
 zeigt den Zustand aus `/api/health` an und sichert die Datenbank im Backup konsistent über
 `npm run db:backup -w server -- --ziel <datei> --quelle <db>` (die Datei wird nie einfach kopiert). Solange es noch keine
 `mosaik3lab.db` gibt, entfällt dieser Schritt; liegt eine Datenbank vor, aber das Skript fehlt, bricht das Backup
@@ -273,7 +269,7 @@ lieber ab, als eine inkonsistente Kopie zu erzeugen.
 | Sicherungen | `C:\Mosaik3LAB\backups` | `/var/backups/mosaik3lab` |
 | Protokolle | `C:\Mosaik3LAB\logs` | `/var/log/mosaik3lab` |
 | Startdatei `mosaik3lab.json` (nur `dataDir`, `managerPort`) + `backup.key` | `C:\Mosaik3LAB` | `/var/lib/mosaik3lab` |
-| Manager (install-manifest, Dienstdateien `dienste\`, WinSW `werkzeuge\`) | `C:\Program Files\Mosaik3LAB` (ältere Installationen: `C:\Mosaik3LAB\manager`, steht als `managerDir` in `install.json`) | `/var/lib/mosaik3lab/manager` |
+| Manager (install-manifest, Dienstdateien `dienste\`, WinSW `werkzeuge\`) | `C:\Program Files\Mosaik3LAB` (steht als `managerDir` in `install.json`) | `/var/lib/mosaik3lab/manager` |
 | Dienste | WinSW (Konto „Lokaler Dienst“), Autostart, Neustart nach Absturz | systemd (`/etc/systemd/system/mosaik3lab-*.service`, Systembenutzer `mosaik3lab`, Autostart, Neustart nach Absturz; Portal mit `CAP_NET_BIND_SERVICE`; polkit-Regel: Manager darf die anderen Dienste steuern) |
 | Verknüpfungen | Desktop + Startmenü „Mosaik³LAB“ (Server-Manager, Mosaik³LAB öffnen, deinstallieren) | `.desktop`: als root (Installer-Paket) unter `/usr/share/applications/mosaik3lab`, sonst `~/.local/share/applications` (+ Desktop) – ohne Desktop harmlos |
 
@@ -291,8 +287,9 @@ neue Version unter `releases\`, laufende Dienste stoppen, `current` umschalten, 
 Einstellungen und Daten bleiben, Dienste starten. **Deinstallieren** (Startmenü-Eintrag oder `cli uninstall`) entfernt genau diese
 Einträge und fragt, ob Daten/Sicherungen/Einstellungen bleiben sollen (Standard: ja).
 
-WinSW 2.12.0 wird nur geladen, wenn man das im Einrichtungsdialog ankreuzt; geprüft wird die Dateigröße, die
-Prüfsumme wird protokolliert (fester SHA-256-Wert noch einzutragen: `platform/windows.mjs`).
+WinSW 2.12.0 wird nur geladen, wenn man das im Einrichtungsdialog ankreuzt (Installer-Paket: `downloadWrapper` in
+`Installieren.json`); geprüft werden Dateigröße und der fest hinterlegte SHA-256-Wert (`platform/windows.mjs`) – eine
+abweichende Datei wird verworfen.
 
 ## Updates
 
@@ -311,21 +308,12 @@ Fortschritt schreibt nur der Helfer: `<Programmordner>/update-status.json` (Phas
 `fehler`, Texte für Admins; „wartet“ leitet der Manager selbst ab, nach 10 min ohne Meldung = Fehler; „läuft“ ohne neue Zeile = „läuft noch“, erst nach 4 Stunden ein Hinweis auf Neustart), Protokoll
 `<Programmordner>/update-helfer.log` (im Manager unter Protokoll → „Update-Helfer“). Der Programmordner ist für das Dienstkonto
 schreibgeschützt.
-Einrichtung und Update laufen nie doppelt (`lib/sperre.mjs`, `<Programmordner>/.einrichtung.lock`). Versionen vor 1.1.0
-haben den Helfer noch nicht → einmal per Paket aktualisieren.
+Einrichtung und Update laufen nie doppelt (`lib/sperre.mjs`, `<Programmordner>/.einrichtung.lock`).
+**Installationen aus einer Arbeitskopie** (Entwicklung) haben keinen Update-Weg im Manager: `git pull`, dann `npm run paket`
+und das Paket installieren. Das frühere Git-Update (eigener zweiter Weg mit eigener Rückfall-Logik) ist entfernt; alte
+Einstellungen `update.repo`/`update.branch`/`update.gitPath` in der Datenbank werden ignoriert.
 
-**Installationen aus einer Arbeitskopie:** Quelle ist Git (Einstellung `update.repo` + `update.branch`, Standard nach der Einrichtung: die Arbeitskopie, aus
-der installiert wurde, Branch `main`). Ablauf in einem eigenen Prozess: Backup → neue Version aus Git nach
-`releases/<version>-<commit>` (entpacken, `npm ci`, Build) → Dienste stoppen → `current` umschalten → starten →
-`/api/health`. Antwortet die neue Version nicht, wird **automatisch zurückgeschaltet**. Aktuelle und vorige Version
-bleiben erhalten. In der Arbeitskopie gibt es keine Updates über den Manager – dort `git pull`.
-
-**Git finden:** Der Manager sucht `git` zuerst am gemerkten Pfad (`update.gitPath`), dann im PATH, dann an den
-Standardorten (Windows `C:\Program Files\Git\cmd\git.exe` u. a., Linux `/usr/bin/git`) und merkt sich den Treffer –
-so klappt es auch als Dienst (Konto „Lokaler Dienst“ ohne Git im PATH). Fehlt Git ganz, steht das im `doctor`, in der
-Einrichtung (`"installGit": true` installiert es per winget/apt) und als klare Meldung beim Update.
-
-**Datenbank beim Update:** Vor jedem Update wird die Schema-Version der Datenbank gelesen (nur lesend) und gesichert.
+**Datenbank beim Update** (Paket-Update, siehe unten): Vor jedem Update wird die Schema-Version der Datenbank gelesen (nur lesend) und gesichert.
 Scheitert die neue Version nach dem Start und hat sich das Schema inzwischen geändert (Migrationen wurden eingespielt),
 spielt der Rollback die **Sicherung von vorher zurück** – die alte Version läuft nie auf einem neueren Schema. Eine
 Version, die ein **niedrigeres Schema** mitbringt als die Datenbank hat, wird nicht installiert (Downgrade verweigert).
@@ -342,24 +330,21 @@ automatisch auf Y zurückgeschaltet, Daten unverändert … Protokoll: …“ (E
 nach Erfolg auf. Gleiches Paket noch einmal = Reparatur. Sitzungen im Manager-Dienst gehen beim Update verloren (neu anmelden).
 Für den CI-Test wird nur die Testkopie des Pakets kaputtgemacht, einen Testschalter im Programm gibt es nicht.
 
-## Laufzeit (Node.js, Git, Dienst-Wrapper)
+## Laufzeit (Node.js, Dienst-Wrapper)
 
 „Erweitert“ → „Version und Laufzeit“ bzw. `runtime status|update`; geprüft wird automatisch (täglich), angezeigt wird oben nur, was zu tun ist. Je Zeile: installiert / aktuell / Ampel. Node.js wird mit der
-aktuellen LTS von nodejs.org verglichen, Git (Windows) mit der neuesten Git-for-Windows-Version, der Wrapper mit der im
+aktuellen LTS von nodejs.org verglichen, der Wrapper mit der im
 Manager hinterlegten WinSW-Version; ohne Internet steht „aktuelle Version unbekannt“ (kein Fehler). Installation aus dem
-Installer-Paket (Node.js liegt im Programmordner, Windows und Linux): Node.js und Git zeigen nur „kommt mit dem Mosaik³LAB-Paket – Update über ein
+Installer-Paket (Node.js liegt im Programmordner, Windows und Linux): Node.js zeigt nur „kommt mit dem Mosaik³LAB-Paket – Update über ein
 neues Paket“ (`Installieren.cmd` bzw. `sudo ./installieren.sh`), `runtime update node` lehnt mit diesem Hinweis ab (kein winget, kein apt). **Nie automatisch,
 nur auf Knopfdruck.** Ablauf: Sicherung → Dienste stoppen → aktualisieren (Windows: `winget upgrade`/`install` mit
 Windows-Bestätigung, Linux: `apt` per sudo – **UNGETESTET**) → Dienste starten → `/api/health`. Scheitert etwas, laufen die
 Dienste trotzdem wieder, die Meldung nennt die Sicherung und den Befehl zum Zurückgehen (z. B.
 `winget install --id OpenJS.NodeJS.LTS -e --version <alt>`). Nach Node-/Wrapper-Updates startet der Manager kurz neu.
-`runtime update <node|git|wrapper> --dry-run` zeigt nur den Befehl. Der Wrapper (WinSW) wird durch Umbenennen der
-laufenden Dienst-`.exe` und Kopieren der gepinnten Version getauscht (wirksam beim nächsten Dienstneustart; nur Windows).
+`runtime update <node|wrapper> --dry-run` zeigt nur den Befehl. Der Wrapper (WinSW) wird in **allen** eingerichteten Diensten
+(Web-App, Backup, Portal, Manager, Update-Helfer) durch Umbenennen der laufenden Dienst-`.exe` und Kopieren der gepinnten Version getauscht (wirksam beim nächsten Dienstneustart; nur Windows).
 npm-Pakete aktualisiert das App-Update (`npm ci` aus der Lock-Datei); „Pakete auf bekannte Schwachstellen prüfen“ zeigt
 `npm audit --omit=dev` als Information.
-
-Hinweis GitHub: Das Repository hat derzeit kein Remote. Für Updates von GitHub `update.repo` auf die Repo-Adresse
-setzen; bei privatem Repo braucht der Server einen Lesezugang (Deploy-Key/Token).
 
 ## Kommandozeile
 
@@ -373,7 +358,7 @@ doctor                       alle Prüfungen mit „Was tun?“
 start|stop <webapp|backup>
 backup [list|run]  ·  backup restore <id> --yes
 update [check|install]
-runtime [status [--audit]]  ·  runtime update <node|git|wrapper> [--dry-run]
+runtime [status [--audit]]  ·  runtime update <node|wrapper> [--dry-run]
 setup --config <datei.json> [--dry-run]
 uninstall [--dry-run] [--delete-data] [--yes] [--data-root <ordner>]
 logs [--which app|manager|backup|update] [--errors]
@@ -387,8 +372,8 @@ config
 Beispiel `setup.json`: `{ "programRoot": "C:\\Program Files\\Mosaik3LAB", "dataRoot": "C:\\Mosaik3LAB",
 "appPort": 3001, "network": false, "admin": { "email": "…", "name": "…", "password": "…" }, "downloadWrapper": true }`
 (optional `"services": false`, `"shortcuts": false`, `"copyDeps": true` = node_modules mitkopieren statt `npm ci`,
-`"prebuilt": true` = Installer-Paket: gebündelter Server (`server/dist`, ältere Pakete: node_modules), fertige Oberfläche und `node\node.exe` (Linux: `node/node`)
-direkt nach `releases/<version>` kopieren (kein Umbenennen), kein `npm ci`, kein Build; bei Paketen mit node_modules legt das Setup fehlende Verweise der npm-Workspaces an; die Dienste nutzen dann `<Programm>\current\node\node.exe` bzw. `<Programm>/current/node/node`). Gibt es im Datenordner schon Startdatei und Datenbank, bleiben deren
+`"prebuilt": true` = Installer-Paket: gebündelter Server (`server/dist`), fertige Oberfläche und `node\node.exe` (Linux: `node/node`)
+direkt nach `releases/<version>` kopieren (kein Umbenennen), kein `npm ci`, kein Build; die Dienste nutzen dann `<Programm>\current\node\node.exe` bzw. `<Programm>/current/node/node`). Gibt es im Datenordner schon Startdatei und Datenbank, bleiben deren
 Einstellungen erhalten (erneutes Einrichten setzt nichts zurück). Der Schritt „start“ startet auch den Manager-Dienst.
 
 ## API
@@ -433,27 +418,32 @@ lib/reconcile.mjs   Abgleichen: System (Firewall, Ordner, Dienste) aus der Daten
 lib/auto.mjs        Automatik: Abgleich beim Start/nach Änderungen, Backup-Dienst, Update-/Laufzeit-/Abweichungs-Prüfung
 lib/auth.mjs        Passwort (scrypt), Sitzungen
 lib/services.mjs    Dienste starten/stoppen/Status, Netzfreigabe
-lib/backup.mjs      Sichern mit SHA-256-Prüfsummen, prüfen, wiederherstellen, aufräumen
-lib/update.mjs      Git-Update mit automatischem Rollback (inkl. Datenbank zurückspielen, Downgrade-Schutz)
-lib/paketupdate.mjs Update per Installer-Paket: Downgrade-Schutz, Sicherung vor dem Umschalten, Rückfall (für setup.mjs)
-lib/git.mjs         Git finden (gemerkter Pfad, PATH, Standardorte), klare Fehlermeldung
+lib/backup.mjs      Sichern mit SHA-256-Prüfsummen, prüfen, wiederherstellen (bei Fehler zurück auf den Stand davor), aufräumen
+lib/paketupdate.mjs Update per Installer-Paket: Downgrade-Schutz, Sicherung vor dem Umschalten, Umschalten, Rückfall (für setup.mjs)
+lib/releases.mjs    Versionen im Programmordner: releases/, Verweis „current“, Verlauf, alte Versionen aufräumen
+lib/dateien.mjs     Ordner sicher löschen (Verweise zuerst), npm-Workspaces neu verknüpfen
+lib/manifest.mjs    install-manifest.json lesen/schreiben
+lib/hilfen.mjs      kleine gemeinsame Hilfen (Prozess lebt?, SHA-256, Version, Schreibprobe)
 lib/schema.mjs      Schema-Version der Datenbank / einer Programmversion lesen
 lib/appstart.mjs    Start von Web-App und App-Skripten: tsx (node_modules) oder Bündel server/dist (Installer-Paket)
-lib/runtime.mjs     Laufzeit: Node.js, Git, WinSW prüfen und aktualisieren, npm audit
-lib/setup.mjs       Einrichten, install-manifest, Verknüpfungen, Deinstallation
+lib/runtime.mjs     Laufzeit: Node.js, WinSW prüfen und aktualisieren, npm audit
+lib/setup.mjs       Einrichten bzw. Update per Paket, Verknüpfungen, WinSW laden
+lib/deinstallieren.mjs  Deinstallation nach dem install-manifest
 lib/status.mjs      Gesamtstatus (ein Satz + Knopf), Adressen der App und doctor
 lib/mail.mjs        E-Mail bei neuen Anfragen: Einstellungen in der Datenbank, Testmail
 lib/log.mjs, icon.mjs   Protokolle (Rotation 5 MB × 5), Programmsymbol (PNG/ICO aus dem Logo)
-runners/            eigenständige Prozesse: webapp (Watchdog, Neustart mit Backoff), backup (Zeitplan), update
+runners/            eigenständige Prozesse: webapp (Watchdog, Neustart mit Backoff), backup (Zeitplan), runtime, aktualisieren (Update-Helfer), portal
 platform/           windows.mjs, linux.mjs (inkl. Raspberry Pi; Installer-Weg getestet), index.mjs (Auswahl + Probelauf)
 public/             index.html, app.css, app.js
 test/               remote.test.mjs (über die App-Adresse: Weiterleitung, 403 ohne Admin-Sitzung der App), erstzugang*.test.mjs
                     (erster Administrator über das Netz, Sperre), auto.test.mjs (Automatik, Statussatz, Probelauf), portal.test.mjs
                     (Portal, HTTPS, belegte Ports, echte App unter /mosaik3lab), manager.test.mjs (Unit), admin.test.mjs (Admin-Schritt,
-                    Sperrdatei), appstart.test.mjs, workspaces.test.mjs, status-extern.test.mjs, updates.test.mjs (Git, Laufzeit,
-                    Paketquelle), aktualisieren.test.mjs (Update-Helfer, Rückfall), paketupdate.test.mjs (Paket-Update, Versionen),
+                    Sperrdatei), appstart.test.mjs, workspaces.test.mjs, status-extern.test.mjs, updates.test.mjs (Laufzeit,
+                    Schema), aktualisieren.test.mjs (Update-Helfer, Rückfall), paketupdate.test.mjs (Paket-Update, Versionen),
                     backup-versionen.test.mjs, fremde-pfade.test.mjs (Sicherung vom anderen Betriebssystem), settings-*.test.mjs
-                    (Einstellungen in der Datenbank, Backup → Einrichten aus Backup, Übernahme der Altdateien), selftest.mjs (über HTTP)
+                    (Einstellungen in der Datenbank, Backup → Einrichten aus Backup, Übernahme der Altdateien), fehlerfaelle.test.mjs
+                    (Ausnahmefälle bei Sicherung, Wiederherstellen, Umschalten, Aufräumen, Auspacken), abgleich-app.test.mjs (Doppelungen mit
+                    der App), selftest.mjs (über HTTP)
                     →  npm run manager:test
                     (Testdaten unter C:\Entwicklung\_testdaten\server-manager\, werden danach gelöscht)
 ```
@@ -469,7 +459,7 @@ test/               remote.test.mjs (über die App-Adresse: Weiterleitung, 403 o
 - Daten zurückholen: `cli stop webapp` → `cli backup list` → `cli backup restore <id> --yes` → `cli start webapp`.
   Ohne den Manager auf diesem Rechner: Programm von derselben Quelle auf einem anderen Rechner/Ordner holen und
   `cli setup --from-backup <datei.m3lbackup>` (bzw. `cli backup restore`) benutzen – die Datei ist ein tar-Strom mit Kopf (bei Passwort
-  verschlüsselt) und von Hand nicht lesbar; ältere Ordner-Sicherungen (`backup.json`) lassen sich noch kopieren.
+  verschlüsselt) und von Hand nicht lesbar.
 - Update kaputt: normalerweise erledigt das der automatische Rollback (inkl. Datenbank aus der Sicherung). Von Hand: Verweis `current` im Programmordner auf die vorige Version unter `releases/` setzen.
 - Ohne Bildschirm (Raspberry Pi/Server): normal über `http://<server>/mosaik3lab/manager/`; Notzugang ohne laufende App:
   `ssh -L 5190:127.0.0.1:5190 <benutzer>@<server>`, dann http://127.0.0.1:5190 – oder die CLI per SSH. Windows-Server: Remotedesktop.

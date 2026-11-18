@@ -1,7 +1,7 @@
 // „Datenbestand übertragen“: Datenbank + Dateien eines Datenordners konsistent in einen anderen Datenordner kopieren.
 // Gemeinsam benutzt von „Datenordner ändern“ (Einstellungen) und „Einrichten mit vorhandenen Daten“.
 //  - Datenbank NICHT per Dateikopie, sondern über das App-Skript db:backup (VACUUM INTO, auch bei laufender App)
-//  - frühere JSON-Daten (data/, uploads/, config/) werden mitkopiert (ohne Sperrdatei und Sitzungen)
+//  - übrige Ordner des Datenordners (data/, uploads/, config/ – ggf. Reste älterer Stände) werden mitkopiert (ohne Sperrdatei und Sitzungen)
 //  - danach Vergleich: Zeilen je Tabelle und Dateianzahl müssen übereinstimmen, sonst Fehler (Quelle bleibt unberührt)
 // Die Ablage (Bilder, Druckdateien) wird getrennt behandelt – sie hat einen eigenen Ordner (siehe saveSettings/Einrichten).
 import fs from 'node:fs';
@@ -9,8 +9,9 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { InputError, countFiles } from './config.mjs';
 import { backupDatabase } from './backup.mjs';
+import { DB_NAME } from './settingsdb.mjs';
 
-const DB = 'mosaik3lab.db';
+const DB = DB_NAME;
 const PARTS = ['data', 'uploads', 'config'];
 const SKIP = /(\.lock|sessions\.json(\.bak)?)$/;
 

@@ -99,9 +99,9 @@ Weitere Befehle:
 | Befehl                         | Zweck                                                                  |
 | ------------------------------ | ---------------------------------------------------------------------- |
 | `npm test`                     | Automatische Funktions-, Berechtigungs- und Speichertests (`server/test/*.test.ts`, je Fachbereich eine Datei; temporäre Datenordner, keine echten Mails). Einzeln: `cd server; node --import tsx --test test/konten.test.ts` |
-| `npm run lint`                 | ESLint für `client/` und `server/` (nur Hinweise, ändert keinen Code) |
+| `npm run lint`                 | ESLint für `client/`, `server/`, `shared/`, `manager/` und `scripts/` (nur Hinweise, ändert keinen Code) |
 | `npm run typecheck`            | TypeScript-Prüfung für Frontend und Backend                            |
-| `npm run backup`               | Sicherung von Datenbank (konsistent), Ablage und JSON-Altdaten nach `backups/` |
+| `npm run backup`               | Sicherung wie im Server-Manager (`manager/cli.mjs backup run`): eine geprüfte `.m3lbackup`-Datei mit Datenbank und Ablage im Backup-Ziel |
 | `npm run db:backup -w server -- --ziel <datei>` | Nur die Datenbank konsistent kopieren (auch im laufenden Betrieb; eine Zeile Ausgabe, Exit 0/1 – nutzt der Server-Manager) |
 | `npm run seed:reset -- --yes`  | Alle Daten löschen und Beispieldaten neu anlegen (vorher Server beenden; legt automatisch eine Sicherung an) |
 | `npm start`                    | Frontend bauen und alles über einen Server auf http://127.0.0.1:3001 ausliefern (Produktivmodus: **Demo-Zugänge gesperrt**) |
@@ -144,7 +144,7 @@ angelegt waren, behalten ihre bisherigen Adressen (es entstehen keine zweiten De
 ## Rollen und Rechte
 
 Drei Rollen, wenige Häkchen – vergeben in **Verwaltung → Personen** mit „Rechte ändern“. Die Rechte prüft das
-**Backend** bei jeder Anfrage (`shared/src/konten.ts` → `BEREICHE`, `server/src/domain/permissions.ts`); das Frontend
+**Backend** bei jeder Anfrage (`shared/src/konten.ts` → `BEREICHE`, `server/src/module/konten/rechte.ts`); das Frontend
 blendet Bedienelemente nur zusätzlich aus.
 
 | Rolle / Häkchen | darf … |
@@ -187,7 +187,7 @@ mosaik3lab/
 │  │  ├─ module/           je Fachbereich Route → Service → Repository (katalog, anfragen, vorschlaege,
 │  │  │                    konten, stammdaten, einstellungen, datenaustausch)
 │  │  ├─ kern/             Technik: SQLite + Migrationen, Dateiablage, Anmeldung/Rechte/CSRF, Mail, Uploads, Rate-Limit
-│  │  ├─ storage/          Speicher zusammenbauen, sqlite/migrations/NNN_name.sql, einmalige JSON-Übernahme
+│  │  ├─ storage/          Speicher zusammenbauen, sqlite/migrations/NNN_name.sql
 │  │  ├─ seed/             Beispieldaten
 │  │  └─ app.ts / index.ts App-Aufbau und Start
 │  ├─ test/                Tests je Fachbereich (node:test), gemeinsamer Helfer helfer.ts
@@ -196,9 +196,8 @@ mosaik3lab/
 │  ├─ mosaik3lab.db        SQLite-Datenbank (+ -wal/-shm im Betrieb)
 │  ├─ ablage/              <objekttyp>/<objekt-id>/<rolle>/<datei-id>.<endung>
 │  ├─ sicherungen/         automatische Sicherungen vor Datenbank-Migrationen
-│  ├─ data/                .lock; frühere JSON-Dateien (nach der Übernahme nur Sicherung)
-│  └─ uploads/             frühere Ablage (nach der Übernahme nur Sicherung)
-└─ backups/                ← entsteht durch npm run backup
+│  └─ data/                .lock (Sperrdatei)
+└─ backups/                ← Sicherungen (.m3lbackup) des Server-Managers bzw. von npm run backup
 ```
 
 ## Datenspeicherung
@@ -209,11 +208,8 @@ mosaik3lab/
 - **Plug & Play:** Beim Start legt die App Datenbank, Tabellen und Ablage selbst an und spielt ausstehende
   Migrationen (`server/src/storage/sqlite/migrations/NNN_name.sql`, Stand in `schema_version`) ein – bei einer
   vorhandenen Datenbank vorher mit automatischer Sicherung nach `storage/sicherungen/`.
-- **Übernahme der früheren JSON-Daten:** Beim ersten Start mit Datenbank werden `storage/data/*.json` und die
-  Upload-Ordner (auch früher in der App abweichend eingestellte, `mosaik3lab.config.json` – danach gesichert und
-  entfernt) einmalig übernommen (Dateien in die neue Ablage kopiert und per SHA-256 geprüft, Anzahl der
-  Datensätze verglichen, Bericht im Log). Schlägt etwas fehl, wird nichts eingetragen und die App startet nicht –
-  die JSON-Dateien bleiben unberührt. Sie und die alte Ablage bleiben auch danach als Sicherung liegen.
+- **Updates ab 1.6.3:** Aktualisiert wird nur von Version 1.6.3 (Datenbank-Schema 017) oder neuer. Ältere Stände
+  zuerst mit dem Paket 1.6.3 aktualisieren – es übernimmt auch noch Daten aus der Zeit vor der Datenbank (JSON-Dateien).
 - **Sperrdatei** `storage/data/.lock` verhindert, dass zwei Serverprozesse gleichzeitig mit denselben Daten arbeiten.
 - **IDs:** Jeder Datensatz hat eine technische ID (UUID v7, neu angelegt; übernommene IDs bleiben). Lesbare Nummern
   aus Nummernkreisen: Anfragen `ANF-2026-0001` (frühere `M3L-…` bleiben gültig), Druckteile `ART-0001`.
@@ -241,11 +237,11 @@ mosaik3lab/
 
 Alle Daten liegen im Datenordner (**`storage/`**, installiert `<daten>`) und in der Ablage (`ABLAGE_DIR`).
 Im Dauerbetrieb sichert der **Server-Manager** (Karte „Sicherung“) täglich das ganze System in **eine Datei**: Datenbank konsistent
-über `npm run db:backup` (SQLite `VACUUM INTO`, auch während die App läuft – die Datei nie einfach kopieren), dazu die Ablage und
-die früheren JSON-Dateien, mit SHA-256-Prüfsummen. Wiederherstellen und Umziehen ebenfalls dort
+über `npm run db:backup` (SQLite `VACUUM INTO`, auch während die App läuft – die Datei nie einfach kopieren), dazu die Ablage,
+mit SHA-256-Prüfsummen. Wiederherstellen und Umziehen ebenfalls dort
 ([Anleitung](docs/ANLEITUNG-DRUCKTEILE-UND-SICHERUNG.md)). In der Entwicklung:
 
-1. `npm run backup` ausführen → Kopie unter `backups/storage-<Datum>/` (`mosaik3lab.db`, `ablage/`, `data/`), **oder**
+1. `npm run backup` ausführen → Sicherungsdatei `mosaik3lab-<Zeit>-komplett.m3lbackup` im Backup-Ziel (wie im Server-Manager, dort auch wiederherstellbar), **oder**
 2. den Server beenden und den Ordner `storage/` komplett kopieren (dann gehören `mosaik3lab.db-wal` und `-shm` dazu).
 
 **Wiederherstellen:** Server beenden, `mosaik3lab.db` (und `ablage/`) durch die Sicherung ersetzen, dabei

@@ -124,12 +124,14 @@ test('api(): Abbruch von außen beendet die Anfrage (alte Suche)', async () => {
 });
 
 test('shared/werte: ohne zod, und die bisherigen Dateien exportieren alles wieder (Server-Importe bleiben gültig)', async () => {
-  const { readFileSync, readdirSync } = await import('node:fs');
+  const { existsSync, readFileSync, readdirSync } = await import('node:fs');
   const ordner = new URL('../../shared/src/werte/', import.meta.url);
   for (const datei of readdirSync(ordner)) {
     const text = readFileSync(new URL(datei, ordner), 'utf8');
     assert.doesNotMatch(text, /from ['"](zod|\.\.\/)/, `${datei} darf weder zod noch Schema-Dateien laden`);
     const bereich = datei.replace(/\.ts$/, '');
+    // Reine Werte ohne Schema (bilder, dateien) haben keine Schema-Datei daneben – dort gibt es nichts wieder zu exportieren.
+    if (!existsSync(new URL(`../${datei}`, ordner))) continue;
     const werte = await import(`@mosaik3lab/shared/werte/${bereich}`);
     const alt = await import(`@mosaik3lab/shared/${bereich}`);
     for (const [name, wert] of Object.entries(werte)) assert.equal(alt[name], wert, `${bereich}: ${name} fehlt in der alten Datei`);

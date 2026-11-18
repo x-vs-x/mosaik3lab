@@ -5,23 +5,18 @@ import { MIN_PASSWORT } from '@mosaik3lab/shared/werte/konten';
 import { useAuth } from '../../auth/AuthContext';
 import { Logo } from '../../components/Logo';
 import { Alert, Button, Field, Input, Spinner, Email } from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { api, fehlerText } from '../../lib/api';
 import { useDocumentTitle } from '../../lib/useApi';
+import type { PasswortLinkInfo, PasswortSetzenInput } from '@mosaik3lab/shared/konten';
 
 // Seite hinter dem Link aus der Mail (…/passwort#<token>): Passwort festlegen bzw. zurücksetzen, danach angemeldet.
 // Das Token steht hinter „#“ und wird so nie an den Server übertragen oder protokolliert – nur im Rumpf der Anfragen.
-
-interface LinkInfo {
-  email: string;
-  name: string;
-  zweck: 'einrichten' | 'zuruecksetzen';
-}
 
 export function PasswortPage() {
   useDocumentTitle('Passwort festlegen');
   const { setPasswordWithLink } = useAuth();
   const [token] = useState(() => window.location.hash.replace(/^#/, ''));
-  const [info, setInfo] = useState<LinkInfo>();
+  const [info, setInfo] = useState<PasswortLinkInfo>();
   const [linkError, setLinkError] = useState<string>();
   const [password, setPassword] = useState('');
   const [repeat, setRepeat] = useState('');
@@ -36,9 +31,9 @@ export function PasswortPage() {
       setLinkError('Der Link ist unvollständig. Bitte öffnen Sie ihn direkt aus der E-Mail.');
       return;
     }
-    api<LinkInfo>('/auth/passwort-link', { method: 'POST', body: { token }, silent401: true })
+    api<PasswortLinkInfo>('/auth/passwort-link', { method: 'POST', body: { token } satisfies Pick<PasswortSetzenInput, 'token'>, silent401: true })
       .then(setInfo)
-      .catch((err) => setLinkError(err instanceof ApiError ? err.message : 'Der Link konnte nicht geprüft werden.'));
+      .catch((err) => setLinkError(fehlerText(err, 'Der Link konnte nicht geprüft werden.')));
   }, [token]);
 
   if (done) return <Navigate to="/login" replace />;
@@ -56,7 +51,7 @@ export function PasswortPage() {
       await setPasswordWithLink(token, password);
       setDone(true);
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : 'Das Passwort konnte nicht gespeichert werden.');
+      setFormError(fehlerText(err, 'Das Passwort konnte nicht gespeichert werden.'));
     } finally {
       setSaving(false);
     }
@@ -95,7 +90,18 @@ export function PasswortPage() {
             <Field label="Neues Passwort" required error={errors.password}>
               {({ id, describedBy, invalid }) => (
                 <div className="relative">
-                  <Input id={id} type={show ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-describedby={describedBy} invalid={invalid} className="pr-14" autoFocus />
+                  <Input
+                    id={id}
+                    type={show ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    aria-describedby={describedBy}
+                    invalid={invalid}
+                    className="pr-14"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus -- bewusst: einziges Feld der Seite bzw. des Dialogs, spart Tab-Wege
+                    autoFocus
+                  />
                   <button
                     type="button"
                     onClick={() => setShow((s) => !s)}

@@ -1,11 +1,13 @@
-import { Lightbulb, PackagePlus, Pencil, Save, Search } from 'lucide-react';
+import { Lightbulb, PackagePlus, Pencil, Save } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
+import { FilterKnopf, LadeFehler, Suchfeld } from '../../components/Listenwerkzeug';
 import { useToast } from '../../components/Toast';
-import { Alert, Button, Card, cx, EmptyState, Field, Input, PageHeader, Select, Spinner, Textarea, Email } from '../../components/ui';
-import { api, ApiError } from '../../lib/api';
+import { Alert, Button, Card, cx, EmptyState, Field, PageHeader, Select, Spinner, Textarea, Email } from '../../components/ui';
+import { api, ApiError, fehlerText } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
+import { useSuchParameter } from '../../lib/suchParameter';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
 import {
   PhotoGrid,
@@ -17,6 +19,7 @@ import {
   type ProposalStatus,
 } from '../vorschlaege/proposals';
 import { passtZurSuche } from '@mosaik3lab/shared/suche';
+import type { ProposalUmgewandelt } from '@mosaik3lab/shared/vorschlaege';
 
 type Filter = 'offen' | 'alle' | ProposalStatus;
 
@@ -58,12 +61,12 @@ function ProposalCard({ proposal, highlight, onChange }: { proposal: Proposal; h
   const convert = async () => {
     setBusy('convert');
     try {
-      const r = await api<{ proposal: Proposal; itemId: string }>(`/proposals/${proposal.id}/convert`, { method: 'POST' });
+      const r = await api<ProposalUmgewandelt>(`/proposals/${proposal.id}/convert`, { method: 'POST' });
       onChange(r.proposal);
       toast('success', `${proposal.number} wurde als Entwurf in den Katalog übernommen. Bitte die Angaben ergänzen.`);
       navigate(`/verwaltung/hilfsmittel/${r.itemId}`);
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Umwandeln fehlgeschlagen.');
+      toast('error', fehlerText(err, 'Umwandeln fehlgeschlagen.'));
       setBusy(undefined);
     }
   };
@@ -170,18 +173,13 @@ function ProposalCard({ proposal, highlight, onChange }: { proposal: Proposal; h
 /** Verwaltung → Vorschläge der Lehrkräfte (neben den Anfragen). */
 export function ProposalsAdminPage() {
   useDocumentTitle('Vorschläge');
-  const { data, setData, error, loading } = useApi<Proposal[]>('/proposals');
-  const [params, setParams] = useSearchParams();
+  const { data, setData, error, loading, reload } = useApi<Proposal[]>('/proposals');
+  const [params, setze] = useSuchParameter();
   const filter = (params.get('status') as Filter | null) ?? 'offen';
   const highlight = params.get('offen');
   const [q, setQ] = useState('');
 
-  const setFilter = (f: Filter) => {
-    const next = new URLSearchParams(params);
-    next.set('status', f);
-    next.delete('offen');
-    setParams(next, { replace: true });
-  };
+  const setFilter = (f: Filter) => setze({ status: f, offen: null });
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { alle: data?.length ?? 0, offen: 0 };
@@ -212,35 +210,17 @@ export function ProposalsAdminPage() {
         title="Vorschläge"
         description="Druckteile, die sich Lehrkräfte wünschen und die noch nicht im Katalog sind. Antworten sind für die Lehrkraft sichtbar."
       />
-      {error && <Alert kind="error">{error.message}</Alert>}
+      <LadeFehler error={error} onRetry={() => void reload()} loading={loading} />
       {loading && !data && <Spinner />}
       {data && (
         <>
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center">
             <div role="group" aria-label="Nach Status filtern" className="flex flex-1 flex-wrap gap-2">
               {filters.map((f) => (
-                <button
-                  key={f.key}
-                  type="button"
-                  aria-pressed={filter === f.key && !highlight}
-                  onClick={() => setFilter(f.key)}
-                  className={cx(
-                    'inline-flex min-h-11 max-w-full items-center gap-2 rounded-full px-4 text-base font-bold transition-colors',
-                    filter === f.key && !highlight ? 'bg-stone-900 text-white' : 'bg-white text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-stone-50',
-                  )}
-                >
-                  {f.label}
-                  <span className="text-hinweis opacity-80">{counts[f.key] ?? 0}</span>
-                </button>
+                <FilterKnopf key={f.key} label={f.label} count={counts[f.key] ?? 0} active={filter === f.key && !highlight} onClick={() => setFilter(f.key)} />
               ))}
             </div>
-            <div className="relative lg:w-72">
-              <label htmlFor="proposal-search" className="sr-only">
-                Vorschläge durchsuchen
-              </label>
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-stone-500" aria-hidden />
-              <Input id="proposal-search" type="search" className="pl-10" placeholder="Suchen …" value={q} onChange={(e) => setQ(e.target.value)} />
-            </div>
+            <Suchfeld id="proposal-search" label="Vorschläge durchsuchen" value={q} onChange={setQ} placeholder="Suchen …" className="lg:w-72" />
           </div>
 
           {visible.length === 0 ? (

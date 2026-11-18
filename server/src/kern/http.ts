@@ -3,6 +3,9 @@ export function param(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
 }
 
+/** Query-Parameter als Text (fehlt oder mehrfach angegeben → leer). */
+export const queryText = (v: unknown) => (typeof v === 'string' ? v : '');
+
 /**
  * Fehlt die Datei auf der Platte, obwohl der Datensatz existiert (z. B. nach dem Einspielen eines Backups ohne Dateien),
  * bekommt der Browser ein schlichtes Platzhalterbild statt eines kaputten Bildes. Der Header X-Datei-Fehlt kennzeichnet es.

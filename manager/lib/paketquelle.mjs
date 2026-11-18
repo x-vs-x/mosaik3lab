@@ -5,10 +5,12 @@
 // Quelle überschreibbar (Tests): MOSAIK3LAB_PAKETQUELLE=<URL der Release-Liste im Format der GitHub-API>
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { compareVersions, parseVersion } from './paketupdate.mjs';
+import { sha256Datei as sha256File } from './hilfen.mjs';
+
+export { sha256File };
 
 export const QUELLE = process.env.MOSAIK3LAB_PAKETQUELLE || 'https://api.github.com/repos/x-vs-x/mosaik3lab-pakete/releases?per_page=50';
 const HEADERS = { Accept: 'application/vnd.github+json', 'User-Agent': 'Mosaik3LAB-Server-Manager' };
@@ -74,11 +76,6 @@ export async function officialSum(sumsUrl, name, fetchImpl = fetch) {
   return sum;
 }
 
-export const sha256File = async (file) => {
-  const h = crypto.createHash('sha256');
-  await pipeline(fs.createReadStream(file), h);
-  return h.digest('hex');
-};
 
 /** Paket herunterladen (in dir) und gegen die offizielle Prüfsumme prüfen. → Pfad der Datei. */
 export async function downloadPaket(v, dir, { fetchImpl = fetch, onProgress, stillMs = STILL_MS } = {}) {

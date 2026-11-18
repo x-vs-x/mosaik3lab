@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { ME_TIMEOUT_MS, pruefeSitzung } from '../auth/sitzungPruefen';
 import { api } from './api';
-import type { PublicConfig } from './types';
+import type { MasterData, PublicConfig } from './types';
 
 interface ConfigState {
   /** undefined, solange die Konfiguration lädt */
@@ -43,10 +43,11 @@ export function useConfig(): ConfigState {
   return ctx;
 }
 
+/** Stammdaten, solange die Konfiguration lädt: immer dasselbe Objekt, damit Effekte und Memos nicht bei jedem Zeichnen neu laufen. */
+const LEERE_STAMMDATEN: MasterData = { categories: [], useAreas: [], materials: [], filaments: [], orderStatuses: [] };
+
 /** Bequemer Zugriff auf die Stammdaten (leere Listen, solange geladen wird). */
-export function useMasterData() {
+export function useMasterData(): MasterData {
   const { config } = useConfig();
-  return (
-    config?.masterData ?? { categories: [], useAreas: [], materials: [], filaments: [], orderStatuses: [] }
-  );
+  return config?.masterData ?? LEERE_STAMMDATEN;
 }

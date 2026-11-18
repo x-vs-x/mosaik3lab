@@ -1,4 +1,6 @@
 import { all, one, run, str, type Db } from '../../kern/db';
+import { aehnlichPaar } from '../katalog/katalog.repository';
+import type { VerknuepfungsZaehler } from '@mosaik3lab/shared/datenaustausch';
 
 // Ähnliche Druckteile (Tabelle artikel_aehnlich, Paar a < b) im Export/Import.
 //
@@ -15,8 +17,6 @@ export interface PaketAehnlich {
   name: string;
   nummer: string;
 }
-
-const paar = (x: string, y: string) => (x < y ? [x, y] : [y, x]);
 
 /** Ähnliche Druckteile der gewählten Druckteile (eine Abfrage für alle). */
 export function aehnlicheFuerExport(db: Db, ids: string[]): Map<string, PaketAehnlich[]> {
@@ -38,12 +38,6 @@ export function aehnlicheFuerExport(db: Db, ids: string[]): Map<string, PaketAeh
   return map;
 }
 
-export interface VerknuepfungsZaehler {
-  /** Neu angelegte Verknüpfungen (auch früher vorgemerkte, deren Partner jetzt da ist). */
-  neu: number;
-  /** Verknüpfungen aus der Datei, deren Partner hier noch fehlt (vorgemerkt). */
-  wartend: number;
-}
 
 /** Druckteil hier zu einer ID aus einer Quelle: gleiche ID, sonst Herkunfts-ID. */
 function findePartner(db: Db, quellId: string): string | undefined {
@@ -66,7 +60,7 @@ export function verknuepfe(db: Db, artikel: { id: string; aehnliche: PaketAehnli
   const wartend = new Set<string>();
   const verbinde = (x: string, y: string) => {
     if (x === y) return;
-    neu += Number(run(db, 'INSERT OR IGNORE INTO artikel_aehnlich (a, b) VALUES (?, ?)', ...paar(x, y)).changes);
+    neu += Number(run(db, 'INSERT OR IGNORE INTO artikel_aehnlich (a, b) VALUES (?, ?)', ...aehnlichPaar(x, y)).changes);
   };
   // 2) Verknüpfungen der Datei
   for (const a of artikel) {

@@ -1,4 +1,4 @@
-import { MAX_ORDER_QUANTITY } from '@mosaik3lab/shared/werte/anfragen';
+import { MAX_ORDER_QUANTITY, MAX_ORDER_VARIANTS, ORDER_CLASS_MAX, ORDER_CUSTOMIZATION_MAX } from '@mosaik3lab/shared/werte/anfragen';
 import { CircleCheck, LayoutGrid, Plus, Save, Send } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useAuth } from '../../auth/AuthContext';
@@ -8,38 +8,21 @@ import { Alert, Button, Field, Input, LinkButton, Textarea } from '../../compone
 import { api, ApiError, isConnectionProblem } from '../../lib/api';
 import { useConfig, useMasterData } from '../../lib/config';
 import { aufAngeboteneFarben, initialColorChoice, itemColorAreas } from '../../lib/colors';
-import { anfrageEmail } from '../../lib/anfrageEmail';
+import { anfrageEmail } from './anfrageEmail';
 import { ersteFehlerstelle } from '../../lib/fokus';
 import { entwurfSchluessel } from '../../lib/entwurfSpeicher';
-import { getProfile, saveProfile } from '../../lib/guestOrders';
+import { getProfile, saveProfile } from './guestOrders';
 import type { Item, OrderInput, OrderReceipt, RequestTemplate } from '../../lib/types';
 import { useEntwurf } from '../../lib/useEntwurf';
 import { ChoiceGroup, ColorRow, CustomFieldInput, type ColorRowValue } from './AnfrageFelder';
+import { domainHint, normalizeDomain, pruefeAnfrage } from './anfragePruefung';
 
 /** Schlüssel des Anfrage-Entwurfs – auch für die Detailseite, die den Dialog nach einem Neuladen wieder öffnet. */
 export const anfrageEntwurfSchluessel = (itemId: string, userId?: string, templateOrderId?: string) =>
   entwurfSchluessel(`anfrage-${itemId}`, userId, templateOrderId);
 
-const normalizeDomain = (d: string) => d.trim().toLowerCase().replace(/^@/, '');
-
-function emailDomainAllowed(email: string, domains: string[]) {
-  if (domains.length === 0) return true;
-  const domain = email.split('@').pop()?.toLowerCase() ?? '';
-  return domains.some((d) => domain === d || domain.endsWith(`.${d}`));
-}
-
-function domainHint(domains: string[]) {
-  if (domains.length === 0) return 'Bitte Ihre dienstliche Adresse verwenden. Das Team meldet sich darüber bei Rückfragen.';
-  const list = domains.map((d) => `@${d}`);
-  const joined = list.length === 1 ? list[0] : `${list.slice(0, -1).join(', ')} oder ${list[list.length - 1]}`;
-  return `Bitte Ihre Adresse ${joined} verwenden.`;
-}
-
-/** Höchstzahl Farben (Zeilen) je Anfrage – wie `variants` im Server-Schema. */
-const MAX_ROWS = 10;
-
-/** Anfrageformular für Lehrkräfte – ohne Anmeldung. */
 /**
+ * Anfrageformular für Lehrkräfte – ohne Anmeldung.
  * `template`: Vorbelegung aus „Erneut anfragen“ – alle Angaben bleiben vor dem Absenden änderbar.
  * `edit`: dieselbe Anfrage ändern (PUT, nur solange offen); `onSaved` nach dem Speichern.
  */
@@ -152,23 +135,20 @@ export function RequestDialog({
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const email = anfrageEmail(sessionEmail, requesterEmail);
-    const local: Record<string, string> = {};
-    if (!email) local.requesterEmail = 'Bitte Ihre Schul-E-Mail eintragen';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) local.requesterEmail = 'Bitte eine gültige E-Mail-Adresse eintragen, z. B. name@schule.example';
-    else if (!sessionEmail && !emailDomainAllowed(email, domains)) local.requesterEmail = domainHint(domains);
-    if (!classOrTeam.trim()) local.classOrTeam = 'Bitte Klasse oder Team angeben';
-    rows.forEach((row, i) => {
-      for (const { area } of areas) if (!row.colors[area.id]) local[colorErrorKey(area.id, i)] = 'Bitte eine Farbe wählen';
+    const local = pruefeAnfrage({
+      email,
+      angemeldet: !!sessionEmail,
+      domains,
+      classOrTeam,
+      rows,
+      bereiche: areas.map((a) => a.area.id),
+      leereBereiche: emptyAreas.map((a) => a.area.id),
+      farbFehlerSchluessel: colorErrorKey,
+      customFields,
+      custom,
+      sizes: item.sizes,
+      size,
     });
-    if (total > MAX_ORDER_QUANTITY) local.quantity = `Zusammen höchstens ${MAX_ORDER_QUANTITY} Stück`;
-    for (const { area } of emptyAreas) local[colorErrorKey(area.id)] = 'Derzeit ist keine Farbe vorrätig';
-    for (const f of customFields) {
-      const value = (custom[f.id] ?? '').trim();
-      if (f.required && !value) local[`custom.${f.id}`] = 'Pflichtfeld';
-      else if (value.length > f.maxLength) local[`custom.${f.id}`] = `Höchstens ${f.maxLength} Zeichen`;
-      else if (value && f.type === 'number' && !/^-?\d+([.,]\d+)?$/.test(value)) local[`custom.${f.id}`] = 'Bitte eine Zahl eingeben';
-    }
-    if (item.sizes.length > 0 && !size) local.size = 'Bitte eine Größe wählen';
     setErrors(local);
     setFormError(undefined);
     if (Object.keys(local).length) {
@@ -322,7 +302,7 @@ export function RequestDialog({
                 id={id}
                 value={classOrTeam}
                 onChange={(e) => setClassOrTeam(e.target.value)}
-                maxLength={60}
+                maxLength={ORDER_CLASS_MAX}
                 required
                 aria-required
                 aria-describedby={describedBy}
@@ -361,7 +341,7 @@ export function RequestDialog({
                   variant="secondary"
                   icon={Plus}
                   onClick={addRow}
-                  disabled={total >= MAX_ORDER_QUANTITY || rows.length >= MAX_ROWS}
+                  disabled={total >= MAX_ORDER_QUANTITY || rows.length >= MAX_ORDER_VARIANTS}
                 >
                   Weitere Farbe
                 </Button>
@@ -419,7 +399,7 @@ export function RequestDialog({
                 id={id}
                 value={customization}
                 onChange={(e) => setCustomization(e.target.value)}
-                maxLength={1000}
+                maxLength={ORDER_CUSTOMIZATION_MAX}
                 rows={4}
                 aria-describedby={describedBy}
                 invalid={invalid}

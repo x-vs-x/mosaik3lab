@@ -1,4 +1,4 @@
-// Darstellung von Stammdaten: Farben, Symbole, Kategorie-/Status-/Filament-Helfer.
+// Darstellung von Stammdaten: Farben, Symbole, Kategorie- und Status-Helfer (Farbrollen: lib/colors.ts).
 // Die eigentlichen Listen kommen aus der Konfiguration (lib/config.tsx).
 import {
   Accessibility,
@@ -23,8 +23,8 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
-import { STATUS_CATALOG } from '@mosaik3lab/shared/werte/anfragen';
-import type { Category, ColorKey, Filament, IconKey, MasterData, OrderStatusDef, StatusPhase } from './types';
+import { STATUS_CATALOG, type StatusId } from '@mosaik3lab/shared/werte/anfragen';
+import type { Category, ColorKey, IconKey, MasterData, OrderStatusDef, StatusPhase } from './types';
 
 export { ROLE_LABELS } from '@mosaik3lab/shared/werte/konten';
 export { COLOR_KEYS, ICON_KEYS } from '@mosaik3lab/shared/werte/stammdaten';
@@ -79,15 +79,10 @@ export function categoryMeta(md: MasterData, name: string) {
 }
 
 // --- Bestellstatus ---------------------------------------------------------------
-export const PHASE_LABELS: Record<StatusPhase, string> = {
-  open: 'Offen (wartet)',
-  active: 'In Arbeit',
-  done: 'Erledigt',
-};
 export const PHASE_ICONS: Record<StatusPhase, LucideIcon> = { open: Inbox, active: Printer, done: CircleCheck };
 
 /** Symbole der festen Status (IDs aus shared/src/anfragen.ts). */
-export const STATUS_ICONS: Record<string, LucideIcon> = {
+export const STATUS_ICONS: Record<StatusId, LucideIcon> = {
   offen: Inbox,
   in_pruefung: SearchCheck,
   in_druck: Printer,
@@ -104,7 +99,7 @@ export const STATUS_DESCRIPTIONS: Record<string, string> = Object.fromEntries(ST
 /** Darstellung eines Status (über seine ID). */
 export function statusMeta(md: MasterData, id: string) {
   const def: OrderStatusDef = md.orderStatuses.find((s) => s.id === id) ?? { id, name: id, phase: 'open', color: 'grau', active: false };
-  return { ...COLOR_STYLES[def.color], icon: STATUS_ICONS[def.id] ?? PHASE_ICONS[def.phase], def, label: def.name };
+  return { ...COLOR_STYLES[def.color], icon: (STATUS_ICONS as Partial<Record<string, LucideIcon>>)[def.id] ?? PHASE_ICONS[def.phase], def, label: def.name };
 }
 
 /** Eingeschaltete Status in Bearbeitungsreihenfolge. */
@@ -114,20 +109,4 @@ export const activeStatuses = (md: MasterData) => md.orderStatuses.filter((s) =>
 export function nextStatus(md: MasterData, id: string): OrderStatusDef | undefined {
   const i = md.orderStatuses.findIndex((s) => s.id === id);
   return i >= 0 ? md.orderStatuses.slice(i + 1).find((s) => s.active) : undefined;
-}
-
-// --- Filamente / Farbrollen ------------------------------------------------------
-export const filamentLabel = (f: Filament) => `${f.colorName} · ${[f.brand, f.line].filter(Boolean).join(' ')}`;
-
-export function findFilament(md: MasterData, id: string): Filament | undefined {
-  return md.filaments.find((f) => f.id === id);
-}
-
-/** Helle Farben brauchen einen Rand, damit der Farbtupfer sichtbar bleibt. */
-export function isLightHex(hex: string) {
-  const n = parseInt(hex.replace('#', ''), 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  return 0.299 * r + 0.587 * g + 0.114 * b > 200;
 }
