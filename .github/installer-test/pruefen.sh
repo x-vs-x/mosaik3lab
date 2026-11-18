@@ -78,7 +78,7 @@ case "$PHASE" in
       exe=$(sudo readlink "/proc/$pid/exe" 2>/dev/null)
       pruefe "[[ \"$exe\" == $PROGRAMM/* ]]" "Dienst $d nutzt Node aus dem Programmordner ($exe)"
     done
-    pruefe "systemctl cat mosaik3lab-webapp | grep -q 'ExecStart=$PROGRAMM/current/node/node '" "Dienstdatei zeigt auf current/node/node"
+    pruefe "systemctl cat mosaik3lab-webapp | grep -Eq '^ExecStart=\"?$PROGRAMM/current/node/node\"? '" "Dienstdatei zeigt auf current/node/node" # neuere Versionen setzen Pfade in Anführungszeichen (Leerzeichen)
     if [ -f "$PROGRAMM/current/manager/runners/aktualisieren.mjs" ]; then # ältere Versionen haben keinen Update-Helfer
     beschreibbar=""
     for d in "$PROGRAMM" "$PROGRAMM/releases" "$(readlink -f "$PROGRAMM/current")" "$PROGRAMM/current/manager" "$PROGRAMM/current/manager/runners"; do

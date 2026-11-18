@@ -1,13 +1,14 @@
-// Einfaches ESLint für client/ und server/ (`npm run lint`). Nur Hinweise – es wird kein Code automatisch umgeschrieben.
+// Einfaches ESLint für client/, server/, shared/, manager/ und scripts/ (`npm run lint`). Nur Hinweise – es wird kein Code automatisch umgeschrieben.
 // Regeln, die beim Einführen (2026-10-31) schon verletzt waren, stehen unten auf „warn“, damit `npm run lint` grün bleibt;
 // sie werden nach und nach behoben und dann wieder streng gestellt.
 import js from '@eslint/js';
+import globals from 'globals';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/storage/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', '**/storage/**', 'manager/logs/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -38,5 +39,18 @@ export default tseslint.config(
       'prefer-const': 'warn', // (1)
       'no-constant-binary-expression': 'warn', // (1)
     },
+  },
+  // Server-Manager, Skripte, Installer-Tests: reines Node (.mjs); die Oberfläche des Managers läuft im Browser.
+  {
+    files: ['manager/**/*.mjs', 'scripts/**/*.mjs', '.github/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['manager/public/**/*.js'],
+    languageOptions: { globals: globals.browser, sourceType: 'module' },
+  },
+  {
+    files: ['manager/**/*.{mjs,js}', 'scripts/**/*.mjs', '.github/**/*.mjs'],
+    rules: { '@typescript-eslint/no-unused-vars': ['warn', { varsIgnorePattern: '^_', ignoreRestSiblings: true }] }, // { a: _weg, ...rest } = Feld bewusst weglassen
   },
 );

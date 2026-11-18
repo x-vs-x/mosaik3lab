@@ -14,10 +14,10 @@
     "build": "npm run build -w client",
     "start": "npm run build && npm run start -w server",
     "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
-    "lint": "eslint client server shared",
+    "lint": "eslint client server shared manager scripts .github",
     "test": "npm run test -w server && npm run test -w client",
     "seed:reset": "npm run seed:reset -w server --",
-    "backup": "npm run backup -w server",
+    "backup": "node manager/cli.mjs backup run",
     "check": "node scripts/check.mjs",
     "manager": "node manager/server.mjs",
     "manager:cli": "node manager/cli.mjs",
@@ -33,6 +33,7 @@
     "eslint": "^9.39.5",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^14.0.0",
     "typescript-eslint": "^8.72.1"
   },
   "engines": {

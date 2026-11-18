@@ -412,8 +412,11 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # Manager-Tests auf einem eigenen, frischen Rechner (sie stoppen Dienste – neben einer Installation geht das nicht)
+  # Manager-Tests auf einem eigenen, frischen Rechner (sie stoppen Dienste – neben einer Installation geht das nicht).
+  # Pull Requests unter x64: läuft schon im Workflow „Prüfen“ (gleicher Rechnertyp) → hier nicht doppelt. Bei Tags und Pushes
+  # läuft er immer – „release“ hängt daran (needs), es wird also nie ein Paket ohne bestandene Manager-Tests veröffentlicht.
   manager:
+    if: ${{ inputs.arch != 'x64' || github.event_name != 'pull_request' }}
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 10
     steps:

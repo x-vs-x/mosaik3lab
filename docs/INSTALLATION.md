@@ -284,15 +284,15 @@ Weniger Dateien heißt: schneller entpacken und kopieren, kaum Arbeit für den V
 außerdem **direkt** nach `releases\<version>` (früher erst nach `<version>.unfertig` und dann umbenennen – genau dieses
 Umbenennen hat ein Virenscanner einmal mit EPERM blockiert). `current` zeigt erst nach dem vollständigen Kopieren darauf.
 
-Wie gestartet wird, entscheidet `manager/lib/appstart.mjs`: Liegt `node_modules/tsx` vor (Arbeitskopie, Git-Update,
+Wie gestartet wird, entscheidet `manager/lib/appstart.mjs`: Liegt `node_modules/tsx` vor (Arbeitskopie,
 ältere Pakete), läuft die App wie bisher aus TypeScript; sonst aus `server/dist/`. Ein Update von einem älteren Paket
 (mit `node_modules`) auf ein gebündeltes und der Rückfall dorthin funktionieren deshalb ohne Sonderweg.
 
 `Installieren.cmd` holt einmal Adminrechte und ruft `node\node.exe manager\cli.mjs setup --config Installieren.json` auf.
 `"prebuilt": true` kopiert das fertige Programm (gebündelter Server, fertige Oberfläche, bei älteren Paketen `node_modules`)
 und `node\node.exe` mit in die Version – kein `npm ci`, kein Build, kein systemweites Node. Die Dienste starten `C:\Program Files\Mosaik3LAB\current\node\node.exe`; ein
-Zurückschalten nimmt so auch die passende Node-Version mit. Der Server-Manager zeigt bei Node.js und Git „kommt mit dem
-Paket“ statt winget anzubieten; seine Git-Updates gibt es auf solchen Rechnern nicht (`update.repo` ist leer).
+Zurückschalten nimmt so auch die passende Node-Version mit. Der Server-Manager zeigt bei Node.js „kommt mit dem
+Paket“ statt winget anzubieten; Updates kommen nur als Paket (einen Git-Update-Weg gibt es nicht mehr).
 
 Probelauf ohne Systemänderung: `Installieren.cmd probelauf` (nur Plan), oder echtes Kopieren in Testordner mit eigener
 `Installieren.json` (`programRoot`/`dataRoot` unter `_testdaten`) und `MOSAIK3LAB_SYSTEM_DRY_RUN=<datei.json>` (keine Dienste,
@@ -345,7 +345,7 @@ Raspberry Pi 4/5, Ubuntu statt Raspberry Pi OS): Paket bauen und als Artifact `M
 (7 Tage, ältere Läufe räumt `aufraeumen` weg), entpacken, `sudo ./installieren.sh --still`, Prüfungen aus `.github/installer-test/pruefen.sh` (zusätzlich: Dienste
 laufen als `mosaik3lab`, Portal mit `CAP_NET_BIND_SERVICE`, App nur auf 127.0.0.1, keine root-Dateien in Daten/Sicherungen/
 Protokollen, ufw-Regel, Menüeintrag), dieselben drei Runden, `npm run manager:test`. Logs bei Fehlern: `installer-logs-linux-<arch>-<runde>`
-(inkl. `journalctl` der Dienste). Steht `[nur-linux]` in der Commit-Nachricht, entfallen die Windows-Jobs (spart Zeit beim
+(inkl. `journalctl` der Dienste). Steht `[nur-linux]` in der Commit-Nachricht (Push auf `installer-test/**`) oder im Titel des Pull Requests, entfallen die Windows-Jobs (spart Zeit beim
 Arbeiten an Linux).
 
 Der Test läuft nicht bei jedem Push auf main, sondern bei Pull Requests auf Installer/Manager/Workflows, bei Tags und

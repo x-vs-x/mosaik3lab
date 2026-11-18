@@ -40,8 +40,8 @@ permissions:
 jobs:
   # ---------------------------------------------------------------- Windows ----------------------------------------------------------------
   windows-paket:
-    # „[nur-linux]“ in der Commit-Nachricht lässt alle Windows-Jobs weg (spart Zeit beim Arbeiten an Linux)
-    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') }}
+    # „[nur-linux]“ in der Commit-Nachricht (Push) bzw. im Titel des Pull Requests lässt alle Windows-Jobs weg (spart Zeit beim Arbeiten an Linux)
+    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') && !contains(github.event.pull_request.title, '[nur-linux]') }}
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -67,7 +67,7 @@ jobs:
 
   # Das alte Paket kommt immer aus demselben Commit → einmal bauen, danach aus dem Cache (gilt je Branch/PR)
   windows-altpaket:
-    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') && !contains(github.event.pull_request.title, '[nur-linux]') }}
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -178,6 +178,11 @@ jobs:
       - name: Prüfen nach der Installation
         if: matrix.runde == 'neu'
         run: .github/installer-test/pruefen.ps1 installiert
+
+      # Frisch geladenes WinSW: Prüfsumme zeigen (die Einrichtung hat sie schon gegen platform/windows.mjs geprüft)
+      - name: WinSW-Prüfsumme
+        if: matrix.runde == 'neu'
+        run: Get-ChildItem (Join-Path $env:ProgramFiles 'Mosaik3LAB\werkzeuge\WinSW-*.exe') | Get-FileHash -Algorithm SHA256 | Format-List Path, Hash
 
       - name: Testdaten anlegen
         if: matrix.runde == 'neu'
@@ -396,7 +401,7 @@ jobs:
 
   # Manager-Tests unter Windows auf einem eigenen, frischen Rechner (sie stoppen Dienste – neben einer Installation geht das nicht)
   manager-windows:
-    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[nur-linux]') && !contains(github.event.pull_request.title, '[nur-linux]') }}
     runs-on: windows-latest
     timeout-minutes: 15
     steps:

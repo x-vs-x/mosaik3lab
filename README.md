@@ -99,9 +99,9 @@ Weitere Befehle:
 | Befehl                         | Zweck                                                                  |
 | ------------------------------ | ---------------------------------------------------------------------- |
 | `npm test`                     | Automatische Funktions-, Berechtigungs- und Speichertests (`server/test/*.test.ts`, je Fachbereich eine Datei; temporäre Datenordner, keine echten Mails). Einzeln: `cd server; node --import tsx --test test/konten.test.ts` |
-| `npm run lint`                 | ESLint für `client/` und `server/` (nur Hinweise, ändert keinen Code) |
+| `npm run lint`                 | ESLint für `client/`, `server/`, `shared/`, `manager/` und `scripts/` (nur Hinweise, ändert keinen Code) |
 | `npm run typecheck`            | TypeScript-Prüfung für Frontend und Backend                            |
-| `npm run backup`               | Sicherung von Datenbank (konsistent), Ablage und JSON-Altdaten nach `backups/` |
+| `npm run backup`               | Sicherung wie im Server-Manager (`manager/cli.mjs backup run`): eine geprüfte `.m3lbackup`-Datei mit Datenbank und Ablage im Backup-Ziel |
 | `npm run db:backup -w server -- --ziel <datei>` | Nur die Datenbank konsistent kopieren (auch im laufenden Betrieb; eine Zeile Ausgabe, Exit 0/1 – nutzt der Server-Manager) |
 | `npm run seed:reset -- --yes`  | Alle Daten löschen und Beispieldaten neu anlegen (vorher Server beenden; legt automatisch eine Sicherung an) |
 | `npm start`                    | Frontend bauen und alles über einen Server auf http://127.0.0.1:3001 ausliefern (Produktivmodus: **Demo-Zugänge gesperrt**) |
@@ -198,7 +198,7 @@ mosaik3lab/
 │  ├─ sicherungen/         automatische Sicherungen vor Datenbank-Migrationen
 │  ├─ data/                .lock; frühere JSON-Dateien (nach der Übernahme nur Sicherung)
 │  └─ uploads/             frühere Ablage (nach der Übernahme nur Sicherung)
-└─ backups/                ← entsteht durch npm run backup
+└─ backups/                ← Sicherungen (.m3lbackup) des Server-Managers bzw. von npm run backup
 ```
 
 ## Datenspeicherung
@@ -245,7 +245,7 @@ Im Dauerbetrieb sichert der **Server-Manager** (Karte „Sicherung“) täglich 
 die früheren JSON-Dateien, mit SHA-256-Prüfsummen. Wiederherstellen und Umziehen ebenfalls dort
 ([Anleitung](docs/ANLEITUNG-DRUCKTEILE-UND-SICHERUNG.md)). In der Entwicklung:
 
-1. `npm run backup` ausführen → Kopie unter `backups/storage-<Datum>/` (`mosaik3lab.db`, `ablage/`, `data/`), **oder**
+1. `npm run backup` ausführen → Sicherungsdatei `mosaik3lab-<Zeit>-komplett.m3lbackup` im Backup-Ziel (wie im Server-Manager, dort auch wiederherstellbar), **oder**
 2. den Server beenden und den Ordner `storage/` komplett kopieren (dann gehören `mosaik3lab.db-wal` und `-shm` dazu).
 
 **Wiederherstellen:** Server beenden, `mosaik3lab.db` (und `ablage/`) durch die Sicherung ersetzen, dabei

@@ -2,6 +2,35 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-18 – Code-Hygiene Server-Manager, Skripte, CI (Unter-Session, Branch: fix/fehler-manager)
+- **Auftrag:** Alle Funde M1–M27 und D20 aus `_konzepte/code-hygiene/manager.md` prüfen und umsetzen (Teil des einen
+  Hygiene-Updates, Integrations-Branch `refactor/code-hygiene`).
+- **Fehler behoben:** M1 `createBackup` räumt erst nach der fertigen Sicherung auf, Fehler dabei nur Warnung, `prune` mit
+  Wiederholung je Datei; M2 `umschalten()` (paketupdate.mjs): scheitert `switchCurrent`, zeigt `current` wieder auf die
+  bisherige Version und die gestoppten Dienste starten; M3 `alteVersionenEntfernen()`: Aufräumfehler nach dem Update nur
+  Warnung; M6 WinSW-SHA-256 fest hinterlegt (aus dem Download auf dem Windows-Runner); M7 `wrapperScript` über alle
+  `SERVICE_IDS`, `psQuote`; M8 Wiederherstellen spielt bei Fehler die Sicherheitskopie zurück; M9 `\\` im tar-Namen;
+  M10 `sdQuote` für ExecStart/Environment, Exec= in .desktop maskiert.
+- **Git-Update entfernt (M4/M5):** `lib/update.mjs`, `lib/git.mjs`, `runners/update.mjs` gelöscht; `currentRelease`,
+  `switchCurrent`, `previousRelease`, `prune`, `installedVersion` → `lib/releases.mjs`; Git aus Laufzeit, Einrichtung,
+  Konfiguration (`update.*`, alte Datenbank-Schlüssel werden ignoriert und bleiben für einen Rückfall stehen), Abgleich,
+  Oberfläche und Plattformen (`extract`, `gitInstall`) entfernt; `cli update` nutzt die Paketquelle.
+- **Aufgeräumt:** M11 `keyFileOf()`/`layout().keyFile`; M12 Datenbankpfad über `dbFileOf`/`resolvePaths().dbFile`; M13
+  `lib/hilfen.mjs` (lebt, sha256Datei, paketVersion, schreibprobe), Firewall-Ports über `wantedFirewallPorts`; M14
+  `npm run backup` → `manager/cli.mjs backup run`; M16 `setup.mjs` 737 → 564 Zeilen (`manifest.mjs`, `dateien.mjs`,
+  `deinstallieren.mjs`); M17 keine Kreis-Importe mehr zwischen setup/update/paketupdate/services, `admin` statisch;
+  M19 `backup.full` und Wochentag; M20 veraltete Kommentare und JSDoc; M22 `SETUP_OPEN` aus der Dateiliste.
+- **Tests/CI:** M23 `manager/`, `scripts/`, `.github/` im Lint (alle Hinweise behoben); M24 + alle Fehlerfälle in
+  `manager/test/fehlerfaelle.test.mjs`; D20 `manager/test/abgleich-app.test.mjs`; M25 `[nur-linux]` auch im PR-Titel;
+  M26 Manager-Tests x64 in PRs nur noch in „Prüfen“; Git-Update-Tests entfernt (Paketweg ist in paketupdate-,
+  aktualisieren-Tests und im Installer-Test abgedeckt).
+- **Bewusst nicht:** M15 (übrige Doppelungen Manager↔App: Datenwurzel, lockHolder – bräuchte Änderungen in server/,
+  DDL und Domain-Regel sind jetzt per Test abgesichert), M18 (nur bei Gelegenheit), M21 (Übernahmen älterer Stände bleiben
+  bis 2.0.0 – Update-Sicherheit), M27 (Testvarianten zusammenführen/Runden kürzen: Entscheidung des Nutzers).
+- **Geprüft:** typecheck, lint, `npm test`; lokal nur die neuen Unit-Tests (Testdaten `_testdaten/paket-a-manager`);
+  Manager-Tests und Installer-Test (Windows, Linux x64, arm64) in der CI über `installer-test/hygiene-manager`.
+- **Aufgeräumt:** Testordner `_testdaten/paket-a-manager` gelöscht.
+
 ## 2026-11-18 – UI-Durchsicht aller Ansichten in allen Größen (Unter-Session, Branch: fix/ui-durchsicht)
 - **Auftrag:** Jedes Fenster, jede Abfrage in unterschiedlichen Größen durchsehen, Anzeigefehler finden und beheben
   (Lehrkräfte und Druck-Team auf Handy, iPad, PC; viele mit motorischen Einschränkungen).
