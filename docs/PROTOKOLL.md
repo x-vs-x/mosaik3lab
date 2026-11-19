@@ -42,6 +42,7 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   `manager/README.md` (API-Tabelle: `dataJob`, 503 `app-down`) gehört der anderen Session.
 - **Aufgeräumt:** Test-Instanz, Attrappe und Chrome beendet, `_testdaten\fable-manager-ui` gelöscht; Bilder in
   `_testdaten\fable-manager-ui-bilder\`.
+
 ## 2026-11-19 – Durchsicht Server und Datenbank vor 1.8.1 (Unter-Session, Branch: fix/fable-server)
 - **Auftrag:** `server/` und `shared/` auf Fehler, Update- und Datenbank-Risiken durchsehen und Kleines gleich beheben.
 - **Geprüft ohne Befund:** Migrationen 001–023 (leer, von 017 und 022 aus; Abbruch rollt zurück, Schema bleibt), Gleichstand
