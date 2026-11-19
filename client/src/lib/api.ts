@@ -20,6 +20,16 @@ export function onUnauthorized(handler: () => void) {
   unauthorizedHandler = handler;
 }
 
+let abgelehntHandler: (() => void) | undefined;
+
+/**
+ * Wird vom Versions-Hinweis gesetzt: Der Server hat eine Eingabe abgelehnt (400) oder kennt die Adresse nicht (404) –
+ * bei einem alten Tab nach einem Update der Moment, „Seite neu laden“ anzubieten (components/VersionsHinweis.tsx).
+ */
+export function onAbgelehnt(handler: (() => void) | undefined) {
+  abgelehntHandler = handler;
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
@@ -95,6 +105,7 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 
   if (!res.ok) {
     if (res.status === 401 && !opts.silent401) unauthorizedHandler?.();
+    if (res.status === 400 || res.status === 404) abgelehntHandler?.();
     const payload = (data ?? {}) as { error?: string; fields?: Record<string, string> };
     // 5xx ohne JSON kommt vom Proxy (Backend startet neu oder ist aus), nicht vom Backend selbst.
     const message = payload.error ?? (res.status >= 500 ? RESTARTING : `Fehler ${res.status}`);

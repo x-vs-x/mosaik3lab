@@ -7,7 +7,7 @@ import { cx, inputClass } from '../../../components/ui';
 import { useAutoHoehe } from '../../../lib/autoHoehe';
 import type { ColorArea, Filament } from '../../../lib/types';
 import { FarbauswahlDialog } from './GemeinsameFarben';
-import { auswahlSchluessel, farbAnzahl, MAX_TEILNAME, verschiebe, type Auswahl } from './teileRegeln';
+import { auswahlSchluessel, farbAnzahl, kopieName, MAX_TEILNAME, verschiebe, type Auswahl } from './teileRegeln';
 import { MehrereTeileDialog } from './MehrereTeileDialog';
 import { newId } from './itemForm';
 
@@ -62,8 +62,7 @@ export function TeileListe({
   };
   const verdoppeln = (i: number) => {
     const a = areas[i];
-    let name = `${a.name} (2)`.slice(0, MAX_TEILNAME);
-    for (let n = 3; areas.some((x) => x.name.toLowerCase() === name.toLowerCase()); n++) name = `${a.name.slice(0, MAX_TEILNAME - 5)} (${n})`;
+    const name = kopieName(a.name, areas.map((x) => x.name));
     onChange([...areas.slice(0, i + 1), { ...a, id: newId('teil'), name }, ...areas.slice(i + 1)]);
     fokus(i + 1, 'mehr');
   };

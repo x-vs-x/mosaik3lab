@@ -6,7 +6,7 @@ import { test } from 'node:test';
 const { abweichendeTeile, farbZusammenfassung, nachFarbe } = await import('@mosaik3lab/shared/werte/farbgruppen');
 const { eineFarbeFuerAlle, farbenAllerTeile, farbePasst, naechstesTeilOhneFarbe, schonGewaehlt } = await import('../src/features/anfragen/teileFarbwahl.ts');
 const { farbfamilie, nachFarbfamilie } = await import('../src/lib/farbfamilie.ts');
-const { auswahlBeschreibung, auswahlSchluessel, farbAnzahl, gemeinsameAuswahl, setzeGemeinsame, teileAusText, verschiebe } = await import(
+const { auswahlBeschreibung, auswahlSchluessel, farbAnzahl, gemeinsameAuswahl, kopieName, MAX_TEILNAME, setzeGemeinsame, teileAusText, verschiebe } = await import(
   '../src/features/verwaltung/druckteil-bearbeiten/teileRegeln.ts'
 );
 const { ersteFehlerstelle } = await import('../src/lib/fokus.ts');
@@ -117,6 +117,18 @@ test('„Mehrere Teile auf einmal“: ein Teil je Zeile, gleichnamige behalten I
   assert.match(teileAusText('Nur eins', [], gemeinsam).fehler ?? '', /mindestens zwei/);
   assert.deepEqual(verschiebe(['a', 'b', 'c'], 0, 1), ['b', 'a', 'c']);
   assert.deepEqual(verschiebe(['a', 'b', 'c'], 0, -1), ['a', 'b', 'c'], 'oben bleibt oben');
+});
+
+test('„Teil verdoppeln“: Nummer bleibt ganz, auch bei langen Namen; vergebene Nummern werden übersprungen', () => {
+  assert.equal(kopieName('Dach', ['Dach']), 'Dach (2)');
+  assert.equal(kopieName('Dach', ['Dach', 'dach (2)', 'Dach (3)']), 'Dach (4)');
+  const lang = 'Achtunddreißig Zeichen langer Teilname';
+  assert.equal(lang.length, 38);
+  const kopie = kopieName(lang, [lang]);
+  assert.equal(kopie, 'Achtunddreißig Zeichen langer Teilna (2)');
+  assert.ok(kopie.length <= MAX_TEILNAME);
+  assert.equal(kopieName('x'.repeat(MAX_TEILNAME), []).length, MAX_TEILNAME);
+  assert.equal(kopieName('', []), '(2)');
 });
 
 test('Fehler „Farbe fehlt“ führt direkt zum ersten Teil ohne Farbe (Knopf mit data-fehler)', () => {
