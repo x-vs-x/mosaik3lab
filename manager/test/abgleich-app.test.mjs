@@ -17,6 +17,17 @@ test('Tabelle betrieb_einstellung: gleiche Definition wie Migration 006 der App'
   assert.equal(norm(TABLE), norm(create));
 });
 
+test('Migrationsdateien: der Manager zählt genau die Dateien, die die App einspielt (gleiches Muster wie server/src/kern/db.ts)', async () => {
+  const { MIGRATION_NAME, releaseSchemaVersion } = await import('../lib/schema.mjs');
+  const ts = fs.readFileSync(path.join(ROOT, 'server', 'src', 'kern', 'db.ts'), 'utf8');
+  const m = /const MIGRATION_NAME = (\/.+\/);/.exec(ts);
+  assert.ok(m, 'Muster in der App gefunden');
+  assert.equal(String(MIGRATION_NAME), m[1]);
+  // und am echten Ordner: höchste Nummer = Zahl der Dateien (lückenlos ab 001 prüft server/test/migration.test.ts)
+  const dateien = fs.readdirSync(path.join(ROOT, 'server', 'src', 'storage', 'sqlite', 'migrations')).filter((f) => f.toLowerCase().endsWith('.sql'));
+  assert.equal(releaseSchemaVersion(ROOT), dateien.length);
+});
+
 test('Schul-Domain: gleiche Regel wie emailDomainSchema in shared/src/einstellungen.ts', () => {
   const ts = fs.readFileSync(path.join(ROOT, 'shared', 'src', 'einstellungen.ts'), 'utf8');
   const m = /z\.string\(\)\.regex\((\/.+?\/)\s*,/.exec(ts);

@@ -6,8 +6,9 @@
 # Aufbau je System (alles auf eigenen, frischen Rechnern, parallel):
 #   paket      Paket des getesteten Stands bauen (einmal) → Artifact; alle Testrunden installieren genau dieses Paket
 #   test       je Runde ein Rechner: „neu“ (Neuinstallation, Update, Rückfall, Downgrade, Update per Knopfdruck,
-#              Deinstallation), „v163“ (Update von der freigegebenen Version 1.6.3 – ältere Stände werden nicht mehr
-#              unterstützt, sie kommen zuerst auf 1.6.3)
+#              Deinstallation), „v163“ und „v180“ (Update von den freigegebenen Versionen 1.6.3 und 1.8.0 – genau die
+#              Stände, die installiert sind; ältere werden nicht mehr unterstützt, sie kommen zuerst auf 1.6.3). In diesen
+#              Runden zuerst ein absichtlich kaputtes Update: Rückfall auf die alte Version mit zurückgespielter Datenbank
 #   manager    npm run manager:test (stoppt Dienste – deshalb auf eigenem Rechner ohne Installation)
 #   release    erst wenn ALLE Tests dieses Systems bestanden sind: genau das gebaute Paket ins Release (release.sh)
 # Linux steht in installer-linux.yml (einmal je Architektur aufgerufen – jede veröffentlicht unabhängig von der anderen).
@@ -66,7 +67,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runde: [neu, v163]
+        runde: [neu, v163, v180]
+        include: # Runden „Update von einer freigegebenen Version“: alt = diese Version (Paket aus x-vs-x/mosaik3lab-pakete)
+          - { runde: v163, alt: 1.6.3 }
+          - { runde: v180, alt: 1.8.0 }
     runs-on: windows-latest
     timeout-minutes: 30
     defaults:
@@ -216,65 +220,88 @@ jobs:
         if: matrix.runde == 'neu'
         run: .github/installer-test/pruefen.ps1 deinstalliert
 
-      # ---- Runde „v163“: Update von der freigegebenen Version 1.6.3 (ältere Stände kommen zuerst auf 1.6.3) ----
-      # Genau das Paket, das die Schule bekommen hat: aus dem Release v1.6.3 (statt es aus dem Tag neu zu bauen)
-      - name: Paket 1.6.3 holen (Release v1.6.3)
-        if: matrix.runde == 'v163'
+      # ---- Runden „v163“ und „v180“: Update von einer freigegebenen Version (matrix.alt) – die Stände, die installiert sind ----
+      # Genau das Paket, das die Schule bekommen hat: aus dem öffentlichen Release (statt es aus dem Tag neu zu bauen)
+      - name: Paket ${{ matrix.alt }} holen (Release v${{ matrix.alt }})
+        if: matrix.runde != 'neu'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: x-vs-x/mosaik3lab-pakete # öffentliches Paket-Repository (dort liegen alle freigegebenen Versionen)
         run: |
-          gh release download v1.6.3 --pattern 'Mosaik3LAB-Installer-1.6.3-windows-x64.zip' --dir "$env:PAKETE\v163"
+          gh release download v${{ matrix.alt }} --pattern 'Mosaik3LAB-Installer-${{ matrix.alt }}-windows-x64.zip' --dir "$env:PAKETE\alt"
           if ($LASTEXITCODE) { exit 1 }
-          $zip = Get-ChildItem "$env:PAKETE\v163\Mosaik3LAB-Installer-1.6.3-*.zip" | Select-Object -First 1
-          if (-not $zip) { throw 'Paket 1.6.3 fehlt' }
-          New-Item -ItemType Directory "$env:PAKETE\v163x" | Out-Null
-          & "$env:SystemRoot\System32\tar.exe" -xf $zip.FullName -C "$env:PAKETE\v163x"
+          $zip = Get-ChildItem "$env:PAKETE\alt\Mosaik3LAB-Installer-${{ matrix.alt }}-*.zip" | Select-Object -First 1
+          if (-not $zip) { throw 'Paket ${{ matrix.alt }} fehlt' }
+          New-Item -ItemType Directory "$env:PAKETE\altx" | Out-Null
+          & "$env:SystemRoot\System32\tar.exe" -xf $zip.FullName -C "$env:PAKETE\altx"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
-      - name: Version 1.6.3 installieren (frische Daten)
-        if: matrix.runde == 'v163'
+      - name: Version ${{ matrix.alt }} installieren (frische Daten)
+        if: matrix.runde != 'neu'
         timeout-minutes: 14
         shell: cmd
         run: |
           if exist C:\Mosaik3LAB rmdir /s /q C:\Mosaik3LAB
-          call "%PAKETE%\v163x\Installieren.cmd" /still
+          call "%PAKETE%\altx\Installieren.cmd" /still
 
-      - name: Prüfen (1.6.3) und Testdaten anlegen
-        if: matrix.runde == 'v163'
+      - name: Prüfen (${{ matrix.alt }}) und Testdaten anlegen
+        if: matrix.runde != 'neu'
         run: foreach ($p in 'installiert', 'marker') { .github/installer-test/pruefen.ps1 $p; if ($LASTEXITCODE) { exit 1 } }
 
-      # Druckteil mit Bildern in 1.6.3 anlegen: nach dem Update müssen Datensätze und Dateien unverändert da sein
-      - name: Testdaten mit 1.6.3 (Druckteil mit Bildern)
-        if: matrix.runde == 'v163'
+      # Druckteil mit Bildern in der alten Version anlegen: nach dem Update müssen Datensätze und Dateien unverändert da sein
+      - name: Testdaten mit ${{ matrix.alt }} (Druckteil mit Bildern)
+        if: matrix.runde != 'neu'
         timeout-minutes: 5
         run: node .github/installer-test/bilder-pruefen.mjs --testdaten
 
       - name: Daten vor dem Update merken (Zeilen je Tabelle, Dateien der Ablage)
-        if: matrix.runde == 'v163'
+        if: matrix.runde != 'neu'
         run: |
-          & "$env:ProgramFiles\Mosaik3LAB\current\node\node.exe" .github/installer-test/daten-stand.mjs merken C:\Mosaik3LAB\daten\mosaik3lab.db C:\Mosaik3LAB\ablage "$env:RUNNER_TEMP\stand-163.json"
+          & "$env:ProgramFiles\Mosaik3LAB\current\node\node.exe" .github/installer-test/daten-stand.mjs merken C:\Mosaik3LAB\daten\mosaik3lab.db C:\Mosaik3LAB\ablage "$env:RUNNER_TEMP\stand-alt.json"
+          if ($LASTEXITCODE) { exit 1 }
+          # installierte alte Version merken: nach dem Rückfall muss genau sie wieder laufen
+          "ERWARTET=$((Get-Content "$env:ProgramFiles\Mosaik3LAB\current\.release.json" -Raw | ConvertFrom-Json).id)" >> $env:GITHUB_ENV
+
+      # Rückfall über Versionsgrenzen: Das kaputte Update spielt alle neuen Migrationen ein und stürzt dann ab. Danach muss
+      # die alte Version wieder laufen – mit ihrer Datenbank von direkt vor dem Update (Schema und Inhalt) und allen Dateien.
+      - name: Rückfall-Test (kaputtes Update über ${{ matrix.alt }})
+        if: matrix.runde != 'neu'
+        timeout-minutes: 14
+        shell: cmd
+        run: |
+          call "%PAKETE%\v3\Installieren.cmd" /still > "%RUNNER_TEMP%\v3.txt" 2>&1
+          set RC=%ERRORLEVEL%
+          type "%RUNNER_TEMP%\v3.txt"
+          if "%RC%"=="0" (echo FEHLER: das kaputte Update endete mit Exit 0& exit /b 1)
+          findstr /c:"automatisch auf" "%RUNNER_TEMP%\v3.txt" >nul || (echo FEHLER: keine Meldung zum Rueckfall& exit /b 1)
+          echo OK   kaputtes Update endete mit Exit %RC% und hat zurueckgeschaltet
+
+      - name: Prüfen nach dem Rückfall auf ${{ matrix.alt }} (alte Version läuft, Daten wie vor dem Update)
+        if: matrix.runde != 'neu'
+        run: |
+          foreach ($p in 'installiert', 'zurueck') { .github/installer-test/pruefen.ps1 $p; if ($LASTEXITCODE) { exit 1 } }
+          & "$env:ProgramFiles\Mosaik3LAB\current\node\node.exe" .github/installer-test/daten-stand.mjs vergleichen C:\Mosaik3LAB\daten\mosaik3lab.db C:\Mosaik3LAB\ablage "$env:RUNNER_TEMP\stand-alt.json"
           if ($LASTEXITCODE) { exit 1 }
 
-      - name: Update 1.6.3 → neue Version (Installieren.cmd)
-        if: matrix.runde == 'v163'
+      - name: Update ${{ matrix.alt }} → neue Version (Installieren.cmd)
+        if: matrix.runde != 'neu'
         timeout-minutes: 14
         shell: cmd
         run: call "%PAKETE%\v1\Installieren.cmd" /still
 
-      - name: Prüfen nach dem Update von 1.6.3
-        if: matrix.runde == 'v163'
+      - name: Prüfen nach dem Update von ${{ matrix.alt }}
+        if: matrix.runde != 'neu'
         run: |
           foreach ($p in 'installiert', 'erhalten') { .github/installer-test/pruefen.ps1 $p; if ($LASTEXITCODE) { exit 1 } }
-          & "$env:ProgramFiles\Mosaik3LAB\current\node\node.exe" .github/installer-test/daten-stand.mjs vergleichen C:\Mosaik3LAB\daten\mosaik3lab.db C:\Mosaik3LAB\ablage "$env:RUNNER_TEMP\stand-163.json"
+          & "$env:ProgramFiles\Mosaik3LAB\current\node\node.exe" .github/installer-test/daten-stand.mjs vergleichen C:\Mosaik3LAB\daten\mosaik3lab.db C:\Mosaik3LAB\ablage "$env:RUNNER_TEMP\stand-alt.json"
           if ($LASTEXITCODE) { exit 1 }
 
-      - name: Bildverarbeitung der neuen Version (nach dem Update von 1.6.3)
-        if: matrix.runde == 'v163'
+      - name: Bildverarbeitung der neuen Version (nach dem Update von ${{ matrix.alt }})
+        if: matrix.runde != 'neu'
         timeout-minutes: 5
         run: node .github/installer-test/bilder-pruefen.mjs
 
-      # ---- Ende der Runde „v163“: deinstallieren ----
+      # ---- Ende der Runden „v163“/„v180“: deinstallieren ----
       - name: Deinstallieren (Runde ${{ matrix.runde }})
         if: matrix.runde != 'neu'
         timeout-minutes: 7
