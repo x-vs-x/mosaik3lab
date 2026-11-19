@@ -52,6 +52,10 @@ let appPort, managerPort, portalPort, proc, token, portal;
 const app = http.createServer((q, s) => {
   const p = new URL(q.url, 'http://x').pathname;
   s.setHeader('Content-Type', 'application/json');
+  if ((q.headers.cookie ?? '').includes('app=stoerung')) {
+    s.statusCode = 503; // App startet gerade (z. B. Datenbank noch gesperrt)
+    return s.end('{}');
+  }
   if (p === '/mosaik3lab/api/auth/me') {
     const role = Object.entries(ROLES).find(([c]) => (q.headers.cookie ?? '').split(/;\s*/).includes(c))?.[1];
     return s.end(JSON.stringify(role ? { user: { role }, permissions: [] } : { user: null, permissions: [] }));
@@ -158,6 +162,54 @@ test('Über die App-Adresse mit Admin-Sitzung der App: direkt drin, keine zweite
   assert.equal((await viaPortal('GET', '/api/status')).status, 403);
 });
 
+test('Kaputte Adresse („//“) und zu große Anfrage beenden den Manager nicht und werden verständlich abgelehnt', async () => {
+  // „//“ ist keine gültige Adresse – früher endete der Manager daran (unbehandelter Fehler vor jeder Prüfung)
+  for (const p of ['//', '//[', '//?x=1']) assert.equal((await direct('GET', p)).status, 400, p);
+  assert.equal((await direct('GET', '/api/auth')).status, 200, 'Manager läuft weiter');
+  // Pfad-Tricks bei den Dateien der Oberfläche: nur die feste Liste wird ausgeliefert
+  for (const p of ['/../server.mjs', '/%2e%2e/server.mjs', '/..%2fserver.mjs', '/app.js/../../server.mjs', '/lib/auth.mjs']) {
+    const r = await direct('GET', p);
+    assert.equal(r.status, 404, p);
+    assert.ok(!r.text.includes('Hintergrundaufträge'), `${p}: kein Quelltext des Servers`);
+  }
+  // Zu groß (> 400 KB): saubere Antwort 413 statt gekappter Verbindung („Manager antwortet nicht“)
+  const big = await direct('POST', '/api/auth/login', { body: { email: 'x'.repeat(500 * 1024) }, headers: { 'X-Manager-Token': token } });
+  assert.equal(big.status, 413);
+  assert.match(big.json.error, /zu groß/);
+  assert.equal((await direct('GET', '/api/auth')).status, 200);
+});
+
+test('Sichern/Wiederherstellen nie doppelt: zweiter Aufruf während eines laufenden → 409, danach wieder frei', async () => {
+  const cookie = 'app=admin';
+  // zwei Fenster / Doppelklick: beide Anfragen fast gleichzeitig – genau eine läuft, die andere wird klar abgelehnt
+  const [a, b] = await Promise.all([remotePost('/api/backup', {}, cookie), remotePost('/api/backup', {}, cookie)]);
+  const abgelehnt = [a, b].filter((r) => r.status === 409);
+  assert.equal(abgelehnt.length, 1, `${a.status} ${a.text} / ${b.status} ${b.text}`);
+  assert.match(abgelehnt[0].json.error, /läuft schon eine Sicherung/);
+  // auch eine Wiederherstellung startet währenddessen nicht – geprüft wird die Sperre vor allem anderen
+  const frei = await remotePost('/api/backup/restore', { id: 'gibt-es-nicht', confirm: 'gibt-es-nicht' }, cookie);
+  assert.notEqual(frei.status, 409, 'nach dem Ende wieder frei');
+  assert.equal((await viaPortal('GET', '/api/status', { headers: { Cookie: cookie } })).json.dataJob, null);
+});
+
+test('Über die App-Adresse, die Web-App antwortet nicht (gestoppt, startet neu): 503 „app-down“ statt „Nur für Administratoren“', async () => {
+  // Serverfehler der App: Anmeldung nicht prüfbar – kein Zugang, aber als „antwortet gerade nicht“ erkennbar
+  const api = await viaPortal('GET', '/api/status', { headers: { Cookie: 'app=admin; app=stoerung' } });
+  assert.equal(api.status, 503);
+  assert.equal(api.json.code, 'app-down');
+  assert.ok(!api.json.summary, 'kein Inhalt ohne geprüfte Anmeldung');
+  assert.ok(api.json.hint.includes(`127.0.0.1:${managerPort}`), 'nennt den Notzugang');
+  const post = await remotePost('/api/backup/password', { generate: true }, 'app=admin; app=stoerung');
+  assert.equal(post.status, 503, 'auch Aktionen: nichts ohne geprüfte Anmeldung');
+  const page = await viaPortal('GET', '/', { headers: { Cookie: 'app=admin; app=stoerung' } });
+  assert.equal(page.status, 503);
+  assert.match(page.text, /antwortet gerade nicht/);
+  assert.match(page.text, /http-equiv="refresh"/, 'Seite versucht es von selbst wieder');
+  assert.ok(!page.text.includes('csrf-token'), 'keine Manager-Seite');
+  // ohne Cookie bleibt es bei „nicht angemeldet“ (dafür wird die App gar nicht gefragt)
+  assert.equal((await viaPortal('GET', '/api/status')).json.code, 'app-admin');
+});
+
 test('Direkt am Server: Anmeldung mit dem Admin-Konto der App; andere Konten nicht; Sperre nach 5 Fehlversuchen', async () => {
   assert.equal((await direct('GET', '/api/status')).status, 401);
   for (const [email, why] of [['team@schule.example', 'Druck-Team'], ['alt@schule.example', 'deaktiviert'], ['demo@schule.example', 'Demo-Konto (nicht erlaubt)'], ['niemand@schule.example', 'unbekannt']]) {
@@ -173,4 +225,13 @@ test('Direkt am Server: Anmeldung mit dem Admin-Konto der App; andere Konten nic
   const locked = await login('chef@schule.example', PW);
   assert.equal(locked.status, 429, 'gesperrt, auch mit richtigem Passwort');
   assert.match(locked.json.error, /warten/);
+});
+
+test('Über die App-Adresse bei gestoppter Web-App (nichts hört auf dem Port): ebenfalls 503 „app-down“', async () => {
+  app.closeAllConnections?.();
+  await new Promise((r) => app.close(r));
+  const r = await viaPortal('GET', '/api/status', { headers: { Cookie: 'app=admin' } });
+  assert.equal(r.status, 503);
+  assert.equal(r.json.code, 'app-down');
+  assert.equal((await viaPortal('GET', '/api/status', { headers: { Cookie: 'app=team' } })).status, 503, 'auch hier kein Zugang');
 });

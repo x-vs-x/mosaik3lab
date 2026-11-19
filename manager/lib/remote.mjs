@@ -22,31 +22,40 @@ export function remoteOf(req) {
 /**
  * Ist der Browser in der App als Administrator angemeldet? Fragt GET <appBase>/api/auth/me bei der App auf 127.0.0.1
  * (mit dem Cookie des Browsers). Antwort der App: { user: { role } | null, permissions }.
+ * → 'admin' · 'kein-admin' · 'unerreichbar' (die App antwortet nicht oder mit einem Serverfehler: sie ist gestoppt oder
+ * startet gerade neu, z. B. beim Update oder Wiederherstellen – dann lässt sich die Anmeldung nicht prüfen; Zugang gibt
+ * es trotzdem nicht, aber die Oberfläche kann das von „nicht angemeldet“ unterscheiden).
  */
-export function isAppAdmin(req, appPort, appBase) {
+export function appAdminState(req, appPort, appBase) {
   const cookie = req.headers.cookie;
-  if (!cookie) return Promise.resolve(false);
+  if (!cookie) return Promise.resolve('kein-admin');
   return new Promise((resolve) => {
     const r = http.get({ host: '127.0.0.1', port: appPort, path: `${appBase}/api/auth/me`, headers: { Cookie: cookie, Accept: 'application/json' }, timeout: 5000 }, (res) => {
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => {
+        if (res.statusCode >= 500) return resolve('unerreichbar');
         try {
-          resolve(res.statusCode === 200 && JSON.parse(Buffer.concat(chunks)).user?.role === 'admin');
+          resolve(res.statusCode === 200 && JSON.parse(Buffer.concat(chunks)).user?.role === 'admin' ? 'admin' : 'kein-admin');
         } catch {
-          resolve(false);
+          resolve('kein-admin');
         }
       });
+      res.on('error', () => resolve('unerreichbar'));
     });
-    r.on('timeout', () => r.destroy());
-    r.on('error', () => resolve(false));
+    r.on('timeout', () => {
+      resolve('unerreichbar');
+      r.destroy();
+    });
+    r.on('error', () => resolve('unerreichbar'));
   });
 }
+export const isAppAdmin = async (req, appPort, appBase) => (await appAdminState(req, appPort, appBase)) === 'admin';
 
-/** Seite für den Browser, wenn der Zugang über das Netz nicht erlaubt ist. */
-export function deniedPage(text, appBase) {
+/** Seite für den Browser, wenn der Zugang über das Netz nicht erlaubt ist. reloadSeconds: Seite lädt sich von selbst neu. */
+export function deniedPage(text, appBase, { reloadSeconds = 0, hint = '' } = {}) {
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Server-Manager</title></head>` +
-    `<body><h1>Server-Manager</h1><p>${esc(text)}</p>` +
+  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${reloadSeconds ? `<meta http-equiv="refresh" content="${Number(reloadSeconds)}">` : ''}<title>Server-Manager</title></head>` +
+    `<body><h1>Server-Manager</h1><p>${esc(text)}</p>${hint ? `<p>${esc(hint)}</p>` : ''}` +
     `<p><a href="${esc(appBase || '')}/">Zu Mosaik³LAB</a></p></body></html>`;
 }

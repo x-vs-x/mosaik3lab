@@ -20,7 +20,8 @@ const fail = async (box, ex) => {
   // „Gespeichert, aber …“ (z. B. die Firewall-Regel braucht Adminrechte): Formular auf den gespeicherten Stand bringen
   if (ex.saved) await loadSettings().catch(() => {});
   errorInto(box, ex); // mit dem Befehl für Administratoren zum Kopieren
-  throw ex;
+  box.scrollIntoView({ block: 'nearest' });
+  throw Object.assign(ex, { shown: true }); // steht schon am Formular – nicht noch einmal als Meldung darüberlegen
 };
 
 export async function loadSettings() {
@@ -76,6 +77,16 @@ export async function loadSettings() {
 mail.elements.mailEnabled.addEventListener('change', (e) => ($('#mail-fields').hidden = !e.target.checked));
 
 // ---------- Netzwerk: Schulnetz, Adresse, HTTPS, Ports ----------
+/** Meldung, wenn nach dem Speichern die Verbindung weg ist: neue Adresse dieser Seite (aus dem Formular) bzw. Notzugang. */
+function moved(n) {
+  // ohne Portal oder „nur noch auf diesem Rechner“ (und diese Seite ist nicht am Server selbst geöffnet): von hier nicht mehr erreichbar
+  const weg = !n.portalEnabled.checked || (!n.network.checked && !['localhost', '127.0.0.1', '[::1]'].includes(location.hostname));
+  const https = n.portalHttps.checked;
+  const port = Number(https ? n.portalHttpsPort.value : n.portalHttpPort.value);
+  const link = weg ? null : `${https ? 'https' : 'http'}://${location.hostname}${port === (https ? 443 : 80) ? '' : `:${port}`}${new URL(document.baseURI).pathname}`;
+  return Object.assign(new Error(weg ? 'Die Verbindung ist abgebrochen – die Änderung ist sehr wahrscheinlich gespeichert, diese Seite ist von hier aus nun nicht mehr erreichbar.' : 'Die Verbindung ist abgebrochen – die Änderung ist sehr wahrscheinlich gespeichert, Mosaik³LAB läuft jetzt unter einer anderen Adresse.'),
+    { link, hint: link ? `In etwa einer Minute die neue Adresse öffnen. Klappt das nicht, kommen Sie direkt am Server unter 127.0.0.1:${ctx.managerPort} hinein – mit demselben Admin-Login.` : `Weiter geht es direkt am Server unter 127.0.0.1:${ctx.managerPort} – mit demselben Admin-Login.` });
+}
 net.addEventListener('submit', async (e) => {
   e.preventDefault();
   const n = net.elements;
@@ -93,6 +104,7 @@ net.addEventListener('submit', async (e) => {
       // Reihenfolge: Portal (Pfad, HTTPS, Ports – bestimmt die Firewall-Ports) → App-Port → Netzfreigabe (Firewall)
       if (addressChanged || !same(portsBody(n), loaded.ports)) {
         const r = await api('portal', { ...addressBody(n), ...portsBody(n) });
+        if (!r) return false; // abgemeldet
         await askPaths(r.reconcile);
         done.push(addressChanged ? 'HTTPS' : 'Ports');
       }
@@ -107,7 +119,9 @@ net.addEventListener('submit', async (e) => {
       await loadSettings();
       return done;
     } catch (ex) {
-      await fail(err, ex);
+      // Über die App-Adresse reißt die Verbindung ab, sobald das Portal mit neuer Adresse (HTTPS, Port) neu startet oder nur
+      // noch auf dem Server hört – die Änderung ist dann gespeichert. Sagen, wo es weitergeht, statt „antwortet nicht“.
+      await fail(err, ex.offline && ctx.remote && (addressChanged || portsChanged || netChanged) ? moved(n) : ex);
     }
   }, (done) => (done.length ? `Gespeichert: ${done.join(', ')}.` : 'Nichts geändert.'));
 });
@@ -174,7 +188,9 @@ folders.addEventListener('submit', async (e) => {
   await busy(e.submitter ?? folders.querySelector('[type=submit]'), async () => {
     try {
       if (same(folderBody(folders.elements), loaded.folders)) return 'Nichts geändert.';
-      const note = (await api('settings', folderBody(folders.elements))).ablageNote ?? '';
+      const saved = await api('settings', folderBody(folders.elements));
+      if (!saved) return false; // abgemeldet
+      const note = saved.ablageNote ?? '';
       await loadSettings();
       return `Gespeichert.${note ? ` ${note}` : ''}`;
     } catch (ex) {
@@ -205,6 +221,9 @@ $('#btn-cert-upload-toggle').addEventListener('click', (e) => {
 action($('#btn-cert-upload'), async () => {
   const f = net.elements;
   const body = {};
+  // Zertifikate sind wenige KB groß – eine größere Datei ist die falsche (der Server nimmt höchstens 400 KB an)
+  const big = [f.certPfx, f.certPem, f.certKey].map((i) => i.files[0]).find((d) => d && d.size > 200 * 1024);
+  if (big) throw new Error(`„${big.name}“ ist zu groß für ein Zertifikat – bitte die richtige Datei wählen.`);
   if (f.certPfx.files[0]) Object.assign(body, { pfx: String(await readFile(f.certPfx.files[0], 'base64')).replace(/^data:[^,]*,/, ''), passphrase: f.certPass.value });
   else if (f.certPem.files[0] && f.certKey.files[0]) Object.assign(body, { cert: await readFile(f.certPem.files[0]), key: await readFile(f.certKey.files[0]) });
   else throw new Error('Bitte eine PFX-Datei (mit Passwort) oder Zertifikat und Schlüssel (PEM) auswählen.');
