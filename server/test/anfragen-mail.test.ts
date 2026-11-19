@@ -137,6 +137,31 @@ test('Geänderte Anfrage: deutlich gekennzeichnet, mit Liste der Änderungen und
   assert.ok(same.subject.startsWith('Geänderte Anfrage') && same.text.includes('ohne Angaben zu ändern'));
 });
 
+test('Geänderte Anfrage mit vielen Teilen: genannt werden nur die Teile, deren Farbe sich geändert hat', () => {
+  const teil = (i: number, farbe: string): OrderColorChoice => ({ areaId: `t${i}`, area: `Teil ${i + 1}`, colorId: `f-${farbe.toLowerCase()}`, color: farbe, colorHex: '' });
+  const mitTeilen = (teile: OrderColorChoice[], o: Partial<Order> = {}) => order({ colorVariants: [], colorChoices: teile, color: teile.map((t) => `${t.area}: ${t.color}`).join('; '), ...o });
+  const vorher = Array.from({ length: 20 }, (_, i) => teil(i, i % 2 ? 'Blau' : 'Rot'));
+  const jetzt = vorher.map((t, i) => (i === 1 ? teil(i, 'Gelb') : i === 6 ? teil(i, 'Grün') : t));
+  assert.deepEqual(
+    orderChanges(mitTeilen(vorher), mitTeilen(jetzt)).map((c) => [c.label, c.before, c.after]),
+    [['Farbe', 'Teil 2: Blau; Teil 7: Rot', 'Teil 2: Gelb; Teil 7: Grün']],
+    'nicht alle 20 Teile zweimal',
+  );
+  const m = buildOrderMail(mitTeilen(jetzt), null, settings, [], { previous: mitTeilen(vorher) });
+  assert.ok(m.text.includes('- Farbe: Teil 2: Blau; Teil 7: Rot → Teil 2: Gelb; Teil 7: Grün'), m.text);
+  assert.match(m.text, /Teile: +20 Teile · 4 Farben {2}\[geändert\]/, 'die Angaben darunter bleiben vollständig');
+  // Alle Teile geändert, andere Teile-Liste (Druckteil inzwischen umgebaut) oder mehrere Stückzahlen: wie bisher der ganze Text.
+  const alle = vorher.map((_, i) => teil(i, 'Gelb'));
+  assert.equal(orderChanges(mitTeilen(vorher), mitTeilen(alle))[0].after, mitTeilen(alle).color);
+  const umgebaut = [...jetzt.slice(0, 19), { ...teil(19, 'Blau'), areaId: 'neu', area: 'Neues Teil' }];
+  assert.equal(orderChanges(mitTeilen(vorher), mitTeilen(umgebaut))[0].before, mitTeilen(vorher).color);
+  const zweiStueckzahlen = mitTeilen(jetzt, { color: '1 × (…), 1 × (…)', colorVariants: [{ quantity: 1, colorChoices: vorher }, { quantity: 1, colorChoices: jetzt }] });
+  assert.deepEqual(orderChanges(mitTeilen(vorher), zweiStueckzahlen).map((c) => [c.label, c.before]), [['Farben', mitTeilen(vorher).color]]);
+  // Nur der Teilename wurde am Druckteil geändert (Farben gleich): weiter als Änderung sichtbar, mit ganzem Text.
+  const umbenannt = vorher.map((t, i) => (i === 0 ? { ...t, area: 'Dach' } : t));
+  assert.equal(orderChanges(mitTeilen(vorher), mitTeilen(umbenannt))[0].after, mitTeilen(umbenannt).color);
+});
+
 test('Testmail-Beispiel zeigt mehrere Farben, „Farbe egal“ und ist klar als Test erkennbar', () => {
   const m = buildOrderMail(sampleOrder(), null, { appBaseUrl: '' }, [], { notice: 'Testnachricht: nur ein Beispiel.' });
   assert.ok(m.text.startsWith('*** Testnachricht: nur ein Beispiel. ***'));

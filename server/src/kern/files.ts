@@ -42,7 +42,7 @@ export interface SaveInput {
   ext: string;
   originalname?: string;
   erstelltVon?: string;
-  /** Nur für die Übernahme alter Daten: vorhandene ID beibehalten. */
+  /** Vorhandene ID beibehalten (stammt aus der früheren JSON-Übernahme; die App selbst vergibt immer neue IDs). */
   id?: string;
   erstelltAm?: string;
   sortierung?: number;

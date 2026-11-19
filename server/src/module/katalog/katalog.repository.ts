@@ -11,7 +11,7 @@ export const aehnlichPaar = (x: string, y: string): [string, string] => (x < y ?
 // Druckteile (Tabelle artikel mit Einsatzbereichen, Farbbereichen, Feldern, Videos; Dateien in Tabelle datei).
 
 export class ItemRepository {
-  /** Hinweise aus dem letzten Speichern (z. B. unbekannte Stammdaten bei der Übernahme alter Daten). */
+  /** Hinweise aus dem letzten Speichern (z. B. unbekannte Stammdaten oder fehlende Dateien beim Einspielen einer Export-Datei). */
   lastWarnings: string[] = [];
 
   constructor(

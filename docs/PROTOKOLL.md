@@ -2,6 +2,37 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-19 – Durchsicht Server und Datenbank vor 1.8.1 (Unter-Session, Branch: fix/fable-server)
+- **Auftrag:** `server/` und `shared/` auf Fehler, Update- und Datenbank-Risiken durchsehen und Kleines gleich beheben.
+- **Geprüft ohne Befund:** Migrationen 001–023 (leer, von 017 und 022 aus; Abbruch rollt zurück, Schema bleibt), Gleichstand
+  Hauptkategorie ↔ `artikel_kategorien` über alle Schreibwege, Rechte (unveröffentlichte Druckteile, Dateien, Vorschaubilder),
+  Anfragen mit 20 Teilen × 10 Stückzahlen (14 kB, Grenze 100 kB), Import „alles oder nichts“, Zip-Regeln.
+  - **Echte Daten (Kopie Stand 1.6.3, Original unberührt):** Start mit 1.8.1 spielt 018–023 ein, Sicherung
+    `vor-schema-018-…`, alle Tabellen zeilengleich, 23 Druckteile mit je einer Kategorie. Echter 1.6.3-Export (JSON, 139 MB)
+    → frische Installation: 23 Druckteile, 48 Dateien, Prüfsummen gleich; in die migrierte Kopie: alles „unverändert“.
+    Export 1.8.1 (ZIP) → frisch und zurück: gleich. Bildpflege über die 48 Bilder: 36 verkleinert (87,8 → 12,1 MB), 0 Fehler.
+  - **Quer über Versionen (echter Code von v1.8.0 in eigenem Worktree):** Export 1.8.1 → 1.8.0 kommt mit der Hauptkategorie
+    an, ein Druckteil mit 12 Teilen wird mit Grund übersprungen; Export 1.8.0 → 1.8.1 vollständig, zweites Mal „unverändert“.
+- **Behoben (je mit Test, der vorher scheiterte):**
+  - `server/src/app.ts`: Abgebrochene/unvollständige Uploads und Fehler der Anfrage selbst (kaputte Adresse, unbekannte
+    Kodierung) wurden als „unerwarteter Serverfehler“ (500) mit Stacktrace protokolliert → jetzt 400/415 mit verständlichem
+    Text, nichts im Fehlerprotokoll. Test: `server/test/fehlerantworten.test.ts` (neu).
+  - `stammdaten.service.ts`: `PUT …/masterdata/constructor` (auch `toString`, `__proto__`) gab 500 statt 404 (`in` traf
+    geerbte Schlüssel) → `Object.hasOwn`. Test in `stammdaten.test.ts`.
+  - `anfragen.mail.ts`: „Was hat sich geändert?“ nennt bei mehrteiligen Drucken nur die geänderten Teile. Test in
+    `anfragen-mail.test.ts`.
+  - `datenaustausch.artikel.ts`: Grund „Angaben unvollständig (…)“ mit deutschem Feldnamen. Test in
+    `datenaustausch-plattform.test.ts`.
+- **Neue Wächter-Tests (ohne Codeänderung):** Hauptkategorie = erste Zuordnung nach jedem Schreibweg (`kategorien.test.ts`);
+  Migrationsdateien lückenlos, ohne Doppelte, jede `.sql` erkannt, keine eigene Transaktion (`migration.test.ts`);
+  Migration 023 mit verwaistem Kategorie-Verweis.
+- **Doku:** `docs/DATENMODELL.md` – JSON-Übernahme gibt es seit 1.8.0 nicht mehr (zwei veraltete Stellen); vier veraltete
+  Kommentare im Code.
+- **Bewusst nicht geändert:** siehe Bericht an den Hauptchat (u. a. alte Tabs des Druckteil-Editors nach dem Update,
+  Sicherungen `vor-schema-…`/`vor-import-…` werden nie ausgedünnt, Speicherspitze der Bildverarbeitung).
+- **Aufgeräumt:** kein Server gestartet (alle Proben im Prozess); `C:\Entwicklung\_testdaten\fable-server\` und der
+  Hilfs-Worktree `mosaik3lab-fable-180` gelöscht.
+
 ## 2026-11-19 – Tippziele mindestens 44 px, „+4“ in der Zeile (Unter-Session, Branch: fix/tippziele-44)
 - **Auftrag:** F1 und H2 aus `_testdaten\abschluss-1.8.1\BERICHT.md`. Bei 15 px Grundschrift war `min-h-11` (2,75 rem)
   nur 41,25 px, der CHANGELOG versprach 44 px.

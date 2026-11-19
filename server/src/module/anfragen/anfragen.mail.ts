@@ -145,7 +145,26 @@ export function orderChanges(previous: Order, order: Order): MailChange[] {
     if (b !== a.after) changes.set(key, { ...a, before: b });
   }
   for (const [key, b] of before) if (!after.has(key) && b.after) changes.set(key, { ...b, before: b.after, after: '' });
+  const farbe = changes.get('color');
+  const teile = farbe && geaenderteTeile(previous, order);
+  if (farbe && teile) changes.set('color', { ...farbe, ...teile });
   return [...changes.values()];
+}
+
+/**
+ * Mehrteiliger Druck mit einer Stückzahl, gleiche Teile vorher und jetzt: nur die Teile, deren Farbe sich geändert hat
+ * („Dach: Rot“ → „Dach: Blau“) – bei bis zu 20 Teilen muss das Team sonst zwei lange Zeilen von Hand vergleichen.
+ * In allen anderen Fällen (mehrere Stückzahlen, Teile am Druckteil inzwischen geändert, alles anders) undefined = ganzer Text.
+ */
+function geaenderteTeile(previous: Order, order: Order): { before: string; after: string } | undefined {
+  const einfach = (o: Order) => ((o.colorVariants ?? []).length > 1 ? [] : (o.colorChoices ?? []));
+  const jetzt = einfach(order);
+  const vorher = new Map(einfach(previous).map((c) => [c.areaId, c]));
+  if (jetzt.length < 2 || jetzt.length !== vorher.size || jetzt.some((c) => vorher.get(c.areaId)?.area !== c.area)) return undefined;
+  const anders = jetzt.filter((c) => vorher.get(c.areaId)!.color !== c.color);
+  if (!anders.length || anders.length === jetzt.length) return undefined;
+  const text = (liste: OrderColorChoice[]) => liste.map((c) => `${c.area}: ${c.color}`).join('; ');
+  return { before: text(anders.map((c) => vorher.get(c.areaId)!)), after: text(anders) };
 }
 
 /** Kurzfassung für Kopf und Postfach-Vorschau, z. B. „7 × Kabelhalter“ / „3 × Blau, 4 × Gelb · Größe M · Klasse 7b“. */

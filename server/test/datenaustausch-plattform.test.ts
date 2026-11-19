@@ -168,7 +168,9 @@ test('Unvollständige Angaben in der Datei: Teil wird mit Grund übersprungen, R
   assert.equal(bericht.abschnitte.artikel.neu, 1, 'das vollständige Teil');
   const gruende = bericht.details.filter((d: any) => d.status === 'uebersprungen').map((d: any) => `${d.name}: ${d.text}`);
   assert.equal(gruende.length, 2, gruende.join(' | '));
-  assert.ok(gruende.some((g: string) => /ohne Kategorie.*unvollständig/.test(g)), gruende.join(' | '));
+  // Der Grund nennt das Feld auf Deutsch (nicht den internen Namen „categories“).
+  assert.ok(gruende.includes('Teil ohne Kategorie: Angaben unvollständig (Kategorien: Bitte mindestens eine Kategorie wählen)'), gruende.join(' | '));
+  assert.ok(!gruende.some((g: string) => /categories|colorAreas/.test(g)), gruende.join(' | '));
   assert.ok(gruende.some((g: string) => /unbekannter Farbe.*keine seiner Farben/.test(g)), gruende.join(' | '));
   await pruefeEingespielt(z);
 });
