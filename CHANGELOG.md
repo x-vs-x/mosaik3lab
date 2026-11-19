@@ -6,6 +6,25 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Server-Manager: stabiler und verständlicher** (Durchsicht der Oberfläche vor 1.8.1):
+  - **Absturz behoben:** Eine kaputte Adresse (z. B. `…/manager//`) konnte den Server-Manager beenden – er lehnt sie jetzt
+    nur noch ab. Auch sonst beendet kein Fehler einer einzelnen Anfrage mehr das Programm.
+  - **Sichern und Wiederherstellen laufen nie doppelt:** Ein zweiter Klick, ein zweites Fenster oder ein Neuladen
+    mittendrin startet keinen zweiten Vorgang mehr („Gerade läuft schon eine Wiederherstellung – bitte warten“). Unter
+    „Sicherung“ steht, solange etwas läuft – auch nach dem Neuladen der Seite.
+  - **Web-App gestoppt oder startet neu (Update, Wiederherstellen):** Über die Adresse der App sprang der Manager dann auf
+    „Nur für Administratoren – bitte anmelden“. Jetzt sagt er, dass Mosaik³LAB gerade nicht antwortet, wartet von selbst
+    und nennt den Weg direkt am Server.
+  - **HTTPS oder Port geändert:** Statt „Der Server-Manager antwortet nicht – es wurde nichts verändert“ steht jetzt, dass
+    die Änderung gespeichert ist, mit der neuen Adresse zum Anklicken.
+  - **Fehlermeldungen bleiben stehen,** bis man sie schließt (vorher verschwanden sie nach 10 Sekunden). Fehler in einem
+    Formular stehen nur noch am Formular, nicht zusätzlich als Meldung darüber.
+  - **Testmail:** Fehler des Mailservers werden erklärt (Server nicht gefunden, Benutzer/Passwort abgelehnt, Verschlüsselung
+    passt nicht zum Port …) statt nur englisch angezeigt.
+  - Kleineres: Der wichtigste Hinweis steht im Status nicht mehr doppelt; die Seite verbindet sich nach einem Neuladen
+    während eines Neustarts von selbst wieder; „Abmelden“ meldet, wenn es nicht geklappt hat; eine zu große Datei beim
+    Zertifikat wird verständlich abgelehnt; viele gleichzeitige Anmeldeversuche umgehen die Sperre nicht mehr.
+
 - **Anfrage-Fenster springt nicht mehr ungefragt auf:** Wer das Fenster mit „Abbrechen“ schließt, behält seinen Entwurf wie
   bisher – beim nächsten Besuch des Druckteils öffnet sich das Fenster aber nicht mehr von selbst. Die Auswahl steht auf der
   Seite schon da, und „Druckteil anfragen“ zeigt den Entwurf mit „Verwerfen“. Nach einem Neuladen mitten in der Anfrage

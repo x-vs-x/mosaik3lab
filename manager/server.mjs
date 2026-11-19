@@ -25,7 +25,7 @@ import { loadCert, saveCert, removeCert, generateCert, publicCert, inspectCertCa
 import { configureBackupPassword } from './lib/backupcrypto.mjs';
 import { mailSettings, saveMail, sendTestMail } from './lib/mail.mjs';
 import { platform } from './platform/index.mjs';
-import { remoteOf, isAppAdmin, deniedPage } from './lib/remote.mjs';
+import { remoteOf, appAdminState, deniedPage } from './lib/remote.mjs';
 import { istPaketInstallation, pruefen as updatePruefen, starten as updateStarten, zustand as updateZustand } from './lib/updates.mjs';
 
 const log = logger('manager');
@@ -59,6 +59,19 @@ function runSetup(body) {
     })
     .catch((err) => Object.assign(job, { phase: 'fehler', error: err.message, hint: err.hint, command: err.command, needsInput: err.needsInput }));
   return { started: true };
+}
+
+// Sichern und Wiederherstellen laufen in der Anfrage und dauern Minuten. Nie zwei gleichzeitig (zweiter Klick, zweites
+// Fenster, Seite mittendrin neu geladen): Zwei Wiederherstellungen würden Datenbank und Ablage durcheinander ersetzen.
+let dataJob = null; // { what: 'Sicherung' | 'Wiederherstellung', since } – steht auch im Status, damit die Seite es nach dem Neuladen zeigt
+async function exclusive(what, fn) {
+  if (dataJob) throw Object.assign(new InputError(`Gerade läuft schon eine ${dataJob.what} – bitte warten, bis sie fertig ist.`, 'Nichts starten oder stoppen. Das Ergebnis steht danach unter „Sicherung“ bzw. im Protokoll „Manager“.'), { status: 409 });
+  dataJob = { what, since: new Date().toISOString() };
+  try {
+    return await fn();
+  } finally {
+    dataJob = null;
+  }
 }
 
 const runtimeStateFile = () => path.join(resolvePaths().logDir, 'runtime.state.json');
@@ -177,7 +190,7 @@ const ROUTES = [
     return { managerUrls: a.network.map(mgr), localUrl: `http://127.0.0.1:${port}/`, publicNetwork: getConfig().app.network ? await publicNetwork().catch(() => false) : false };
   }, true],
   ['POST', '/api/auth/logout', 'Abmelden', ({ req, res }) => logout(req, res), true],
-  ['GET', '/api/status', 'Alles für die Seite: Ampel, Dienste, Hinweise, Sicherungen, Version', () => pageStatus()],
+  ['GET', '/api/status', 'Alles für die Seite: Ampel, Dienste, Hinweise, Sicherungen, Version; dataJob { what, since } solange hier eine Sicherung/Wiederherstellung läuft', async () => ({ ...(await pageStatus()), dataJob })],
   ['POST', '/api/services/:key/start', 'Dienst starten (webapp|backup)', ({ params }) => startService(key(params))],
   ['POST', '/api/services/:key/stop', 'Dienst stoppen', ({ params }) => stopService(key(params))],
   ['POST', '/api/services/:key/restart', 'Dienst neu starten', ({ params }) => restartService(key(params))],
@@ -187,8 +200,8 @@ const ROUTES = [
     if (!body.dryRun) await checkDrift();
     return r;
   }],
-  ['POST', '/api/backup', 'Jetzt sichern: ganzes System (Datenbank + Ablage), mit Prüfung', () => createBackup('manuell')],
-  ['POST', '/api/backup/restore', 'Wiederherstellen { id, confirm: id, autoStop? } – bei gestoppter Web-App; autoStop: Web-App dafür stoppen und danach wieder starten', async ({ body }) => {
+  ['POST', '/api/backup', 'Jetzt sichern: ganzes System (Datenbank + Ablage), mit Prüfung (409, solange schon eine Sicherung/Wiederherstellung läuft)', () => exclusive('Sicherung', () => createBackup('manuell'))],
+  ['POST', '/api/backup/restore', 'Wiederherstellen { id, confirm: id, autoStop? } – bei gestoppter Web-App; autoStop: Web-App dafür stoppen und danach wieder starten', ({ body }) => exclusive('Wiederherstellung', async () => {
     const wasRunning = await isAppRunning();
     if (wasRunning && body.autoStop !== true) throw new InputError('Bitte zuerst die Web-App stoppen.', 'Karte „Dienste“ → Web-App → Stoppen.');
     if (wasRunning) await stopService('webapp');
@@ -201,7 +214,7 @@ const ROUTES = [
     const abgleich = await afterChange({ restart: false, paths: body.paths ?? {} }); // System an die wiederhergestellte Datenbank angleichen
     if (wasRunning) await startService('webapp');
     return { ...r, reconcile: abgleich, restarted: wasRunning };
-  }],
+  })],
   ['POST', '/api/reconcile', 'Abgleichen { dryRun, paths: { ablageDir?, backupDir?, logDir? } } – Firewall, Ports, Ordner, Dienste aus der Datenbank ableiten', ({ body }) => (body.dryRun ? reconcile({ dryRun: true, paths: body.paths ?? {} }) : afterChange({ paths: body.paths ?? {} }))],
   ['POST', '/api/backup/password', 'Backup-Passwort { password } | { generate: true } | { disable: true } – erzeugtes Passwort nur in dieser Antwort', ({ body }) => configureBackupPassword({ password: body.password, generate: body.generate === true, disable: body.disable === true })],
   ['POST', '/api/update/check', 'Nach Updates suchen: freigegebene Versionen aus der Paketquelle (nur Paket-Installation; läuft sonst automatisch) → Zustand wie GET /api/update', async () => {
@@ -264,12 +277,25 @@ const send = (res, code, body, type = 'application/json') => {
 };
 const hosts = () => new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
 
+const MAX_BODY = 400 * 1024;
+const MAX_BODY_ABORT = 20 * 1024 * 1024;
 function readJson(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
-    req.on('data', (c) => (size += c.length) > 400 * 1024 ? (req.destroy(), reject(Object.assign(new Error('Anfrage zu groß.'), { status: 413 }))) : chunks.push(c));
+    // Zu groß: den Rest nur noch verwerfen und danach sauber mit 413 antworten (ein gekappter Anschluss sähe für die
+    // Oberfläche aus wie „Manager antwortet nicht“); ab 20 MB wird die Verbindung getrennt.
+    const tooBig = () => Object.assign(new Error('Die Anfrage ist zu groß (höchstens 400 KB) – bei einem Zertifikat bitte die richtige Datei wählen.'), { status: 413 });
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > MAX_BODY_ABORT) {
+        reject(tooBig());
+        req.destroy();
+      } else if (size <= MAX_BODY) chunks.push(c);
+    });
+    req.on('error', () => reject(Object.assign(new Error('Die Anfrage wurde abgebrochen.'), { status: 400 }))); // Browser hat die Verbindung getrennt
     req.on('end', () => {
+      if (size > MAX_BODY) return reject(tooBig());
       try {
         resolve(chunks.length ? JSON.parse(Buffer.concat(chunks)) : {});
       } catch {
@@ -293,7 +319,18 @@ async function remoteDenied(req, res, url, remote) {
     send(res, 403, { error: 'Zuerst den ersten Administrator anlegen.', code: 'setup' });
     return true;
   }
-  if (await isAppAdmin(req, getConfig().app.port, remote.appBase)) return false;
+  const state = await appAdminState(req, getConfig().app.port, remote.appBase);
+  if (state === 'admin') return false;
+  if (state === 'unerreichbar') {
+    // Die Web-App ist gestoppt oder startet gerade neu (Update, Wiederherstellen, „Stoppen“): Die Anmeldung lässt sich nicht
+    // prüfen – das ist etwas anderes als „nicht angemeldet“ und wird auch so gesagt (die Oberfläche wartet dann, statt
+    // auf eine Seite „Nur für Administratoren“ zu wechseln).
+    const down = 'Mosaik³LAB antwortet gerade nicht – die Web-App ist gestoppt oder startet neu. Solange lässt sich die Anmeldung nicht prüfen.';
+    const hint = `Bitte kurz warten. Bleibt es dabei: direkt am Server http://127.0.0.1:${port}/ öffnen (Anmeldung mit dem Administrator-Konto) und dort die Web-App starten.`;
+    if (req.method === 'GET' && !url.pathname.startsWith('/api/')) send(res, 503, deniedPage(down, remote.appBase, { reloadSeconds: 10, hint: `${hint} Diese Seite lädt sich alle 10 Sekunden neu.` }), 'text/html');
+    else send(res, 503, { error: down, hint, code: 'app-down' });
+    return true;
+  }
   const text = 'Nur für Administratoren: Bitte zuerst in Mosaik³LAB als Administrator anmelden.';
   if (req.method === 'GET' && !url.pathname.startsWith('/api/')) send(res, 403, deniedPage(text, remote.appBase), 'text/html');
   else send(res, 403, { error: text, code: 'app-admin' });
@@ -302,7 +339,12 @@ async function remoteDenied(req, res, url, remote) {
 
 async function handle(req, res) {
   if (!hosts().has(String(req.headers.host).toLowerCase())) return send(res, 403, { error: 'Nur über localhost erreichbar.' });
-  const url = new URL(req.url, 'http://127.0.0.1');
+  let url;
+  try {
+    url = new URL(req.url, 'http://127.0.0.1'); // wirft z. B. bei „//“ – nie den Prozess mitreißen
+  } catch {
+    return send(res, 400, { error: 'Ungültige Adresse.' });
+  }
   try {
     const remote = remoteOf(req); // null = direkt am Server (wie bisher)
     if (remote && (await remoteDenied(req, res, url, remote))) return;
@@ -334,13 +376,22 @@ async function handle(req, res) {
   }
 }
 
+/** Kein Fehler einer einzelnen Anfrage darf den Manager beenden (ein abgelehntes Promise würde den Prozess stoppen). */
+function safeHandle(req, res) {
+  handle(req, res).catch((err) => {
+    log.error(`${req.method} ${req.url}: ${err.stack ?? err.message}`);
+    if (res.headersSent) res.destroy();
+    else send(res, 500, { error: 'Interner Fehler.', hint: 'Protokoll „Manager“ ansehen.' });
+  });
+}
+
 /** Läuft auf dem Port schon ein Manager? Dann nur dessen Fenster öffnen. Sonst Ausweichport. */
 async function listen() {
   for (let attempt = 0; ; attempt++) {
     try {
       await new Promise((resolve, reject) => {
-        http.createServer(handle).once('error', reject).listen(port, '127.0.0.1', () => {
-          http.createServer(handle).once('error', () => {}).listen(port, '::1'); // IPv6-localhost, falls vorhanden
+        http.createServer(safeHandle).once('error', reject).listen(port, '127.0.0.1', () => {
+          http.createServer(safeHandle).once('error', () => {}).listen(port, '::1'); // IPv6-localhost, falls vorhanden
           resolve();
         });
       });

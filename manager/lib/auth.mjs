@@ -17,6 +17,7 @@ const MAX_FAILURES = 5;
 const LOCK_MS = 60_000;
 const sessions = new Map(); // Sitzungs-ID → gültig bis
 let failures = 0;
+let checking = 0; // Anmeldungen, deren Passwortprüfung gerade läuft
 let lockedUntil = 0;
 let dummyHash;
 
@@ -109,12 +110,20 @@ const tooMany = (ms) => Object.assign(new InputError(`Zu viele Fehlversuche – 
 /** Anmelden mit E-Mail + Passwort eines Administrators der App. 5 Fehlversuche → 60 s Sperre. */
 export async function login(email, password, res) {
   if (Date.now() < lockedUntil) throw tooMany(lockedUntil - Date.now());
-  const found = typeof email === 'string' && typeof password === 'string' ? await admins(email.trim()) : [];
-  const lib = bcrypt();
+  // Die Prüfung dauert (bcrypt) – gleichzeitige Versuche zählen deshalb schon mit, solange sie laufen. Sonst ließen sich
+  // mit vielen Anfragen auf einmal beliebig viele Passwörter probieren, bevor der erste Fehlversuch gezählt ist.
+  if (failures + checking >= MAX_FAILURES) throw Object.assign(new InputError('Zu viele Anmeldeversuche gleichzeitig – bitte kurz warten und erneut versuchen.'), { status: 429 });
+  checking++;
   let ok = false;
-  for (const a of found) if (await lib.compare(password, a.hash)) ok = true;
-  // Unbekannte E-Mail kostet gleich viel Zeit wie ein falsches Passwort (verrät nicht, welche Adressen Admins sind).
-  if (!found.length) await lib.compare(String(password), (dummyHash ??= lib.hashSync('mosaik3lab-dummy-password', 12)));
+  try {
+    const found = typeof email === 'string' && typeof password === 'string' ? await admins(email.trim()) : [];
+    const lib = bcrypt();
+    for (const a of found) if (await lib.compare(password, a.hash)) ok = true;
+    // Unbekannte E-Mail kostet gleich viel Zeit wie ein falsches Passwort (verrät nicht, welche Adressen Admins sind).
+    if (!found.length) await lib.compare(String(password), (dummyHash ??= lib.hashSync('mosaik3lab-dummy-password', 12)));
+  } finally {
+    checking--;
+  }
   if (!ok) {
     if (++failures >= MAX_FAILURES) [failures, lockedUntil] = [0, Date.now() + LOCK_MS];
     throw Object.assign(new InputError('E-Mail oder Passwort ist falsch (Administrator-Konto der App).'), { status: 401 });

@@ -10,10 +10,16 @@ async function api(path, body, { timeout } = {}) {
   // timeout: auch Aktionen, die sofort antworten müssen (z. B. „Jetzt aktualisieren“), enden mit Meldung statt ewig zu drehen
   const opts = body === undefined ? { signal: AbortSignal.timeout(timeout ?? 20_000) } : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Manager-Token': TOKEN }, body: JSON.stringify(body), signal: timeout ? AbortSignal.timeout(timeout) : undefined };
   const res = await fetch(`api/${path}`, opts).catch(() => {
-    throw Object.assign(new Error('Der Server-Manager antwortet nicht – es wurde nichts verändert.'), { hint: 'Seite neu laden und erneut versuchen. Hilft das nicht: den Dienst „Mosaik³LAB Server-Manager“ neu starten.' });
+    // Abfrage: sicher nichts verändert. Aktion (POST): die Verbindung kann auch erst nach dem Ausführen abgebrochen sein
+    // (z. B. Ports/HTTPS geändert – das Portal startet dabei neu) – deshalb nicht behaupten, es sei nichts passiert.
+    throw Object.assign(new Error(body === undefined ? 'Der Server-Manager antwortet nicht.' : 'Der Server-Manager antwortet nicht – ob die Aktion noch ausgeführt wurde, ist unklar.'),
+      { offline: true, hint: `Seite neu laden und nachsehen${body === undefined ? '' : ', erst dann erneut versuchen'}. Hilft das nicht: den Dienst „Mosaik³LAB Server-Manager“ neu starten.` });
   });
   const data = await res.json().catch(() => ({}));
-  if (res.status === 502 || res.status === 504) throw new Error('Der Server-Manager antwortet nicht'); // Portal/Proxy ohne Manager dahinter
+  if (res.status === 502 || res.status === 504) throw Object.assign(new Error('Der Server-Manager antwortet nicht'), { offline: true }); // Portal/Proxy ohne Manager dahinter
+  // Über die App-Adresse, die Web-App ist gestoppt oder startet neu (Update, Wiederherstellen): warten statt neu laden –
+  // die Abfragen laufen weiter, bis sie wieder antwortet.
+  if (res.status === 503 && data.code === 'app-down') throw Object.assign(new Error('Mosaik³LAB antwortet gerade nicht – die Web-App ist gestoppt oder startet neu'), { appDown: true, hint: data.hint });
   if (res.status === 401 && !path.startsWith('auth')) return ctx.showLogin();
   if (res.status === 403 && data.code === 'app-admin') return location.reload(); // App-Sitzung abgelaufen
   if (!res.ok) throw Object.assign(new Error(data.error ?? `Fehler ${res.status}`), data);
@@ -41,7 +47,9 @@ function toast(text, error = false, hint, extra = null) {
   const t = el('div', { class: `toast${error ? ' error' : ''}`, role: error ? 'alert' : 'status' }, el('strong', {}, text), hint ? el('div', {}, `Was tun? ${hint}`) : null, extra,
     el('button', { type: 'button', class: 'x', 'aria-label': 'Meldung schließen', onclick: () => t.remove() }, '×'));
   $('#toasts').append(t);
-  setTimeout(() => t.remove(), extra ? 60000 : error ? 10000 : 4500); // mit Befehl: Zeit zum Kopieren
+  // Fehler bleiben stehen, bis man sie schließt (in 10 s liest niemand „Was tun?“ zu Ende); höchstens drei übereinander
+  if (error) for (const old of [...document.querySelectorAll('#toasts .toast.error')].slice(0, -3)) old.remove();
+  else setTimeout(() => t.remove(), extra ? 60000 : 4500); // mit Befehl: Zeit zum Kopieren
 }
 // Linux/Pi laufen oft ohne Bildschirm: dann über einen SSH-Tunnel (wie mosaik3lab.sh es anzeigt)
 const emergency = () => `Notzugang: Startet die App einmal gar nicht, kommen Sie direkt am Server unter 127.0.0.1:${ctx.managerPort} hinein – mit demselben Admin-Login.${ctx.system && ctx.system.id !== 'windows' ? ` Ohne Bildschirm am Server: ssh -L ${ctx.managerPort}:127.0.0.1:${ctx.managerPort} <benutzer>@<server>, dann im eigenen Browser 127.0.0.1:${ctx.managerPort}.` : ''}`;
@@ -59,7 +67,7 @@ function commandBlock(err) {
 }
 /** Fehler in ein Feld schreiben: Meldung, „Was tun?“ und ggf. der Befehl für Administratoren. */
 function errorInto(box, err) {
-  box.replaceChildren(err.hint ? `${err.message} – ${err.hint}` : err.message, commandBlock(err) ?? '');
+  box.replaceChildren(err.hint ? `${err.message} – ${err.hint}` : err.message, err.link ? el('a', { href: err.link, class: 'error-link' }, err.link) : '', commandBlock(err) ?? '');
   box.hidden = false;
 }
 function showError(err) {
@@ -157,10 +165,11 @@ async function busy(btn, fn, done) {
   btn.setAttribute('aria-busy', 'true');
   try {
     const r = await fn();
-    if (r !== false && done) toast(typeof done === 'function' ? done(r) : done);
+    // false = abgebrochen; undefined = die Anmeldung ist abgelaufen (api() zeigt sie schon) – dann keine Erfolgsmeldung
+    if (r !== false && r !== undefined && done) toast(typeof done === 'function' ? done(r) : done);
     return r;
   } catch (err) {
-    showError(err);
+    if (!err.shown) showError(err); // shown: der Fehler steht schon im Formular (einstellungen.js)
   } finally {
     btn.disabled = false;
     btn.classList.remove('busy');
