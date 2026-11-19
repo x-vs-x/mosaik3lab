@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { FileStore } from '../kern/files';
-import { BildDienst, Bildpflege } from '../kern/bilder';
+import { BildDienst, Bildpflege, schonfristBis } from '../kern/bilder';
 import { lockContent, lockHolder } from '../kern/lock';
 import type { Storage } from './repositories';
-import { backupInto, dbInfo, migrate, openDb } from '../kern/db';
+import { backupInto, dbInfo, letzteMigrationAm, migrate, openDb } from '../kern/db';
 import { ProposalRepository } from '../module/vorschlaege/vorschlaege.repository';
 import { SessionRepository } from '../kern/auth/sitzungen';
 import { RequesterRepository, UserRepository } from '../module/konten/konten.repository';
@@ -52,7 +52,12 @@ export async function createSqliteStorage(paths: StoragePaths): Promise<Storage>
     repos.settings.init();
 
     const conn = db;
-    const bilder = new BildDienst(files);
+    // Nach einer Migration (Update) eine Zeit lang keine Originale ersetzen – ein Rückfall spielt nur die Datenbank zurück.
+    const originaleAb = schonfristBis(letzteMigrationAm(db));
+    if (originaleAb) {
+      console.log(`[Bilder] Datenbank wurde gerade aktualisiert – zu große Bilder werden erst ab ${new Date(originaleAb).toLocaleTimeString('de-DE')} verkleinert (Vorschaubilder entstehen sofort).`);
+    }
+    const bilder = new BildDienst(files, undefined, { originaleAb });
     const bildpflege = new Bildpflege(files, bilder);
     return {
       ...repos,

@@ -39,7 +39,8 @@ export interface AppConfig {
   logRequests: boolean;
   /**
    * Start der Bildpflege (Vorschaubilder, zu große Originale) so lange nach dem Start der App; negativ = nie.
-   * Standard 5 Minuten (BILDPFLEGE_NACH_MIN), in Tests aus.
+   * Standard 5 Minuten (BILDPFLEGE_NACH_MIN), in Tests aus. Nach einer Datenbank-Migration frühestens nach der Schonfrist
+   * (kern/bilder/sperre.ts).
    */
   bildpflegeNachMs: number;
   /** Versionsnummer der App (oberste package.json); in Tests austauschbar. CHANGELOG.md liegt in rootDir. */

@@ -8,6 +8,13 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 - SQLite steckt bereits in Node; der Server-Manager prüft nur die Node-Version.
 - Beim ersten Start legt die App Datei, Tabellen und Ablageordner selbst an; bei jedem Start werden ausstehende
   Migrationen automatisch eingespielt (vorher automatische Sicherung). Bei Updates genauso.
+  - Die Sicherung liegt unverschlüsselt in `<daten>/sicherungen/mosaik3lab-vor-schema-NNN-<zeit>.db` (NNN = erste
+    einzuspielende Migration). Nach gelungener Migration bleiben nur die **neuesten 3** liegen. Scheitert eine Migration
+    bei jedem Neustart, entsteht keine weitere Kopie desselben Standes: die neue Kopie wird mit der vorhandenen derselben
+    Nummer Byte für Byte verglichen und nur behalten, wenn sich etwas geändert hat (`kern/db.ts`).
+  - Im selben Ordner: `mosaik3lab-vor-import-<zeit>.db` – eine je ausgeführtem Einspielen von Druckteilen; sie werden
+    nicht automatisch entfernt.
+  - Der Rückfall des Server-Managers nach einem gescheiterten Update benutzt diese Dateien nicht (eigenes Backup).
 - Der Server-Manager zeigt nur Status an (Datenbank vorhanden, Schema-Version, Größe, letzte Sicherung) und sichert
   die Datenbank im Backup konsistent (SQLite-Online-Backup bzw. `VACUUM INTO`, nicht einfach Datei kopieren).
 
@@ -90,6 +97,10 @@ z. B. C:\Mosaik3LAB\ablage\artikel\0193…\bild\0193…a1.jpg
   löscht den alten. Löschen/Ersetzen eines Bildes löscht seine Vorschaubilder mit (`FileStore.entferneVorschau`).
 - Jederzeit neu berechenbar: nicht im Export, nicht im Backup des Server-Managers, keine Waisen im `doctor`.
 - `<ablage>/.sicherung.lock` legt der Server-Manager während einer Sicherung an (Bildpflege pausiert).
+- **Schonfrist nach einem Update:** 15 Minuten nach der letzten Datenbank-Migration (`schema_version.eingespielt_am`,
+  nicht bei einer Neuanlage) ersetzt die App kein Original – weder Bildpflege noch Hochladen oder Abruf; Vorschaubilder
+  entstehen sofort. Ein Rückfall des Server-Managers spielt nur die Datenbank zurück, nicht die Ablage; er entscheidet
+  spätestens rund 7 Minuten nach dem Start der neuen Version (`kern/bilder/sperre.ts`).
 
 ## Umsetzung (Schema 1, `migrations/001_grundschema.sql`) – begründete Abweichungen und Ergänzungen
 - **Bestehende IDs bleiben.** Datensätze aus der JSON-Zeit behalten ihre ID (UUID v4, feste Schlüssel wie

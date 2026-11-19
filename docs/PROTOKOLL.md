@@ -2,6 +2,36 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-19 – Nachtrag vor 1.8.1: Sicherungen vor Migrationen ausdünnen, Schonfrist für Originalbilder (Unter-Session, Branch: fix/fable-nachtrag)
+- **Auftrag:** zwei Funde aus dem Prüfdurchgang vor 1.8.1 (von zwei Prüfern gemeldet); nur `server/` und `docs/`.
+- **1. Sicherungen `vor-schema` – belegt:** `kern/db.ts` legte vor jeder Migration eine unverschlüsselte Kopie in
+  `<daten>/sicherungen/` an und räumte nie auf; bei scheiternder Migration startet der Dienst die App alle 2 … 60 s neu
+  (`manager/runners/webapp.mjs` `crashed`), jedes Mal mit einer weiteren Kopie.
+  - **Lösung:** nach gelungener Migration bleiben die neuesten 3 (`VOR_SCHEMA_BEHALTEN`; die gerade benutzte immer,
+    Löschfehler nur ins Protokoll). Vor der Migration wird **immer** erst eine neue Kopie angelegt und Byte für Byte mit
+    der neuesten vorhandenen derselben Schema-Nummer verglichen; nur bei Gleichheit wird die neue wieder gelöscht.
+    Kriterium Inhalt statt Änderungszeit: `VACUUM INTO` liefert für denselben Stand dieselben Bytes (Test über den echten
+    Start, auch über Schließen/Öffnen hinweg), Uhren können falsch gehen (Pi ohne Uhr) – im Zweifel bleibt eine Kopie mehr.
+    Zwei Starts in derselben Sekunde stoßen nicht mehr an „Zieldatei existiert bereits“ (Zähler im Namen).
+  - **Nicht angefasst:** `mosaik3lab-vor-import-<zeit>.db` im selben Ordner (`datenaustausch.ablauf.ts`): eine je
+    ausgeführtem Einspielen, unbegrenzt. Der Rückfall des Managers hängt an beidem nicht (`restoreDbFrom` nimmt sein
+    eigenes Backup aus dem Backup-Ziel).
+- **2. Bildpflege nach Migration – belegt, und weiter als gemeldet:** Der Rückfall kann bis rund 7 Minuten nach dem Start der
+  neuen Version kommen (`setup.mjs` `waitHealthy` 60 × (1,5 + 2 s) = 3,5 min, danach `aktualisieren.mjs` 120 s + 60 s),
+  die Bildpflege begann frühestens nach 60 s. Zusätzlich ersetzte auch der **Abruf** eines fehlenden Vorschaubilds und das
+  Hochladen sofort das Original (`dienst.ts` `rechne`), also schon Sekunden nach dem Start.
+  - **Lösung:** Schonfrist `SCHONFRIST_NACH_MIGRATION_MS` = 15 min (`kern/bilder/sperre.ts`, Herleitung im Kommentar) ab
+    der letzten Migration einer schon vorhandenen Datenbank (`letzteMigrationAm` aus `schema_version.eingespielt_am` – gilt
+    damit auch, wenn der Dienst die App im Entscheidungsfenster neu startet; nicht bei Neuanlage). So lange ersetzt
+    `BildDienst` kein Original (gleicher Weg wie bei Import/Sicherung: nur Vorschaubilder, zurückdatiert), der Start-Lauf
+    der Bildpflege ist frühestens danach geplant (`startWartezeit`). Ohne Migration bleibt alles wie bisher.
+- **Dateien:** `server/src/kern/db.ts`, `kern/bilder/{sperre,dienst,bildpflege,index}.ts`, `storage/index.ts`, Kommentare in
+  `app.ts`/`config.ts`; Tests `server/test/nach-update.test.ts` (neu, 8 Tests); `docs/DATENMODELL.md`, `docs/ARCHITEKTUR.md`.
+- **Offen (bewusst klein gehalten):** `vor-import`-Sicherungen ausdünnen; vorhandene alte `vor-schema`-Kopien verschwinden
+  erst mit der nächsten Migration; ein Rückfall erst Stunden später (Stromausfall mitten im Update, Helfer prüft beim
+  nächsten Hochfahren) liegt außerhalb der Schonfrist; `README.md` (Ordnerübersicht) nennt die Grenze 3 noch nicht.
+- **Aufgeräumt:** kein Server gestartet, keine Testdaten außerhalb der Temp-Ordner der Tests (werden von den Tests gelöscht).
+
 ## 2026-11-19 – Durchsicht Server und Datenbank vor 1.8.1 (Unter-Session, Branch: fix/fable-server)
 - **Auftrag:** `server/` und `shared/` auf Fehler, Update- und Datenbank-Risiken durchsehen und Kleines gleich beheben.
 - **Geprüft ohne Befund:** Migrationen 001–023 (leer, von 017 und 022 aus; Abbruch rollt zurück, Schema bleibt), Gleichstand
