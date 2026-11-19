@@ -92,7 +92,7 @@ export function mailConfigInfo(db: Db) {
   };
 }
 
-/** Mail-Einstellungen schreiben (Server-Manager, Übernahme alter Dateien, Tests). Prüft nicht – das macht der Leser. */
+/** Mail-Einstellungen schreiben – nur noch für Tests (im Betrieb schreibt der Server-Manager selbst). Prüft nicht – das macht der Leser. */
 export function writeMailConfig(db: Db, m: Record<string, unknown>) {
   for (const [k, v] of Object.entries(m)) setBetrieb(db, 'mail', k, v, k === 'smtp');
 }

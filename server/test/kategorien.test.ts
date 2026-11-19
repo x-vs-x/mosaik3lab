@@ -2,7 +2,7 @@
 // Suche, Zählung beim Löschen, Umbenennen, Vorschlag → Druckteil, Rechte.
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { anmelden, startServer } from './helfer';
+import { anmelden, form, PNG_1PX, startServer } from './helfer';
 
 const srv = await startServer({ allowDemoAccounts: true, seedDemoData: true });
 after(() => srv.stop());
@@ -97,6 +97,70 @@ test('Druckteil löschen entfernt seine Zuordnungen', async () => {
   assert.equal((await team.req('DELETE', `/api/items/${teil.id}`)).status, 200);
   const n = (srv.storage.sqlite.db.prepare('SELECT COUNT(*) AS n FROM artikel_kategorien WHERE artikel_id = ?').get(teil.id) as { n: number }).n;
   assert.equal(n, 0);
+});
+
+test('Hauptkategorie (artikel.kategorie_id) = erste Zuordnung – nach jedem Schreibweg, bei allen Druckteilen', async () => {
+  const db = srv.storage.sqlite.db;
+  // Die Regel aus Migration 023: Hauptkategorie und erste Zeile der Zuordnung sind gleich (beide leer zählt auch).
+  const abweichend = () =>
+    (db.prepare(
+      `SELECT COUNT(*) AS n FROM artikel a WHERE COALESCE(a.kategorie_id, '') <>
+         COALESCE((SELECT ak.kategorie_id FROM artikel_kategorien ak WHERE ak.artikel_id = a.id ORDER BY ak.sortierung LIMIT 1), '')`,
+    ).get() as { n: number }).n;
+  const zuordnungen = (id: string) => (db.prepare('SELECT COUNT(*) AS n FROM artikel_kategorien WHERE artikel_id = ?').get(id) as { n: number }).n;
+  const kategorien = async (id: string) => (await team.req('GET', `/api/items/${id}`)).json.categories as string[];
+  const stimmt = async (id: string, erwartet: string[], schritt: string) => {
+    assert.deepEqual(await kategorien(id), erwartet, schritt);
+    assert.equal(hauptkategorie(id), erwartet[0], `${schritt}: Hauptkategorie`);
+    assert.equal(zuordnungen(id), erwartet.length, `${schritt}: Zeilen der Zuordnung`);
+    assert.equal(abweichend(), 0, `${schritt}: bei keinem Druckteil laufen beide auseinander`);
+  };
+  const md = (await admin.req('GET', '/api/admin/settings')).json.masterData;
+  const WAHL = ['Feinmotorik', 'Kommunikation', 'Sonstiges'];
+  const eigeneFarbe = md.filaments[0].id;
+  const neu = await team.req('POST', '/api/items', { ...body(WAHL), name: 'Teil für alle Schreibwege', colorAreas: [{ name: 'Farbe', colors: [eigeneFarbe] }] });
+  assert.equal(neu.status, 201, JSON.stringify(neu.json));
+  const id = neu.json.id as string;
+  await stimmt(id, WAHL, 'Anlegen');
+
+  // Schreibwege, die das Druckteil neu speichern, ohne die Kategorien zu nennen
+  assert.equal((await team.req('PATCH', `/api/items/${id}/publish`, { published: false })).status, 200);
+  await stimmt(id, WAHL, 'Veröffentlichung ändern');
+  assert.equal((await team.req('POST', `/api/items/${id}/images`, undefined, { form: form('bild.png', PNG_1PX, 'image/png') })).status, 201);
+  await stimmt(id, WAHL, 'Bild hochladen');
+  assert.equal((await team.req('POST', `/api/items/${id}/videos/link`, { title: 'Anleitung', url: 'https://example.org/video' })).status, 201);
+  await stimmt(id, WAHL, 'Video-Link');
+  const andere = md.filaments[1].id;
+  const zuordnen = await team.req('POST', '/api/items/farbe-zuordnen', { filamentId: andere, ziele: [{ itemId: id, bereiche: neu.json.colorAreas.map((a: any) => a.id) }] });
+  assert.equal(zuordnen.json.druckteile, 1, JSON.stringify(zuordnen.json));
+  await stimmt(id, WAHL, 'Farbe zuordnen');
+  // Farbrolle löschen schreibt alle Druckteile neu, die sie verwenden.
+  const ohne = await admin.req('PUT', '/api/admin/settings/masterdata/filaments', { entries: md.filaments.filter((f: any) => f.id !== andere) });
+  assert.equal(ohne.status, 200, JSON.stringify(ohne.json));
+  await stimmt(id, WAHL, 'Farbrolle gelöscht');
+  // Kategorie umbenennen: Bezug per ID, Reihenfolge bleibt.
+  const { categories } = (await admin.req('GET', '/api/admin/settings')).json.masterData;
+  const um = (von: string, nach: string) => admin.req('PUT', '/api/admin/settings/masterdata/categories', { entries: categories.map((c: any) => (c.name === von ? { ...c, name: nach } : c)) });
+  assert.equal((await um('Feinmotorik', 'Feinmotorik (neu)')).status, 200);
+  await stimmt(id, ['Feinmotorik (neu)', 'Kommunikation', 'Sonstiges'], 'Kategorie umbenannt');
+  assert.equal((await admin.req('PUT', '/api/admin/settings/masterdata/categories', { entries: categories })).status, 200);
+  await stimmt(id, WAHL, 'Kategorie zurückbenannt');
+
+  // Export → hier anders einstellen → „Ersetzen“ stellt die Kategorien der Datei samt Reihenfolge wieder her.
+  const zip = Buffer.from(await (await team.roh(`/api/admin/daten/export?artikel=${id}`)).arrayBuffer());
+  assert.equal((await team.req('PUT', `/api/items/${id}`, { ...body(['Sonstiges', 'Alltagshilfen']), name: 'Teil für alle Schreibwege', published: false, colorAreas: [{ name: 'Farbe', colors: [eigeneFarbe] }] })).status, 200);
+  await stimmt(id, ['Sonstiges', 'Alltagshilfen'], 'Bearbeiten');
+  const fd = new FormData();
+  fd.append('datei', new Blob([zip]), 'export.zip');
+  const vorschau = await team.req('POST', '/api/admin/daten/import/vorschau', undefined, { form: fd });
+  assert.equal(vorschau.status, 200, JSON.stringify(vorschau.json));
+  assert.equal(vorschau.json.berichte.ersetzen.abschnitte.artikel.ersetzt, 1, 'andere Kategorien = anderer Stand');
+  assert.equal((await team.req('POST', '/api/admin/daten/import/ausfuehren', { importId: vorschau.json.importId, modus: 'ersetzen' })).status, 200);
+  await stimmt(id, WAHL, 'Einspielen mit „Ersetzen“');
+
+  assert.equal((await team.req('DELETE', `/api/items/${id}`)).status, 200);
+  assert.equal(zuordnungen(id), 0);
+  assert.equal(abweichend(), 0, 'Löschen');
 });
 
 test('Rechte unverändert: Besucher und Lehrkraft dürfen keine Kategorien an Druckteilen setzen', async () => {
