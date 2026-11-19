@@ -39,7 +39,8 @@ export async function createApp(config: AppConfig) {
   if (config.seedDemoData) await seedIfEmpty(storage);
   // Bambu-Farbrollen mit dem mitgelieferten Katalog abgleichen (wirkt nach Updates; eigene Farbrollen bleiben unberührt).
   bambuAbgleichBeimStart(storage);
-  // Bildpflege einige Minuten nach dem Start (wenn /api/health längst grün ist) – nie im Installer/Update-Schritt.
+  // Bildpflege einige Minuten nach dem Start (wenn /api/health längst grün ist) – nie im Installer/Update-Schritt; nach
+  // einer Datenbank-Migration erst nach der Schonfrist (kern/bilder/sperre.ts), bis ein Rückfall ausgeschlossen ist.
   storage.bildpflege.planeStart(config.bildpflegeNachMs).catch((err: Error) => console.warn(`[Bilder] Bildpflege nicht geplant: ${err.message}`));
 
   // Außen: die eigentliche Express-App (hört nur auf 127.0.0.1, dahinter steht der Portal-Dienst des Server-Managers);

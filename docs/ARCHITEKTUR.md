@@ -108,7 +108,8 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
 - **SQLite** über `node:sqlite` (Node ≥ 24), Datei `<STORAGE_DIR>/mosaik3lab.db`, WAL, Fremdschlüssel an.
   Schema in `server/src/storage/sqlite/migrations/NNN_name.sql`, Stand in `schema_version`. Neue Migration = neue
   Datei mit der nächsten Nummer; sie läuft beim nächsten Start automatisch (vorher Sicherung nach
-  `<STORAGE_DIR>/sicherungen/`), jede Migration in einer Transaktion.
+  `<STORAGE_DIR>/sicherungen/`, die neuesten 3 bleiben, bei scheiternder Migration keine weitere Kopie desselben
+  Standes – siehe DATENMODELL.md), jede Migration in einer Transaktion.
 - **Repositories** je Fachbereich (`module/<bereich>/<bereich>.repository.ts`) sind der einzige SQL-Zugriff der
   Fachlogik; sie bilden die fachlichen Typen (`domain/types.ts`) auf die Tabellen ab. Zusammengebaut als `Storage`
   (`storage/index.ts`, Typ in `storage/repositories.ts`). Einzelzugriffe und Filter laufen als gezielte Abfrage
@@ -138,7 +139,9 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
     verwaiste Vorschaubilder auf, geht dann alle Druckteil-Bilder einzeln durch (200 ms Pause), überspringt Erledigtes
     (Vorschaubilder da, Original ≤ 2000 px – nur Dateikopf gelesen), pausiert bei Import (`importLaeuft()`) und
     Sicherung (`<ablage>/.sicherung.lock` des Server-Managers), bricht beim Beenden ab und macht beim nächsten Start
-    weiter. Log: „Bildpflege: 22 Bilder geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder erzeugt (…)“.
+    weiter. Nach einer Datenbank-Migration (Update) startet sie erst nach der **Schonfrist** von 15 Minuten
+    (`sperre.ts`, `SCHONFRIST_NACH_MIGRATION_MS`); so lange ersetzen auch Hochladen und Abruf kein Original (nur
+    Vorschaubilder), weil ein Rückfall des Server-Managers nur die Datenbank zurückspielt. Log: „Bildpflege: 22 Bilder geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder erzeugt (…)“.
   - **Client:** `ItemImage` mit `groesse` (`karte` Katalogkarte, `mini` kleine Vorschauen, `original` Galerie) und
     `sizes`; `client/src/lib/bildQuellen.ts` baut `srcset` (mini 360w, karte 1080w, Original 2000w als oberste Stufe; der Browser nimmt die kleinste ausreichende Fassung).
 - **Updates ab 1.6.3:** Die Übernahme aus der JSON-Zeit (Daten, `mail.json`, `.session-secret`, `mosaik3lab.config.json`)

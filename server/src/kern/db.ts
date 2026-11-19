@@ -77,9 +77,101 @@ export function backupInto(db: Db, target: string): void {
 
 export const stamp = (d = new Date()) => d.toISOString().replace(/[:.]/g, '-').slice(0, 19);
 
+// --- Sicherungen vor einer Migration (<daten>/sicherungen/mosaik3lab-vor-schema-NNN-<zeit>.db) -----------------------------
+// Die Kopien sind unverschlüsselt (Passwort-Hashes, Mail-Passwort, Sitzungs-Geheimnis) – deshalb bleiben nur wenige liegen.
+// Der Rückfall des Server-Managers nach einem gescheiterten Update braucht sie nicht (er nimmt seine eigene Sicherung).
+
+/** So viele Sicherungen „vor-schema“ bleiben nach einer gelungenen Migration liegen (die neuesten). */
+export const VOR_SCHEMA_BEHALTEN = 3;
+const VOR_SCHEMA = /^mosaik3lab-vor-schema-(\d{3})-(.+)\.db$/;
+
+/** Sicherungen „vor-schema“ im Ordner, neueste zuerst (nach der Zeit im Namen). Andere Dateien (vor-import-…) zählen nicht. */
+function vorSchemaSicherungen(dir: string): { name: string; version: number; zeit: string }[] {
+  let namen: string[];
+  try {
+    namen = fs.readdirSync(dir);
+  } catch {
+    return []; // Ordner fehlt noch
+  }
+  return namen
+    .flatMap((name) => {
+      const m = VOR_SCHEMA.exec(name);
+      return m ? [{ name, version: Number(m[1]), zeit: m[2] }] : [];
+    })
+    .sort((a, b) => (a.zeit < b.zeit ? 1 : a.zeit > b.zeit ? -1 : b.version - a.version));
+}
+
+/** Byte für Byte gleich? Jeder Lesefehler zählt als „nicht gleich“. */
+function gleicherInhalt(a: string, b: string): boolean {
+  let fa: number | undefined;
+  let fb: number | undefined;
+  try {
+    if (fs.statSync(a).size !== fs.statSync(b).size) return false;
+    fa = fs.openSync(a, 'r');
+    fb = fs.openSync(b, 'r');
+    const ba = Buffer.alloc(1024 * 1024);
+    const bb = Buffer.alloc(ba.length);
+    for (;;) {
+      const na = fs.readSync(fa, ba, 0, ba.length, null);
+      const nb = fs.readSync(fb, bb, 0, bb.length, null);
+      if (na !== nb || !ba.subarray(0, na).equals(bb.subarray(0, nb))) return false;
+      if (na === 0) return true;
+    }
+  } catch {
+    return false;
+  } finally {
+    for (const f of [fa, fb]) if (f !== undefined) fs.closeSync(f);
+  }
+}
+
+/**
+ * Sicherung vor der Migration auf Schema `version`. Es wird IMMER erst eine neue Kopie des jetzigen Standes angelegt;
+ * nur wenn sie Byte für Byte der neuesten vorhandenen Sicherung derselben Schema-Nummer gleicht, wird die neue wieder
+ * gelöscht und die vorhandene weiter benutzt. So entsteht bei einer dauerhaft scheiternden Migration (der Dienst startet
+ * jede Minute neu) nicht jedes Mal eine weitere Kopie – und eine Sicherung des jetzigen Standes fehlt nie. Bewusst kein
+ * Vergleich nach Änderungszeit: Uhren können falsch gehen (Raspberry Pi ohne Uhr), der Inhalt nicht.
+ */
+function sichereVorMigration(db: Db, dir: string, version: number, log: (msg: string) => void): string {
+  const basis = path.join(dir, `mosaik3lab-vor-schema-${String(version).padStart(3, '0')}-${stamp()}`);
+  let neu = `${basis}.db`;
+  for (let n = 2; fs.existsSync(neu); n++) neu = `${basis}-${n}.db`;
+  const vorhanden = vorSchemaSicherungen(dir).find((s) => s.version === version);
+  backupInto(db, neu);
+  if (vorhanden && gleicherInhalt(path.join(dir, vorhanden.name), neu)) {
+    try {
+      fs.rmSync(neu);
+      log(`[Datenbank] Sicherung vor der Migration: ${path.join(dir, vorhanden.name)} (schon vorhanden, Stand unverändert)`);
+      return path.join(dir, vorhanden.name);
+    } catch {
+      // nicht löschbar – dann bleiben eben zwei gleiche Kopien liegen
+    }
+  }
+  log(`[Datenbank] Sicherung vor der Migration: ${neu}`);
+  return neu;
+}
+
+/** Nach gelungener Migration: nur die neuesten Sicherungen „vor-schema“ behalten. Scheitert nie – Fehler nur ins Protokoll. */
+function duenneSicherungenAus(dir: string, aktuell: string | undefined, log: (msg: string) => void): void {
+  const alle = vorSchemaSicherungen(dir);
+  const bleibt = new Set<string>(aktuell ? [path.basename(aktuell)] : []);
+  for (const s of alle) if (bleibt.size < VOR_SCHEMA_BEHALTEN) bleibt.add(s.name);
+  let entfernt = 0;
+  for (const s of alle) {
+    if (bleibt.has(s.name)) continue;
+    try {
+      fs.rmSync(path.join(dir, s.name));
+      entfernt++;
+    } catch (err) {
+      log(`[Datenbank] Ältere Sicherung ${s.name} konnte nicht gelöscht werden (${(err as Error).message}) – bitte von Hand entfernen.`);
+    }
+  }
+  if (entfernt) log(`[Datenbank] ${entfernt} ältere ${entfernt === 1 ? 'Sicherung' : 'Sicherungen'} vor Migrationen entfernt (die neuesten ${VOR_SCHEMA_BEHALTEN} bleiben).`);
+}
+
 /**
  * Spielt ausstehende Migrationen ein – jede in einer eigenen Transaktion. Ist die Datenbank nicht neu,
- * wird vorher automatisch eine Sicherung angelegt (<sicherungsordner>/mosaik3lab-vor-schema-NNN-<zeit>.db).
+ * wird vorher automatisch eine Sicherung angelegt (<sicherungsordner>/mosaik3lab-vor-schema-NNN-<zeit>.db);
+ * nach dem Einspielen bleiben davon nur die neuesten liegen (VOR_SCHEMA_BEHALTEN).
  */
 export function migrate(
   db: Db,
@@ -102,11 +194,7 @@ export function migrate(
   if (pending.length === 0) return { from, to: from };
 
   let backup: string | undefined;
-  if (from > 0 && opts.backupDir) {
-    backup = path.join(opts.backupDir, `mosaik3lab-vor-schema-${String(pending[0].version).padStart(3, '0')}-${stamp()}.db`);
-    backupInto(db, backup);
-    log(`[Datenbank] Sicherung vor der Migration: ${backup}`);
-  }
+  if (from > 0 && opts.backupDir) backup = sichereVorMigration(db, opts.backupDir, pending[0].version, log);
   for (const m of pending) {
     transaction(db, () => {
       db.exec(m.sql);
@@ -118,7 +206,26 @@ export function migrate(
     });
     log(`[Datenbank] Migration ${m.name} eingespielt.`);
   }
+  if (opts.backupDir) duenneSicherungenAus(opts.backupDir, backup, log);
   return { from, to: pending[pending.length - 1].version, backup };
+}
+
+/** Liegen erste und letzte Migration mindestens so weit auseinander, gab es die Datenbank schon vor der letzten. */
+const NEUANLAGE_MS = 60_000;
+
+/**
+ * Wann wurde zuletzt eine Migration in eine schon vorhandene Datenbank eingespielt (ms seit 1970)? null bei einer
+ * Neuanlage (alle Migrationen in einem Zug – da gibt es keinen älteren Stand, auf den ein Update zurückfallen könnte).
+ * Aus der Tabelle gelesen statt „bei diesem Start gemerkt“: gilt so auch, wenn die App kurz nach dem Update neu startet
+ * (z. B. weil der Dienst sie wegen ausbleibender Antwort neu startet).
+ */
+export function letzteMigrationAm(db: Db): number | null {
+  const row = db.prepare('SELECT MIN(eingespielt_am) AS erste, MAX(eingespielt_am) AS letzte FROM schema_version').get() as
+    | { erste: string | null; letzte: string | null }
+    | undefined;
+  const erste = Date.parse(row?.erste ?? '');
+  const letzte = Date.parse(row?.letzte ?? '');
+  return Number.isFinite(erste) && Number.isFinite(letzte) && letzte - erste >= NEUANLAGE_MS ? letzte : null;
 }
 
 /** Zustand für /api/health und den Server-Manager. */

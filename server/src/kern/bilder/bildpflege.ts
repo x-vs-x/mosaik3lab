@@ -1,6 +1,7 @@
 // „Bildpflege“: Hintergrund-Aufgabe der Web-App (kein eigener Dienst, nicht im Installer/Update-Schritt).
-// Läuft einmal einige Minuten nach dem Start (fehlen viele Vorschaubilder, z. B. nach Update oder Wiederherstellen: nach
-// einer Minute) und für nachgereichte Bilder (Import, Abruf bei belegtem Rechen-Thread). Geht alle Druckteil-Bilder durch:
+// Läuft einmal einige Minuten nach dem Start (fehlen viele Vorschaubilder, z. B. nach Wiederherstellen: nach einer Minute;
+// nach einer Datenbank-Migration frühestens nach der Schonfrist, sperre.ts) und für nachgereichte Bilder (Import, Abruf
+// bei belegtem Rechen-Thread). Geht alle Druckteil-Bilder durch:
 // erledigte werden schnell übersprungen (Vorschaubilder da, Original ≤ 2000 px oder schon geprüft), sonst verarbeitet (dienst.ts).
 // Ein Bild zur Zeit mit kurzer Pause, pausiert bei Import/Export/Sicherung, bricht beim Beenden sauber ab und macht beim nächsten
 // Lauf weiter. Fehler bei einem Bild → überspringen und ins Log, die App läuft immer weiter.
@@ -24,6 +25,14 @@ export interface BildpflegeBericht {
 
 /** Ab so vielen fehlenden Vorschaubildern startet die Bildpflege früher. */
 const VIELE_FEHLEN = 10;
+
+/**
+ * Wartezeit bis zum Start-Lauf: `nachMs`, bei vielen fehlenden Vorschaubildern schon `baldMs` – nach einer Migration aber
+ * nie vor dem Ende der Schonfrist (`schonfristMs` = Rest, 0 = keine): vorher dürfte der Lauf ohnehin kein Original ersetzen.
+ */
+export function startWartezeit(nachMs: number, baldMs: number, vieleFehlen: boolean, schonfristMs: number): number {
+  return Math.max(vieleFehlen ? Math.min(nachMs, baldMs) : nachMs, schonfristMs);
+}
 
 const leer = (): BildpflegeBericht => ({ geprueft: 0, verkleinert: 0, vorher: 0, nachher: 0, vorschau: 0, fehler: 0, aufgeraeumt: 0 });
 const mb = (b: number) => `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
@@ -53,15 +62,16 @@ export class Bildpflege {
   ) {}
 
   /**
-   * Start-Lauf nach `nachMs` (negativ = nie); fehlen viele Vorschaubilder, schon nach `baldMs`. Der Timer hält den Prozess
-   * nicht am Leben.
+   * Start-Lauf nach `nachMs` (negativ = nie); fehlen viele Vorschaubilder, schon nach `baldMs`; nach einer Migration erst
+   * nach der Schonfrist (startWartezeit). Der Timer hält den Prozess nicht am Leben. → geplante Wartezeit in ms.
    */
-  async planeStart(nachMs: number, baldMs = 60_000) {
-    if (nachMs < 0) return;
-    const warte = (await this.fehlendeVorschau()) >= VIELE_FEHLEN ? Math.min(nachMs, baldMs) : nachMs;
-    if (this.abbruch.signal.aborted) return;
+  async planeStart(nachMs: number, baldMs = 60_000): Promise<number | undefined> {
+    if (nachMs < 0) return undefined;
+    const warte = startWartezeit(nachMs, baldMs, (await this.fehlendeVorschau()) >= VIELE_FEHLEN, this.dienst.schonfristMs());
+    if (this.abbruch.signal.aborted) return undefined;
     this.startTimer = setTimeout(() => void this.alle(), warte);
     this.startTimer.unref();
+    return warte;
   }
 
   /** Grobe Zahl fehlender Vorschaubilder (Bilder minus Dateien im Ordner „karte“) – ein Verzeichnis lesen, kein stat je Bild. */

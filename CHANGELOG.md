@@ -6,6 +6,13 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Weniger alte Datenbank-Kopien auf dem Server:** Vor jedem Update der Datenbank legt die App eine Kopie an
+  (Ordner `sicherungen`). Davon bleiben jetzt nur die neuesten drei liegen, ältere werden nach einem gelungenen Update
+  gelöscht. Klappt ein Update der Datenbank nicht und der Dienst startet immer wieder neu, entsteht nicht mehr bei jedem
+  Versuch eine weitere gleiche Kopie. Die Sicherungen des Server-Managers sind davon nicht betroffen.
+- **Bilder werden nach einem Update erst später verkleinert:** In den ersten 15 Minuten nach einem Update mit
+  Datenbank-Änderung ersetzt die App kein Originalbild. So passen Bilder und Datenbank auch dann zusammen, wenn das Update
+  doch noch scheitert und der Server-Manager auf die vorige Version zurückschaltet. Vorschaubilder gibt es wie bisher sofort.
 - **Server-Manager: stabiler und verständlicher** (Durchsicht der Oberfläche vor 1.8.1):
   - **Absturz behoben:** Eine kaputte Adresse (z. B. `…/manager//`) konnte den Server-Manager beenden – er lehnt sie jetzt
     nur noch ab. Auch sonst beendet kein Fehler einer einzelnen Anfrage mehr das Programm.

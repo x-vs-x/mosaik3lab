@@ -2,7 +2,8 @@
 // FileStore.replace) und die Vorschaubilder „karte“ und „mini“ ablegen. Gerechnet wird im Rechen-Thread (rechner.ts),
 // der auch erst die Datei liest – in der Warteschlange liegen nur Pfade, keine Bilddaten.
 // Benutzt vom Hochladen (sofort), vom Abruf eines fehlenden Vorschaubilds (sofort) und von der Bildpflege (Hintergrund).
-// Während Import/Export/Sicherung (sperre.ts) werden keine Originale ersetzt, nur Vorschaubilder erzeugt.
+// Während Import/Export/Sicherung und in der Schonfrist nach einer Datenbank-Migration (sperre.ts) werden keine Originale
+// ersetzt, nur Vorschaubilder erzeugt.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { newId } from '../ids';
@@ -29,11 +30,21 @@ export class BildDienst {
   /** Gescheitert (id → sha256) – Zwischenspeicher; dauerhaft steht es in vorschau/.gescheitert/<id> (groessen.ts). */
   private gescheitert = new Map<string, string>();
 
+  /**
+   * `originaleAb`: bis zu diesem Zeitpunkt (ms seit 1970) wird kein Original ersetzt – Schonfrist nach einer Migration
+   * (sperre.ts → schonfristBis). `jetzt` ist die Uhr (austauschbar für Tests).
+   */
   constructor(
     private readonly files: FileStore,
     rechner?: BildRechner,
+    private readonly opts: { originaleAb?: number; jetzt?: () => number } = {},
   ) {
     this.rechner = rechner ?? new BildRechner();
+  }
+
+  /** Rest der Schonfrist nach einer Migration in ms (0 = Originale dürfen ersetzt werden). */
+  schonfristMs(): number {
+    return Math.max(0, (this.opts.originaleAb ?? 0) - (this.opts.jetzt ?? Date.now)());
   }
 
   vorschauPfad(id: string, groesse: VorschauGroesse) {
@@ -110,7 +121,7 @@ export class BildDienst {
 
   private async rechne(d: Datei, prio: Prioritaet): Promise<Verarbeitet> {
     if (!verarbeitbar(d)) throw new BildFehler('Format wird nicht unterstützt (nur JPG und PNG).', true);
-    const gesperrt = () => bildpflegeWartetAuf(this.files.root) !== null;
+    const gesperrt = () => bildpflegeWartetAuf(this.files.root) !== null || this.schonfristMs() > 0;
     try {
       const original = this.files.absPath(d);
       const vorschau = VORSCHAU_GROESSEN.map((g) => ({ name: g, breite: VORSCHAU[g].breite }));
