@@ -6,6 +6,8 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+## [1.8.1] – 2026-11-19
+
 - **Weniger alte Datenbank-Kopien auf dem Server:** Vor jedem Update der Datenbank legt die App eine Kopie an
   (Ordner `sicherungen`). Davon bleiben jetzt nur die neuesten drei liegen, ältere werden nach einem gelungenen Update
   gelöscht. Klappt ein Update der Datenbank nicht und der Dienst startet immer wieder neu, entsteht nicht mehr bei jedem
