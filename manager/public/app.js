@@ -21,6 +21,9 @@ function showLogin() {
 }
 $('#form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const btn = $('#form-login button[type=submit]');
+  if (btn.disabled) return; // doppelt gedrückt: nur eine Anmeldung (jeder Fehlversuch zählt für die Sperre)
+  btn.disabled = true;
   try {
     await api('auth/login', { email: $('#login-email').value, password: $('#login-pw').value });
     $('#login-pw').value = '';
@@ -30,6 +33,8 @@ $('#form-login').addEventListener('submit', async (e) => {
   } catch (err) {
     $('#login-error').textContent = err.message;
     $('#login-error').hidden = false;
+  } finally {
+    btn.disabled = false;
   }
 });
 
@@ -130,8 +135,12 @@ $('#first-save').addEventListener('click', async () => {
 });
 for (const d of ['#dlg-login', '#dlg-first']) $(d).addEventListener('cancel', (e) => e.preventDefault());
 $('#btn-logout').addEventListener('click', async () => {
-  await api('auth/logout', {});
-  showLogin();
+  try {
+    await api('auth/logout', {});
+    showLogin();
+  } catch (err) {
+    showError(err); // Manager antwortet nicht: sagen, statt den Knopf stumm nichts tun zu lassen
+  }
 });
 
 // ---------- Gesamtstatus: ein Satz + Knopf zur Lösung ----------
@@ -219,7 +228,7 @@ function renderSummary(s) {
   const fix = fixFor(s.summary.fix);
   $('#btn-fix').hidden = !fix;
   if (fix) Object.assign($('#btn-fix'), { textContent: fix[0] }).dataset.fix = s.summary.fix;
-  const more = s.notes.filter((n) => (n.light === 'warn' || n.light === 'error') && n.text !== s.summary.text);
+  const more = s.notes.filter((n) => (n.light === 'warn' || n.light === 'error') && !s.summary.text.endsWith(`: ${n.text}`)); // der Punkt im Satz oben steht nicht noch einmal darunter
   if (changed('notes', [more, s.summary.fix])) $('#notes').replaceChildren(...more.map((n) => el('li', { class: n.light }, el('span', { class: 't' }, light(n.light, n.light === 'error' ? 'Fehler' : 'Hinweis'), ' ', n.text), fixFor(n.fix) && n.fix !== s.summary.fix ? el('button', { type: 'button', class: 'link', onclick: (e) => busy(e.currentTarget, fixFor(n.fix)[1], 'Erledigt.') }, fixFor(n.fix)[0]) : null)));
   $('#checked').textContent = `Stand ${new Date(s.checkedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
 }
@@ -248,7 +257,8 @@ function refresh() {
       }
       $('#summary').dataset.state = 'error';
       $('#overall').replaceChildren(light('error', 'Fehler'));
-      $('#summary-text').textContent = `Der Status konnte nicht geladen werden (${err.message}). Neuer Versuch in wenigen Sekunden.`;
+      // Web-App gestoppt/startet neu (über die App-Adresse): das ist die eigentliche Auskunft – mit dem Weg, wie man sie wieder startet
+      $('#summary-text').textContent = err.appDown ? `${err.message}. Die Seite versucht es von selbst weiter.${err.hint ? ` ${err.hint}` : ''}` : `Der Status konnte nicht geladen werden (${err.message.replace(/\.$/, '')}). Neuer Versuch in wenigen Sekunden.`;
     } finally {
       $('#summary').removeAttribute('aria-busy');
       loading = null;
@@ -295,6 +305,10 @@ function render(s) {
   const last = s.lastBackup;
   $('#backup-last').replaceChildren(last ? el('span', {}, 'Letzte: ', el('strong', {}, fmt(last.created)), el('span', { class: 'muted small' }, ` (vor ${since(last.created)})`)) : el('strong', {}, 'Noch keine Sicherung.'));
   $('#backup-next').textContent = !s.backupAuto ? 'Die automatische Sicherung ist ausgeschaltet.' : s.nextBackup ? `Nächste: ${fmt(s.nextBackup)} (automatisch)` : 'Automatisch: der Backup-Dienst läuft nicht (siehe „Dienste“ in der Übersicht).';
+  // Läuft gerade eine Sicherung/Wiederherstellung? (Der Server lehnt eine zweite solange ab.) Sichtbar auch nach dem Neuladen.
+  const job = s.dataJob;
+  $('#backup-job').hidden = !job;
+  if (job) $('#backup-job').textContent = `Gerade läuft eine ${job.what} (seit ${since(job.since)}) – bitte warten und nichts starten oder stoppen. Das dauert je nach Menge der Bilder und Druckdateien einige Minuten.`;
   // Kurzfassung für die Übersicht
   $('#backup-short').replaceChildren(
     el('dt', {}, 'Letzte'), el('dd', {}, last ? fmt(last.created) : 'noch keine', last ? el('span', { class: 'muted small' }, ` (vor ${since(last.created)})`) : null),
@@ -382,6 +396,7 @@ async function restore(b) {
 async function makeBackupPassword() {
   if (!(await confirmBox('Passwort für Sicherungen erzeugen?', 'Neue Sicherungen werden ab jetzt mit diesem Passwort verschlüsselt. Es wird nur einmal angezeigt. Ohne dieses Passwort lässt sich eine Sicherung nicht zurückspielen – bitte aufschreiben und sicher aufbewahren.', 'Erzeugen'))) return false;
   const r = await api('backup/password', { generate: true });
+  if (!r) return r; // abgemeldet
   showTab('sicherung');
   $('#backup-secret').replaceChildren(el('div', { class: 'secret', role: 'alert' }, el('span', { class: 'small' }, el('strong', {}, 'Passwort der Sicherungen'), ' – jetzt aufschreiben, wird nicht erneut angezeigt:'), el('code', { testid: 'backup-secret-value' }, r.password)));
   $('#backup-secret').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -412,10 +427,12 @@ async function start() {
   timer = setInterval(() => !document.hidden && !document.querySelector('dialog[open]') && refresh(), 5000);
 }
 const auth = await api('auth').catch((err) => {
-  // Ohne Antwort bliebe die Seite leer: Hinweis zeigen, „Neu laden“ versucht es erneut.
+  // Ohne Antwort bliebe die Seite leer: Hinweis zeigen und von selbst wieder versuchen (z. B. Neuladen mitten im Update,
+  // während der Manager oder die Web-App gerade neu startet).
   $('#main').hidden = false;
   $('#summary').dataset.state = 'error';
-  $('#summary-text').textContent = `${err.message}. Bitte die Seite in einer Minute neu laden.`;
+  $('#summary-text').textContent = `${err.message.replace(/\.$/, '')}. Die Seite versucht es alle 10 Sekunden von selbst wieder.`;
+  setTimeout(() => location.reload(), 10_000);
   return null;
 });
 if (!auth) throw new Error('Anmeldestatus nicht ladbar');

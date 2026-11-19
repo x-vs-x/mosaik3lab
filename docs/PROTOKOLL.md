@@ -2,6 +2,47 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-19 – Server-Manager: Durchsicht von Oberfläche, Routen und Anmeldung vor 1.8.1 (Unter-Session, Branch: fix/fable-manager-ui)
+- **Auftrag:** Prüf- und Korrekturdurchgang für `manager/public/**`, `manager/server.mjs`, `lib/auth|remote|mail|status|
+  erreichbarkeit|log.mjs` (der Rest von `manager/` lief parallel in einer anderen Session). Jeder Fund am Code belegt.
+- **Behoben (Server):**
+  - `GET //` (jede Adresse, die `new URL` ablehnt) beendete den Manager: Die Adresse wurde außerhalb des `try` gelesen,
+    das abgelehnte Promise riss den Prozess mit – vor jeder Anmeldeprüfung. Jetzt 400; zusätzlich fängt `safeHandle`
+    alles, was eine Anfrage noch werfen könnte. Beleg: neuer Test gegen den alten Stand → `ECONNRESET`, danach
+    `ECONNREFUSED` (Prozess weg).
+  - Sichern/Wiederherstellen liefen ohne Sperre in der Anfrage: zweiter Klick auf eine andere Zeile, zweites Fenster oder
+    Neuladen konnte eine zweite Wiederherstellung über die erste legen. Neu `exclusive()` → 409 mit Klartext;
+    `GET /api/status` nennt `dataJob { what, since }`, die Karte „Sicherung“ zeigt es.
+  - Über die App-Adresse bei gestoppter/neu startender Web-App: `isAppAdmin` unterschied „nicht angemeldet“ nicht von
+    „App antwortet nicht“ → 403 `app-admin` → die Oberfläche lud neu und landete auf „Nur für Administratoren“ (mitten in
+    Wiederherstellen mit `autoStop` und beim Update). Neu `appAdminState()` → 503 `app-down` (Seite: Hinweis, lädt sich
+    alle 10 s neu); Zugang gibt es weiterhin nur mit geprüfter Admin-Sitzung.
+  - Zu große Anfrage (> 400 KB): saubere 413 statt gekappter Verbindung. Anmeldung: laufende Prüfungen zählen für die
+    Sperre mit (12 gleichzeitige Fehlversuche wurden vorher alle geprüft).
+  - Mail: Absender mit Zeilenumbruch abgelehnt, Empfänger-Liste mit Nicht-Text gab einen internen Fehler; Testmail-Fehler
+    werden erklärt (`erklaereMailFehler`), ohne Ergebniszeile kommt Klartext statt „Kein Ergebnis (Code 1)“.
+- **Behoben (Oberfläche):** Fehler-Meldungen bleiben bis zum Schließen; Formularfehler nur am Formular; nach
+  HTTPS-/Port-Änderung über die App-Adresse neue Adresse statt „es wurde nichts verändert“ (das stimmte bei Aktionen nie
+  sicher – Text für POST geändert); wichtigster Hinweis nicht mehr doppelt (der Vergleich `n.text !== summary.text` traf
+  nie); keine Erfolgsmeldung, wenn die Anmeldung abgelaufen war; „Abmelden“ und der Start der Seite melden bzw. wiederholen
+  sich bei fehlender Antwort; „Anmelden“ doppelt gedrückt zählt nur einmal; zu große Zertifikat-Datei wird vor dem Senden abgelehnt.
+- **Dateien:** `manager/server.mjs`, `manager/lib/auth.mjs`, `remote.mjs`, `mail.mjs`, `manager/public/app.js`, `ui.js`,
+  `einstellungen.js`, `index.html`, `app.css`, Tests `manager/test/remote.test.mjs` (+4 Tests), neu
+  `manager/test/anmeldung-mail.test.mjs`; `CHANGELOG.md`.
+- **Getestet:** `npm run typecheck`, `npm run lint`, `npm test` grün; die beiden Testdateien einzeln (nur Testordner,
+  freie Ports, Probelauf – `npm run manager:test` und `selftest.mjs` lokal bewusst nicht). Oberfläche in headless Chrome
+  (frisches Profil) gegen eine Test-Instanz auf 3016 (eigene Startdatei und Datenbank unter
+  `_testdaten\fable-manager-ui`, `MOSAIK3LAB_SYSTEM_DRY_RUN`, `MOSAIK3LAB_NO_AUTOMATION`, Arbeitskopie = keine
+  Installation) mit einer Attrappe auf 3017 davor, die nur Lesendes durchlässt und alle Aktionen selbst beantwortet:
+  375 px, 768 px, 1280 px, 200 % Schrift, hell/dunkel – keine Überläufe, keine Tippziele unter 44 px, kein Feld ohne
+  Beschriftung; Update-Ablauf (Rückfrage, Download, Helfer, Manager weg, Web-App noch nicht da, fertig → neu geladen).
+- **Nicht geändert (größer bzw. fremde Dateien, siehe Bericht):** Portal stürzt bei `GET //` ebenso ab
+  (`lib/portalserver.mjs`); „Jetzt sichern“/Wiederherstellen über die App-Adresse brechen bei mehr als 10 Minuten in der
+  Anzeige ab (Portal-Zeitlimit, Vorgang läuft weiter) – bräuchte einen Auftrag mit Fortschritt wie beim Update;
+  `manager/README.md` (API-Tabelle: `dataJob`, 503 `app-down`) gehört der anderen Session.
+- **Aufgeräumt:** Test-Instanz, Attrappe und Chrome beendet, `_testdaten\fable-manager-ui` gelöscht; Bilder in
+  `_testdaten\fable-manager-ui-bilder\`.
+
 ## 2026-11-19 – Tippziele mindestens 44 px, „+4“ in der Zeile (Unter-Session, Branch: fix/tippziele-44)
 - **Auftrag:** F1 und H2 aus `_testdaten\abschluss-1.8.1\BERICHT.md`. Bei 15 px Grundschrift war `min-h-11` (2,75 rem)
   nur 41,25 px, der CHANGELOG versprach 44 px.
