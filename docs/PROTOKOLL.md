@@ -36,8 +36,8 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   Installation) mit einer Attrappe auf 3017 davor, die nur Lesendes durchlässt und alle Aktionen selbst beantwortet:
   375 px, 768 px, 1280 px, 200 % Schrift, hell/dunkel – keine Überläufe, keine Tippziele unter 44 px, kein Feld ohne
   Beschriftung; Update-Ablauf (Rückfrage, Download, Helfer, Manager weg, Web-App noch nicht da, fertig → neu geladen).
-- **Nicht geändert (größer bzw. fremde Dateien, siehe Bericht):** Portal stürzt bei `GET //` ebenso ab
-  (`lib/portalserver.mjs`); „Jetzt sichern“/Wiederherstellen über die App-Adresse brechen bei mehr als 10 Minuten in der
+- **Nicht geändert (größer bzw. fremde Dateien, siehe Bericht):** dieselbe Prüfung der Adresse fehlt in
+  `lib/portalserver.mjs` (an den Hauptchat gemeldet); „Jetzt sichern“/Wiederherstellen über die App-Adresse brechen bei mehr als 10 Minuten in der
   Anzeige ab (Portal-Zeitlimit, Vorgang läuft weiter) – bräuchte einen Auftrag mit Fortschritt wie beim Update;
   `manager/README.md` (API-Tabelle: `dataJob`, 503 `app-down`) gehört der anderen Session.
 - **Aufgeräumt:** Test-Instanz, Attrappe und Chrome beendet, `_testdaten\fable-manager-ui` gelöscht; Bilder in
