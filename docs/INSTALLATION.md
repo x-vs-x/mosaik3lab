@@ -306,7 +306,7 @@ das Setup legt den Benutzer `mosaik3lab` an, übergibt ihm die Datenordner und r
 **Aufbau (seit 2026-11-16 parallel):** Je System baut ein Job `…-paket` das Paket des getesteten Stands **einmal** und legt
 es als Artifact ab (`Mosaik3LAB-Installer-windows-x64` bzw. `…-linux-<arch>`). Dann laufen die Runden auf je einem eigenen,
 frischen Rechner gleichzeitig: **`neu`** (Neuinstallation, Update, Rückfall, Downgrade, Update per Knopfdruck,
-Deinstallation) und **`v163`** (Update von 1.6.3, zweite Runde unten), daneben `npm run manager:test` auf einem Rechner ohne Installation (`manager-windows`, `linux-<arch> /
+Deinstallation), **`v163`** und **`v180`** (Update von 1.6.3 bzw. 1.8.0, weitere Runden unten), daneben `npm run manager:test` auf einem Rechner ohne Installation (`manager-windows`, `linux-<arch> /
 manager`). Erst wenn **alle** Jobs eines Systems bestanden sind, legt `windows-release` bzw. `linux-<arch> / release` genau das
 gebaute Paket ins Release (nicht bei Pull Requests). Linux steht in `.github/workflows/installer-linux.yml`, das für x64 und
 arm64 je einmal aufgerufen wird – jede Architektur veröffentlicht unabhängig von der anderen. Dauer insgesamt etwa 5–6 Minuten.
@@ -320,11 +320,14 @@ und an `server/dist/server.mjs` ist ein Ende mit Code 3 nach dem Einspielen ange
 Ihr Update muss mit Fehler enden, danach läuft wieder die vorige Version, die Datenbank hat ihr Schema (keine Tabelle
 `ci_kaputt`), Konto und Datei sind da (`pruefen.ps1 zurueck`). Zum Schluss der **Downgrade-Test**: eine Kopie ohne die neueste
 Migration muss mit „Downgrade verweigert“ abgelehnt werden, ohne etwas zu ändern. Danach `uninstall --yes` (Daten behalten) mit Prüfung.
-**Zweite Runde `v163`:** das Paket aus dem Release `v1.6.3` von `x-vs-x/mosaik3lab-pakete` (genau das, was die Schule hat;
-ältere Stände werden nicht mehr unterstützt) mit frischen Daten installieren, Admin-Konto, Markerdatei und ein Druckteil
-mit Bildern anlegen (`bilder-pruefen.mjs --testdaten`, unter Linux auch die Mail-Einstellungen), Zeilen je Tabelle und alle
-Dateien der Ablage merken (`daten-stand.mjs`), auf den neuen Stand aktualisieren und vergleichen: Konto, Datei, Sicherung,
-fachliche Datensätze und Ablage (SHA-256) unverändert, danach Bildverarbeitung der neuen Version. `npm run manager:test` läuft im Job
+**Weitere Runden `v163` und `v180`** (die Stände, die installiert sind – ältere werden nicht mehr unterstützt): das Paket aus
+dem Release `v1.6.3` bzw. `v1.8.0` von `x-vs-x/mosaik3lab-pakete` (genau das, was die Schule hat) mit frischen Daten
+installieren, Admin-Konto, Markerdatei und ein Druckteil mit Bildern anlegen (`bilder-pruefen.mjs --testdaten`, unter Linux
+auch die Mail-Einstellungen), Zeilen je Tabelle und alle Dateien der Ablage merken (`daten-stand.mjs`). Dann zuerst der
+**Rückfall über die Versionsgrenze**: das kaputte Update (siehe oben) spielt alle neuen Migrationen ein und stürzt ab –
+danach muss wieder die alte Version laufen, mit ihrem Datenbank-Schema und genau dem gemerkten Datenstand. Erst dann auf
+den neuen Stand aktualisieren und vergleichen: Konto, Datei, Sicherung, fachliche Datensätze und Ablage (SHA-256)
+unverändert, danach Bildverarbeitung der neuen Version. `npm run manager:test` läuft im Job
 `manager-windows` auf eigenem Rechner (auf einem Rechner mit echter Installation stoppt dieser Test Dienste) – das
 Release-Paket kommt nur nach bestandenen Manager-Tests.
 Die Prüfungen stehen in `.github/installer-test/pruefen.ps1`, bei Fehlern gibt es die Logs als Artifact

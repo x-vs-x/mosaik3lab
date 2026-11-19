@@ -36,12 +36,61 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   Installation) mit einer Attrappe auf 3017 davor, die nur Lesendes durchlässt und alle Aktionen selbst beantwortet:
   375 px, 768 px, 1280 px, 200 % Schrift, hell/dunkel – keine Überläufe, keine Tippziele unter 44 px, kein Feld ohne
   Beschriftung; Update-Ablauf (Rückfrage, Download, Helfer, Manager weg, Web-App noch nicht da, fertig → neu geladen).
-- **Nicht geändert (größer bzw. fremde Dateien, siehe Bericht):** dieselbe Prüfung der Adresse fehlt in
-  `lib/portalserver.mjs` (an den Hauptchat gemeldet); „Jetzt sichern“/Wiederherstellen über die App-Adresse brechen bei mehr als 10 Minuten in der
+- **Nicht geändert (größer bzw. fremde Dateien, siehe Bericht):** dieselbe Prüfung der Adresse fehlte in
+  `lib/portalserver.mjs` (inzwischen mit PR 45 behoben); „Jetzt sichern“/Wiederherstellen über die App-Adresse brechen bei mehr als 10 Minuten in der
   Anzeige ab (Portal-Zeitlimit, Vorgang läuft weiter) – bräuchte einen Auftrag mit Fortschritt wie beim Update;
   `manager/README.md` (API-Tabelle: `dataJob`, 503 `app-down`) gehört der anderen Session.
 - **Aufgeräumt:** Test-Instanz, Attrappe und Chrome beendet, `_testdaten\fable-manager-ui` gelöscht; Bilder in
   `_testdaten\fable-manager-ui-bilder\`.
+
+## 2026-11-19 – Prüfdurchgang Installieren/Update/Sicherung/Betrieb vor 1.8.1 (Unter-Session, Branch: fix/fable-manager)
+- **Auftrag:** `manager/` (ohne Oberfläche, Anmeldung, `server.mjs` – das prüft eine zweite Session), `scripts/`, `.github/`
+  auf Fehler und halbe Zustände durchgehen: Update 1.6.3 → 1.8.1 und 1.8.0 → 1.8.1 Schritt für Schritt, Neuinstallation,
+  Sicherung/Wiederherstellen, Portal, Plattformen, CI. Kleine, belegte Korrekturen mit Test; Größeres nur beschreiben.
+- **Behoben (je mit Test):**
+  - **Portal** (`lib/portalserver.mjs`): `GET //` (im Browser `http://<Server>//`), ein Backslash nach dem `/` oder
+    `http://[` ließen `new URL()` werfen → unbehandelte Ausnahme → der Dienst beendete sich (Neustart nach 5/30/120 s,
+    Uploads weg). Jetzt 400 und ein Sicherheitsnetz um jede Anfrage, auch in der HTTPS-Umleitung (`redirectToHttps`).
+    `<pfad>/manager//` kommt beim Manager als `/` an statt als `//` (dort wirft dieselbe Stelle, siehe „Nicht geändert“).
+    Test `portal-anfragen.test.mjs` (rohe Anfragezeilen, auch Pfad-Tricks und Methoden der Wurzel-Icons).
+  - **Windows-Dienste** (`platform/windows.mjs` `dienstSteuern`): `sc.exe stop` kehrt sofort zurück (STOP_PENDING). Ein
+    Start direkt danach endete mit 1056 „läuft bereits“, was als Erfolg galt – der Dienst blieb nach seinem Ende aus
+    (Rückfall ohne Schema-Änderung: Stoppen, Umschalten, Starten in Millisekunden). Stopp wartet jetzt bis STOPPED
+    (höchstens 45 s, sonst Admin-Weg wie bisher), Start während STOP_PENDING wartet und startet erneut.
+    Test `dienststeuerung.test.mjs` (nachgestelltes sc.exe).
+  - **Reste abgebrochener Sicherungen** (`lib/backup.mjs` `resteEntfernen`): `<id>.unfertig` (volle Kopie der Ablage),
+    `<id>.m3lbackup.teil`, `.auspacken-<pid>-<zeit>` blieben nach Stromausfall oder Dienst-Stopp mitten in der Sicherung
+    (WinSW beendet nach 30 s) für immer liegen. Vor jeder Sicherung werden Reste älter als 6 Stunden entfernt.
+  - **Datenbank zurückspielen** (`applyBackup`): bisher erst löschen, dann kopieren – scheiterte das Kopieren (Platte
+    voll), war die Datenbank weg, und die App hätte beim nächsten Start leer begonnen (erster Administrator über das Netz!).
+    Jetzt daneben kopieren (`.neu`), dann in einem Schritt ersetzen.
+  - **Rückfall** (`paketupdate.mjs` `restoreDbFrom`, `openBackup({ nur: ['db'] })`): packte die ganze Sicherung samt
+    Ablage aus, um eine Datei zurückzuspielen. Jetzt nur die Datenbank (der Rest wird nur geprüft).
+  - **WinSW ohne Internet** (`setup.mjs` `ensureWrapper`): „fetch failed“ → Meldung mit Adresse und Ablageort.
+  - **Liste der Sicherungen** (`listBackups`): eine Datei mit unvollständigem Kopf (ohne Zeitangabe) ließ das Sortieren
+    werfen – damit standen Status, Aufräumen und der Zeitplan des Backup-Dienstes still. Sie steht jetzt am Ende.
+  - Tests zu den fünf letzten Punkten: `sicherung-robust.test.mjs`.
+  - **Schema einer Programmversion** (`lib/schema.mjs`, Hinweis aus der Server-Durchsicht): der Manager zählte
+    Migrationen nach `NNN_*.sql`, die App spielt nur `NNN_[a-z0-9_]+.sql` ein. Eine Datei wie `024_Neue-Tabelle.sql`
+    hätte das Paket für den Manager zu Schema 24 gemacht, die Datenbank bliebe auf 23 – Downgrade-Schutz und „Sicherung
+    zu neu“ rechneten falsch. Jetzt dasselbe Muster (`MIGRATION_NAME`), Wächter in `abgleich-app.test.mjs` (vergleicht mit
+    `server/src/kern/db.ts`), Verhalten in `sicherung-robust.test.mjs`.
+  - Aufgeräumt: `manager/manager.config.example.json` (Format gibt es nicht mehr, kam mit ins Paket), veraltete Kommentare.
+- **Installer-Test:** neue Runde **`v180`** (Update von 1.8.0, Paket aus `x-vs-x/mosaik3lab-pakete`), Schritte mit `v163`
+  geteilt (`matrix.alt`). In beiden Runden vor dem Update neu: **Rückfall über die Versionsgrenze** – das kaputte Paket
+  spielt 018–023 (bzw. 023) plus Testmigration ein und stürzt ab; danach muss die alte Version laufen, Schema und
+  Datenstand wie gemerkt (`daten-stand.mjs vergleichen`). `docs/INSTALLATION.md` angepasst.
+- **Nicht geändert (im Bericht an den Hauptchat):** `manager/server.mjs:305` (`new URL` vor dem `try` → eine Anfrage `//`
+  direkt an den Manager beendet ihn; Datei gehört der zweiten Session), `<daten>/sicherungen/mosaik3lab-vor-schema-*.db`
+  der App (unverschlüsselt, nie aufgeräumt; `server/`), Sicherung braucht zweimal den Platz der Ablage (Zwischenkopie),
+  WinSW nicht im Paket (Neuinstallation braucht einmal Internet), `scripts/release.mjs` lässt bei spätem Abbruch geänderte
+  Dateien zurück, `Installieren.cmd` in einem Ordner mit Apostroph.
+- **Dateien:** `manager/lib/{portalserver,backup,paketupdate,setup,settingsdb}.mjs`, `manager/platform/windows.mjs`,
+  `manager/runners/runner.mjs`, `manager/test/{portal-anfragen,dienststeuerung,sicherung-robust}.test.mjs`,
+  `scripts/veroeffentlichen.mjs` (Kommentare), `.github/workflows/installer-{test,linux}.yml`,
+  `.github/installer-test/daten-stand.mjs`, `docs/INSTALLATION.md`, `CHANGELOG.md`.
+- **Aufgeräumt:** Testordner `C:\Entwicklung\_testdaten\fable-manager` gelöscht, keine Server gestartet (nur kurzlebige
+  Test-Listener auf 127.0.0.1 mit freien Ports).
 
 ## 2026-11-19 – Durchsicht Server und Datenbank vor 1.8.1 (Unter-Session, Branch: fix/fable-server)
 - **Auftrag:** `server/` und `shared/` auf Fehler, Update- und Datenbank-Risiken durchsehen und Kleines gleich beheben.

@@ -535,13 +535,26 @@ function shortcutItems(programRoot, webUrl) {
 }
 
 /** WinSW laden (nur mit Zustimmung), Größe und – falls hinterlegt – SHA-256 prüfen. */
-export async function ensureWrapper(file, allowDownload) {
-  const w = platform.wrapper;
+export async function ensureWrapper(file, allowDownload, { wrapper = platform.wrapper, fetchImpl = fetch } = {}) {
+  const w = wrapper;
   if (fs.existsSync(file) && fs.statSync(file).size === w.size) return;
   if (!allowDownload) throw new InputError(`Für Windows-Dienste wird WinSW ${w.version} benötigt.`, 'Im Einrichtungsdialog „WinSW herunterladen“ ankreuzen.');
-  const res = await fetch(w.url, { signal: AbortSignal.timeout(60_000) });
-  if (!res.ok) throw new InputError(`WinSW-Download fehlgeschlagen (HTTP ${res.status}).`, 'Internetverbindung prüfen.');
-  const buf = Buffer.from(await res.arrayBuffer());
+  // Ohne Internet (Schulserver hinter einem Filter) scheitert fetch mit „fetch failed“ – das versteht niemand. Klar sagen,
+  // was fehlt und wie es ohne Internet geht (die Datei wird beim nächsten Versuch an der Größe erkannt).
+  const ohneNetz = (grund) =>
+    new InputError(
+      `Das Hilfsprogramm für die Windows-Dienste (WinSW ${w.version}) konnte nicht heruntergeladen werden (${grund}). Dieser Rechner braucht dafür einmal Internetzugang.`,
+      `Internetverbindung prüfen und die Einrichtung erneut starten. Ohne Internet: ${w.url} an einem anderen Rechner laden und als ${file} ablegen, dann erneut starten.`,
+    );
+  let res;
+  let buf;
+  try {
+    res = await fetchImpl(w.url, { signal: AbortSignal.timeout(60_000) });
+    if (res.ok) buf = Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    throw ohneNetz(err.name === 'TimeoutError' ? 'keine Antwort nach 60 Sekunden' : (err.cause?.code ?? 'keine Verbindung'));
+  }
+  if (!res.ok) throw ohneNetz(`Fehler ${res.status}`);
   const hash = crypto.createHash('sha256').update(buf).digest('hex');
   if (buf.length !== w.size || (w.sha256 && hash !== w.sha256)) throw new InputError('WinSW: Datei stimmt nicht mit der erwarteten Version überein – verworfen.');
   fs.writeFileSync(file, buf);

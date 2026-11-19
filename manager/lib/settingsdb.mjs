@@ -1,7 +1,7 @@
 // Betriebs-, Mail- und Manager-Einstellungen direkt in der SQLite-Datenbank der App (eingebautes node:sqlite).
 // Tabelle betrieb_einstellung (Migration 006 der App; der Manager legt sie bei Bedarf selbst an, falls die App noch
 // nie lief). Kurze Transaktionen, WAL und Wartezeit bei Sperren, damit App und Manager gleichzeitig zugreifen können.
-// Bereiche: 'betrieb' (Ports, Netzfreigabe, Pfade, Backup-Zeitplan, Update-Quelle, Session-Geheimnis),
+// Bereiche: 'betrieb' (Ports, Netzfreigabe, Pfade, Backup-Zeitplan, Portal und Zertifikat, Session-Geheimnis),
 //           'mail' (SMTP, Empfänger), 'manager' (Manager-Port, Passwort-Hash).
 import fs from 'node:fs';
 import path from 'node:path';
