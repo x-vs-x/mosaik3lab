@@ -120,7 +120,7 @@ export function FilamentPicker({
             {manageLink && (
               <Link
                 to="/verwaltung/stammdaten?liste=filaments"
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 font-bold text-brand-700 hover:text-brand-900"
+                className="inline-flex min-h-tipp items-center gap-1.5 rounded-xl px-2 font-bold text-brand-700 hover:text-brand-900"
               >
                 <Palette className="size-4" aria-hidden />
                 Farbrollen verwalten
@@ -173,7 +173,7 @@ export function FilamentPicker({
                           aria-pressed={an}
                           onClick={() => schalteGruppe(gruppeArt(art))}
                           className={cx(
-                            'inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 font-bold ring-1 ring-inset',
+                            'inline-flex min-h-tipp items-center gap-1.5 rounded-xl px-3 font-bold ring-1 ring-inset',
                             an ? 'bg-brand-50 text-brand-900 ring-brand-400' : 'bg-white text-stone-800 ring-stone-300 hover:bg-stone-50',
                           )}
                         >
@@ -211,7 +211,7 @@ export function FilamentPicker({
                         <p className="text-hinweis font-bold uppercase tracking-wide text-stone-500">{group}</p>
                         {linie ? (
                           ueberArt ? (
-                            <span className="inline-flex min-h-11 items-center gap-1 px-2 text-hinweis font-bold text-brand-800">
+                            <span className="inline-flex min-h-tipp items-center gap-1 px-2 text-hinweis font-bold text-brand-800">
                               <Check className="size-4" aria-hidden />
                               Über „Alle {materialartVon(list[0])}“ gewählt
                             </span>
@@ -221,7 +221,7 @@ export function FilamentPicker({
                               aria-pressed={linieAn}
                               onClick={() => schalteGruppe(linie)}
                               className={cx(
-                                'inline-flex min-h-11 items-center gap-1 rounded-xl px-2 text-hinweis font-bold',
+                                'inline-flex min-h-tipp items-center gap-1 rounded-xl px-2 text-hinweis font-bold',
                                 linieAn ? 'text-brand-900' : 'text-brand-700 hover:text-brand-900',
                               )}
                             >
@@ -240,7 +240,7 @@ export function FilamentPicker({
                                   : [...selected, ...list.filter((f) => !selected.includes(f.id)).map((f) => f.id)],
                               )
                             }
-                            className="min-h-11 rounded-xl px-2 text-hinweis font-bold text-brand-700 hover:text-brand-900"
+                            className="min-h-tipp rounded-xl px-2 text-hinweis font-bold text-brand-700 hover:text-brand-900"
                           >
                             {allOn ? 'Alle dieser Liste abwählen' : 'Alle dieser Liste wählen'}
                             <span className="sr-only"> ({group})</span>
@@ -292,7 +292,7 @@ export function FilamentPicker({
       {manageLink && alleFarben && (
         <Link
           to="/verwaltung/stammdaten?liste=filaments"
-          className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 font-bold text-brand-700 hover:text-brand-900"
+          className="mt-2 inline-flex min-h-tipp items-center gap-1.5 rounded-xl px-2 font-bold text-brand-700 hover:text-brand-900"
         >
           <Palette className="size-4" aria-hidden />
           Farbrollen verwalten

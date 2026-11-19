@@ -74,7 +74,7 @@ export function PasswortPage() {
               Auf der Anmeldeseite können Sie unter „Passwort vergessen?“ einen neuen Link anfordern – oder Sie wenden sich an die
               Administration.
             </p>
-            <Link to="/login" className="inline-flex min-h-11 items-center font-bold text-brand-800 underline">
+            <Link to="/login" className="inline-flex min-h-tipp items-center font-bold text-brand-800 underline">
               Zur Anmeldung
             </Link>
           </div>

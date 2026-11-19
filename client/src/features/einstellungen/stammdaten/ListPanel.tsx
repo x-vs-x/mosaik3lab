@@ -193,7 +193,7 @@ export function ListPanel<T extends Entry>({
           <>
             {/* Handy: lange Erklärung zum Aufklappen, ab sm immer sichtbar */}
             <details className="group mt-1 sm:hidden">
-              <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 font-bold text-brand-800 [&::-webkit-details-marker]:hidden">
+              <summary className="inline-flex min-h-tipp cursor-pointer list-none items-center gap-1 font-bold text-brand-800 [&::-webkit-details-marker]:hidden">
                 Erklärung
                 <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden />
               </summary>
@@ -291,7 +291,7 @@ function IconButton({
       aria-label={label}
       title={label}
       className={cx(
-        'grid size-11 place-items-center rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-35',
+        'grid size-tipp place-items-center rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-35',
         tone === 'danger' ? 'text-rose-700 hover:bg-rose-50' : 'text-stone-600 hover:bg-white hover:text-stone-900',
       )}
     >

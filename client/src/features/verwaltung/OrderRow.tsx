@@ -143,7 +143,7 @@ export function OrderRow({
             <h3 className="font-bold text-stone-900">Details</h3>
             <dl className="mt-3 space-y-2.5 text-base sm:space-y-2">
               <Row label="Druckteil">
-                <Link to={`/verwaltung/hilfsmittel/${order.itemId}`} className="font-bold text-brand-700 underline-offset-2 hover:underline">
+                <Link to={`/verwaltung/hilfsmittel/${order.itemId}`} className="tipp-in-zeile font-bold text-brand-700 underline-offset-2 hover:underline">
                   {order.itemName}
                 </Link>
               </Row>
@@ -203,7 +203,7 @@ export function OrderRow({
               <Row label="Klasse / Team">{order.classOrTeam}</Row>
               <Row label="Schul-E-Mail">
                 {order.requesterEmail ? (
-                  <a href={`mailto:${order.requesterEmail}`} className="text-brand-700 underline-offset-2 hover:underline">
+                  <a href={`mailto:${order.requesterEmail}`} className="tipp-in-zeile text-brand-700 underline-offset-2 hover:underline">
                     <Email adresse={order.requesterEmail} />
                   </a>
                 ) : (

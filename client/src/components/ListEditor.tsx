@@ -61,7 +61,7 @@ export function ListEditor({
               <button
                 type="button"
                 onClick={() => remove(v, i)}
-                className="grid size-11 shrink-0 place-items-center rounded-full text-stone-500 hover:bg-white hover:text-rose-700"
+                className="grid size-tipp shrink-0 place-items-center rounded-full text-stone-500 hover:bg-white hover:text-rose-700"
                 aria-label={`${itemLabel} „${v}“ entfernen`}
               >
                 <X className="size-4" aria-hidden />

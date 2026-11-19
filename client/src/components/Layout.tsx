@@ -107,7 +107,7 @@ function SideLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void
       onClick={onNavigate}
       className={({ isActive }) =>
         cx(
-          'group flex min-h-11 items-center gap-3 rounded-xl px-3.5 font-bold transition-colors sm:min-h-12 sm:rounded-2xl sm:px-4',
+          'group flex min-h-tipp items-center gap-3 rounded-xl px-3.5 font-bold transition-colors sm:min-h-12 sm:rounded-2xl sm:px-4',
           isActive ? 'bg-brand-700 text-white shadow-sm' : 'text-stone-700 hover:bg-stone-200/60 hover:text-stone-900',
         )
       }
@@ -126,7 +126,7 @@ function ManagerLink() {
   return (
     <a
       href={withBase('/manager/')}
-      className="group flex min-h-11 items-center gap-3 rounded-xl px-3.5 font-bold text-stone-700 transition-colors hover:bg-stone-200/60 hover:text-stone-900 sm:min-h-12 sm:rounded-2xl sm:px-4"
+      className="group flex min-h-tipp items-center gap-3 rounded-xl px-3.5 font-bold text-stone-700 transition-colors hover:bg-stone-200/60 hover:text-stone-900 sm:min-h-12 sm:rounded-2xl sm:px-4"
       data-testid="nav-manager"
     >
       <Server className="size-5 shrink-0" aria-hidden />
@@ -202,7 +202,7 @@ function UserBox({ onNavigate }: { onNavigate?: () => void }) {
             toast('error', 'Abmelden hat nicht geklappt – bitte erneut versuchen.');
           }
         }}
-        className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl text-base font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-900"
+        className="mt-2 flex min-h-tipp w-full items-center justify-center gap-2 rounded-xl text-base font-bold text-stone-700 hover:bg-stone-100 hover:text-stone-900"
       >
         <LogOut className="size-5" aria-hidden />
         Abmelden
@@ -229,7 +229,7 @@ function TeamLoginLink({ onNavigate }: { onNavigate?: () => void }) {
       to="/login"
       onClick={onNavigate}
       title="Anmelden mit Schul-E-Mail"
-      className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-hinweis font-bold text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-stone-200/70 hover:text-stone-900"
+      className="inline-flex min-h-tipp shrink-0 items-center gap-2 rounded-lg px-3 text-hinweis font-bold text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-stone-200/70 hover:text-stone-900"
     >
       <LogIn className="size-4" aria-hidden />
       Anmelden
@@ -305,13 +305,13 @@ export function Layout() {
 
       {/* Kopfzeile – Mobil & Tablet */}
       <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-stone-200/80 bg-canvas px-[max(0.75rem,env(safe-area-inset-left))] py-1.5 sm:px-4 sm:py-3 lg:hidden">
-        <NavLink to="/katalog" className="inline-flex min-h-11 items-center rounded-xl" aria-label="Mosaik³LAB – zur Startseite">
+        <NavLink to="/katalog" className="inline-flex min-h-tipp items-center rounded-xl" aria-label="Mosaik³LAB – zur Startseite">
           <Logo subtitle={false} />
         </NavLink>
         <button
           type="button"
           onClick={() => setMenuOpen(true)}
-          className="ml-auto flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 font-bold text-stone-800 ring-1 ring-stone-300 hover:bg-white sm:min-h-12 sm:px-4"
+          className="ml-auto flex min-h-tipp items-center gap-2 whitespace-nowrap rounded-xl px-3.5 font-bold text-stone-800 ring-1 ring-stone-300 hover:bg-white sm:min-h-12 sm:px-4"
           aria-haspopup="dialog"
         >
           <Menu className="size-5" aria-hidden />

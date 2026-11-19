@@ -276,7 +276,7 @@ export function LoginPage() {
                 {step === 'password' ? 'Anmelden' : 'Weiter'}
               </Button>
               {step === 'password' && !linkSent && (
-                <button type="button" onClick={forgot} disabled={submitting} className="min-h-11 w-full rounded-xl font-bold text-brand-800 hover:bg-stone-100" data-testid="login-forgot">
+                <button type="button" onClick={forgot} disabled={submitting} className="min-h-tipp w-full rounded-xl font-bold text-brand-800 hover:bg-stone-100" data-testid="login-forgot">
                   Passwort vergessen?
                 </button>
               )}

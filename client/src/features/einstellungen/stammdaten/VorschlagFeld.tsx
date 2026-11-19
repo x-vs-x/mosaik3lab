@@ -34,7 +34,7 @@ export function VorschlagFeld({
                   type="button"
                   onClick={() => onChange(v)}
                   aria-label={`${label} „${v}“ übernehmen`}
-                  className="inline-flex min-h-11 max-w-full items-center rounded-full bg-white px-3 text-hinweis font-bold text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-brand-50 hover:text-brand-800 hover:ring-brand-300"
+                  className="inline-flex min-h-tipp max-w-full items-center rounded-full bg-white px-3 text-hinweis font-bold text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-brand-50 hover:text-brand-800 hover:ring-brand-300"
                 >
                   {v}
                 </button>

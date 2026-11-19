@@ -66,14 +66,14 @@ function ModelFilesEditor({ item, onChange }: { item: Item; onChange: (i: Item) 
                 ersatzname={m.originalName}
                 titel={m.originalName}
                 icon={Download}
-                className="grid size-11 shrink-0 place-items-center rounded-xl text-stone-700 hover:bg-stone-100 disabled:opacity-60"
+                className="grid size-tipp shrink-0 place-items-center rounded-xl text-stone-700 hover:bg-stone-100 disabled:opacity-60"
                 aria-label={`${m.originalName} herunterladen`}
               />
               <button
                 type="button"
                 onClick={() => remove(m.id, m.originalName)}
                 disabled={busyId === m.id}
-                className="grid size-11 place-items-center rounded-xl text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                className="grid size-tipp place-items-center rounded-xl text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                 aria-label={`${m.originalName} löschen`}
               >
                 <Trash2 className="size-5" aria-hidden />

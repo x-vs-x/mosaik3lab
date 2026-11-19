@@ -81,7 +81,7 @@ function ImagesEditor({ item, onChange }: { item: Item; onChange: (i: Item) => v
                   <button
                     type="button"
                     onClick={() => makeCover(file)}
-                    className="flex min-h-11 flex-1 items-center justify-center gap-1.5 text-hinweis font-bold text-stone-700 hover:bg-stone-50"
+                    className="flex min-h-tipp flex-1 items-center justify-center gap-1.5 text-hinweis font-bold text-stone-700 hover:bg-stone-50"
                     aria-label={`Bild ${i + 1} als Titelbild verwenden`}
                   >
                     <Star className="size-4" aria-hidden /> Titelbild
@@ -91,7 +91,7 @@ function ImagesEditor({ item, onChange }: { item: Item; onChange: (i: Item) => v
                   type="button"
                   onClick={() => remove(file, i + 1)}
                   disabled={busyFile === file}
-                  className="flex min-h-11 flex-1 items-center justify-center gap-1.5 text-hinweis font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                  className="flex min-h-tipp flex-1 items-center justify-center gap-1.5 text-hinweis font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                   aria-label={`Bild ${i + 1} löschen`}
                 >
                   <Trash2 className="size-4" aria-hidden /> Löschen

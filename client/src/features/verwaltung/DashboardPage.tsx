@@ -75,7 +75,7 @@ export function DashboardPage() {
               <h2 className="text-abschnitt font-bold text-stone-900 sm:text-xl">Neueste Anfragen</h2>
               <Link
                 to="/verwaltung/bestellungen?status=alle"
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 font-bold text-brand-700 hover:text-brand-900"
+                className="inline-flex min-h-tipp items-center gap-1.5 rounded-xl px-2 font-bold text-brand-700 hover:text-brand-900"
               >
                 Alle Anfragen
                 <ArrowRight className="size-4" aria-hidden />

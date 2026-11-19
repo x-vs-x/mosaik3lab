@@ -353,7 +353,7 @@ export function Switch({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cx(
-          'group/switch inline-flex h-11 w-16 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
+          'group/switch inline-flex h-tipp w-16 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50',
         )}
       >
         <span className="sr-only">{label}</span>

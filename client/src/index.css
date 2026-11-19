@@ -15,6 +15,10 @@
   --text-hinweis: 0.9rem;
   --text-hinweis--line-height: 1.45;
 
+  /* Tippziel: mindestens 44 CSS-px (WCAG 2.5.5), auch bei der kleineren Grundschrift (15 px: 2,75 rem wären nur
+     41,25 px). Wächst mit größerer Schrift weiter mit. Ergibt min-h-tipp, min-w-tipp, h-tipp, size-tipp … */
+  --spacing-tipp: max(44px, 2.75rem);
+
   --color-canvas: #f7f6f3;
   --color-canvas-deep: #f0eee9;
 
@@ -41,10 +45,20 @@
   --color-mosaic-green: #56bc52;
 }
 
+/* Einzelner Link als Wert in einer Zeile (z. B. Druckteil, E-Mail in den Anfrage-Details): Tippfläche 44 px hoch,
+   ragt aber nur in den Zeilenabstand hinein – die Zeile wird nicht höher. Ohne `lh` (sehr altes Safari) einfach höher. */
+@utility tipp-in-zeile {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--spacing-tipp);
+  margin-block: calc((1lh - var(--spacing-tipp)) / 2);
+}
+
 @layer base {
   html {
     /* Grundschrift 15 px auf allen Geräten – kompakt, damit mehr auf eine Seite passt, aber gut lesbar.
-       Abstände und Tippflächen hängen an rem und schrumpfen mit (min-h-11 ≈ 41 px). */
+       Abstände hängen an rem und schrumpfen mit (min-h-11 = 41,25 px). Tippflächen deshalb immer mit *-tipp
+       (mindestens 44 px, siehe --spacing-tipp oben), nie mit min-h-11/size-11. */
     font-size: 93.75%;
     -webkit-text-size-adjust: 100%;
     /* Kein Gummiband/„Ziehen zum Aktualisieren“ am Seitenende: Beim schnellen Scrollen zuckten die feste Leiste und die

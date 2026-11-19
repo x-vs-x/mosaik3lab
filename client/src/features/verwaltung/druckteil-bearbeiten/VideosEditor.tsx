@@ -102,7 +102,7 @@ export function VideosEditor({ item, onChange }: { item: Item; onChange: (i: Ite
                 type="button"
                 onClick={() => remove(v.id, v.title)}
                 disabled={busy}
-                className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                className="inline-flex min-h-tipp items-center justify-center gap-1.5 rounded-xl px-3 font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                 aria-label={`Video „${v.title}“ entfernen`}
               >
                 <Trash2 className="size-5" aria-hidden />

@@ -2,6 +2,31 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-19 – Tippziele mindestens 44 px, „+4“ in der Zeile (Unter-Session, Branch: fix/tippziele-44)
+- **Auftrag:** F1 und H2 aus `_testdaten\abschluss-1.8.1\BERICHT.md`. Bei 15 px Grundschrift war `min-h-11` (2,75 rem)
+  nur 41,25 px, der CHANGELOG versprach 44 px.
+- **Lösung (zentral):** neues Theme-Maß `--spacing-tipp: max(44px, 2.75rem)` in `client/src/index.css`. Tailwind v4 macht
+  daraus `min-h-tipp`, `size-tipp`, `h-tipp` … (44 px bei 15 px Grundschrift, wächst bei großer Schrift wie bisher mit).
+  Alle Tippziele mit `min-h-11`/`size-11`/`h-11` (und ein `min-h-10`) nutzen jetzt `*-tipp`, Deko-Kästchen bleiben.
+  Bewusst kein Umdefinieren von `--spacing-11` oder `--min-height-11`: Das hätte auch Abstände verändert bzw. die Klasse
+  irreführend gelassen. Neu `@utility tipp-in-zeile` für einzelne Links als Wert einer Zeile (Druckteil, E-Mail in den
+  Anfrage-Details der Verwaltung): 44 px Tippfläche, die nur in den Zeilenabstand ragt, die Zeile bleibt gleich hoch.
+  Kommentar in `index.css` korrigiert (41,25 px, Hinweis auf `*-tipp`).
+- **H2:** `FarbZusammenfassung.tsx` ist ein Container; „Alle Teile“/„Weniger“ erscheint erst ab 26 rem Kastenbreite
+  (vorher ab 400 px Fensterbreite). In der schmalen Spalte der Verwaltung (1440 px) passt „+4“ so neben die Tupfer, der
+  Pfeil bleibt.
+- **Dateien:** `index.css`, `Dialog`, `Layout`, `ListEditor`, `Listenwerkzeug`, `Toast`, `ui` (Schalter), `MyOrdersPage`,
+  `OrderCard`, `FarbZusammenfassung`, Stammdaten (`Aufklappen`, `FarbeZuordnenDialog`, `KeyPickers`, `ListPanel`,
+  `VorschlagFeld`), `CatalogPage`, `LoginPage`, `PasswortPage`, `DashboardPage`, `ItemsAdminPage`, `OrderRow`,
+  `PersonDialogs`, Druckteil-Editor (`FilamentPicker`, `ItemEditPage`, `MediaSection`, `ModelFilesSection`,
+  `VideosEditor`), `ProposalFormPage`; `CHANGELOG.md`.
+- **Messung:** headless Chrome (frisches Profil, zufälliger Debug-Port), alle Rollen (Besucher, Lehrkraft, Druck-Team,
+  Admin), ca. 30 Ansichten samt Zuständen (Menü, Filter, aufgeklappt, Anfrage-Fenster, Farbwahl-Fenster) bei 375,
+  820×1180, 1440 und 375 mit 200 % Schrift; je 8500 Element-Messungen. **Vorher 1369 unter 44 px, nachher 6** – alle
+  sechs derselbe Fließtext-Link „Druckteile verwalten“ im Hinweissatz der Stammdaten (erlaubte Ausnahme). Bilder vorher/
+  nachher: `C:\Entwicklung\_testdaten\tippziele-bilder\`. typecheck, Lint (0 Fehler), alle Tests grün.
+- **Aufgeräumt:** Dev-Server (5181/3011) und Chrome gestoppt, Mess-Skript gelöscht; Testdaten siehe Bericht.
+
 ## 2026-11-18 – Druckteil-Seite nach Konzept A2 (Unter-Session, Branch: feature/druckteil-seite-a2)
 - **Auftrag:** `_konzepte\druckteil-seite\KONZEPT.md`, Variante A2 + mitlaufende rechte Spalte + Auswahl auf der Seite mit
   vorbelegtem Anfrage-Fenster; Entwurf vom Branch `konzept/druckteil-seite` sauber neu auf `main` (ohne Umschalter).

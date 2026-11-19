@@ -43,7 +43,8 @@ export function FarbZusammenfassung({
     );
 
   return (
-    <div className="min-w-0">
+    // Container: „Alle Teile“/„Weniger“ nur, wenn der Kasten breit genug ist – sonst rutscht „+4“ in eine eigene Zeile.
+    <div className="@container min-w-0">
       <button
         type="button"
         onClick={() => setOffen((o) => !o)}
@@ -63,7 +64,7 @@ export function FarbZusammenfassung({
           )}
         </span>
         <span className="flex shrink-0 items-center gap-1 text-hinweis font-bold text-brand-700">
-          <span className="sr-only min-[400px]:not-sr-only">{offen ? 'Weniger' : 'Alle Teile'}</span>
+          <span className="sr-only @min-[26rem]:not-sr-only">{offen ? 'Weniger' : 'Alle Teile'}</span>
           <ChevronDown className={cx('size-5 transition-transform', offen && 'rotate-180')} aria-hidden />
         </span>
       </button>

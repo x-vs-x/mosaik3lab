@@ -24,7 +24,7 @@ function Haekchen({ id, label, satz, checked, onChange }: { id: string; label: s
       {/* Ganze Zeile (Kästchen + Text) ist eine Tippfläche, mind. 44 px hoch; der Fokusrahmen liegt um die ganze Zeile. */}
       <label
         htmlFor={id}
-        className="-mx-2 flex min-h-11 cursor-pointer items-start gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-stone-100 has-focus-visible:outline-3 has-focus-visible:outline-offset-0 has-focus-visible:outline-stone-900"
+        className="-mx-2 flex min-h-tipp cursor-pointer items-start gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-stone-100 has-focus-visible:outline-3 has-focus-visible:outline-offset-0 has-focus-visible:outline-stone-900"
       >
         <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} aria-describedby={`${id}-d`} className="mt-0.5 size-6 shrink-0 cursor-pointer accent-brand-700 focus-visible:outline-none" />
         <span className="min-w-0">
