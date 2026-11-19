@@ -9,8 +9,11 @@ import { nachFarbfamilie } from '../../lib/farbfamilie';
 import type { Filament } from '../../lib/types';
 import { farbePasst, gewaehlteFarbe } from './teileFarbwahl';
 
-/** Was das Fenster gerade zeigt: ein Teil (mit Nummer) oder „Eine Farbe für alle Teile“. */
-export type FensterZiel = { art: 'teil'; nr: number; name: string; farben: Filament[]; gewaehlt?: string } | { art: 'alle'; farben: Filament[] };
+/** Was das Fenster gerade zeigt: ein Teil (mit Nummer), „Eine Farbe für alle Teile“ oder die eine Farbe eines einfarbigen Druckteils. */
+export type FensterZiel =
+  | { art: 'teil'; nr: number; name: string; farben: Filament[]; gewaehlt?: string }
+  | { art: 'alle'; farben: Filament[] }
+  | { art: 'eine'; farben: Filament[]; gewaehlt?: string };
 
 const iconKnopf =
   'grid size-[48px] shrink-0 place-items-center rounded-xl ring-1 ring-inset ring-stone-300 text-stone-700 hover:bg-stone-50 disabled:opacity-40 disabled:hover:bg-transparent';
@@ -33,7 +36,7 @@ export function FarbwahlFenster({
 }: {
   open: boolean;
   ziel: FensterZiel;
-  /** Anzahl aller Teile („Teil 3 von 20“). */
+  /** Anzahl aller Teile („Teil 3 von 20“); bei `art: 'eine'` ohne Bedeutung. */
   anzahl: number;
   /** Bisher gewählte Farben dieser Anfrage (für einheitliche Sets). */
   schonGewaehlt: Filament[];
@@ -49,9 +52,9 @@ export function FarbwahlFenster({
   const titelRef = useRef<HTMLHeadingElement>(null);
   const inhaltRef = useRef<HTMLDivElement>(null);
   const teil = ziel.art === 'teil' ? ziel : undefined;
-  const gewaehlt = teil?.gewaehlt;
+  const gewaehlt = ziel.art === 'alle' ? undefined : ziel.gewaehlt;
   const jetzt = gewaehlteFarbe(ziel.farben, gewaehlt);
-  const schluessel = teil ? `${teil.nr}` : 'alle';
+  const schluessel = teil ? `${teil.nr}` : ziel.art;
   // Suche gilt nur für das gerade gezeigte Teil – beim nächsten Teil wieder alle Farben.
   const [suche, setSuche] = useState({ fuer: '', q: '' });
   const q = suche.fuer === schluessel ? suche.q : '';
@@ -117,7 +120,7 @@ export function FarbwahlFenster({
         <>
           <div className="flex flex-wrap items-center justify-between gap-x-[8px] gap-y-[4px]">
             <p className="text-hinweis font-bold text-stone-600" aria-live="polite">
-              {teil ? `Teil ${teil.nr} von ${anzahl}` : `Alle ${anzahl} Teile`}
+              {teil ? `Teil ${teil.nr} von ${anzahl}` : ziel.art === 'eine' ? `${ziel.farben.length} Farben zur Wahl` : `Alle ${anzahl} Teile`}
             </p>
             <div className="ml-auto flex shrink-0 gap-[8px]">
               {teil && (
@@ -141,7 +144,7 @@ export function FarbwahlFenster({
             </div>
           </div>
           <h2 id={titelId} ref={titelRef} tabIndex={-1} className="text-abschnitt font-bold leading-snug text-stone-900 hyphens-auto wrap-break-word focus:outline-none sm:text-xl">
-            {teil ? teil.name : 'Eine Farbe für alle Teile'}
+            {teil ? teil.name : ziel.art === 'eine' ? 'Farbe wählen' : 'Eine Farbe für alle Teile'}
           </h2>
         </>
       }
@@ -158,7 +161,7 @@ export function FarbwahlFenster({
           {ansage}
         </p>
         <p className="mb-[12px] flex flex-wrap items-center gap-x-[8px] gap-y-[4px] text-hinweis text-stone-700">
-          {!teil ? (
+          {ziel.art === 'alle' ? (
             'Gilt für alle Teile, auch die schon gewählten. Danach können Sie einzelne Teile ändern.'
           ) : (
             <>
@@ -173,7 +176,7 @@ export function FarbwahlFenster({
               ) : (
                 <b>Noch keine Farbe gewählt.</b>
               )}
-              <span className="basis-full">Ein Tipp wählt und geht weiter zum nächsten Teil ohne Farbe.</span>
+              <span className="basis-full">{teil ? 'Ein Tipp wählt und geht weiter zum nächsten Teil ohne Farbe.' : 'Ein Tipp wählt die Farbe.'}</span>
             </>
           )}
         </p>

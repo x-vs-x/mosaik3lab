@@ -22,9 +22,18 @@ import { useAnfrageAuswahl, type AuswahlZustand } from './useAnfrageAuswahl';
 /** Fehler in Zeile 1, Größe oder Personalisierung (dann klappt das Fenster die Felder der Seiten-Auswahl auf). */
 const istAuswahlFehler = (k: string) => k === 'size' || k === 'quantity' || k === 'color' || k.startsWith('color.') || k.startsWith('custom.');
 
+/** Fehler an einer Farbe – in Zeile 1 (`color`, `color.<teil>`) oder einer weiteren Stückzahl (`variants.<n>.color…`). */
+const istFarbFehler = (k: string) => /(^|\.)color(\.|$)/.test(k);
+
 /** Schlüssel des Anfrage-Entwurfs – auch für die Detailseite, die den Dialog nach einem Neuladen wieder öffnet. */
 export const anfrageEntwurfSchluessel = (itemId: string, userId?: string, templateOrderId?: string) =>
   entwurfSchluessel(`anfrage-${itemId}`, userId, templateOrderId);
+
+/**
+ * Merker „Anfrage-Fenster zuletzt selbst geschlossen“ (liegt beim Entwurf und verfällt wie er): Die Druckteil-Seite öffnet
+ * das Fenster dann nicht von selbst wieder.
+ */
+export const anfrageGeschlossenSchluessel = (itemId: string, userId?: string) => entwurfSchluessel(`anfrage-zu-${itemId}`, userId);
 
 /**
  * Anfrageformular für Lehrkräfte – ohne Anmeldung.
@@ -51,7 +60,7 @@ export function RequestDialog({
   auswahl?: AuswahlZustand;
 }) {
   const md = useMasterData();
-  const { config } = useConfig();
+  const { config, reload: ladeStammdaten } = useConfig();
   const domains = (config?.orderForm.allowedEmailDomains ?? []).map(normalizeDomain).filter(Boolean);
   // Bereiche mit hinterlegten Farben; „filaments“ enthält nur vorrätige Rollen (siehe lib/colors.ts).
   const { areas, emptyAreas, multiColor } = farbbereiche(item, md);
@@ -168,7 +177,12 @@ export function RequestDialog({
     if (Object.keys(local).some(istAuswahlFehler)) setFelderOffen(true);
     setFormError(undefined);
     if (Object.keys(local).length) {
-      setFormError('Bitte prüfen Sie die markierten Angaben.');
+      // Ohne vorrätige Farbe ist kein Feld markiert – dann sagen, woran es liegt.
+      setFormError(
+        config && emptyAreas.length
+          ? 'Für dieses Druckteil ist gerade keine Farbe vorrätig – die Anfrage kann noch nicht gesendet werden. Bitte versuchen Sie es später noch einmal.'
+          : 'Bitte prüfen Sie die markierten Angaben.',
+      );
       // Direkt zum ersten fehlenden Feld (spart Tab-Wege, wichtig mit Tastatur oder Taster)
       const form = e.currentTarget as HTMLFormElement;
       requestAnimationFrame(() => ersteFehlerstelle<HTMLElement>(form)?.focus());
@@ -218,6 +232,8 @@ export function RequestDialog({
         setErrors(err.fields);
         if (Object.keys(err.fields).some(istAuswahlFehler)) setFelderOffen(true);
         setFormError(err.message);
+        // Farbe abgelehnt: Die Farbrolle ist inzwischen leer. Farbrollen neu laden, damit sie nicht weiter zur Wahl steht.
+        if (Object.keys(err.fields).some(istFarbFehler)) void ladeStammdaten();
       } else {
         setFormError('Die Anfrage konnte nicht gesendet werden. Bitte versuchen Sie es erneut.');
       }
@@ -329,7 +345,7 @@ export function RequestDialog({
             )}
           </Field>
 
-          <KeineFarbeHinweis leer={emptyAreas} multiColor={multiColor} />
+          <KeineFarbeHinweis leer={config ? emptyAreas : []} multiColor={multiColor} />
           {rows.map((row, i) =>
             i === 0 && kurz ? (
               <AuswahlUebersicht

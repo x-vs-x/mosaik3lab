@@ -79,6 +79,20 @@ export function verschiebe<T>(liste: readonly T[], i: number, delta: number): T[
 export const MAX_TEILNAME = 40;
 
 /**
+ * Name für „Teil verdoppeln“: „Dach (2)“, ist der vergeben „Dach (3)“ … Bei langen Namen wird der Name gekürzt, die
+ * Nummer bleibt ganz (höchstens MAX_TEILNAME Zeichen) – sonst endete die Kopie mitten in der Klammer.
+ */
+export function kopieName(name: string, vorhandene: readonly string[]): string {
+  const key = (n: string) => n.trim().toLocaleLowerCase('de-DE');
+  const belegt = new Set(vorhandene.map(key));
+  for (let n = 2; ; n++) {
+    const zusatz = ` (${n})`;
+    const kandidat = (name.trim().slice(0, MAX_TEILNAME - zusatz.length).trimEnd() + zusatz).trim();
+    if (!belegt.has(key(kandidat))) return kandidat;
+  }
+}
+
+/**
  * „Mehrere Teile auf einmal“: ein Teil je Zeile. Gleichnamige Teile behalten ID und Farben (Anfragen bleiben zuordenbar),
  * neue bekommen die gemeinsame Auswahl. `fehler` = verständlicher Grund, warum es so nicht geht.
  */

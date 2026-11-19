@@ -3,7 +3,7 @@ import { Pencil, Send } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { Alert, Button, LinkButton } from '../../components/ui';
-import { useMasterData } from '../../lib/config';
+import { useConfig, useMasterData } from '../../lib/config';
 import { ersteFehlerstelle } from '../../lib/fokus';
 import type { Item } from '../../lib/types';
 import { ChoiceGroup, CustomFieldInput, EinfarbigeWahl, KeineFarbeHinweis, QuantityInput } from '../anfragen/AnfrageFelder';
@@ -27,6 +27,11 @@ export function DruckteilAuswahl({ item, zustand, onAnfragen }: { item: Item; zu
   const zeile = auswahl.rows[0];
   const weitere = auswahl.rows.length - 1;
   const gesamt = gesamtStueck(auswahl);
+  // Farbrollen noch nicht da (langsames WLAN, Ladefehler – den meldet das Layout): Das heißt nicht „keine Farbe vorrätig“.
+  const { config, error: ladeFehler } = useConfig();
+  const farbenGeladen = !!config;
+  // Ein Teil ohne vorrätige Farbe: Anfragen geht gerade nicht (der Hinweis steht oben) – der Knopf täte sonst einfach nichts.
+  const keineFarbe = farbenGeladen && emptyAreas.length > 0;
   const formRef = useRef<HTMLFormElement>(null);
   // Fehler erst nach dem ersten „Anfragen“, danach live (verschwinden, sobald behoben).
   const [geprueft, setGeprueft] = useState(false);
@@ -48,6 +53,7 @@ export function DruckteilAuswahl({ item, zustand, onAnfragen }: { item: Item; zu
 
   const anfragen = (e: FormEvent) => {
     e.preventDefault();
+    if (keineFarbe || !farbenGeladen) return;
     setGeprueft(true);
     if (Object.keys(pruefen()).length === 0) {
       onAnfragen();
@@ -67,7 +73,7 @@ export function DruckteilAuswahl({ item, zustand, onAnfragen }: { item: Item; zu
       <h2 id="auswahl-titel" className="text-abschnitt font-bold text-stone-900">
         Ihre Auswahl
       </h2>
-      <KeineFarbeHinweis leer={emptyAreas} multiColor={multiColor} />
+      <KeineFarbeHinweis leer={keineFarbe ? emptyAreas : []} multiColor={multiColor} />
       {multiColor && areas.length > 0 && (
         <TeileFarbListe
           teile={areas}
@@ -129,10 +135,18 @@ export function DruckteilAuswahl({ item, zustand, onAnfragen }: { item: Item; zu
       <div className="space-y-2.5 border-t border-stone-200 pt-4">
         {item.published && (
           <>
-            <Button type="submit" size="lg" icon={Send} className="w-full">
+            <Button type="submit" size="lg" icon={Send} className="w-full" disabled={keineFarbe || !farbenGeladen} aria-describedby="anfragen-hinweis">
               Druckteil anfragen
             </Button>
-            <p className="text-hinweis text-stone-600">Im nächsten Schritt: Schul-E-Mail, Klasse und Anpassungswünsche.</p>
+            <p id="anfragen-hinweis" className="text-hinweis text-stone-600">
+              {!farbenGeladen
+                ? ladeFehler
+                  ? 'Die Farben konnten nicht geladen werden – bitte oben „Erneut versuchen“.'
+                  : 'Die Farben werden noch geladen …'
+                : keineFarbe
+                  ? 'Anfragen geht wieder, sobald eine Farbe vorrätig ist.'
+                  : 'Im nächsten Schritt: Schul-E-Mail, Klasse und Anpassungswünsche.'}
+            </p>
           </>
         )}
         {can('catalog:manage') && (

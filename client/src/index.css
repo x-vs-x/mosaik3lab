@@ -66,6 +66,22 @@
     overscroll-behavior: none;
     /* Nur Absicherung – die Ursachen (lange Wörter, Wischleisten) sind behoben, siehe body und die Filterleisten. */
     overflow-x: clip;
+    /* Tastaturfokus nie unter den festen Leisten (Kopfzeile oben, Schnellnavigation unten – Handy und Tablet): Springt der
+       Browser zu einem fokussierten Feld, lässt er diesen Rand frei (WCAG 2.4.11). Höchstens ein Fünftel der Fensterhöhe,
+       damit bei großer Schrift auf niedrigen Bildschirmen noch Platz bleibt. */
+    scroll-padding-block: min(5rem, 20vh) min(calc(5rem + env(safe-area-inset-bottom)), 20vh);
+    /* Platz der Bildlaufleiste immer frei halten – sonst spränge die Seite zur Seite, wenn ein Fenster sie sperrt (unten). */
+    scrollbar-gutter: stable;
+  }
+  /* Ab lg gibt es keine festen Leisten über dem Inhalt. */
+  @media (width >= 64rem) {
+    html {
+      scroll-padding-block: 1rem;
+    }
+  }
+  /* Offenes Fenster: Die Seite dahinter scrollt nicht mit (Mausrad über dem abgedunkelten Rand, Wischen neben dem Fenster). */
+  html:has(dialog[open]) {
+    overflow: hidden;
   }
   /* Touch-Geräte (Tablet/Handy): Eingabefelder bei 16 px lassen, sonst zoomt iOS beim Antippen hinein. */
   @media (pointer: coarse) {

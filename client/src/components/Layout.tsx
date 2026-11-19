@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { withBase } from '../lib/basePath';
 import { APP_VERSION } from '../lib/version';
+import { VersionsHinweis } from './VersionsHinweis';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -337,6 +338,7 @@ export function Layout() {
       </main>
 
       <NeuigkeitenDialog />
+      <VersionsHinweis />
 
       {/* Untere Navigationsleiste – Smartphone */}
       <nav

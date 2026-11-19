@@ -64,6 +64,38 @@ export function ergaenzeEinzelfarben(a: AnfrageAuswahl, areas: AreaColors[]): An
   return { ...a, rows: a.rows.map((r) => (fehlt(r) ? { ...r, colors: { ...einzeln, ...r.colors } } : r)) };
 }
 
+/**
+ * Gewählte Farben, die es in ihrem Teil nicht (mehr) gibt, wieder abwählen – die Farbrolle ist inzwischen leer oder der
+ * Entwurf ist alt. Sonst sähe man keine Wahl, die Prüfung hielte das Teil aber für erledigt, und erst der Server lehnte ab.
+ * Gleichnamige Rollen werden vorher auf die angebotene abgebildet. `areas` = Teile mit vorrätigen Farben; andere Teile
+ * (nichts vorrätig, Farbrollen noch nicht geladen) bleiben unberührt. Ändert sich nichts, kommt dasselbe Objekt zurück.
+ */
+export function ohneFehlendeFarben(a: AnfrageAuswahl, areas: AreaColors[], md: MasterData): AnfrageAuswahl {
+  let geaendert = false;
+  const rows = a.rows.map((r) => {
+    const colors = aufAngeboteneFarben(areas, r.colors, md);
+    for (const { area, filaments } of areas) {
+      const id = colors[area.id];
+      if (id && id !== EGAL_FARBE && !filaments.some((f) => f.id === id)) delete colors[area.id];
+    }
+    const gleich = Object.keys(colors).length === Object.keys(r.colors).length && Object.keys(colors).every((k) => colors[k] === r.colors[k]);
+    if (gleich) return r;
+    geaendert = true;
+    return { ...r, colors };
+  });
+  return geaendert ? { ...a, rows } : a;
+}
+
+/**
+ * Getippte Anzahl: ganze Zahl von 1 bis `max`. Leer oder keine Zahl → `undefined` – das Feld darf beim Tippen kurz leer
+ * sein, die Anzahl bleibt dann, wie sie war.
+ */
+export function anzahlAusText(text: string, max: number): number | undefined {
+  const n = Math.round(Number(text.replace(',', '.')));
+  if (!text.trim() || !Number.isFinite(n)) return undefined;
+  return Math.min(max, Math.max(1, n));
+}
+
 export const gesamtStueck = (a: Pick<AnfrageAuswahl, 'rows'>) => a.rows.reduce((n, r) => n + r.quantity, 0);
 
 /**
