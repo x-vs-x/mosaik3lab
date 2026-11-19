@@ -137,11 +137,16 @@ um (direkt am Server und über das Netz, solange es noch keinen gibt). Der App-S
   - **Bildpflege** (`bildpflege.ts`): einmal einige Minuten nach dem Start der App (`BILDPFLEGE_NACH_MIN`, Standard 5;
     nie im Installer/Update), zusätzlich für eingespielte Bilder nach einem Import. Räumt veraltete Größen-Ordner und
     verwaiste Vorschaubilder auf, geht dann alle Druckteil-Bilder einzeln durch (200 ms Pause), überspringt Erledigtes
-    (Vorschaubilder da, Original ≤ 2000 px – nur Dateikopf gelesen), pausiert bei Import (`importLaeuft()`) und
+    (Vorschaubilder da, Original weder größer als 2000 px noch schwerer als 1,5 MB – oder schon geprüft: Vorschaubilder
+    nicht älter als das Original; gelesen werden nur Dateikopf und Zeitstempel), pausiert bei Import (`importLaeuft()`) und
     Sicherung (`<ablage>/.sicherung.lock` des Server-Managers), bricht beim Beenden ab und macht beim nächsten Start
     weiter. Nach einer Datenbank-Migration (Update) startet sie erst nach der **Schonfrist** von 15 Minuten
-    (`sperre.ts`, `SCHONFRIST_NACH_MIGRATION_MS`); so lange ersetzen auch Hochladen und Abruf kein Original (nur
-    Vorschaubilder), weil ein Rückfall des Server-Managers nur die Datenbank zurückspielt. Log: „Bildpflege: 22 Bilder geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder erzeugt (…)“.
+    (`sperre.ts`, `SCHONFRIST_NACH_MIGRATION_MS`; beim Start nachgeprüft, läuft sie noch, wartet der Lauf weiter); so lange
+    ersetzen auch Hochladen und Abruf kein Original (nur Vorschaubilder), weil ein Rückfall des Server-Managers nur die
+    Datenbank zurückspielt. **Zurückgestellt** heißt: Ein zu großes oder zu schweres Original, das in Schonfrist, Import
+    oder Sicherung nicht ersetzt werden durfte, bekommt Vorschaubilder mit einem Zeitstempel vor dem des Originals
+    (`dienst.ts` `zurueckdatieren`) – daran erkennt `erledigt()` ohne Dekodieren, dass noch etwas aussteht, und der
+    nächste Lauf holt es nach. Log: „Bildpflege: 22 Bilder geprüft, 18 verkleinert (44,8 MB → 5,6 MB), 44 Vorschaubilder erzeugt (…)“.
   - **Client:** `ItemImage` mit `groesse` (`karte` Katalogkarte, `mini` kleine Vorschauen, `original` Galerie) und
     `sizes`; `client/src/lib/bildQuellen.ts` baut `srcset` (mini 360w, karte 1080w, Original 2000w als oberste Stufe; der Browser nimmt die kleinste ausreichende Fassung).
 - **Updates ab 1.6.3:** Die Übernahme aus der JSON-Zeit (Daten, `mail.json`, `.session-secret`, `mosaik3lab.config.json`)

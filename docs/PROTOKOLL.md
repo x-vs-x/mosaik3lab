@@ -2,6 +2,62 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-19 – Endprobe vor 1.8.1, Funde F1–F3: Bildpflege nach der Schonfrist, Entwurf beim Schließen (Unter-Session, Branch: fix/bildpflege-nach-schonfrist)
+- **Auftrag:** die drei Funde aus `_testdaten\endprobe-1.8.1\BERICHT.md` beheben, jeder Schritt belegt; PR 50, nicht gemergt.
+- **F1 (mittel) – Ursache belegt:** `BildDienst.rechne` markiert ein Original, das gerade nicht ersetzt werden darf
+  (Schonfrist, Import, Sicherung), indem es die Vorschaubilder 2 s **vor** das Original datiert – für beide Gründe aus
+  `verarbeitung.ts` („zu groß“ > 2000 px und „zu schwer“ > 1,5 MB ohne Transparenz). `erledigt()` verglich die Zeitstempel
+  aber nur bei > 2000 px und meldete jedes kleinere Bild mit Vorschaubildern sofort als fertig. Schwere PNG-Fotos blieben so
+  für immer liegen, sobald ihr Vorschaubild in der Schonfrist entstanden war.
+  - **Lösung (eine Stelle):** `erledigt()` vergleicht die Zeitstempel jetzt auch, wenn die Datei über 1,5 MB hat. Kein
+    Dekodieren: Dateikopf und zwei `stat`. „Geprüft, keine 20 %“ bleibt erkennbar (Vorschaubilder werden dabei neu
+    geschrieben, also nicht älter als das Original), „gescheitert“-Merker unverändert.
+  - **Bestehende Installationen** (Entwicklungsrechner): werden ohne Zutun nachgeholt, weil die Markierung (zurückdatierte
+    Vorschaubilder) schon in der Ablage liegt – beim nächsten Start-Lauf, Kosten ein `stat` je Bild über 1,5 MB.
+- **F2 (gering) – Ursache belegt:** Der Start-Lauf ist per `setTimeout` auf das Ende der Schonfrist gelegt; der Timer zählt
+  mit der monotonen Uhr, die Schonfrist prüft die Wanduhr (`Date.now`). Gemessen auf diesem Rechner: ein Timer über
+  15 Minuten feuert **12 ms vor** dem Soll-Zeitpunkt der Wanduhr (`timer15.mjs`), der echte Start-Lauf der Probe 1 ms davor
+  (`[timerlog] … Soll 02:40:18.517Z, feuert 02:40:18.516Z`). Für das erste Bild galt die Schonfrist also noch, es wurde
+  erneut zurückgestellt. Mit nur 22 s Rest (Nachstellung mit dem alten Code) feuerte der Timer 6 ms nach dem Ende und
+  beide Bilder wurden verkleinert – der Fehler zeigt sich also erst über die vollen 15 Minuten.
+  - **Lösung:** Der Timer prüft beim Feuern nach (`Bildpflege.starteNach`): Läuft die Schonfrist noch, wartet der Lauf ihren
+    Rest plus 1 s ab (höchstens eine Minute am Stück, dann erneut prüfen) und stellt nichts zurück. Zusätzlich meldet
+    `verarbeite()` jetzt `zurueckgestellt`; endet Schonfrist oder Sperre, während ein Bild gerechnet wird (oder lief es noch
+    für einen Abruf von vorher), kommt es im selben Lauf einmal noch dran.
+- **F3 (gering, Client) – Ursache:** `useEntwurf` brach den 500-ms-Timer beim Schließen des Fensters ab. **Lösung:** Das
+  verzögerte Speichern steckt in `entwurfSchreiber` (`lib/entwurfSpeicher.ts`); beim Schließen (`enabled` aus), bei anderem
+  Datensatz und beim Verlassen der Seite schreibt `useEntwurf` den ausstehenden Stand sofort. `clear()`/„Verwerfen“ leeren
+  auch den ausstehenden Stand – nach Verwerfen und Absenden taucht nichts wieder auf. Gilt auch fürs Vorschlagsformular.
+- **Tests:** `server/test/bildpflege-zurueckgestellt.test.ts` (5, Uhr gestellt): schweres PNG ≤ 2000 px in der Schonfrist →
+  danach JPG, `datei`-Zeile/Größe/Prüfsumme passen; dasselbe nach Import- und Sicherungssperre; geprüftes Bild („keine
+  20 %“, auch schwer bei ≤ 2000 px) wird in drei weiteren Läufen nicht dekodiert (Zähler am Rechen-Thread); F2 mit Timer
+  5 ms vor Fristende und mit Fristende mitten im ersten Bild. Mit dem alten Code sind 4 von 5 rot (der Dekodier-Zähler ist
+  die Absicherung gegen eine zu grobe Korrektur und war schon grün). `client/test/entwurfSchreiber.test.ts` (5).
+  `npm run typecheck`, `npm run lint` (0 Fehler), `npm test` grün.
+- **Probe mit echten Daten** (Kopie von `importtest\quelle`, Stand 1.6.3, Paket-Bundle, Port 3014, Mail: Bereich `mail`
+  leer, Mail-Ports per `--import` gesperrt, 0 Versuche): Start 03:25:18 mit Migration 018–023, Schonfrist bis 03:40:18.
+  03:25:30 Katalog und alle 23 Druckteile abgerufen (48 Bilder, 96 Abrufe, alle 200) → 96 Vorschaubilder, 48/48 Originale
+  und `datei`-Zeilen bis 03:39:54 unverändert (SHA-256, Änderungszeit). Nach der vollen Schonfrist von selbst:
+  `Bildpflege: 48 Bilder geprüft, 36 verkleinert (87,8 MB → 12,1 MB), 78 Vorschaubilder erzeugt (43 s)` – wie in der
+  Gegenprobe der Endprobe ohne Abruf: **17 PNG → JPG**, Originale 99,4 MB → **23,7 MB**; es bleiben die drei JPG
+  2048 × 2048 (20-%-Regel) und ein PNG mit Transparenz (4,9 MB). 0 `*.neu`, 48/48 Zeilen mit passender Datei, 0 verwaist,
+  kein Bild mehr zurückgestellt, `/api/health` 1102 von 1102 ok (längste Antwort 41 ms).
+  **Neustart** 03:45:36 (keine Migration, keine neue Sicherung, keine Schonfrist-Zeile), Lauf nach 5 Minuten:
+  `Bildpflege: 48 Bilder geprüft, 0 verkleinert, 0 Vorschaubilder erzeugt (0 s)`, 144/144 Dateien und 48/48 Zeilen
+  unverändert, Health 328 von 328 ok.
+- **Klicktest F3** (Entwicklungsserver 5188/3018, Demo-Daten, nur schmales Fenster mit 310 px): „Team Schnell“ 0,1 s vor
+  „Abbrechen“ getippt → 60 ms danach im Entwurf, nach Neuladen im Fenster („Entwurf … wiederhergestellt“); nach
+  „Verwerfen“ und nach „Anfrage senden“ kein Entwurf, auch nicht nach dem Schließen.
+- **Dateien:** `server/src/kern/bilder/{dienst,bildpflege}.ts`, `client/src/lib/{useEntwurf,entwurfSpeicher}.ts`, zwei neue
+  Testdateien, `docs/ARCHITEKTUR.md`, `CHANGELOG.md` (Zeile zur Schonfrist präzisiert, neue Zeile zum Entwurf).
+- **Checkliste:** Daten – keine Migration, kein Original wird in der Schonfrist angefasst (nachgewiesen); Stabilität –
+  Fehlerfälle wie bisher (Original bleibt, „gescheitert“-Merker); Tests – siehe oben; Sicherheit/Barrierefreiheit – nicht
+  berührt.
+- **Offen (bewusst klein gehalten):** Ein Bild, das während einer Sicherung des Server-Managers hochgeladen oder abgerufen
+  und deshalb zurückgestellt wird, holt wie bisher erst der nächste Start-Lauf nach (kein eigener Lauf nach der Sicherung).
+- **Aufgeräumt:** Testserver (3014, 5188/3018) gestoppt, `_testdaten\f1-probe` mit Kopie, Skripten und Logs gelöscht;
+  `importtest\quelle` unverändert (54 Dateien, SHA-256 vorher = nachher). Worktree `mosaik3lab-f1` bleibt bis zum Merge.
+
 ## 2026-11-19 – Nachtrag vor 1.8.1: Sicherungen vor Migrationen ausdünnen, Schonfrist für Originalbilder (Unter-Session, Branch: fix/fable-nachtrag)
 - **Auftrag:** zwei Funde aus dem Prüfdurchgang vor 1.8.1 (von zwei Prüfern gemeldet); nur `server/` und `docs/`.
 - **1. Sicherungen `vor-schema` – belegt:** `kern/db.ts` legte vor jeder Migration eine unverschlüsselte Kopie in

@@ -13,6 +13,9 @@ daraus die nächste Version.
 - **Bilder werden nach einem Update erst später verkleinert:** In den ersten 15 Minuten nach einem Update mit
   Datenbank-Änderung ersetzt die App kein Originalbild. So passen Bilder und Datenbank auch dann zusammen, wenn das Update
   doch noch scheitert und der Server-Manager auf die vorige Version zurückschaltet. Vorschaubilder gibt es wie bisher sofort.
+  Danach holt die Bildpflege alles nach, auch wenn der Katalog in diesen 15 Minuten schon geöffnet wurde: zu große Bilder
+  werden verkleinert, schwere PNG-Fotos als JPG gespeichert. Dasselbe gilt für Bilder, die während eines Imports, Exports
+  oder einer Sicherung hochgeladen oder abgerufen wurden – schwere Bilder bis 2000 px blieben dabei bisher unverändert.
 - **Server-Manager: stabiler und verständlicher** (Durchsicht der Oberfläche vor 1.8.1):
   - **Absturz behoben:** Eine kaputte Adresse (z. B. `…/manager//`) konnte den Server-Manager beenden – er lehnt sie jetzt
     nur noch ab. Auch sonst beendet kein Fehler einer einzelnen Anfrage mehr das Programm.
@@ -37,6 +40,9 @@ daraus die nächste Version.
   Seite schon da, und „Druckteil anfragen“ zeigt den Entwurf mit „Verwerfen“. Nach einem Neuladen mitten in der Anfrage
   (Handy wechselt die App) kommt das Fenster weiterhin von selbst wieder. Außerdem behoben: Ging man bei offenem Fenster im
   Browser „Zurück“ oder „Vor“ zu einem anderen Druckteil, stand das Anfrage-Fenster plötzlich bei diesem.
+- **Entwurf merkt sich auch die letzte Eingabe:** Was man direkt vor „Abbrechen“ oder dem Verlassen der Seite getippt hat
+  (letzte halbe Sekunde), fehlte bisher im Entwurf der Anfrage bzw. des Vorschlags. Jetzt wird beim Schließen sofort
+  gespeichert. Nach „Verwerfen“ und nach dem Absenden bleibt wie bisher kein Entwurf zurück.
 - **Viele Farben in einer Zeile:** Einfarbige Druckteile mit mehr als 8 Farben zeigen statt vieler Knöpfe eine Zeile
   „Farbe wählen“; ein Tipp öffnet das Farbwahl-Fenster mit Suche und Farbfamilien – auf der Druckteil-Seite und im
   Anfrage-Fenster (auch bei „Weitere Farbe“). Bis 8 Farben bleiben die Knöpfe.

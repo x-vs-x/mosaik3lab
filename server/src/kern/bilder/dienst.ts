@@ -9,7 +9,16 @@ import path from 'node:path';
 import { newId } from '../ids';
 import type { Datei, FileStore } from '../files';
 import { leseKopf } from './format';
-import { gescheitertRel, MINDEST_ERSPARNIS, ORIGINAL_MAX_KANTE, VORSCHAU, VORSCHAU_GROESSEN, vorschauRel, type VorschauGroesse } from './groessen';
+import {
+  gescheitertRel,
+  MINDEST_ERSPARNIS,
+  ORIGINAL_MAX_KANTE,
+  ORIGINAL_ZU_GROSS_BYTES,
+  VORSCHAU,
+  VORSCHAU_GROESSEN,
+  vorschauRel,
+  type VorschauGroesse,
+} from './groessen';
 import { BildFehler, BildRechner, type Prioritaet } from './rechner';
 import { bildpflegeWartetAuf } from './sperre';
 
@@ -19,6 +28,8 @@ export interface Verarbeitet {
   /** Original ersetzt: Bytes vorher/nachher. */
   verkleinert?: { vorher: number; nachher: number };
   vorschauNeu: number;
+  /** Original ist zu groß, durfte aber gerade nicht ersetzt werden (Schonfrist, Import, Sicherung) – steht noch aus. */
+  zurueckgestellt: boolean;
 }
 
 export const istDruckteilBild = (d: Pick<Datei, 'objekttyp' | 'rolle'>) => d.objekttyp === 'artikel' && d.rolle === 'bild';
@@ -60,16 +71,27 @@ export class BildDienst {
     return true;
   }
 
+  /** Gerade darf kein Original ersetzt werden: Import, Export oder Sicherung läuft – oder die Schonfrist nach einer Migration. */
+  originaleGesperrt(): boolean {
+    return bildpflegeWartetAuf(this.files.root) !== null || this.schonfristMs() > 0;
+  }
+
   /**
-   * Nichts mehr zu tun: alle Vorschaubilder da und das Original nicht größer als 2000 px (nur der Dateikopf wird gelesen) –
+   * Nichts mehr zu tun: alle Vorschaubilder da und das Original weder größer als 2000 px noch „zu schwer“ (Dateigröße) –
    * oder schon geprüft: Vorschaubilder nicht älter als das Original (Verkleinern brachte keine 20 %, Original blieb).
+   * Ein zurückgestelltes Bild (Schonfrist, Import, Sicherung) hat ältere Vorschaubilder (zurueckdatieren) und gilt deshalb
+   * nicht als erledigt. Gelesen werden nur Dateikopf und Zeitstempel, dekodiert wird hier nichts.
    */
   async erledigt(d: Datei): Promise<boolean> {
     if (!(await this.hatVorschau(d.id))) return false;
     const original = this.files.absPath(d);
     const kopf = await leseDateikopf(original);
-    if (!kopf || Math.max(kopf.breite, kopf.hoehe) <= ORIGINAL_MAX_KANTE) return true;
-    const [o, v] = await Promise.all([fs.stat(original).catch(() => undefined), fs.stat(this.vorschauPfad(d.id, 'karte')).catch(() => undefined)]);
+    if (!kopf) return true;
+    const o = await fs.stat(original).catch(() => undefined);
+    // Dieselben zwei Gründe wie in verarbeitung.ts (zuGross, zuSchwer) – nur dann kann noch etwas ausstehen.
+    const zuGross = Math.max(kopf.breite, kopf.hoehe) > ORIGINAL_MAX_KANTE || (o?.size ?? 0) > ORIGINAL_ZU_GROSS_BYTES;
+    if (!zuGross) return true;
+    const v = await fs.stat(this.vorschauPfad(d.id, 'karte')).catch(() => undefined);
     return !!o && !!v && v.mtimeMs >= o.mtimeMs;
   }
 
@@ -121,7 +143,7 @@ export class BildDienst {
 
   private async rechne(d: Datei, prio: Prioritaet): Promise<Verarbeitet> {
     if (!verarbeitbar(d)) throw new BildFehler('Format wird nicht unterstützt (nur JPG und PNG).', true);
-    const gesperrt = () => bildpflegeWartetAuf(this.files.root) !== null || this.schonfristMs() > 0;
+    const gesperrt = () => this.originaleGesperrt();
     try {
       const original = this.files.absPath(d);
       const vorschau = VORSCHAU_GROESSEN.map((g) => ({ name: g, breite: VORSCHAU[g].breite }));
@@ -137,18 +159,19 @@ export class BildDienst {
         aktuell = await this.files.replace(d.id, Buffer.from(e.original.daten.buffer, e.original.daten.byteOffset, e.original.daten.byteLength), ext, name);
         verkleinert = { vorher: e.bytes, nachher: aktuell.groesse };
       }
+      const zurueckgestellt = nurVorschau && e.originalZuGross;
       let vorschauNeu = 0;
       for (const v of e.vorschau) {
         const ziel = this.vorschauPfad(d.id, v.name as VorschauGroesse);
         await schreibeSicher(ziel, v.daten);
         // Original durfte gerade nicht ersetzt werden, ist aber zu groß: Vorschaubilder älter als das Original stempeln,
         // dann gilt das Bild nicht als erledigt und die Bildpflege verkleinert es später.
-        if (nurVorschau && e.originalZuGross) await zurueckdatieren(ziel, original);
+        if (zurueckgestellt) await zurueckdatieren(ziel, original);
         vorschauNeu++;
       }
       this.gescheitert.delete(d.id);
       await fs.rm(this.gescheitertPfad(d.id), { force: true }).catch(() => undefined);
-      return { datei: aktuell, verkleinert, vorschauNeu };
+      return { datei: aktuell, verkleinert, vorschauNeu, zurueckgestellt };
     } catch (err) {
       // Fehler außerhalb des Rechen-Threads (Platte, Datenbank) liegen nicht am Bild → vorübergehend.
       const f = err instanceof BildFehler ? err : new BildFehler((err as Error).message, false, true);

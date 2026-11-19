@@ -2,7 +2,8 @@
 // Läuft einmal einige Minuten nach dem Start (fehlen viele Vorschaubilder, z. B. nach Wiederherstellen: nach einer Minute;
 // nach einer Datenbank-Migration frühestens nach der Schonfrist, sperre.ts) und für nachgereichte Bilder (Import, Abruf
 // bei belegtem Rechen-Thread). Geht alle Druckteil-Bilder durch:
-// erledigte werden schnell übersprungen (Vorschaubilder da, Original ≤ 2000 px oder schon geprüft), sonst verarbeitet (dienst.ts).
+// erledigte werden schnell übersprungen (Vorschaubilder da, Original weder zu groß noch zu schwer oder schon geprüft), sonst
+// verarbeitet (dienst.ts). Was in Schonfrist, Import oder Sicherung zurückgestellt wurde, ist nicht erledigt und kommt dran.
 // Ein Bild zur Zeit mit kurzer Pause, pausiert bei Import/Export/Sicherung, bricht beim Beenden sauber ab und macht beim nächsten
 // Lauf weiter. Fehler bei einem Bild → überspringen und ins Log, die App läuft immer weiter.
 import fs from 'node:fs/promises';
@@ -25,6 +26,12 @@ export interface BildpflegeBericht {
 
 /** Ab so vielen fehlenden Vorschaubildern startet die Bildpflege früher. */
 const VIELE_FEHLEN = 10;
+/**
+ * Läuft die Schonfrist noch, wenn der Start-Lauf beginnen soll, wartet er ihren Rest und diesen Abstand ab. Der Timer zählt
+ * mit einer anderen Uhr (monoton) als die Schonfrist (Wanduhr) und kann deshalb ein paar Millisekunden vor ihrem Ende
+ * feuern – ohne die Nachprüfung würde das erste Bild des Laufs noch einmal zurückgestellt.
+ */
+const NACH_SCHONFRIST_MS = 1000;
 
 /**
  * Wartezeit bis zum Start-Lauf: `nachMs`, bei vielen fehlenden Vorschaubildern schon `baldMs` – nach einer Migration aber
@@ -58,20 +65,40 @@ export class Bildpflege {
   constructor(
     private readonly files: FileStore,
     private readonly dienst: BildDienst,
-    private readonly opts: { pauseMs?: number; warteMs?: number; log?: (text: string) => void; warn?: (text: string) => void } = {},
+    private readonly opts: {
+      pauseMs?: number;
+      warteMs?: number;
+      /** Abstand nach dem Ende der Schonfrist (Standard NACH_SCHONFRIST_MS, in Tests kürzer). */
+      nachSchonfristMs?: number;
+      log?: (text: string) => void;
+      warn?: (text: string) => void;
+    } = {},
   ) {}
 
   /**
    * Start-Lauf nach `nachMs` (negativ = nie); fehlen viele Vorschaubilder, schon nach `baldMs`; nach einer Migration erst
-   * nach der Schonfrist (startWartezeit). Der Timer hält den Prozess nicht am Leben. → geplante Wartezeit in ms.
+   * nach der Schonfrist (startWartezeit, beim Start nachgeprüft: starteNach). Der Timer hält den Prozess nicht am Leben.
+   * → geplante Wartezeit in ms.
    */
   async planeStart(nachMs: number, baldMs = 60_000): Promise<number | undefined> {
     if (nachMs < 0) return undefined;
     const warte = startWartezeit(nachMs, baldMs, (await this.fehlendeVorschau()) >= VIELE_FEHLEN, this.dienst.schonfristMs());
     if (this.abbruch.signal.aborted) return undefined;
-    this.startTimer = setTimeout(() => void this.alle(), warte);
-    this.startTimer.unref();
+    this.starteNach(warte);
     return warte;
+  }
+
+  /**
+   * Start-Lauf nach `ms`. Läuft die Schonfrist dann noch, wird weiter gewartet (höchstens eine Minute am Stück, dann neu
+   * geprüft) – der Lauf würde sonst seine ersten Bilder zurückstellen, statt sie zu verkleinern.
+   */
+  private starteNach(ms: number) {
+    this.startTimer = setTimeout(() => {
+      const rest = this.dienst.schonfristMs();
+      if (rest > 0) this.starteNach(Math.min(rest, 60_000) + (this.opts.nachSchonfristMs ?? NACH_SCHONFRIST_MS));
+      else void this.alle();
+    }, ms);
+    this.startTimer.unref();
   }
 
   /** Grobe Zahl fehlender Vorschaubilder (Bilder minus Dateien im Ordner „karte“) – ein Verzeichnis lesen, kein stat je Bild. */
@@ -122,6 +149,7 @@ export class Bildpflege {
   private async arbeite() {
     const signal = this.abbruch.signal;
     const t0 = Date.now();
+    const wiederholt = new Set<string>();
     while (this.schlange.length && !signal.aborted) {
       await this.warteBisFrei();
       if (signal.aborted) break;
@@ -137,6 +165,13 @@ export class Bildpflege {
           this.bericht.verkleinert++;
           this.bericht.vorher += r.verkleinert.vorher;
           this.bericht.nachher += r.verkleinert.nachher;
+        }
+        // Schonfrist oder Sperre endete, während das Bild gerechnet wurde (oder es lief schon für einen Abruf von vorher):
+        // einmal noch in diesem Lauf – sonst bliebe es bis zum nächsten Start der App zu groß.
+        if (r.zurueckgestellt && !wiederholt.has(id) && !this.dienst.originaleGesperrt()) {
+          wiederholt.add(id);
+          this.schlange.push(id);
+          this.bericht.geprueft--;
         }
       } catch (err) {
         if (signal.aborted) break;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ladeEntwurf, loescheEntwurf, raeumeAlteEntwuerfeAuf, speichereEntwurf } from './entwurfSpeicher';
+import { entwurfSchreiber, ladeEntwurf, loescheEntwurf, raeumeAlteEntwuerfeAuf, speichereEntwurf } from './entwurfSpeicher';
 
 const VERZOEGERUNG_MS = 500;
 const VERLASSEN_FRAGE =
@@ -31,7 +31,7 @@ export function useEntwurf<T extends object>(key: string | null, value: T, apply
   const [, rerender] = useState(0);
   const basis = useRef<{ json: string; value: T }>({ json, value });
   const rebase = useRef(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [schreiber] = useState(() => entwurfSchreiber(VERZOEGERUNG_MS));
   const latest = useRef({ key, json, stored, dirty: false });
 
   // Beim Öffnen (bzw. bei neuem Schlüssel) einmalig: Ausgangszustand merken, Entwurf wiederherstellen.
@@ -64,15 +64,19 @@ export function useEntwurf<T extends object>(key: string | null, value: T, apply
   const dirty = active && !rebase.current && json !== basis.current.json;
   latest.current = { key, json, stored, dirty };
 
+  // Verzögert speichern; jede Änderung beginnt die Wartezeit neu. Ausgangszustand → kein Entwurf.
   useEffect(() => {
     if (!active || !key) return;
-    if (!dirty) {
-      loescheEntwurf(key);
-      return;
-    }
-    timer.current = setTimeout(() => speichereEntwurf(key, latest.current.stored), VERZOEGERUNG_MS);
-    return () => clearTimeout(timer.current);
-  }, [active, dirty, key, json]);
+    if (dirty) schreiber.plane(key, latest.current.stored);
+    else schreiber.verwerfen(key);
+  }, [active, dirty, key, json, schreiber]);
+
+  // Fenster geschlossen (`enabled` aus), anderer Datensatz oder Seite verlassen: Was noch aussteht, sofort sichern – sonst
+  // fehlt, was in der letzten halben Sekunde getippt wurde. Nach clear()/discard() steht nichts mehr aus.
+  useEffect(() => {
+    if (!active) return;
+    return () => schreiber.sofort();
+  }, [active, key, schreiber]);
 
   // Tab wird versteckt/geschlossen (Handy wechselt zur Kamera): sofort sichern, nicht erst nach 500 ms.
   useEffect(() => {
@@ -93,12 +97,11 @@ export function useEntwurf<T extends object>(key: string | null, value: T, apply
   useVerlassenWarnung(dirty);
 
   const clear = useCallback(() => {
-    clearTimeout(timer.current);
-    if (key) loescheEntwurf(key);
+    schreiber.verwerfen(key);
     rebase.current = true;
     setRestored(null);
     rerender((n) => n + 1);
-  }, [key]);
+  }, [key, schreiber]);
 
   const discard = useCallback(() => {
     apply(basis.current.value);

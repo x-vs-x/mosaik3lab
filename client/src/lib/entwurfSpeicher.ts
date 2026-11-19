@@ -56,3 +56,33 @@ export function raeumeAlteEntwuerfeAuf(now = Date.now()) {
     // egal
   }
 }
+
+/**
+ * Verzögertes Speichern eines Entwurfs (useEntwurf): Beim Tippen wird erst nach einer kurzen Pause geschrieben.
+ * `sofort()` schreibt den ausstehenden Stand gleich – beim Schließen des Fensters und beim Verlassen der Seite, sonst fehlt,
+ * was in der letzten halben Sekunde getippt wurde. `verwerfen()` bricht ab und löscht den Entwurf („Verwerfen“, nach dem
+ * Absenden, Formular wieder im Ausgangszustand): Danach schreibt auch ein späteres `sofort()` nichts mehr.
+ */
+export function entwurfSchreiber(verzoegerungMs: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let offen: { key: string; value: unknown } | undefined;
+  const sofort = () => {
+    clearTimeout(timer);
+    if (offen) speichereEntwurf(offen.key, offen.value);
+    offen = undefined;
+  };
+  return {
+    /** Neuer Stand: Wartezeit beginnt von vorn, geschrieben wird immer der letzte Stand. */
+    plane(key: string, value: unknown) {
+      clearTimeout(timer);
+      offen = { key, value };
+      timer = setTimeout(sofort, verzoegerungMs);
+    },
+    sofort,
+    verwerfen(key?: string | null) {
+      clearTimeout(timer);
+      offen = undefined;
+      if (key) loescheEntwurf(key);
+    },
+  };
+}
