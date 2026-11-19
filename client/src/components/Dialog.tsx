@@ -97,7 +97,7 @@ export function Dialog({
             <button
               type="button"
               onClick={onClose}
-              className="-mr-2 -mt-1 grid size-11 shrink-0 place-items-center rounded-xl text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+              className="-mr-2 -mt-1 grid size-tipp shrink-0 place-items-center rounded-xl text-stone-500 hover:bg-stone-100 hover:text-stone-900"
               aria-label="Dialog schließen"
             >
               <X className="size-5 sm:size-6" aria-hidden />

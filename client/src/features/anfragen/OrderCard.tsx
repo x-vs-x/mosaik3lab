@@ -56,7 +56,7 @@ export function OrderCard({
                   Nr. {order.number} · <time dateTime={order.createdAt}>{formatDate(order.createdAt)}</time>
                 </p>
                 <h2 id={`order-${order.id}`} className="mt-0.5 wrap-anywhere text-abschnitt font-bold text-stone-900 sm:mt-1 sm:text-xl">
-                  <Link to={`/katalog/${order.itemId}`} className="inline-flex min-h-11 items-center hover:text-brand-800 hover:underline">
+                  <Link to={`/katalog/${order.itemId}`} className="inline-flex min-h-tipp items-center hover:text-brand-800 hover:underline">
                     {order.itemName}
                   </Link>
                 </h2>

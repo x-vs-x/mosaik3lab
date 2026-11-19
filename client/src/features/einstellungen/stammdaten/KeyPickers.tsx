@@ -15,7 +15,7 @@ export function ColorKeyPicker({ name, value, onChange, legend }: { name: string
             <label
               key={c}
               className={cx(
-                'inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full py-1 pl-1.5 pr-3.5 text-hinweis font-bold ring-1 ring-inset transition-colors',
+                'inline-flex min-h-tipp cursor-pointer items-center gap-2 rounded-full py-1 pl-1.5 pr-3.5 text-hinweis font-bold ring-1 ring-inset transition-colors',
                 'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-600',
                 checked ? 'bg-white text-stone-900 ring-2 ring-stone-900' : 'bg-white text-stone-700 ring-stone-300 hover:bg-stone-50',
               )}

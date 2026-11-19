@@ -166,7 +166,7 @@ export function FarbeZuordnenDialog({
                         gewaehlt ? 'bg-brand-50 ring-brand-400' : 'bg-white ring-stone-300',
                       )}
                     >
-                      <label className="flex min-h-11 cursor-pointer items-center gap-3">
+                      <label className="flex min-h-tipp cursor-pointer items-center gap-3">
                         <input
                           type="checkbox"
                           checked={!!gewaehlt}
@@ -184,7 +184,7 @@ export function FarbeZuordnenDialog({
                       {mehrere && gewaehlt && (
                         <div className="mb-1 ml-8 flex flex-wrap gap-x-4 gap-y-1" role="group" aria-label={`Farbbereiche von ${item.name}`}>
                           {offen.map((a) => (
-                            <label key={a.id} className="inline-flex min-h-10 items-center gap-2 text-hinweis">
+                            <label key={a.id} className="inline-flex min-h-tipp items-center gap-2 text-hinweis">
                               <input
                                 type="checkbox"
                                 checked={gewaehlt.has(a.id)}

@@ -10,7 +10,7 @@ export function Aufklappen({ label, open: forceOpen, children }: { label: string
 
   return (
     <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)} className="group">
-      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 py-1 rounded-xl px-2 font-bold text-brand-700 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 [&::-webkit-details-marker]:hidden">
+      <summary className="inline-flex min-h-tipp cursor-pointer list-none items-center gap-1.5 py-1 rounded-xl px-2 font-bold text-brand-700 hover:text-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 [&::-webkit-details-marker]:hidden">
         <ChevronDown className="size-5 shrink-0 self-start mt-0.5 transition-transform group-open:rotate-180" aria-hidden />
         {label}
       </summary>

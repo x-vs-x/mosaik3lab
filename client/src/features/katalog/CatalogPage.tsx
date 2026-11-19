@@ -102,14 +102,14 @@ export function CatalogPage() {
             // Kurz genug für 320 px breite Handys (vorher „… oder „Essen““ abgeschnitten).
             placeholder="Suchen, z. B. „Stift“"
             className="md:col-span-2 xl:flex-1"
-            inputClassName="block min-h-11 w-full rounded-xl border border-stone-300 bg-stone-50/60 pl-12 pr-4 text-base sm:min-h-13 sm:rounded-2xl placeholder:text-stone-500 hover:border-stone-400 focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-600/20"
+            inputClassName="block min-h-tipp w-full rounded-xl border border-stone-300 bg-stone-50/60 pl-12 pr-4 text-base sm:min-h-13 sm:rounded-2xl placeholder:text-stone-500 hover:border-stone-400 focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-600/20"
           />
           <button
             type="button"
             onClick={() => setFilterOpen((o) => !o)}
             aria-expanded={filterOpen}
             aria-controls="catalog-filter-art catalog-filter-bereich catalog-filter-kategorie"
-            className="flex min-h-11 items-center gap-2 rounded-xl px-3 font-bold text-stone-800 ring-1 ring-inset ring-stone-300 hover:bg-stone-50 sm:hidden"
+            className="flex min-h-tipp items-center gap-2 rounded-xl px-3 font-bold text-stone-800 ring-1 ring-inset ring-stone-300 hover:bg-stone-50 sm:hidden"
           >
             <SlidersHorizontal className="size-5" aria-hidden />
             Filter{activeFilters > 0 && ` (${activeFilters} aktiv)`}

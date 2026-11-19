@@ -255,7 +255,7 @@ export function MyOrdersPage() {
                     aria-pressed={tab === key}
                     onClick={() => setTab(key)}
                     className={cx(
-                      'min-h-11 rounded-xl px-3 font-bold transition-colors sm:min-h-12 sm:px-4',
+                      'min-h-tipp rounded-xl px-3 font-bold transition-colors sm:min-h-12 sm:px-4',
                       tab === key ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-700 hover:text-stone-900',
                     )}
                   >

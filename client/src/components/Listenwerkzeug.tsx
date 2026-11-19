@@ -29,7 +29,7 @@ export function FilterKnopf({
       aria-pressed={active}
       onClick={onClick}
       className={cx(
-        'inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full px-3.5 text-base font-bold transition-colors sm:gap-2 sm:px-4',
+        'inline-flex min-h-tipp max-w-full items-center gap-1.5 rounded-full px-3.5 text-base font-bold transition-colors sm:gap-2 sm:px-4',
         active ? 'bg-stone-900 text-white' : 'bg-white text-stone-700 ring-1 ring-inset ring-stone-300 hover:bg-stone-50 hover:ring-stone-400',
       )}
     >

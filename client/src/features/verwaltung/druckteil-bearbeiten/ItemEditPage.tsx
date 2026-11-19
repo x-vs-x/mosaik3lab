@@ -31,7 +31,7 @@ export function ItemEditPage() {
     <>
       <Link
         to="/verwaltung/hilfsmittel"
-        className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-xl pr-3 font-bold text-stone-700 hover:text-brand-800"
+        className="mb-4 inline-flex min-h-tipp items-center gap-2 rounded-xl pr-3 font-bold text-stone-700 hover:text-brand-800"
       >
         <ArrowLeft className="size-5" aria-hidden />
         Zur Übersicht

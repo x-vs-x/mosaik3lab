@@ -6,6 +6,10 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Tippflächen überall mindestens 44 px:** Alle Knöpfe, Links, Schalter, Häkchen und Eingabefelder sind in der ganzen
+  App auf Handy, Tablet und PC mindestens 44 px hoch, Symbol-Knöpfe auch 44 px breit (vorher oft nur 41 px) – z. B. Logo
+  und „Menü“, Suchfeld, „Filter“ und Kategorien im Katalog, das × in Fenstern, „Anmelden“/„Abmelden“, Statusfilter,
+  Schalter und Häkchen in der Verwaltung. Ausnahme sind nur Links mitten im Fließtext.
 - **Druckteil-Seite neu aufgeteilt:** Links steht alles, was fest zum Druckteil gehört – Bilder und Videos in einer Galerie,
   darunter kompakt Druckdauer, Material, Preis, Art und Einsatzbereiche, dann Beschreibung, Materialinformationen, Links und
   (nur für das Druck-Team) Sicherheitshinweise. Rechts stehen Titel und alles, was man wählt: Farbe bzw. Farbe je Teil
@@ -17,7 +21,6 @@ daraus die nächste Version.
     ohne Autoplay. YouTube-/Vimeo-Links erscheinen als Kachel „Bei youtube.com ansehen“ (neuer Tab, nichts eingebettet).
   - **iPad quer jetzt zweispaltig;** die rechte Spalte läuft beim Scrollen mit, wenn sie ganz ins Fenster passt. Auf dem
     Handy kommt „Druckteil anfragen“ direkt nach Titel und Auswahl, die Beschreibung danach.
-  - Knöpfe und Eingabefelder sind auf dem Handy jetzt mindestens 44 px hoch (vorher 41 px).
 - **Mehrfarbige Druckteile übersichtlich – bis zu 20 Teile:** Ein Druckteil kann jetzt aus bis zu 20 Teilen bestehen
   (vorher 8), jedes Teil mit eigener Farbe.
   - **Anfragen:** Die Teile stehen als kurze Liste (Farbtupfer, Teilname, Farbname). Ein Tipp öffnet das Farbwahl-Fenster

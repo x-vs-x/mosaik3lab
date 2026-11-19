@@ -196,7 +196,7 @@ export function ItemsAdminPage() {
                   onClick={() => setAnsicht(a.id)}
                   data-testid={`ansicht-${a.id}`}
                   className={cx(
-                    'inline-flex min-h-12 min-w-0 flex-auto flex-col items-center justify-center rounded-xl px-2 py-1 font-bold leading-tight ring-1 sm:min-h-11 sm:flex-none sm:flex-row sm:gap-1.5 sm:px-4',
+                    'inline-flex min-h-12 min-w-0 flex-auto flex-col items-center justify-center rounded-xl px-2 py-1 font-bold leading-tight ring-1 sm:min-h-tipp sm:flex-none sm:flex-row sm:gap-1.5 sm:px-4',
                     ansicht === a.id ? 'bg-brand-700 text-white ring-brand-700' : 'bg-white text-stone-700 ring-stone-300 hover:bg-stone-50',
                   )}
                 >
@@ -214,7 +214,7 @@ export function ItemsAdminPage() {
 
           {canExport && (
             <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-3 sm:px-4" data-testid="export-leiste">
-              <label className="inline-flex min-h-11 cursor-pointer items-center gap-3 font-bold text-stone-900">
+              <label className="inline-flex min-h-tipp cursor-pointer items-center gap-3 font-bold text-stone-900">
                 <input
                   type="checkbox"
                   className="size-5 accent-brand-700"
@@ -264,7 +264,7 @@ export function ItemsAdminPage() {
                   <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-4">
                     {canExport && (
                       // Tippfläche 41 px um das Häkchen; der negative Rand lässt die Zeile so breit wie bisher
-                      <label className="-m-2.5 grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl hover:bg-stone-100">
+                      <label className="-m-2.5 grid size-tipp shrink-0 cursor-pointer place-items-center rounded-xl hover:bg-stone-100">
                         <input
                           type="checkbox"
                           className="size-6 cursor-pointer accent-brand-700"
@@ -282,7 +282,7 @@ export function ItemsAdminPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <Link
                           to={canEdit ? `/verwaltung/hilfsmittel/${item.id}` : `/katalog/${item.id}`}
-                          className="inline-flex min-h-11 items-center text-base font-bold text-stone-900 hover:text-brand-800 hover:underline"
+                          className="inline-flex min-h-tipp items-center text-base font-bold text-stone-900 hover:text-brand-800 hover:underline"
                         >
                           {item.name}
                         </Link>
