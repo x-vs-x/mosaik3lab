@@ -8,8 +8,8 @@ import { useMasterData } from '../../lib/config';
 import { categoryMeta } from '../../lib/constants';
 import type { Item } from '../../lib/types';
 import { useApi, useDocumentTitle } from '../../lib/useApi';
-import { ladeEntwurf } from '../../lib/entwurfSpeicher';
-import { anfrageEntwurfSchluessel, RequestDialog } from '../anfragen/RequestDialog';
+import { ladeEntwurf, loescheEntwurf, speichereEntwurf } from '../../lib/entwurfSpeicher';
+import { anfrageEntwurfSchluessel, anfrageGeschlossenSchluessel, RequestDialog } from '../anfragen/RequestDialog';
 import { useAnfrageAuswahl } from '../anfragen/useAnfrageAuswahl';
 import { LinkKnoepfe } from './ItemLinks';
 import { MedienGalerie } from './MedienGalerie';
@@ -24,12 +24,6 @@ export function ItemDetailPage() {
   // nie das vorige Teil – sonst könnte man das falsche anfragen.
   const { data, error, loading, aktuell, reload } = useApi<Item>(`/items/${id}`);
   const item = aktuell ? data : undefined;
-  const { user, loading: authLoading } = useAuth();
-  const [requestOpen, setRequestOpen] = useState(false);
-  // Nach einem Neuladen mitten in der Anfrage (Handy wechselt App): Dialog mit dem Entwurf wieder öffnen.
-  useEffect(() => {
-    if (id && !authLoading && ladeEntwurf(anfrageEntwurfSchluessel(id, user?.id))) setRequestOpen(true);
-  }, [id, authLoading, user?.id]);
   useDocumentTitle(item?.name ?? 'Druckteil');
 
   if (loading && !item) return <Spinner label="Druckteil wird geladen …" />;
@@ -49,7 +43,7 @@ export function ItemDetailPage() {
   return (
     <>
       <BackLink />
-      <DruckteilSeite key={item.id} item={item} requestOpen={requestOpen} setRequestOpen={setRequestOpen} />
+      <DruckteilSeite key={item.id} item={item} />
       {/* Immer ganz unten, unter allem anderen (Wunsch des Nutzers). */}
       <AehnlicheTeile key={`aehnliche-${item.id}`} itemId={item.id} />
     </>
@@ -63,9 +57,28 @@ export function ItemDetailPage() {
  * Reihenfolge im Quelltext – auch für Tastatur und Vorlesen: Galerie → Titel → Auswahl + Anfragen → Eckdaten → Beschreibung …
  * Die Auswahl gehört dieser Seite und wird an das Anfrage-Fenster weitergereicht (dort vorbelegt, ein gemeinsamer Zustand).
  */
-function DruckteilSeite({ item, requestOpen, setRequestOpen }: { item: Item; requestOpen: boolean; setRequestOpen: (offen: boolean) => void }) {
-  const { can } = useAuth();
+function DruckteilSeite({ item }: { item: Item }) {
+  const { can, user, loading: authLoading } = useAuth();
   const auswahl = useAnfrageAuswahl(item);
+  // Das Fenster gehört zu diesem Druckteil (der Aufrufer setzt `key`): Wechselt man bei offenem Fenster das Druckteil
+  // (Zurück/Vor im Browser), ist es beim anderen zu – sonst stünde dort ungefragt ein Anfrage-Fenster.
+  const [requestOpen, setRequestOpen] = useState(false);
+  const entwurfKey = anfrageEntwurfSchluessel(item.id, user?.id);
+  const geschlossenKey = anfrageGeschlossenSchluessel(item.id, user?.id);
+  // Nach einem Neuladen mitten in der Anfrage (Handy wechselt App): Fenster mit dem Entwurf wieder öffnen. Wer es zuletzt
+  // selbst geschlossen hat, will nur schauen – der Entwurf bleibt und steht beim nächsten „Druckteil anfragen“ im Fenster
+  // (mit „Verwerfen“).
+  useEffect(() => {
+    if (!authLoading && ladeEntwurf(entwurfKey) && !ladeEntwurf(geschlossenKey)) setRequestOpen(true);
+  }, [authLoading, entwurfKey, geschlossenKey]);
+  const oeffnen = () => {
+    loescheEntwurf(geschlossenKey);
+    setRequestOpen(true);
+  };
+  const schliessen = () => {
+    if (ladeEntwurf(entwurfKey)) speichereEntwurf(geschlossenKey, true);
+    setRequestOpen(false);
+  };
   const rechtsRef = useRef<HTMLDivElement>(null);
   const mitlaufen = useMitlaufen(rechtsRef);
   // Sicherheitshinweise derzeit nur für das Druck-Team sichtbar – ohne hinterlegte Hinweise ganz weglassen
@@ -82,7 +95,7 @@ function DruckteilSeite({ item, requestOpen, setRequestOpen }: { item: Item; req
           className={cx('min-w-0 space-y-5 md:col-start-2 md:row-span-2 md:row-start-1 md:self-start', mitlaufen && 'md:sticky md:top-20 lg:top-6')}
         >
           <Kopf item={item} />
-          <DruckteilAuswahl item={item} zustand={auswahl} onAnfragen={() => setRequestOpen(true)} />
+          <DruckteilAuswahl item={item} zustand={auswahl} onAnfragen={oeffnen} />
         </div>
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-5 md:col-start-1 md:row-start-2">
           <Eckdaten item={item} />
@@ -92,7 +105,7 @@ function DruckteilSeite({ item, requestOpen, setRequestOpen }: { item: Item; req
           {hasSafety && <Sicherheitshinweise notes={item.safetyNotes} />}
         </div>
       </div>
-      <RequestDialog item={item} open={requestOpen} onClose={() => setRequestOpen(false)} auswahl={auswahl} />
+      <RequestDialog item={item} open={requestOpen} onClose={schliessen} auswahl={auswahl} />
     </>
   );
 }

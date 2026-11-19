@@ -32,6 +32,106 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   nächsten Hochfahren) liegt außerhalb der Schonfrist; `README.md` (Ordnerübersicht) nennt die Grenze 3 noch nicht.
 - **Aufgeräumt:** kein Server gestartet, keine Testdaten außerhalb der Temp-Ordner der Tests (werden von den Tests gelöscht).
 
+## 2026-11-19 – Durchsicht der App-Oberfläche vor 1.8.1 (Unter-Session, Branch: fix/fable-client)
+- **Auftrag:** `client/` auf Fehler, Randfälle, Barrierefreiheit und Geräte-Eigenheiten durchgehen, vor allem den neuen
+  Code seit 1.8.0 (mehrere Kategorien, Farbauswahl, Druckteil-Seite, gemeinsamer Auswahl-Zustand, Entwurf). Jeden Fund am
+  Code belegen, im Browser nachstellen, kleinste saubere Korrektur.
+- **Behoben (alle im Browser vorher/nachher geprüft):**
+  - **Anfrage-Fenster am falschen Druckteil:** `requestOpen` lag in `ItemDetailPage` und überlebte den Wechsel des
+    Druckteils (Zurück/Vor bei offenem Fenster) – das Fenster stand dann ungeprüft beim anderen Druckteil. Der Zustand
+    gehört jetzt zu `DruckteilSeite` (hat `key={item.id}`).
+  - **Fenster sprang nach „Abbrechen“ wieder auf:** Schon „Farbe wählen → Fenster ansehen → Abbrechen“ legte einen Entwurf
+    an, und jeder spätere Besuch öffnete das Fenster (bis zu 7 Tage). Neu: Merker „selbst geschlossen“
+    (`anfrageGeschlossenSchluessel`, liegt im Entwurf-Speicher und verfällt wie der Entwurf). Mit Merker öffnet die Seite
+    nicht von selbst; der Entwurf bleibt, die Auswahl ist vorbelegt, das Fenster zeigt ihn mit „Verwerfen“. Neuladen bei
+    offenem Fenster öffnet wie bisher. **Verhaltensänderung gegenüber „so gewollt“ – bitte gegenlesen.**
+  - **Anzahl-Feld** (`QuantityInput`): ließ sich nicht leeren (`Number('') || 1`), aus „5“ wurde „15“. Jetzt darf das
+    Feld beim Tippen leer sein (`anzahlAusText`, die Anzahl bleibt gültig), Plus/Minus und Verlassen setzen es zurück.
+  - **Keine Farbe vorrätig:** „Druckteil anfragen“ lief in eine Prüfung, deren Fehler nirgends stand (toter Knopf). Jetzt
+    deaktiviert mit Hinweis; im Fenster nennt die Meldung den Grund. Dazu: Solange `/api/config` noch lädt, galten alle
+    Farbbereiche als „leer“ (falscher Hinweis „Derzeit keine Farbe vorrätig“) – jetzt „Die Farben werden noch geladen …“.
+  - **Farbe inzwischen leer:** Nach „Farbe nicht verfügbar“ vom Server lädt `RequestDialog` die Stammdaten neu;
+    `ohneFehlendeFarben` (in `useAnfrageAuswahl`) wählt Farben ab, die es im Teil nicht mehr gibt – auch aus einem alten
+    Entwurf. Vorher blieb die Farbe wählbar und angekreuzt bzw. unsichtbar „gewählt“.
+  - **Einfarbig mit vielen Farben** (offener Punkt aus dem Konzept): ab 9 Farben `FarbZeile.tsx` (eine Zeile +
+    `FarbwahlFenster`, neue Ziel-Art `eine`) statt Knopf-Raster; Schwelle `FARBKNOEPFE_BIS = 8`.
+  - **Tastaturfokus unter festen Leisten** (WCAG 2.4.11): bei 375 und 820 px lagen mit Tab erreichte Zeilen ganz unter der
+    unteren Leiste. `scroll-padding-block` am `html` (unter lg), nachgemessen: 0 verdeckte Elemente vor- und rückwärts.
+  - **Seite scrollte hinter offenen Fenstern** (Mausrad über dem Hintergrund oder dem Fensterkopf): `html:has(dialog[open])
+    { overflow: hidden }` + `scrollbar-gutter: stable` (kein Sprung zur Seite, Scrollhöhe bleibt).
+  - **„Teil verdoppeln“:** 38 Zeichen langer Name ergab „… (“. Neu `kopieName` in `teileRegeln.ts`.
+  - **Alter Tab nach Update:** `VersionsHinweis.tsx` + `lib/versionPruefung.ts`: vergleicht `/api/health`-Version mit der
+    geladenen Seite, wenn der Tab sichtbar wird oder der Server 400/404 antwortet (höchstens einmal je Minute).
+- **Geprüft, ohne Fund:** Überläufe und Tippziele (alle Seiten, 6 Größen, Besucher und Admin), echter Doppelklick auf
+  „Anfrage senden“ (eine Anfrage), Fokusfalle/Esc/Fokus zurück in allen Fenstern, Video `playsinline`, 20 Teile anlegen
+  über „Mehrere Teile auf einmal“, Verwaltung Anfragen.
+- **Nicht geändert (größer oder Entscheidung nötig):** Entwurf wird beim Schließen/Verlassen innerhalb von 500 ms nach der
+  letzten Eingabe nicht mehr geschrieben (`useEntwurf` bricht den Timer ab); „Zurück“ im Browser bei offenem Fenster
+  verlässt die Seite ohne Rückfrage (BrowserRouter ohne Blocker); iOS-Safari nicht real getestet (nur Chrome-Emulation).
+- **Fremder Bereich:** Ein vor dem Update geöffneter Tab der Version 1.7/1.8.0 sendet weiter `category` und bekommt
+  400 „Bitte überprüfen Sie Ihre Eingaben.“ ohne markiertes Feld – das kann nur der Server abfangen (laut Hauptchat
+  bleibt es so).
+- **Dateien:** `client/src/features/katalog/ItemDetailPage.tsx`, `DruckteilAuswahl.tsx`; `features/anfragen/`
+  `RequestDialog.tsx`, `AnfrageFelder.tsx`, `anfrageAuswahl.ts`, `useAnfrageAuswahl.ts`, `FarbwahlFenster.tsx`, neu
+  `FarbZeile.tsx`; `verwaltung/druckteil-bearbeiten/TeileListe.tsx`, `teileRegeln.ts`; `components/Layout.tsx`, neu
+  `VersionsHinweis.tsx`; `lib/api.ts`, neu `lib/versionPruefung.ts`; `index.css`; Tests in
+  `client/test/druckteilSeite.test.ts`, `farbauswahl.test.ts`, `stabilitaet.test.ts`; `CHANGELOG.md`.
+- **Tests:** typecheck, Lint (0 Fehler), alle Tests grün. Klicktest headless Chrome (frisches Profil, eigener Port,
+  5183/3013, Testdaten mit 20 Teilen, 16 Farben, Video, ohne Bild) bei 320, 375, 820×1180, 1180×820, 1440×900 und 375 mit
+  200 % Schrift; Gesamtlauf Katalog → Druckteil → wählen → anfragen → absenden, Druckteil mit 20 Teilen anlegen,
+  Verwaltung Anfragen: keine Konsolenfehler, keine Überläufe, keine Tippziele unter 44 px. Bilder vorher/nachher:
+  `C:\Entwicklung\_testdaten\fable-client-bilder\`.
+- **Aufgeräumt:** Dev-Server und Chrome gestoppt, Testdaten `_testdaten\fable-client` gelöscht (Bilder bleiben).
+
+## 2026-11-19 – Prüfdurchgang Installieren/Update/Sicherung/Betrieb vor 1.8.1 (Unter-Session, Branch: fix/fable-manager)
+- **Auftrag:** `manager/` (ohne Oberfläche, Anmeldung, `server.mjs` – das prüft eine zweite Session), `scripts/`, `.github/`
+  auf Fehler und halbe Zustände durchgehen: Update 1.6.3 → 1.8.1 und 1.8.0 → 1.8.1 Schritt für Schritt, Neuinstallation,
+  Sicherung/Wiederherstellen, Portal, Plattformen, CI. Kleine, belegte Korrekturen mit Test; Größeres nur beschreiben.
+- **Behoben (je mit Test):**
+  - **Portal** (`lib/portalserver.mjs`): `GET //` (im Browser `http://<Server>//`), ein Backslash nach dem `/` oder
+    `http://[` ließen `new URL()` werfen → unbehandelte Ausnahme → der Dienst beendete sich (Neustart nach 5/30/120 s,
+    Uploads weg). Jetzt 400 und ein Sicherheitsnetz um jede Anfrage, auch in der HTTPS-Umleitung (`redirectToHttps`).
+    `<pfad>/manager//` kommt beim Manager als `/` an statt als `//` (dort wirft dieselbe Stelle, siehe „Nicht geändert“).
+    Test `portal-anfragen.test.mjs` (rohe Anfragezeilen, auch Pfad-Tricks und Methoden der Wurzel-Icons).
+  - **Windows-Dienste** (`platform/windows.mjs` `dienstSteuern`): `sc.exe stop` kehrt sofort zurück (STOP_PENDING). Ein
+    Start direkt danach endete mit 1056 „läuft bereits“, was als Erfolg galt – der Dienst blieb nach seinem Ende aus
+    (Rückfall ohne Schema-Änderung: Stoppen, Umschalten, Starten in Millisekunden). Stopp wartet jetzt bis STOPPED
+    (höchstens 45 s, sonst Admin-Weg wie bisher), Start während STOP_PENDING wartet und startet erneut.
+    Test `dienststeuerung.test.mjs` (nachgestelltes sc.exe).
+  - **Reste abgebrochener Sicherungen** (`lib/backup.mjs` `resteEntfernen`): `<id>.unfertig` (volle Kopie der Ablage),
+    `<id>.m3lbackup.teil`, `.auspacken-<pid>-<zeit>` blieben nach Stromausfall oder Dienst-Stopp mitten in der Sicherung
+    (WinSW beendet nach 30 s) für immer liegen. Vor jeder Sicherung werden Reste älter als 6 Stunden entfernt.
+  - **Datenbank zurückspielen** (`applyBackup`): bisher erst löschen, dann kopieren – scheiterte das Kopieren (Platte
+    voll), war die Datenbank weg, und die App hätte beim nächsten Start leer begonnen (erster Administrator über das Netz!).
+    Jetzt daneben kopieren (`.neu`), dann in einem Schritt ersetzen.
+  - **Rückfall** (`paketupdate.mjs` `restoreDbFrom`, `openBackup({ nur: ['db'] })`): packte die ganze Sicherung samt
+    Ablage aus, um eine Datei zurückzuspielen. Jetzt nur die Datenbank (der Rest wird nur geprüft).
+  - **WinSW ohne Internet** (`setup.mjs` `ensureWrapper`): „fetch failed“ → Meldung mit Adresse und Ablageort.
+  - **Liste der Sicherungen** (`listBackups`): eine Datei mit unvollständigem Kopf (ohne Zeitangabe) ließ das Sortieren
+    werfen – damit standen Status, Aufräumen und der Zeitplan des Backup-Dienstes still. Sie steht jetzt am Ende.
+  - Tests zu den fünf letzten Punkten: `sicherung-robust.test.mjs`.
+  - **Schema einer Programmversion** (`lib/schema.mjs`, Hinweis aus der Server-Durchsicht): der Manager zählte
+    Migrationen nach `NNN_*.sql`, die App spielt nur `NNN_[a-z0-9_]+.sql` ein. Eine Datei wie `024_Neue-Tabelle.sql`
+    hätte das Paket für den Manager zu Schema 24 gemacht, die Datenbank bliebe auf 23 – Downgrade-Schutz und „Sicherung
+    zu neu“ rechneten falsch. Jetzt dasselbe Muster (`MIGRATION_NAME`), Wächter in `abgleich-app.test.mjs` (vergleicht mit
+    `server/src/kern/db.ts`), Verhalten in `sicherung-robust.test.mjs`.
+  - Aufgeräumt: `manager/manager.config.example.json` (Format gibt es nicht mehr, kam mit ins Paket), veraltete Kommentare.
+- **Installer-Test:** neue Runde **`v180`** (Update von 1.8.0, Paket aus `x-vs-x/mosaik3lab-pakete`), Schritte mit `v163`
+  geteilt (`matrix.alt`). In beiden Runden vor dem Update neu: **Rückfall über die Versionsgrenze** – das kaputte Paket
+  spielt 018–023 (bzw. 023) plus Testmigration ein und stürzt ab; danach muss die alte Version laufen, Schema und
+  Datenstand wie gemerkt (`daten-stand.mjs vergleichen`). `docs/INSTALLATION.md` angepasst.
+- **Nicht geändert (im Bericht an den Hauptchat):** `manager/server.mjs:305` (`new URL` vor dem `try` → eine Anfrage `//`
+  direkt an den Manager beendet ihn; Datei gehört der zweiten Session), `<daten>/sicherungen/mosaik3lab-vor-schema-*.db`
+  der App (unverschlüsselt, nie aufgeräumt; `server/`), Sicherung braucht zweimal den Platz der Ablage (Zwischenkopie),
+  WinSW nicht im Paket (Neuinstallation braucht einmal Internet), `scripts/release.mjs` lässt bei spätem Abbruch geänderte
+  Dateien zurück, `Installieren.cmd` in einem Ordner mit Apostroph.
+- **Dateien:** `manager/lib/{portalserver,backup,paketupdate,setup,settingsdb}.mjs`, `manager/platform/windows.mjs`,
+  `manager/runners/runner.mjs`, `manager/test/{portal-anfragen,dienststeuerung,sicherung-robust}.test.mjs`,
+  `scripts/veroeffentlichen.mjs` (Kommentare), `.github/workflows/installer-{test,linux}.yml`,
+  `.github/installer-test/daten-stand.mjs`, `docs/INSTALLATION.md`, `CHANGELOG.md`.
+- **Aufgeräumt:** Testordner `C:\Entwicklung\_testdaten\fable-manager` gelöscht, keine Server gestartet (nur kurzlebige
+  Test-Listener auf 127.0.0.1 mit freien Ports).
+
 ## 2026-11-19 – Durchsicht Server und Datenbank vor 1.8.1 (Unter-Session, Branch: fix/fable-server)
 - **Auftrag:** `server/` und `shared/` auf Fehler, Update- und Datenbank-Risiken durchsehen und Kleines gleich beheben.
 - **Geprüft ohne Befund:** Migrationen 001–023 (leer, von 017 und 022 aus; Abbruch rollt zurück, Schema bleibt), Gleichstand

@@ -40,7 +40,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runde: [neu, v163]
+        runde: [neu, v163, v180]
+        include: # Runden „Update von einer freigegebenen Version“: alt = diese Version (Paket aus x-vs-x/mosaik3lab-pakete)
+          - { runde: v163, alt: 1.6.3 }
+          - { runde: v180, alt: 1.8.0 }
     runs-on: ${{ inputs.runner }}
     timeout-minutes: 30
     steps:
@@ -226,72 +229,97 @@ jobs:
         if: matrix.runde == 'neu'
         run: .github/installer-test/pruefen.sh deinstalliert
 
-      # ---- Runde „v163“: Update von der freigegebenen Version 1.6.3 (ältere Stände kommen zuerst auf 1.6.3) ----
-      # Genau das Paket, das die Schule bekommen hat: aus dem Release v1.6.3 (statt es aus dem Tag neu zu bauen)
-      - name: Paket 1.6.3 holen (Release v1.6.3)
-        if: matrix.runde == 'v163'
+      # ---- Runden „v163“ und „v180“: Update von einer freigegebenen Version (matrix.alt) – die Stände, die installiert sind ----
+      # Genau das Paket, das die Schule bekommen hat: aus dem öffentlichen Release (statt es aus dem Tag neu zu bauen)
+      - name: Paket ${{ matrix.alt }} holen (Release v${{ matrix.alt }})
+        if: matrix.runde != 'neu'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: x-vs-x/mosaik3lab-pakete # öffentliches Paket-Repository (dort liegen alle freigegebenen Versionen)
         run: |
-          gh release download v1.6.3 --pattern 'Mosaik3LAB-Installer-1.6.3-linux-${{ inputs.arch }}.tar.gz' --dir "$PAKETE/v163"
-          paket="$PAKETE/v163/Mosaik3LAB-Installer-1.6.3-linux-${{ inputs.arch }}.tar.gz"
+          gh release download v${{ matrix.alt }} --pattern 'Mosaik3LAB-Installer-${{ matrix.alt }}-linux-${{ inputs.arch }}.tar.gz' --dir "$PAKETE/alt"
+          paket="$PAKETE/alt/Mosaik3LAB-Installer-${{ matrix.alt }}-linux-${{ inputs.arch }}.tar.gz"
           test -f "$paket"
-          mkdir "$PAKETE/v163x"
-          tar xzf "$paket" -C "$PAKETE/v163x"
-          echo "V163=$PAKETE/v163x/$(basename "$paket" .tar.gz)" >> "$GITHUB_ENV"
+          mkdir "$PAKETE/altx"
+          tar xzf "$paket" -C "$PAKETE/altx"
+          echo "VALT=$PAKETE/altx/$(basename "$paket" .tar.gz)" >> "$GITHUB_ENV"
 
-      - name: Version 1.6.3 installieren (frische Daten)
-        if: matrix.runde == 'v163'
+      - name: Version ${{ matrix.alt }} installieren (frische Daten)
+        if: matrix.runde != 'neu'
         timeout-minutes: 14
         run: |
           sudo rm -rf /var/lib/mosaik3lab /var/backups/mosaik3lab /var/log/mosaik3lab
-          .github/installer-test/zeitlimit.sh 12 sudo "$V163/installieren.sh" --still
+          .github/installer-test/zeitlimit.sh 12 sudo "$VALT/installieren.sh" --still
 
-      - name: Prüfen (1.6.3) und Testdaten anlegen
-        if: matrix.runde == 'v163'
+      - name: Prüfen (${{ matrix.alt }}) und Testdaten anlegen
+        if: matrix.runde != 'neu'
         run: |
           .github/installer-test/pruefen.sh installiert
           .github/installer-test/pruefen.sh marker
 
-      # Druckteil mit Bildern in 1.6.3 anlegen: nach dem Update müssen Datensätze und Dateien unverändert da sein
-      - name: Testdaten mit 1.6.3 (Druckteil mit Bildern)
-        if: matrix.runde == 'v163'
+      # Druckteil mit Bildern in der alten Version anlegen: nach dem Update müssen Datensätze und Dateien unverändert da sein
+      - name: Testdaten mit ${{ matrix.alt }} (Druckteil mit Bildern)
+        if: matrix.runde != 'neu'
         timeout-minutes: 5
         run: node .github/installer-test/bilder-pruefen.mjs --testdaten
 
-      - name: Mailversand mit 1.6.3 einrichten (SMTP-Fänger, über den Manager)
-        if: matrix.runde == 'v163'
+      - name: Mailversand mit ${{ matrix.alt }} einrichten (SMTP-Fänger, über den Manager)
+        if: matrix.runde != 'neu'
         timeout-minutes: 5
         run: .github/installer-test/pruefen.sh mail-einrichten
 
       - name: Daten vor dem Update merken (Zeilen je Tabelle, Dateien der Ablage)
-        if: matrix.runde == 'v163'
-        run: sudo /opt/mosaik3lab/current/node/node .github/installer-test/daten-stand.mjs merken /var/lib/mosaik3lab/daten/mosaik3lab.db /var/lib/mosaik3lab/ablage "$RUNNER_TEMP/stand-163.json"
+        if: matrix.runde != 'neu'
+        run: |
+          sudo /opt/mosaik3lab/current/node/node .github/installer-test/daten-stand.mjs merken /var/lib/mosaik3lab/daten/mosaik3lab.db /var/lib/mosaik3lab/ablage "$RUNNER_TEMP/stand-alt.json"
+          # installierte alte Version merken: nach dem Rückfall muss genau sie wieder laufen
+          echo "ERWARTET=$(node -p "require('/opt/mosaik3lab/current/.release.json').id")" >> "$GITHUB_ENV"
 
-      - name: Update 1.6.3 → neue Version (installieren.sh)
-        if: matrix.runde == 'v163'
+      # Rückfall über Versionsgrenzen: Das kaputte Update spielt alle neuen Migrationen ein und stürzt dann ab. Danach muss
+      # die alte Version wieder laufen – mit ihrer Datenbank von direkt vor dem Update (Schema und Inhalt) und allen Dateien.
+      - name: Rückfall-Test (kaputtes Update über ${{ matrix.alt }})
+        if: matrix.runde != 'neu'
+        timeout-minutes: 14
+        run: |
+          set +e
+          .github/installer-test/zeitlimit.sh 12 sudo "$V3/installieren.sh" --still 2>&1 | tee "$RUNNER_TEMP/v3.txt"
+          rc=${PIPESTATUS[0]}
+          set -e
+          [ "$rc" != 124 ] || { echo "FEHLER: das kaputte Update hängt (Zeitlimit) statt zurückzuschalten"; exit 1; }
+          [ "$rc" != 0 ] || { echo "FEHLER: das kaputte Update endete mit Exit 0"; exit 1; }
+          grep -q 'automatisch auf' "$RUNNER_TEMP/v3.txt" || { echo "FEHLER: keine Meldung zum Rückfall"; exit 1; }
+          echo "OK   kaputtes Update endete mit Exit $rc und hat zurückgeschaltet"
+
+      - name: Prüfen nach dem Rückfall auf ${{ matrix.alt }} (alte Version läuft, Daten wie vor dem Update)
+        if: matrix.runde != 'neu'
+        run: |
+          .github/installer-test/pruefen.sh installiert
+          .github/installer-test/pruefen.sh zurueck
+          sudo /opt/mosaik3lab/current/node/node .github/installer-test/daten-stand.mjs vergleichen /var/lib/mosaik3lab/daten/mosaik3lab.db /var/lib/mosaik3lab/ablage "$RUNNER_TEMP/stand-alt.json"
+
+      - name: Update ${{ matrix.alt }} → neue Version (installieren.sh)
+        if: matrix.runde != 'neu'
         timeout-minutes: 14
         run: .github/installer-test/zeitlimit.sh 12 sudo "$V1/installieren.sh" --still
 
-      - name: Prüfen nach dem Update von 1.6.3
-        if: matrix.runde == 'v163'
+      - name: Prüfen nach dem Update von ${{ matrix.alt }}
+        if: matrix.runde != 'neu'
         run: |
           .github/installer-test/pruefen.sh installiert
           .github/installer-test/pruefen.sh erhalten
-          sudo /opt/mosaik3lab/current/node/node .github/installer-test/daten-stand.mjs vergleichen /var/lib/mosaik3lab/daten/mosaik3lab.db /var/lib/mosaik3lab/ablage "$RUNNER_TEMP/stand-163.json"
+          sudo /opt/mosaik3lab/current/node/node .github/installer-test/daten-stand.mjs vergleichen /var/lib/mosaik3lab/daten/mosaik3lab.db /var/lib/mosaik3lab/ablage "$RUNNER_TEMP/stand-alt.json"
 
-      - name: Mailversand nach dem Update von 1.6.3 (Einstellungen, Testmail, App-Mail)
-        if: matrix.runde == 'v163'
+      - name: Mailversand nach dem Update von ${{ matrix.alt }} (Einstellungen, Testmail, App-Mail)
+        if: matrix.runde != 'neu'
         timeout-minutes: 5
         run: .github/installer-test/pruefen.sh mail-erhalten
 
-      - name: Bildverarbeitung der neuen Version (nach dem Update von 1.6.3)
-        if: matrix.runde == 'v163'
+      - name: Bildverarbeitung der neuen Version (nach dem Update von ${{ matrix.alt }})
+        if: matrix.runde != 'neu'
         timeout-minutes: 5
         run: node .github/installer-test/bilder-pruefen.mjs
 
-      # ---- Ende der Runde „v163“: deinstallieren ----
+      # ---- Ende der Runden „v163“/„v180“: deinstallieren ----
       - name: Deinstallieren (Runde ${{ matrix.runde }})
         if: matrix.runde != 'neu'
         timeout-minutes: 5

@@ -19,10 +19,18 @@ export async function dbSchemaVersion(file) {
   }
 }
 
-/** Höchste Migrationsnummer, die eine Programmversion mitbringt (server/src/storage/sqlite/migrations/NNN_*.sql); null = unbekannt. */
+/**
+ * Dateiname einer Migration – gleich wie MIGRATION_NAME in server/src/kern/db.ts (Test: abgleich-app.test.mjs). Es zählt
+ * nur, was die App auch einspielt: Mit dem früheren, lockereren Muster (NNN_*.sql) hätte der Manager z. B.
+ * „024_Neue-Tabelle.sql“ mitgezählt, die App aber nie eingespielt – das Paket gälte dann als Schema 24, die Datenbank
+ * bliebe auf 23, und der Schutz vor Downgrade und vor zu neuen Sicherungen rechnete mit einer falschen Zahl.
+ */
+export const MIGRATION_NAME = /^(\d{3})_[a-z0-9_]+\.sql$/;
+
+/** Höchste Migrationsnummer, die eine Programmversion mitbringt (server/src/storage/sqlite/migrations/NNN_name.sql); null = unbekannt. */
 export function releaseSchemaVersion(dir) {
   try {
-    const nums = fs.readdirSync(path.join(dir, 'server', 'src', 'storage', 'sqlite', 'migrations')).map((f) => /^(\d{3})_.*\.sql$/.exec(f)?.[1]).filter(Boolean).map(Number);
+    const nums = fs.readdirSync(path.join(dir, 'server', 'src', 'storage', 'sqlite', 'migrations')).map((f) => MIGRATION_NAME.exec(f)?.[1]).filter(Boolean).map(Number);
     return nums.length ? Math.max(...nums) : null;
   } catch {
     return null;

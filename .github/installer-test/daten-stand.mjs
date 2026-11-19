@@ -1,6 +1,7 @@
-// Hilfsprüfung für den Installer-Test (Runde „v163“, nur auf dem GitHub-Runner): Datenstand vor dem Update merken und
-// danach vergleichen – Zeilen je Tabelle und jede Datei der Ablage (SHA-256). So fällt auf, wenn ein Update von 1.6.3
-// Datensätze oder Dateien verliert oder verändert.
+// Hilfsprüfung für den Installer-Test (Runden „v163“ und „v180“, nur auf dem GitHub-Runner): Datenstand vor dem Update
+// merken und danach vergleichen – Zeilen je Tabelle und jede Datei der Ablage (SHA-256). So fällt auf, wenn ein Update von
+// 1.6.3 bzw. 1.8.0 Datensätze oder Dateien verliert oder verändert – und ebenso, wenn nach einem fehlgeschlagenen Update
+// (Rückfall auf die alte Version) nicht genau der Stand von vorher wieder da ist.
 //   node daten-stand.mjs merken      <Datenbankdatei> <Ablageordner> <Stand.json>
 //   node daten-stand.mjs vergleichen <Datenbankdatei> <Ablageordner> <Stand.json>
 // Reines Node (node:sqlite), Datenbank nur lesend.

@@ -146,3 +146,34 @@ test('Rechte Spalte läuft nur mit, wenn sie samt Abständen ins Fenster passt',
   assert.equal(passtInsFenster(1000, 1180, false), true, 'iPad hoch: Kopf- und Fußleiste abgezogen');
   assert.equal(passtInsFenster(1100, 1180, false), false);
 });
+
+test('Farbe gibt es nicht mehr (Rolle leer, alter Entwurf): abgewählt, damit schon die Prüfung auf der Seite sie meldet', () => {
+  const b = a.farbbereiche(mehrteilig, md);
+  // „leer“ ist nicht vorrätig, „weg“ gibt es gar nicht; „Farbe egal“ und gültige Farben bleiben.
+  const s = { rows: [{ quantity: 2, colors: { dach: 'leer', tor: 'gelb' } }, { quantity: 1, colors: { dach: 'egal', tor: 'weg' } }], size: 'A4', custom: {} };
+  const neu = a.ohneFehlendeFarben(s, b.areas, md);
+  assert.deepEqual(neu.rows, [
+    { quantity: 2, colors: { tor: 'gelb' } },
+    { quantity: 1, colors: { dach: 'egal' } },
+  ]);
+  assert.equal(neu.size, 'A4');
+  assert.equal(a.ohneFehlendeFarben(neu, b.areas, md), neu, 'nichts zu tun: dasselbe Objekt (kein Neuzeichnen)');
+  // Gleichnamige zweite Rolle wird zur angebotenen statt abgewählt
+  const md2 = { ...(md as object), filaments: [rolle('rot', 'Rot'), rolle('rot2', 'Rot'), rolle('blau', 'Blau')] } as never;
+  const e = a.farbbereiche({ colors: ['rot', 'rot2', 'blau'], colorAreas: [], sizes: [] } as never, md2);
+  assert.deepEqual(a.ohneFehlendeFarben({ rows: [{ quantity: 1, colors: { farbe: 'rot2' } }], size: '', custom: {} }, e.areas, md2).rows[0].colors, { farbe: 'rot' });
+  // Teile ohne vorrätige Farbe (oder Farbrollen noch nicht geladen) bleiben unberührt
+  const leer = { rows: [{ quantity: 1, colors: { dach: 'rot' } }], size: '', custom: {} };
+  assert.equal(a.ohneFehlendeFarben(leer, [], md), leer);
+});
+
+test('Anzahl tippen: leer bleibt leer (Wert unverändert), sonst ganze Zahl von 1 bis zum Höchstwert', () => {
+  assert.equal(a.anzahlAusText('', 20), undefined);
+  assert.equal(a.anzahlAusText('  ', 20), undefined);
+  assert.equal(a.anzahlAusText('abc', 20), undefined);
+  assert.equal(a.anzahlAusText('5', 20), 5);
+  assert.equal(a.anzahlAusText('0', 20), 1);
+  assert.equal(a.anzahlAusText('-3', 20), 1);
+  assert.equal(a.anzahlAusText('99', 20), 20);
+  assert.equal(a.anzahlAusText('2,6', 20), 3);
+});

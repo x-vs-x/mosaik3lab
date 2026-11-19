@@ -1,15 +1,16 @@
 import { EGAL_FARBE, EGAL_FARBE_NAME } from '@mosaik3lab/shared/werte/anfragen';
 import { farbenText, teileText } from '@mosaik3lab/shared/werte/farbgruppen';
 import { CircleCheck, Minus, Plus, Shuffle, Trash2 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ColorSwatch } from '../../components/ColorSwatch';
 import { TeilSchilder } from '../../components/TeilSchilder';
 import { TupferReihe } from '../../components/TupferReihe';
+import { FARBKNOEPFE_BIS, FarbZeile } from './FarbZeile';
 import { TeileFarbListe } from './TeileFarbListe';
 import { Alert, Button, cx, Field, Input, Select } from '../../components/ui';
 import type { AreaColors } from '../../lib/colors';
 import type { CustomField, Filament } from '../../lib/types';
-import type { ColorRowValue } from './anfrageAuswahl';
+import { anzahlAusText, type ColorRowValue } from './anfrageAuswahl';
 
 // Eingabefelder des Anfrageformulars (RequestDialog): Anzahl, Farbwahl je Zeile, Personalisierung.
 
@@ -155,7 +156,10 @@ function VarianteKurz({
   );
 }
 
-/** Farbknöpfe eines einfarbigen Druckteils (vorrätige Farben + „Farbe egal“) – im Anfrage-Fenster und auf der Seite. */
+/**
+ * Farbwahl eines einfarbigen Druckteils (vorrätige Farben + „Farbe egal“) – im Anfrage-Fenster und auf der Seite: bis
+ * FARBKNOEPFE_BIS Farben als Knöpfe, bei mehr eine Zeile mit Farbwahl-Fenster (sonst füllten 16 Knöpfe den halben Bildschirm).
+ */
 export function EinfarbigeWahl({
   legend,
   name,
@@ -171,6 +175,7 @@ export function EinfarbigeWahl({
   onChange: (v: string) => void;
   error?: string;
 }) {
+  if (filaments.length > FARBKNOEPFE_BIS) return <FarbZeile legend={legend} filaments={filaments} value={value} onChange={onChange} error={error} />;
   return (
     <ChoiceGroup
       legend={legend}
@@ -235,6 +240,18 @@ export function QuantityInput({
 }) {
   const labelId = `${id}-label`;
   const labelledBy = context ? `${context} ${labelId}` : labelId;
+  // Beim Tippen darf das Feld kurz leer sein – sonst sprang es beim Löschen sofort auf „1“ zurück, und aus „5“ wurde „15“.
+  // `null` = das Feld zeigt den Wert; die Anzahl selbst bleibt immer gültig (leer zählt als bisheriger Wert).
+  const [getippt, setGetippt] = useState<string | null>(null);
+  const tippen = (text: string) => {
+    const n = anzahlAusText(text, max);
+    setGetippt(n === undefined ? text : null);
+    if (n !== undefined) onChange(n);
+  };
+  const setze = (n: number) => {
+    setGetippt(null);
+    onChange(n);
+  };
   return (
     <div>
       <p id={labelId} className="mb-1.5 font-bold text-stone-800">
@@ -245,7 +262,7 @@ export function QuantityInput({
           variant="secondary"
           icon={Minus}
           aria-label={`Anzahl verringern${contextLabel}`}
-          onClick={() => onChange(Math.max(1, value - 1))}
+          onClick={() => setze(Math.max(1, value - 1))}
           disabled={value <= 1}
           className="w-12 px-0 sm:px-0"
         />
@@ -255,16 +272,17 @@ export function QuantityInput({
           min={1}
           max={max}
           inputMode="numeric"
-          value={value}
+          value={getippt ?? value}
           aria-labelledby={labelledBy}
-          onChange={(e) => onChange(Math.min(max, Math.max(1, Number(e.target.value) || 1)))}
+          onChange={(e) => tippen(e.target.value)}
+          onBlur={() => setGetippt(null)}
           className="w-20 text-center text-lg font-bold"
         />
         <Button
           variant="secondary"
           icon={Plus}
           aria-label={`Anzahl erhöhen${contextLabel}`}
-          onClick={() => onChange(Math.min(max, value + 1))}
+          onClick={() => setze(Math.min(max, value + 1))}
           disabled={value >= max}
           className="w-12 px-0 sm:px-0"
         />

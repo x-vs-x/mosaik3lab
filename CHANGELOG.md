@@ -13,6 +13,43 @@ daraus die nächste Version.
 - **Bilder werden nach einem Update erst später verkleinert:** In den ersten 15 Minuten nach einem Update mit
   Datenbank-Änderung ersetzt die App kein Originalbild. So passen Bilder und Datenbank auch dann zusammen, wenn das Update
   doch noch scheitert und der Server-Manager auf die vorige Version zurückschaltet. Vorschaubilder gibt es wie bisher sofort.
+- **Anfrage-Fenster springt nicht mehr ungefragt auf:** Wer das Fenster mit „Abbrechen“ schließt, behält seinen Entwurf wie
+  bisher – beim nächsten Besuch des Druckteils öffnet sich das Fenster aber nicht mehr von selbst. Die Auswahl steht auf der
+  Seite schon da, und „Druckteil anfragen“ zeigt den Entwurf mit „Verwerfen“. Nach einem Neuladen mitten in der Anfrage
+  (Handy wechselt die App) kommt das Fenster weiterhin von selbst wieder. Außerdem behoben: Ging man bei offenem Fenster im
+  Browser „Zurück“ oder „Vor“ zu einem anderen Druckteil, stand das Anfrage-Fenster plötzlich bei diesem.
+- **Viele Farben in einer Zeile:** Einfarbige Druckteile mit mehr als 8 Farben zeigen statt vieler Knöpfe eine Zeile
+  „Farbe wählen“; ein Tipp öffnet das Farbwahl-Fenster mit Suche und Farbfamilien – auf der Druckteil-Seite und im
+  Anfrage-Fenster (auch bei „Weitere Farbe“). Bis 8 Farben bleiben die Knöpfe.
+- **Anzahl eintippen:** Das Feld lässt sich leeren und neu beschreiben. Vorher sprang es beim Löschen sofort auf 1 zurück,
+  und aus einer getippten 5 wurde 15.
+- **Keine Farbe vorrätig:** „Druckteil anfragen“ ist dann ausgegraut, darunter steht „Anfragen geht wieder, sobald eine
+  Farbe vorrätig ist“ – vorher tat der Knopf einfach nichts. Solange die Farben auf langsamem WLAN noch laden, steht dort
+  „Die Farben werden noch geladen …“ statt fälschlich „Derzeit keine Farbe vorrätig“.
+- **Farbe wird leer, während man anfragt:** Lehnt der Server eine Farbe ab, weil die Rolle inzwischen leer ist, verschwindet
+  sie aus der Auswahl und ist abgewählt (vorher blieb sie wählbar und angekreuzt). Auch eine Farbe aus einem älteren
+  Entwurf, die es nicht mehr gibt, wird abgewählt und gleich am Feld gemeldet.
+- **Tastatur auf Handy und Tablet:** Ein mit der Tabulatortaste erreichtes Feld liegt nicht mehr unter der unteren Leiste
+  oder der Kopfzeile – der Browser lässt beim Hinspringen Platz dafür.
+- **Offene Fenster:** Die Seite hinter einem offenen Fenster scrollt nicht mehr mit (Mausrad über dem abgedunkelten Rand).
+- **„Teil verdoppeln“ bei langen Namen:** Die Kopie endet auf „… (2)“ statt mitten in der Klammer abgeschnitten zu sein.
+- **Nach einem Update „Seite neu laden“:** Ist eine Seite noch vom alten Stand offen, erscheint oben „Mosaik³LAB wurde
+  aktualisiert – Seite neu laden“, sobald der Tab wieder sichtbar wird oder der Server eine Eingabe ablehnt. (Gilt für
+  Updates ab dieser Version; ein vor dem Update geöffneter Tab der Version 1.7 oder 1.8.0 kennt den Hinweis noch nicht.)
+- **Vertippte Adresse legt die App nicht mehr lahm:** Wer `http://<Server>//` (zwei Schrägstriche) oder eine ähnlich
+  verunglückte Adresse aufrief, beendete den Weiterleitungs-Dienst (Portal) für alle – laufende Uploads brachen ab, die App
+  war einige Sekunden bis Minuten nicht erreichbar. Solche Adressen bekommen jetzt eine Fehlerseite, der Dienst läuft weiter.
+- **Update unter Windows zuverlässiger:** Beim Stoppen der Dienste wartet der Installer jetzt, bis sie wirklich beendet
+  sind. Vorher konnte nach einem fehlgeschlagenen Update die bisherige Version gestoppt bleiben, obwohl schon
+  zurückgeschaltet war (der Start kam, während der Dienst noch endete).
+- **Sicherungen füllen die Platte nicht mehr mit Resten:** Wurde eine Sicherung mittendrin abgebrochen (Stromausfall,
+  Neustart, Update genau zur Sicherungszeit), blieb im Backup-Ziel eine volle Kopie aller Bilder und Druckdateien liegen –
+  für immer. Solche Reste werden jetzt vor der nächsten Sicherung entfernt.
+- **Zurückschalten nach einem fehlgeschlagenen Update auch bei fast vollem Datenträger:** Dafür wird nur noch die
+  Datenbank aus der Sicherung ausgepackt (nicht mehr alle Bilder ein zweites Mal). Und die bisherige Datenbank wird erst
+  ersetzt, wenn die zurückgespielte vollständig auf der Platte liegt – vorher war sie bei „Platte voll“ schon gelöscht.
+- **Neuinstallation unter Windows ohne Internet:** statt „fetch failed“ eine verständliche Meldung, was fehlt (ein kleines
+  Hilfsprogramm für die Dienste wird einmal geladen) und wie man es ohne Internet bereitlegt.
 - **Abgebrochene Uploads sind kein „Serverfehler“ mehr:** Bricht ein Upload ab (WLAN weg, Fenster geschlossen) oder kommt
   er unvollständig an, heißt es jetzt „Der Upload ist unvollständig angekommen … Bitte erneut versuchen.“ statt „Ein
   unerwarteter Serverfehler ist aufgetreten“. Im Protokoll des Server-Managers stehen dafür keine Fehlermeldungen mit
