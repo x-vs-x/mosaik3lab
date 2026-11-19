@@ -77,7 +77,9 @@ export async function restoreDbFrom({ backupDir, id, keyFile, dataDir, ablageDir
   } catch {
     /* unverschlüsselt */
   }
-  const opened = await openBackup(path.join(backupDir, id + EXT), { password, stagingBase: backupDir });
+  // nur die Datenbank auspacken (der Rest der Sicherung wird nur geprüft): braucht kaum Platz und Zeit – wichtig, wenn das
+  // Update gerade an einem vollen Datenträger gescheitert ist
+  const opened = await openBackup(path.join(backupDir, id + EXT), { password, stagingBase: backupDir, nur: ['db'] });
   try {
     const problems = await applyBackup({ folder: opened.folder, meta: opened.meta, dirs: { dataDir, ablageDir }, only: ['db'] });
     if (problems.length) throw new Error(`Datenbank nicht vollständig zurückgespielt (${problems[0]})`);
