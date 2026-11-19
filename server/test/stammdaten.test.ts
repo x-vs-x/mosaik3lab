@@ -22,6 +22,8 @@ test('Stammdaten ändern: Admin ja, Druck-Team und Lehrkraft nein', async () => 
   assert.equal(r.status, 200, JSON.stringify(r.json));
   assert.deepEqual(r.json.categories, categories);
   assert.equal((await putList(admin, 'unbekannt', [])).status, 404);
+  // Auch Namen, die jedes Objekt von Haus aus kennt, sind keine Liste (früher 500 statt 404).
+  for (const name of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) assert.equal((await putList(admin, name, [])).status, 404, name);
 });
 test('Verwendete Kategorie kann nicht gelöscht werden (409)', async () => {
   const { categories } = await md();
