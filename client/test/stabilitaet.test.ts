@@ -149,3 +149,17 @@ test('Video-Upload: über apiUpload (Wächter, Abbrechen) mit Fortschrittsanzeig
   assert.match(quelle, /onAbbrechen=/);
   assert.doesNotMatch(quelle, /form: fd/, 'kein Upload mehr über api() ohne Zeitgrenze');
 });
+
+test('Alter Tab nach einem Update: Hinweis nur bei echter anderer Versionsnummer, Prüfung höchstens einmal je Minute', async () => {
+  const { andereVersion, versionPruefungFaellig, VERSION_PRUEF_ABSTAND_MS } = await import('../src/lib/versionPruefung.ts');
+  assert.equal(andereVersion('1.8.0', '1.8.1'), true);
+  assert.equal(andereVersion('1.8.1', '1.8.1'), false);
+  assert.equal(andereVersion('Entwicklung', '1.8.1'), false, 'Entwicklungsmodus: nie');
+  assert.equal(andereVersion('1.8.0', undefined), false, 'keine Antwort: kein Hinweis');
+  assert.equal(andereVersion('1.8.0', 'unbekannt'), false);
+  assert.equal(andereVersion('1.8.0', '1.8.1-dev.abc123'), true);
+  assert.equal(versionPruefungFaellig(0, 5), true, 'erste Prüfung sofort');
+  assert.equal(versionPruefungFaellig(1000, 1000 + VERSION_PRUEF_ABSTAND_MS - 1), false);
+  assert.equal(versionPruefungFaellig(1000, 1000 + VERSION_PRUEF_ABSTAND_MS), true);
+  assert.equal(versionPruefungFaellig(5000, 1000), true, 'Uhr zurückgestellt: nicht für immer sperren');
+});

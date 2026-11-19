@@ -2,6 +2,57 @@
 
 Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
 
+## 2026-11-19 – Durchsicht der App-Oberfläche vor 1.8.1 (Unter-Session, Branch: fix/fable-client)
+- **Auftrag:** `client/` auf Fehler, Randfälle, Barrierefreiheit und Geräte-Eigenheiten durchgehen, vor allem den neuen
+  Code seit 1.8.0 (mehrere Kategorien, Farbauswahl, Druckteil-Seite, gemeinsamer Auswahl-Zustand, Entwurf). Jeden Fund am
+  Code belegen, im Browser nachstellen, kleinste saubere Korrektur.
+- **Behoben (alle im Browser vorher/nachher geprüft):**
+  - **Anfrage-Fenster am falschen Druckteil:** `requestOpen` lag in `ItemDetailPage` und überlebte den Wechsel des
+    Druckteils (Zurück/Vor bei offenem Fenster) – das Fenster stand dann ungeprüft beim anderen Druckteil. Der Zustand
+    gehört jetzt zu `DruckteilSeite` (hat `key={item.id}`).
+  - **Fenster sprang nach „Abbrechen“ wieder auf:** Schon „Farbe wählen → Fenster ansehen → Abbrechen“ legte einen Entwurf
+    an, und jeder spätere Besuch öffnete das Fenster (bis zu 7 Tage). Neu: Merker „selbst geschlossen“
+    (`anfrageGeschlossenSchluessel`, liegt im Entwurf-Speicher und verfällt wie der Entwurf). Mit Merker öffnet die Seite
+    nicht von selbst; der Entwurf bleibt, die Auswahl ist vorbelegt, das Fenster zeigt ihn mit „Verwerfen“. Neuladen bei
+    offenem Fenster öffnet wie bisher. **Verhaltensänderung gegenüber „so gewollt“ – bitte gegenlesen.**
+  - **Anzahl-Feld** (`QuantityInput`): ließ sich nicht leeren (`Number('') || 1`), aus „5“ wurde „15“. Jetzt darf das
+    Feld beim Tippen leer sein (`anzahlAusText`, die Anzahl bleibt gültig), Plus/Minus und Verlassen setzen es zurück.
+  - **Keine Farbe vorrätig:** „Druckteil anfragen“ lief in eine Prüfung, deren Fehler nirgends stand (toter Knopf). Jetzt
+    deaktiviert mit Hinweis; im Fenster nennt die Meldung den Grund. Dazu: Solange `/api/config` noch lädt, galten alle
+    Farbbereiche als „leer“ (falscher Hinweis „Derzeit keine Farbe vorrätig“) – jetzt „Die Farben werden noch geladen …“.
+  - **Farbe inzwischen leer:** Nach „Farbe nicht verfügbar“ vom Server lädt `RequestDialog` die Stammdaten neu;
+    `ohneFehlendeFarben` (in `useAnfrageAuswahl`) wählt Farben ab, die es im Teil nicht mehr gibt – auch aus einem alten
+    Entwurf. Vorher blieb die Farbe wählbar und angekreuzt bzw. unsichtbar „gewählt“.
+  - **Einfarbig mit vielen Farben** (offener Punkt aus dem Konzept): ab 9 Farben `FarbZeile.tsx` (eine Zeile +
+    `FarbwahlFenster`, neue Ziel-Art `eine`) statt Knopf-Raster; Schwelle `FARBKNOEPFE_BIS = 8`.
+  - **Tastaturfokus unter festen Leisten** (WCAG 2.4.11): bei 375 und 820 px lagen mit Tab erreichte Zeilen ganz unter der
+    unteren Leiste. `scroll-padding-block` am `html` (unter lg), nachgemessen: 0 verdeckte Elemente vor- und rückwärts.
+  - **Seite scrollte hinter offenen Fenstern** (Mausrad über dem Hintergrund oder dem Fensterkopf): `html:has(dialog[open])
+    { overflow: hidden }` + `scrollbar-gutter: stable` (kein Sprung zur Seite, Scrollhöhe bleibt).
+  - **„Teil verdoppeln“:** 38 Zeichen langer Name ergab „… (“. Neu `kopieName` in `teileRegeln.ts`.
+  - **Alter Tab nach Update:** `VersionsHinweis.tsx` + `lib/versionPruefung.ts`: vergleicht `/api/health`-Version mit der
+    geladenen Seite, wenn der Tab sichtbar wird oder der Server 400/404 antwortet (höchstens einmal je Minute).
+- **Geprüft, ohne Fund:** Überläufe und Tippziele (alle Seiten, 6 Größen, Besucher und Admin), echter Doppelklick auf
+  „Anfrage senden“ (eine Anfrage), Fokusfalle/Esc/Fokus zurück in allen Fenstern, Video `playsinline`, 20 Teile anlegen
+  über „Mehrere Teile auf einmal“, Verwaltung Anfragen.
+- **Nicht geändert (größer oder Entscheidung nötig):** Entwurf wird beim Schließen/Verlassen innerhalb von 500 ms nach der
+  letzten Eingabe nicht mehr geschrieben (`useEntwurf` bricht den Timer ab); „Zurück“ im Browser bei offenem Fenster
+  verlässt die Seite ohne Rückfrage (BrowserRouter ohne Blocker); iOS-Safari nicht real getestet (nur Chrome-Emulation).
+- **Fremder Bereich:** Ein vor dem Update geöffneter Tab der Version 1.7/1.8.0 sendet weiter `category` und bekommt
+  400 „Bitte überprüfen Sie Ihre Eingaben.“ ohne markiertes Feld – das kann nur der Server abfangen (laut Hauptchat
+  bleibt es so).
+- **Dateien:** `client/src/features/katalog/ItemDetailPage.tsx`, `DruckteilAuswahl.tsx`; `features/anfragen/`
+  `RequestDialog.tsx`, `AnfrageFelder.tsx`, `anfrageAuswahl.ts`, `useAnfrageAuswahl.ts`, `FarbwahlFenster.tsx`, neu
+  `FarbZeile.tsx`; `verwaltung/druckteil-bearbeiten/TeileListe.tsx`, `teileRegeln.ts`; `components/Layout.tsx`, neu
+  `VersionsHinweis.tsx`; `lib/api.ts`, neu `lib/versionPruefung.ts`; `index.css`; Tests in
+  `client/test/druckteilSeite.test.ts`, `farbauswahl.test.ts`, `stabilitaet.test.ts`; `CHANGELOG.md`.
+- **Tests:** typecheck, Lint (0 Fehler), alle Tests grün. Klicktest headless Chrome (frisches Profil, eigener Port,
+  5183/3013, Testdaten mit 20 Teilen, 16 Farben, Video, ohne Bild) bei 320, 375, 820×1180, 1180×820, 1440×900 und 375 mit
+  200 % Schrift; Gesamtlauf Katalog → Druckteil → wählen → anfragen → absenden, Druckteil mit 20 Teilen anlegen,
+  Verwaltung Anfragen: keine Konsolenfehler, keine Überläufe, keine Tippziele unter 44 px. Bilder vorher/nachher:
+  `C:\Entwicklung\_testdaten\fable-client-bilder\`.
+- **Aufgeräumt:** Dev-Server und Chrome gestoppt, Testdaten `_testdaten\fable-client` gelöscht (Bilder bleiben).
+
 ## 2026-11-19 – Prüfdurchgang Installieren/Update/Sicherung/Betrieb vor 1.8.1 (Unter-Session, Branch: fix/fable-manager)
 - **Auftrag:** `manager/` (ohne Oberfläche, Anmeldung, `server.mjs` – das prüft eine zweite Session), `scripts/`, `.github/`
   auf Fehler und halbe Zustände durchgehen: Update 1.6.3 → 1.8.1 und 1.8.0 → 1.8.1 Schritt für Schritt, Neuinstallation,
