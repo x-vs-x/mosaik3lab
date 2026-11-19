@@ -1,6 +1,6 @@
 // Gemeinsamer Rahmen der Dienst-Prozesse (runners/webapp.mjs, runners/backup.mjs):
 // Zustandsdatei schreiben und sauber beenden bei Signal (Dienststeuerung), IPC „shutdown“ oder Stopp-Datei.
-//   node runners/<dienst>.mjs --config <manager.config.json>
+//   node runners/<dienst>.mjs --config <Startdatei mosaik3lab.json>
 const i = process.argv.indexOf('--config');
 if (i > 0) process.env.MANAGER_CONFIG = process.argv[i + 1];
 process.env.MOSAIK3LAB_QUIET = '1';

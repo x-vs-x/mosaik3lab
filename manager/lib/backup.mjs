@@ -206,7 +206,9 @@ export async function listBackups(limit = 1000) {
       /* unvollständig */
     }
   }
-  return out.sort((a, b) => b.created.localeCompare(a.created)).slice(0, limit);
+  // Kopf ohne Zeitangabe (fremde oder beschädigte Datei): ans Ende statt die ganze Liste scheitern zu lassen – sonst
+  // stünden Status, Aufräumen und der Backup-Dienst (dueKinds) wegen einer einzigen Datei still
+  return out.sort((a, b) => String(b.created ?? '').localeCompare(String(a.created ?? ''))).slice(0, limit);
 }
 
 /** Letzte Sicherung einer Art (oder null). */
@@ -220,8 +222,9 @@ const needKey = (header, password) => (header.encryption ? openEncryption(passwo
 /**
  * Archiv durchlesen und gegen das Manifest prüfen; mit dest zusätzlich auspacken (dest/<pfad>).
  * Rückgabe { manifest, problems[] }. Bei verschlüsselten Dateien prüft der GCM-Tag zusätzlich die Unversehrtheit.
+ * auspacken(name): nur diese Einträge auf die Platte schreiben – geprüft (Prüfsumme) wird trotzdem jeder.
  */
-async function readArchive(file, { key, dest = null }) {
+async function readArchive(file, { key, dest = null, auspacken = () => true }) {
   const head = await readHead(file);
   if (!head) throw new InputError('Das ist keine Sicherungsdatei von Mosaik³LAB.');
   const raw = key ? decryptStream(key, file, head.bodyStart) : createReadStream(file, { start: head.bodyStart, highWaterMark: 1 << 20 });
@@ -250,7 +253,7 @@ async function readArchive(file, { key, dest = null }) {
     const h = crypto.createHash('sha256');
     let n = 0;
     let out = null;
-    if (dest) {
+    if (dest && auspacken(name)) {
       const target = path.join(dest, ...name.split('/'));
       await fs.mkdir(path.dirname(target), { recursive: true });
       out = createWriteStream(target);
@@ -287,12 +290,47 @@ export async function verifyBackup(id, opts = {}) {
 }
 
 // ---------- Sichern ----------
+/** So alt muss ein Rest sein, bevor er gelöscht wird – eine laufende Sicherung (höchstens 2 h vor einem Update) bleibt unberührt. */
+export const REST_MAX_ALTER_MS = 6 * 3600_000;
+const REST = [/^mosaik3lab-[\w-]+\.unfertig$/, /^mosaik3lab-[\w-]+\.m3lbackup\.teil$/, /^\.auspacken-\d+-\d+$/];
+
+/**
+ * Reste abgebrochener Sicherungen aus dem Backup-Ziel entfernen: Zwischenordner „….unfertig“ (eine volle Kopie der Ablage!),
+ * halbe Dateien „….m3lbackup.teil“ und Auspack-Ordner „.auspacken-…“. Sie bleiben liegen, wenn der Prozess mitten in der
+ * Sicherung beendet wird (Stromausfall, Dienst gestoppt, Zeitlimit) – ohne Aufräumen füllt jeder solche Abbruch die Platte
+ * um die Größe der Ablage, bis keine Sicherung mehr passt. Läuft vor jeder Sicherung (auch wenn die Platte schon voll ist).
+ * Wirft nie. → Namen der entfernten Reste.
+ */
+export async function resteEntfernen(backupDir, { now = Date.now(), maxAlterMs = REST_MAX_ALTER_MS } = {}) {
+  const weg = [];
+  let namen = [];
+  try {
+    namen = await fs.readdir(backupDir);
+  } catch {
+    return weg;
+  }
+  for (const n of namen) {
+    if (!REST.some((re) => re.test(n))) continue;
+    const voll = path.join(backupDir, n);
+    try {
+      if (now - (await fs.stat(voll)).mtimeMs < maxAlterMs) continue;
+      await fs.rm(voll, RM);
+      weg.push(n);
+      log().warn(`Rest einer abgebrochenen Sicherung entfernt: ${voll}`);
+    } catch (err) {
+      log().warn(`Rest einer abgebrochenen Sicherung konnte nicht entfernt werden (${voll}: ${err.message}).`);
+    }
+  }
+  return weg;
+}
+
 export async function createBackup(reason = 'manuell', { kind = 'komplett', protect = [], aufraeumen = prune } = {}) {
   requireValidConfig();
   if (!KINDS[kind]) throw new InputError(`Unbekannte Art der Sicherung „${kind}“ (daten oder komplett).`);
   const { dataDir, backupDir } = folders();
   if (!existsSync(path.join(dataDir, 'data')) && !existsSync(path.join(dataDir, DB_FILE))) throw new InputError(`Im Datenordner ${dataDir} liegen keine Daten – nichts zu sichern.`);
   await fs.mkdir(backupDir, { recursive: true });
+  await resteEntfernen(backupDir);
   let enc = null;
   if (getConfig().backup.encrypt) {
     const pw = readBackupPassword();
@@ -397,8 +435,9 @@ const RM = { recursive: true, force: true, maxRetries: 10, retryDelay: 200 };
  * Teile einer ausgepackten Sicherung (Ordner mit db/, ablage/, data/ …) an einen Ort zurückspielen – unabhängig von der
  * Konfiguration dieses Prozesses (wird auch bei „Aus Backup einrichten“ in einen neuen Datenordner benutzt).
  * only: Namen der Teile; dirs: { dataDir, ablageDir }. Danach Vergleich mit den Prüfsummen. → Liste der Abweichungen.
+ * kopieren: Ersatz für fs.copyFile (Tests stellen damit einen vollen Datenträger nach).
  */
-export async function applyBackup({ folder, meta, dirs, only = PARTS }) {
+export async function applyBackup({ folder, meta, dirs, only = PARTS, kopieren = fs.copyFile }) {
   const targets = [
     { name: 'data', dir: path.join(dirs.dataDir, 'data') },
     { name: 'uploads', dir: path.join(dirs.dataDir, 'uploads') },
@@ -409,11 +448,21 @@ export async function applyBackup({ folder, meta, dirs, only = PARTS }) {
   for (const t of targets) {
     if (!present.has(t.name) && !(t.name === 'data' && existsSync(path.join(folder, 'data')))) continue; // Teil nicht in der Sicherung → vorhandenen Bestand nicht anfassen
     if (t.file) {
-      // Datenbank: Datei ersetzen (WAL-Reste entfernen)
+      // Datenbank: erst vollständig daneben kopieren, dann tauschen (WAL-Reste entfernen). Scheitert das Kopieren
+      // (Datenträger voll, Datei gesperrt), bleibt die bisherige Datenbank stehen – früher war sie dann schon gelöscht,
+      // und die Web-App hätte beim nächsten Start mit einer leeren Datenbank begonnen.
       if (!existsSync(path.join(folder, t.name, t.file))) continue;
-      for (const ext of ['', '-wal', '-shm']) await fs.rm(path.join(t.dir, t.file + ext), RM);
+      const ziel = path.join(t.dir, t.file);
+      const neu = `${ziel}.neu`;
       await fs.mkdir(t.dir, { recursive: true });
-      await fs.copyFile(path.join(folder, t.name, t.file), path.join(t.dir, t.file));
+      try {
+        await kopieren(path.join(folder, t.name, t.file), neu);
+        for (const ext of ['-wal', '-shm']) await fs.rm(ziel + ext, RM);
+        await renameRetry(neu, ziel); // ersetzt die bisherige Datei in einem Schritt
+      } catch (err) {
+        await fs.rm(neu, { force: true }).catch(() => {});
+        throw err;
+      }
       continue;
     }
     await fs.rm(t.dir, RM);
@@ -432,15 +481,17 @@ export async function applyBackup({ folder, meta, dirs, only = PARTS }) {
 
 /**
  * Sicherung zum Lesen bereitstellen: in einen Zwischenordner ausgepackt (und geprüft). → { folder, meta, header, cleanup() }. Ein falsches Passwort wird abgelehnt, bevor etwas ausgepackt wird.
+ * nur: Teile, die ausgepackt werden (z. B. ['db']) – der Rest wird nur geprüft. So braucht der Rückfall nach einem Update
+ * nur Platz für die Datenbank und schreibt nicht die ganze Ablage ein zweites Mal auf die Platte.
  */
-export async function openBackup(location, { password, stagingBase }) {
+export async function openBackup(location, { password, stagingBase, nur = null }) {
   const head = (await fs.stat(location)).isFile() ? await readHead(location) : null;
   if (!head) throw new InputError('Das ist keine Sicherungsdatei von Mosaik³LAB.');
   if (Number(head.header.format) > FORMAT) throw new InputError(`Diese Sicherung stammt aus einer neueren Version von Mosaik³LAB${head.header.app?.version ? ` (${head.header.app.version})` : ''} und kann hier nicht gelesen werden. Es wurde nichts verändert.`, 'Zuerst Mosaik³LAB auf die neueste Version aktualisieren, dann wiederherstellen.');
   const key = needKey(head.header, password);
   const staging = path.join(stagingBase, `.auspacken-${process.pid}-${Date.now()}`);
   try {
-    const { manifest, problems } = await readArchive(location, { key, dest: staging });
+    const { manifest, problems } = await readArchive(location, { key, dest: staging, auspacken: nur ? (name) => nur.includes(name.split('/')[0]) : undefined });
     if (problems.length) throw new InputError(`Die Sicherung ist beschädigt (${problems[0]}) – abgebrochen.`, 'Eine andere Sicherung wählen.');
     return { folder: staging, meta: manifest, header: head.header, cleanup: () => fs.rm(staging, { recursive: true, force: true }) };
   } catch (err) {

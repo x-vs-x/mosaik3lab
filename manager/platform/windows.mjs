@@ -27,11 +27,46 @@ export const WINSW = {
   sha256: 'b5066b7bbdfba1293e5d15cda3caaea88fbeab35bd5b38c41c913d492aadfc4f', // vom offiziellen Download (frischer Windows-Runner, Installer-Test 2026-11-18); abweichende Datei wird verworfen
 };
 
+/**
+ * Dienst starten oder stoppen (ohne UAC). → true, wenn es geklappt hat (sonst nimmt der Aufrufer den Admin-Weg).
+ * „sc.exe stop“ kehrt sofort zurück, der Dienst steht dann noch auf STOP_PENDING. Wer direkt danach startet (Rückfall nach
+ * einem Update ohne Schema-Änderung: Stoppen, Umschalten, Starten in Millisekunden), bekommt Fehler 1056 „läuft bereits“ –
+ * das galt als Erfolg, und der Dienst blieb nach seinem Ende aus. Außerdem hält der endende Prozess seine Dateien noch offen
+ * (Datenbank, Programmordner). Deshalb:
+ *   Stopp  wartet, bis der Dienst wirklich beendet ist (höchstens waitMs – länger als WinSW dem Prozess gibt: 30 s).
+ *   Start  eines Dienstes, der gerade noch endet: erst das Ende abwarten, dann erneut starten.
+ * Lässt sich der Zustand nicht abfragen, verhält es sich wie früher (kein Warten). sc(args) → { code, stdout }.
+ * Zustand aus „sc query“: 1 STOPPED, 2 START_PENDING, 3 STOP_PENDING, 4 RUNNING.
+ */
+export async function dienstSteuern(id, action, { sc, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), waitMs = 45_000, pauseMs = 500 } = {}) {
+  const zustand = async () => /:\s+(\d)\s+[A-Z_]+/.exec((await sc(['query', id])).stdout)?.[1] ?? null;
+  const beendet = async () => {
+    for (let t = 0; ; t += pauseMs) {
+      const z = await zustand();
+      if (z === '1' || z === null) return true;
+      if (t >= waitMs) return false;
+      await sleep(pauseMs);
+    }
+  };
+  if (action === 'stop') {
+    const r = await sc(['stop', id]);
+    if (r.code === 0) return beendet();
+    if (/1062/.test(r.stdout)) return true; // läuft nicht
+    return (await zustand()) === '3' ? beendet() : false; // endet schon (1061) → abwarten; sonst z. B. keine Rechte
+  }
+  let r = await sc([action, id]);
+  if (r.code !== 0 && /1056/.test(r.stdout) && (await zustand()) === '3') {
+    await beendet();
+    r = await sc([action, id]);
+  }
+  return r.code === 0 || /1056|1062/.test(r.stdout); // 1056 läuft schon
+}
+
 export const windows = {
   id: 'windows',
   label: 'Windows',
 
-  /** Feste Vorgabe: alles unter C:\\Mosaik3LAB (Programm, Daten, Ablage, Sicherungen, Protokolle, Manager). */
+  /** Feste Vorgabe: Programm unter „Programme“ (C:\\Program Files\\Mosaik3LAB), alle Daten unter C:\\Mosaik3LAB. */
   defaults() {
     // Programm wie jedes Programm unter „Programme“, in C:\Mosaik3LAB nur Daten, Ablage, Sicherungen, Protokolle
     const root = path.join(`${process.env.SystemDrive || 'C:'}\\`, 'Mosaik3LAB');
@@ -167,11 +202,8 @@ export const windows = {
     },
     uninstallScript: (id, serviceDir) => `if (Get-Service -Name '${id}' -ErrorAction SilentlyContinue) { Stop-Service -Name '${id}' -Force -ErrorAction SilentlyContinue; & sc.exe delete '${id}' | Out-Null }; Remove-Item -Force -ErrorAction SilentlyContinue ${psQuote(path.join(serviceDir, `${id}.exe`))}, ${psQuote(path.join(serviceDir, `${id}.xml`))}`,
     controlScript: (key, action) => `${action === 'start' ? 'Start' : 'Stop'}-Service '${SERVICE_IDS[key]}'`,
-    /** Start/Stopp ohne UAC (klappt dank Dienst-Rechten für den Manager bzw. als Admin). */
-    async control(key, action) {
-      const r = await run('sc.exe', [action, SERVICE_IDS[key]], { timeout: 30_000 });
-      return r.code === 0 || /1056|1062/.test(r.stdout); // 1056 läuft schon, 1062 läuft nicht
-    },
+    /** Start/Stopp ohne UAC (klappt dank Dienst-Rechten für den Manager bzw. als Admin); Stopp wartet auf das Ende (dienstSteuern). */
+    control: (key, action) => dienstSteuern(SERVICE_IDS[key], action, { sc: (args) => run('sc.exe', args, { timeout: 30_000 }) }),
   },
 
   // ---------- Verknüpfungen ----------

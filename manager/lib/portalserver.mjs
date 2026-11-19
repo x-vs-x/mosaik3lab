@@ -39,6 +39,36 @@ const CERT_HELP = (cn, base) =>
 function notFoundPage(basePath) {
   return page('Nicht gefunden', `<h1>Diese Adresse gibt es hier nicht.</h1><p>Mosaik³LAB finden Sie unter <a href="${esc(basePath || '/')}/">${esc(basePath || '/')}/</a>.</p>`);
 }
+/**
+ * Adresse der Anfrage lesen. null bei einer unlesbaren Anfragezeile: „GET //“ (im Browser http://<Server>//), ein
+ * Backslash direkt nach dem „/“ oder „http://[“ lassen new URL() werfen. Ohne diese Prüfung beendete eine einzige
+ * solche Anfrage den ganzen Dienst (unbehandelte Ausnahme) – und damit alle laufenden Uploads und Downloads.
+ */
+function anfrageUrl(req) {
+  try {
+    return new URL(req.url, 'http://x');
+  } catch {
+    return null;
+  }
+}
+function ungueltig(res) {
+  res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(page('Ungültige Adresse', '<h1>Diese Adresse ist ungültig.</h1><p>Bitte die Adresse prüfen. Mosaik³LAB finden Sie unter <a href="/">der Startadresse dieses Servers</a>.</p>'));
+}
+/** Sicherheitsnetz: Kein Fehler in einer einzelnen Anfrage darf das Portal beenden (es ist der einzige Zugang von außen). */
+const sicher = (fn) => (req, res) => {
+  try {
+    fn(req, res);
+  } catch {
+    try {
+      if (res.headersSent) res.destroy();
+      else ungueltig(res);
+    } catch {
+      res.destroy();
+    }
+  }
+};
+
 function badGatewayPage() {
   return page('Mosaik³LAB antwortet nicht', '<h1>Mosaik³LAB antwortet gerade nicht.</h1><p>Die Anwendung startet vielleicht gerade neu. Bitte in einer Minute noch einmal versuchen. Bleibt es dabei, bitte die Technik informieren (Server-Manager → Dienste).</p>');
 }
@@ -47,7 +77,8 @@ function badGatewayPage() {
  * Anfrage bearbeiten. opts: { basePath, appPort, managerPort?, scheme: 'http'|'https', certInfo: () => { cn, der } | null }.
  */
 export function handleRequest(req, res, opts) {
-  const url = new URL(req.url, 'http://x');
+  const url = anfrageUrl(req);
+  if (!url) return ungueltig(res);
   const p = url.pathname;
   const base = opts.basePath;
 
@@ -66,7 +97,9 @@ export function handleRequest(req, res, opts) {
   // X-Mosaik3lab-Manager wird hier IMMER gesetzt – daran erkennt der Manager „über das Netz“ (lib/remote.mjs).
   const mgr = `${base}/manager`;
   if (opts.managerPort && (p === mgr || p.startsWith(`${mgr}/`))) {
-    return proxy(req, res, opts, { port: opts.managerPort, path: (p.slice(mgr.length) || '/') + url.search, host: `127.0.0.1:${opts.managerPort}`, manager: mgr });
+    // Genau ein führender „/“: aus „<pfad>/manager//“ würde sonst die Anfragezeile „//“, die der Manager nicht lesen kann
+    const rest = (p.slice(mgr.length) || '/').replace(/^\/{2,}/, '/');
+    return proxy(req, res, opts, { port: opts.managerPort, path: rest + url.search, host: `127.0.0.1:${opts.managerPort}`, manager: mgr });
   }
   if (base && (p === '/' || p === '/index.html')) {
     res.writeHead(302, { Location: `${base}/${url.search}` });
@@ -113,6 +146,16 @@ function proxy(req, res, opts, target = null) {
   req.pipe(upstream);
 }
 
+/** HTTP-Port bei eingeschaltetem HTTPS: alles auf HTTPS umleiten – nur das Zertifikat bleibt ohne Warnung über HTTP ladbar. */
+export function redirectToHttps(req, res, opts) {
+  const url = anfrageUrl(req);
+  if (!url) return ungueltig(res);
+  if (url.pathname === '/zertifikat' || url.pathname === '/zertifikat.cer') return handleRequest(req, res, { ...opts, scheme: 'http' });
+  const host = (req.headers.host ?? 'localhost').replace(/:\d+$/, '');
+  res.writeHead(301, { Location: `https://${host}${opts.httpsPort === 443 ? '' : `:${opts.httpsPort}`}${req.url}`, 'Cache-Control': 'no-store' });
+  res.end();
+}
+
 function listen(server, port, host) {
   return new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -142,21 +185,15 @@ export async function startPortal(opts) {
   const close = () => Promise.all(servers.map((s) => new Promise((r) => { s.close(() => r()); s.closeAllConnections?.(); })));
   try {
     if (opts.tls) {
-      const secure = tune(https.createServer({ ...opts.tls, minVersion: 'TLSv1.2' }, (req, res) => handleRequest(req, res, { ...opts, scheme: 'https' })));
+      const secure = tune(https.createServer({ ...opts.tls, minVersion: 'TLSv1.2' }, sicher((req, res) => handleRequest(req, res, { ...opts, scheme: 'https' }))));
       servers.push(secure);
       await listen(secure, opts.httpsPort, opts.host).catch((err) => Promise.reject(Object.assign(err, { port: opts.httpsPort })));
-      const plain = tune(http.createServer((req, res) => {
-        const url = new URL(req.url, 'http://x');
-        if (url.pathname === '/zertifikat' || url.pathname === '/zertifikat.cer') return handleRequest(req, res, { ...opts, scheme: 'http' }); // Zertifikat muss ohne Warnung ladbar sein
-        const host = (req.headers.host ?? 'localhost').replace(/:\d+$/, '').replace(/^\[(.*)\]$/, '[$1]');
-        res.writeHead(301, { Location: `https://${host}${opts.httpsPort === 443 ? '' : `:${opts.httpsPort}`}${req.url}`, 'Cache-Control': 'no-store' });
-        res.end();
-      }));
+      const plain = tune(http.createServer(sicher((req, res) => redirectToHttps(req, res, opts))));
       servers.push(plain);
       await listen(plain, opts.httpPort, opts.host).catch((err) => Promise.reject(Object.assign(err, { port: opts.httpPort })));
       return { close, ports: [opts.httpPort, opts.httpsPort] };
     }
-    const plain = tune(http.createServer((req, res) => handleRequest(req, res, { ...opts, scheme: 'http', certInfo: null })));
+    const plain = tune(http.createServer(sicher((req, res) => handleRequest(req, res, { ...opts, scheme: 'http', certInfo: null }))));
     servers.push(plain);
     await listen(plain, opts.httpPort, opts.host).catch((err) => Promise.reject(Object.assign(err, { port: opts.httpPort })));
     return { close, ports: [opts.httpPort] };

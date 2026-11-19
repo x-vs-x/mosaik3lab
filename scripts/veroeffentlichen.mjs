@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Freigegebene Version für die Schulen veröffentlichen: kopiert die drei getesteten Pakete aus dem (privaten) Release vX.Y.Z
+// Freigegebene Version für die Schulen veröffentlichen: kopiert die drei getesteten Pakete aus dem Release vX.Y.Z des Quell-Repositorys
 // in das öffentliche Repository x-vs-x/mosaik3lab-pakete – dort holt der Server-Manager seine Updates.
 //   npm run veroeffentlichen              aktuelle Version aus package.json
 //   npm run veroeffentlichen -- 1.2.0     bestimmte Version
 // Veröffentlicht wird NUR, wenn: Tag vX.Y.Z existiert, der Installer-Test für dieses Tag auf allen Systemen bestanden hat,
-// das private Release keine Vorabversion ist und alle drei Pakete mit genau dieser Version enthält, und die Version
+// das Release dort keine Vorabversion ist und alle drei Pakete mit genau dieser Version enthält, und die Version
 // öffentlich noch nicht existiert. Dazu: SHA256SUMS.txt (prüft der Update-Helfer) und die Änderungen aus CHANGELOG.md.
 // Voraussetzung: GitHub CLI (gh), angemeldet.
 import fs from 'node:fs';
@@ -69,7 +69,7 @@ for (const name of ['windows-release', 'linux-x64 / release', 'linux-arm64 / rel
 const kaputt = jobs.filter((j) => !['success', 'skipped'].includes(j.conclusion)).map((j) => j.name);
 if (kaputt.length) fail(`Im Installer-Test für ${tag} sind nicht alle Läufe grün (${kaputt.join(', ')}) – es wird nichts veröffentlicht.`);
 
-// 3. Privates Release: freigegeben, alle drei Pakete mit genau dieser Version
+// 3. Release im Quell-Repository: freigegeben, alle drei Pakete mit genau dieser Version
 step(`Release ${tag} mit allen drei Paketen`);
 let rel;
 try {
