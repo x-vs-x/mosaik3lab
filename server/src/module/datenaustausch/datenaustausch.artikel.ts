@@ -78,6 +78,26 @@ function fingerabdruck(i: Pick<Item, 'name' | 'shortDescription' | 'description'
   });
 }
 
+/** Feldnamen für den Grund „Angaben unvollständig (…)“ in Vorschau und Ergebnis – so, wie sie im Druckteil-Formular heißen. */
+const FELDER: Record<string, string> = {
+  name: 'Name',
+  shortDescription: 'Kurzbeschreibung',
+  description: 'Beschreibung',
+  categories: 'Kategorien',
+  kind: 'Art',
+  useAreas: 'Einsatzbereiche',
+  colorAreas: 'Farben und Teile',
+  price: 'Preis',
+  customFields: 'Personalisierung',
+  sizes: 'Größen',
+  material: 'Material',
+  materialInfo: 'Materialinformationen',
+  printTimeMinutes: 'Druckdauer',
+  safetyNotes: 'Sicherheitshinweise',
+  links: 'Links',
+};
+const feldName = (feld: PropertyKey | undefined) => (typeof feld === 'string' && Object.hasOwn(FELDER, feld) ? FELDER[feld] : 'Angaben');
+
 export function spieleArtikelEin(a: PaketArtikel, k: ArtikelKontext): void {
   const { paket, opt, treffer, vorherArtikel, files, itemRepo, db, dateiSnap, shaVonName, fil, filamentIds, kategorieVon, materialVon } = k;
   const { bereichVon, farbenVon, nummerBelegt, vergebeneNummern, jetzt, lokal, belegtePfade, verschiebe, loeschen, z, details, skip, zuordnung } = k;
@@ -124,7 +144,7 @@ export function spieleArtikelEin(a: PaketArtikel, k: ArtikelKontext): void {
   });
   if (!parsed.success) {
     const i = parsed.error.issues[0];
-    skip(a, `Angaben unvollständig (${i.path.join('.') || 'Angaben'}: ${i.message})`);
+    skip(a, `Angaben unvollständig (${feldName(i.path[0])}: ${i.message})`);
     return;
   }
   const data = normalizeItemInput(parsed.data);
