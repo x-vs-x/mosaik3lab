@@ -29,6 +29,11 @@ Neueste Einträge oben. Jede Session trägt sich ein, bevor sie archiviert wird.
   - **Liste der Sicherungen** (`listBackups`): eine Datei mit unvollständigem Kopf (ohne Zeitangabe) ließ das Sortieren
     werfen – damit standen Status, Aufräumen und der Zeitplan des Backup-Dienstes still. Sie steht jetzt am Ende.
   - Tests zu den fünf letzten Punkten: `sicherung-robust.test.mjs`.
+  - **Schema einer Programmversion** (`lib/schema.mjs`, Hinweis aus der Server-Durchsicht): der Manager zählte
+    Migrationen nach `NNN_*.sql`, die App spielt nur `NNN_[a-z0-9_]+.sql` ein. Eine Datei wie `024_Neue-Tabelle.sql`
+    hätte das Paket für den Manager zu Schema 24 gemacht, die Datenbank bliebe auf 23 – Downgrade-Schutz und „Sicherung
+    zu neu“ rechneten falsch. Jetzt dasselbe Muster (`MIGRATION_NAME`), Wächter in `abgleich-app.test.mjs` (vergleicht mit
+    `server/src/kern/db.ts`), Verhalten in `sicherung-robust.test.mjs`.
   - Aufgeräumt: `manager/manager.config.example.json` (Format gibt es nicht mehr, kam mit ins Paket), veraltete Kommentare.
 - **Installer-Test:** neue Runde **`v180`** (Update von 1.8.0, Paket aus `x-vs-x/mosaik3lab-pakete`), Schritte mit `v163`
   geteilt (`matrix.alt`). In beiden Runden vor dem Update neu: **Rückfall über die Versionsgrenze** – das kaputte Paket

@@ -81,6 +81,24 @@ test('Reste abgebrochener Sicherungen (….unfertig, ….teil, .auspacken-…) w
   for (const p of [fremd, fertig]) fs.rmSync(p, { recursive: true, force: true });
 });
 
+// ---------- Schema einer Programmversion ----------
+test('Schema einer Version: nur Migrationsdateien, die die App einspielt, zählen (Kleinbuchstaben, Ziffern, _)', async () => {
+  const { releaseSchemaVersion } = await import('../lib/schema.mjs');
+  const rel = path.join(tmp, 'version');
+  const mig = path.join(rel, 'server', 'src', 'storage', 'sqlite', 'migrations');
+  fs.mkdirSync(mig, { recursive: true });
+  for (const n of ['001_grundschema.sql', '002_zweite_tabelle.sql', '003_indizes_2.sql']) fs.writeFileSync(path.join(mig, n), '-- test');
+  assert.equal(releaseSchemaVersion(rel), 3);
+  // Diese spielt die App nie ein (Großbuchstaben, Bindestrich, Leerzeichen, Sicherungskopie, zu kurze Nummer) – sie zählen nicht
+  for (const n of ['024_Neue-Tabelle.sql', '025_neue tabelle.sql', '026_.sql', '027_alt.sql.bak', '28_kurz.sql', '029_GROSS.sql']) fs.writeFileSync(path.join(mig, n), '-- test');
+  assert.equal(releaseSchemaVersion(rel), 3, 'Paket bleibt bei Schema 3');
+  // Folge für den Schutz: eine Datenbank mit Schema 4 ist neuer als dieses Paket → abgelehnt (früher galt das Paket als 29)
+  const db = new DatabaseSync(path.join(tmp, 'schema4.db'));
+  db.exec("CREATE TABLE schema_version (version INTEGER PRIMARY KEY, name TEXT NOT NULL, eingespielt_am TEXT NOT NULL); INSERT INTO schema_version VALUES (4, 'x', '')");
+  db.close();
+  await assert.rejects(() => pu.refuseDowngrade(path.join(tmp, 'schema4.db'), rel, 'Testpaket'), /Downgrade verweigert.*Schema 3.*Schema 4/);
+});
+
 // ---------- eine fremde Datei im Backup-Ziel ----------
 test('Liste der Sicherungen: eine Datei mit unvollständigem Kopf (ohne Zeitangabe) bringt die Liste nicht zum Scheitern', async () => {
   const json = Buffer.from(JSON.stringify({ format: 1, kind: 'komplett', reason: 'fremd' }), 'utf8'); // kein „created“
