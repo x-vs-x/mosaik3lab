@@ -206,7 +206,9 @@ export async function listBackups(limit = 1000) {
       /* unvollständig */
     }
   }
-  return out.sort((a, b) => b.created.localeCompare(a.created)).slice(0, limit);
+  // Kopf ohne Zeitangabe (fremde oder beschädigte Datei): ans Ende statt die ganze Liste scheitern zu lassen – sonst
+  // stünden Status, Aufräumen und der Backup-Dienst (dueKinds) wegen einer einzigen Datei still
+  return out.sort((a, b) => String(b.created ?? '').localeCompare(String(a.created ?? ''))).slice(0, limit);
 }
 
 /** Letzte Sicherung einer Art (oder null). */

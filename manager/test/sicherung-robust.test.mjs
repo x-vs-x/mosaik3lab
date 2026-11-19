@@ -81,6 +81,21 @@ test('Reste abgebrochener Sicherungen (….unfertig, ….teil, .auspacken-…) w
   for (const p of [fremd, fertig]) fs.rmSync(p, { recursive: true, force: true });
 });
 
+// ---------- eine fremde Datei im Backup-Ziel ----------
+test('Liste der Sicherungen: eine Datei mit unvollständigem Kopf (ohne Zeitangabe) bringt die Liste nicht zum Scheitern', async () => {
+  const json = Buffer.from(JSON.stringify({ format: 1, kind: 'komplett', reason: 'fremd' }), 'utf8'); // kein „created“
+  const laenge = Buffer.alloc(4);
+  laenge.writeUInt32BE(json.length);
+  const fremd = path.join(backups, 'mosaik3lab-2020-01-01_00-00-00-komplett.m3lbackup');
+  fs.writeFileSync(fremd, Buffer.concat([Buffer.from('M3LBAK1\n', 'latin1'), laenge, json]));
+  const liste = await bk.listBackups();
+  assert.ok(liste.length >= 2, 'echte Sicherung und die fremde Datei');
+  assert.equal(liste.at(-1).reason, 'fremd', 'ohne Zeitangabe ans Ende');
+  assert.ok(liste[0].created, 'die echte Sicherung steht vorn');
+  assert.equal((await bk.dueKinds(new Date(Date.now() + 2 * 86_400_000))).length, 1, 'der Zeitplan rechnet weiter (übermorgen ist eine Sicherung fällig)');
+  fs.rmSync(fremd);
+});
+
 // ---------- Datenbank zurückspielen: voller Datenträger ----------
 test('Datenbank zurückspielen: scheitert das Kopieren (Datenträger voll), bleibt die bisherige Datenbank stehen', async () => {
   merker('vorher');

@@ -6,6 +6,21 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Vertippte Adresse legt die App nicht mehr lahm:** Wer `http://<Server>//` (zwei Schrägstriche) oder eine ähnlich
+  verunglückte Adresse aufrief, beendete den Weiterleitungs-Dienst (Portal) für alle – laufende Uploads brachen ab, die App
+  war einige Sekunden bis Minuten nicht erreichbar. Solche Adressen bekommen jetzt eine Fehlerseite, der Dienst läuft weiter.
+- **Update unter Windows zuverlässiger:** Beim Stoppen der Dienste wartet der Installer jetzt, bis sie wirklich beendet
+  sind. Vorher konnte nach einem fehlgeschlagenen Update die bisherige Version gestoppt bleiben, obwohl schon
+  zurückgeschaltet war (der Start kam, während der Dienst noch endete).
+- **Sicherungen füllen die Platte nicht mehr mit Resten:** Wurde eine Sicherung mittendrin abgebrochen (Stromausfall,
+  Neustart, Update genau zur Sicherungszeit), blieb im Backup-Ziel eine volle Kopie aller Bilder und Druckdateien liegen –
+  für immer. Solche Reste werden jetzt vor der nächsten Sicherung entfernt.
+- **Zurückschalten nach einem fehlgeschlagenen Update auch bei fast vollem Datenträger:** Dafür wird nur noch die
+  Datenbank aus der Sicherung ausgepackt (nicht mehr alle Bilder ein zweites Mal). Und die bisherige Datenbank wird erst
+  ersetzt, wenn die zurückgespielte vollständig auf der Platte liegt – vorher war sie bei „Platte voll“ schon gelöscht.
+- **Neuinstallation unter Windows ohne Internet:** statt „fetch failed“ eine verständliche Meldung, was fehlt (ein kleines
+  Hilfsprogramm für die Dienste wird einmal geladen) und wie man es ohne Internet bereitlegt.
+
 - **Tippflächen überall mindestens 44 px:** Alle Knöpfe, Links, Schalter, Häkchen und Eingabefelder sind in der ganzen
   App auf Handy, Tablet und PC mindestens 44 px hoch, Symbol-Knöpfe auch 44 px breit (vorher oft nur 41 px) – z. B. Logo
   und „Menü“, Suchfeld, „Filter“ und Kategorien im Katalog, das × in Fenstern, „Anmelden“/„Abmelden“, Statusfilter,
