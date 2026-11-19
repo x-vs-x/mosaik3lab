@@ -23,7 +23,7 @@ export function singleColorArea(colors: string[]): ColorArea[] {
   return [{ id: 'farbe', name: 'Farbe', alleFarben: false, colors }];
 }
 
-/** Standardwerte der Produktdaten (einfarbig, ohne Preis, ohne Personalisierung, ohne Videos) – Demo-Daten und JSON-Übernahme. */
+/** Standardwerte der Produktdaten (einfarbig, ohne Preis, ohne Personalisierung, ohne Videos) – für die Demo-Daten. */
 export function productDefaults(colors: string[]): { colorAreas: ColorArea[]; price: string; customFields: CustomField[]; videos: ItemVideo[] } {
   return { colorAreas: singleColorArea(colors), price: '', customFields: [], videos: [] };
 }

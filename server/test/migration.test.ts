@@ -38,6 +38,20 @@ test('Datenbank aus einer neueren Version (z. B. zurückgespielte Sicherung): Ap
   }
 });
 
+test('Migrationsdateien: jede .sql-Datei wird erkannt, Nummern lückenlos ab 001 und keine doppelt', async () => {
+  // Eine Datei mit anderem Namensmuster (Großbuchstaben, Bindestrich) würde stillschweigend nie eingespielt; zwei Dateien
+  // mit derselben Nummer (zwei Sessions legen gleichzeitig „die nächste“ an) ließen die App nicht mehr starten.
+  const { listMigrations, MIGRATIONS_DIR } = await import('../src/kern/db');
+  const dateien = (await fs.readdir(MIGRATIONS_DIR)).filter((d) => d.toLowerCase().endsWith('.sql')).sort();
+  const erkannt = listMigrations();
+  assert.deepEqual(erkannt.map((m) => `${m.name}.sql`), dateien, 'jede Datei im Ordner ist eine Migration');
+  assert.deepEqual(erkannt.map((m) => m.version), erkannt.map((_, i) => i + 1), 'Nummern 1, 2, 3 … ohne Lücke und ohne Doppelte');
+  // Jede Migration läuft in der Transaktion von migrate(): keine eigene Transaktion, kein VACUUM, kein Umschalten der
+  // Fremdschlüssel (wirkt in einer Transaktion nicht) – als eigene Anweisung; „BEGIN“ in einem Trigger bleibt erlaubt.
+  const verboten = /(^|;)\s*(BEGIN|COMMIT|ROLLBACK|VACUUM|PRAGMA\s+(foreign_keys|journal_mode))\b/i;
+  for (const m of erkannt) assert.ok(!verboten.test(m.sql.replace(/--.*$/gm, '')), `${m.name}: Anweisung, die in einer Transaktion nicht geht`);
+});
+
 test('Migration 020 (ähnliche Druckteile im Austausch): bestehende Druckteile und Verknüpfungen bleiben, Herkunft leer, Vormerkungen mit Druckteil weg', async () => {
   const { migrate, listMigrations } = await import('../src/kern/db');
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'mosaik3lab-mig020-'));
@@ -150,6 +164,11 @@ test('Update 1.6.3 (Schema 017) → 023: jedes Druckteil behält seine Kategorie
       db.prepare("INSERT INTO artikel (id, nummer, name, kategorie_id, material_id, erstellt_am, geaendert_am) VALUES (?, ?, ?, ?, 'mat', ?, ?)").run(id, nr, `Teil ${nr}`, kat, jetzt, jetzt);
     }
     db.prepare("INSERT INTO artikel_einsatzbereich (id, artikel_id, einsatzbereich_id, sortierung) VALUES ('ae1', 'teil-a', 'ber', 0)").run();
+    // Verwaister Verweis (Kategorie fehlt, z. B. aus einem Stand ohne Fremdschlüssel-Prüfung): Die Migration darf daran nicht
+    // scheitern – das Druckteil bleibt unverändert und ohne Zuordnung, bis es das nächste Mal gespeichert wird.
+    db.exec('PRAGMA foreign_keys = OFF');
+    db.prepare("INSERT INTO artikel (id, nummer, name, kategorie_id, material_id, erstellt_am, geaendert_am) VALUES ('teil-waise', 'ART-0005', 'Teil mit verwaister Kategorie', 'kat-weg', 'mat', ?, ?)").run(jetzt, jetzt);
+    db.exec('PRAGMA foreign_keys = ON');
     // Alle Tabellen mit ihren Spalten im Stand 017 merken (benutzer_recht entfernt 022 bewusst).
     const tabellen = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('schema_version', 'benutzer_recht')").all() as { name: string }[]).map((r) => r.name);
     const spalten = new Map(tabellen.map((t) => [t, (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name)]));
@@ -165,7 +184,7 @@ test('Update 1.6.3 (Schema 017) → 023: jedes Druckteil behält seine Kategorie
       { artikel_id: 'teil-a', kategorie_id: 'kat-a', sortierung: 0 },
       { artikel_id: 'teil-b', kategorie_id: 'kat-b', sortierung: 0 },
       { artikel_id: 'teil-c', kategorie_id: 'kat-a', sortierung: 0 },
-    ], 'jede bisherige Kategorie übernommen, Druckteil ohne Kategorie bleibt ohne');
+    ], 'jede bisherige Kategorie übernommen, Druckteil ohne (oder mit verwaister) Kategorie bleibt ohne');
     // Löschen eines Druckteils räumt die Zuordnung auf; eine verwendete Kategorie lässt sich nicht löschen.
     db.prepare("DELETE FROM artikel WHERE id = 'teil-c'").run();
     assert.equal((db.prepare("SELECT COUNT(*) AS n FROM artikel_kategorien WHERE artikel_id = 'teil-c'").get() as any).n, 0);

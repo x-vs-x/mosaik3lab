@@ -20,7 +20,15 @@ daraus die nächste Version.
   ersetzt, wenn die zurückgespielte vollständig auf der Platte liegt – vorher war sie bei „Platte voll“ schon gelöscht.
 - **Neuinstallation unter Windows ohne Internet:** statt „fetch failed“ eine verständliche Meldung, was fehlt (ein kleines
   Hilfsprogramm für die Dienste wird einmal geladen) und wie man es ohne Internet bereitlegt.
-
+- **Abgebrochene Uploads sind kein „Serverfehler“ mehr:** Bricht ein Upload ab (WLAN weg, Fenster geschlossen) oder kommt
+  er unvollständig an, heißt es jetzt „Der Upload ist unvollständig angekommen … Bitte erneut versuchen.“ statt „Ein
+  unerwarteter Serverfehler ist aufgetreten“. Im Protokoll des Server-Managers stehen dafür keine Fehlermeldungen mit
+  Programmzeilen mehr – dort bleiben nur noch echte Fehler. Dasselbe gilt für kaputte Adressen.
+- **Geänderte Anfrage mit vielen Teilen:** Ändert eine Lehrkraft bei einem mehrteiligen Druckteil nur einzelne Farben, nennt
+  die Mail unter „Was hat sich geändert?“ nur diese Teile (z. B. „Dach: Rot → Dach: Blau“) statt zweimal alle bis zu 20.
+- **Einspielen nennt das Feld auf Deutsch:** Wird ein Druckteil beim Einspielen übersprungen, weil Angaben fehlen, steht
+  der Grund jetzt z. B. als „Angaben unvollständig (Kategorien: Bitte mindestens eine Kategorie wählen)“ da – vorher mit
+  dem internen Feldnamen.
 - **Tippflächen überall mindestens 44 px:** Alle Knöpfe, Links, Schalter, Häkchen und Eingabefelder sind in der ganzen
   App auf Handy, Tablet und PC mindestens 44 px hoch, Symbol-Knöpfe auch 44 px breit (vorher oft nur 41 px) – z. B. Logo
   und „Menü“, Suchfeld, „Filter“ und Kategorien im Katalog, das × in Fenstern, „Anmelden“/„Abmelden“, Statusfilter,

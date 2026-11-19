@@ -27,7 +27,8 @@ function displayName(list: MasterDataList, e: Entry) {
   return e.name ?? '';
 }
 
-export const isMasterDataList = (list: string): list is MasterDataList => list in masterDataSchemas;
+/** Nur eigene Schlüssel – `in` träfe auch „constructor“ oder „toString“ (dann 500 statt 404). */
+export const isMasterDataList = (list: string): list is MasterDataList => Object.hasOwn(masterDataSchemas, list);
 
 /** Feldnamen für Meldungen wie „Zeile 8: Name fehlt“. */
 const FIELD_LABELS: Record<string, string> = {
