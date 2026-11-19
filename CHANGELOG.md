@@ -6,6 +6,29 @@ daraus die nächste Version.
 
 ## [Unveröffentlicht]
 
+- **Anfrage-Fenster springt nicht mehr ungefragt auf:** Wer das Fenster mit „Abbrechen“ schließt, behält seinen Entwurf wie
+  bisher – beim nächsten Besuch des Druckteils öffnet sich das Fenster aber nicht mehr von selbst. Die Auswahl steht auf der
+  Seite schon da, und „Druckteil anfragen“ zeigt den Entwurf mit „Verwerfen“. Nach einem Neuladen mitten in der Anfrage
+  (Handy wechselt die App) kommt das Fenster weiterhin von selbst wieder. Außerdem behoben: Ging man bei offenem Fenster im
+  Browser „Zurück“ oder „Vor“ zu einem anderen Druckteil, stand das Anfrage-Fenster plötzlich bei diesem.
+- **Viele Farben in einer Zeile:** Einfarbige Druckteile mit mehr als 8 Farben zeigen statt vieler Knöpfe eine Zeile
+  „Farbe wählen“; ein Tipp öffnet das Farbwahl-Fenster mit Suche und Farbfamilien – auf der Druckteil-Seite und im
+  Anfrage-Fenster (auch bei „Weitere Farbe“). Bis 8 Farben bleiben die Knöpfe.
+- **Anzahl eintippen:** Das Feld lässt sich leeren und neu beschreiben. Vorher sprang es beim Löschen sofort auf 1 zurück,
+  und aus einer getippten 5 wurde 15.
+- **Keine Farbe vorrätig:** „Druckteil anfragen“ ist dann ausgegraut, darunter steht „Anfragen geht wieder, sobald eine
+  Farbe vorrätig ist“ – vorher tat der Knopf einfach nichts. Solange die Farben auf langsamem WLAN noch laden, steht dort
+  „Die Farben werden noch geladen …“ statt fälschlich „Derzeit keine Farbe vorrätig“.
+- **Farbe wird leer, während man anfragt:** Lehnt der Server eine Farbe ab, weil die Rolle inzwischen leer ist, verschwindet
+  sie aus der Auswahl und ist abgewählt (vorher blieb sie wählbar und angekreuzt). Auch eine Farbe aus einem älteren
+  Entwurf, die es nicht mehr gibt, wird abgewählt und gleich am Feld gemeldet.
+- **Tastatur auf Handy und Tablet:** Ein mit der Tabulatortaste erreichtes Feld liegt nicht mehr unter der unteren Leiste
+  oder der Kopfzeile – der Browser lässt beim Hinspringen Platz dafür.
+- **Offene Fenster:** Die Seite hinter einem offenen Fenster scrollt nicht mehr mit (Mausrad über dem abgedunkelten Rand).
+- **„Teil verdoppeln“ bei langen Namen:** Die Kopie endet auf „… (2)“ statt mitten in der Klammer abgeschnitten zu sein.
+- **Nach einem Update „Seite neu laden“:** Ist eine Seite noch vom alten Stand offen, erscheint oben „Mosaik³LAB wurde
+  aktualisiert – Seite neu laden“, sobald der Tab wieder sichtbar wird oder der Server eine Eingabe ablehnt. (Gilt für
+  Updates ab dieser Version; ein vor dem Update geöffneter Tab der Version 1.7 oder 1.8.0 kennt den Hinweis noch nicht.)
 - **Vertippte Adresse legt die App nicht mehr lahm:** Wer `http://<Server>//` (zwei Schrägstriche) oder eine ähnlich
   verunglückte Adresse aufrief, beendete den Weiterleitungs-Dienst (Portal) für alle – laufende Uploads brachen ab, die App
   war einige Sekunden bis Minuten nicht erreichbar. Solche Adressen bekommen jetzt eine Fehlerseite, der Dienst läuft weiter.
