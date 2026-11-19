@@ -195,6 +195,33 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     res.status(413).json({ error: 'Die Anfrage ist zu groß.' });
     return;
   }
+  // Was an der Anfrage selbst liegt, ist kein Serverfehler und gehört nicht mit Stacktrace ins Protokoll:
+  // abgebrochener oder unvollständiger Upload (WLAN weg, Fenster geschlossen) …
+  if (istUploadAbbruch(err)) {
+    res.status(400).json({ error: 'Der Upload ist unvollständig angekommen (Verbindung unterbrochen?). Bitte erneut versuchen.' });
+    return;
+  }
+  // … und was Express bzw. der JSON-Leser mit einem 4xx-Status melden (kaputte Adresse wie „%E0%A4“, unbekannte
+  // Zeichen- oder Inhaltskodierung, abgebrochene Anfrage).
+  const status = (err as { status?: unknown }).status;
+  if (typeof status === 'number' && status >= 400 && status < 500) {
+    res.status(status).json({ error: ANFRAGE_FEHLER[status] ?? 'Ungültige Anfrage.' });
+    return;
+  }
   console.error('[Fehler]', err);
   res.status(500).json({ error: 'Ein unerwarteter Serverfehler ist aufgetreten.' });
 };
+
+const ANFRAGE_FEHLER: Record<number, string> = {
+  404: 'Nicht gefunden.',
+  413: 'Die Anfrage ist zu groß.',
+  415: 'Dieses Format der Anfrage wird nicht unterstützt.',
+};
+
+/**
+ * Upload kam nicht vollständig an: multer/busboy melden das als einfachen Fehler ohne eigenen Typ. Erkannt am Text –
+ * Fehler des Speichers beim Upload (z. B. Platte voll) haben andere Texte und bleiben ein Serverfehler.
+ */
+function istUploadAbbruch(err: unknown) {
+  return err instanceof Error && /^(Request aborted|Request closed|Unexpected end of form|Malformed part header|Multipart: )/.test(err.message);
+}

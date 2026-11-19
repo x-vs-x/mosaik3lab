@@ -20,8 +20,9 @@ Die Datenbank kommt bei der Installation automatisch mit – **kein eigener Date
 - SQL steht in den Repositories der Bereiche (`server/src/module/<bereich>/<bereich>.repository.ts`, zusammengefasst in
   `server/src/storage/repositories.ts`). Bewusste Ausnahmen: Export/Import (`module/datenaustausch/`, eigene Transaktion
   über `storage.sqlite.db`), Betriebs- und Mail-Einstellungen (`kern/betrieb.ts`, `kern/mail/mailConfig.ts`, Tabelle
-  `betrieb_einstellung`, auch vom Server-Manager gelesen) und die einmalige JSON-Übernahme.
-- Einmalige Migration der bisherigen JSON-Dateien beim ersten Start (vorher Backup, JSON bleibt als Sicherung liegen).
+  `betrieb_einstellung`, auch vom Server-Manager gelesen).
+- Die einmalige Übernahme der früheren JSON-Dateien gibt es seit 1.8.0 nicht mehr (1.6.3 hat sie erledigt; ältere Stände
+  zuerst auf 1.6.3 bringen, siehe ARCHITEKTUR.md).
 
 ## IDs
 - **Technische ID** in jeder Tabelle: Spalte `id`, UUID v7 (zeitlich sortierbar), nie wiederverwendet.
@@ -169,8 +170,8 @@ Eine Quelle der Wahrheit: Alle Einstellungen, auch die des Servers, stehen in de
 | `geaendert_am` | ISO-Zeit |
 
 - **Schreiber:** der Server-Manager (direkt per `node:sqlite`, kurze Transaktionen, WAL, `busy_timeout`); die App schreibt nur
-  das Session-Geheimnis (einmalig) und übernimmt beim Start alte Dateien (`config/mail.json`, `data/.session-secret`,
-  `settings.json`-Mailfelder → `*.vor-datenbank-<zeit>.bak`). **Leser:** App (Mail, Geheimnis) und Manager (alles).
+  das Session-Geheimnis (einmalig) und die Versionsmerker `version.aktuell`/`version.vorherige`. Die Übernahme alter Dateien
+  (`config/mail.json`, `data/.session-secret`) ist seit 1.8.0 entfernt. **Leser:** App (Mail, Geheimnis) und Manager (alles).
 - Der Manager legt die Tabelle bei Bedarf selbst an (`CREATE TABLE IF NOT EXISTS`), falls er vor der App läuft; die Migration
   ist identisch und ändert nichts.
 - **Nicht in der Datenbank** (Henne-Ei): `<Wurzel>/mosaik3lab.json` = `{ dataDir, managerPort }`; das Backup-Passwort
